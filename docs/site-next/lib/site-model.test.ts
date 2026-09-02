@@ -40,6 +40,23 @@ describe("site-model/v1", () => {
     expect(model.routes.every((route) => !route.path.endsWith(".html"))).toBe(true);
   });
 
+  it("preserves ordered guide blocks and source-index bodies", () => {
+    const model = parseSiteModel(rawModel);
+    const quickstart = model.guides.find((guide) => guide.route === "/user-guide/QUICKSTART_GUIDE/");
+    expect(quickstart?.source).toBe("docs/user-guide/QUICKSTART_GUIDE.md");
+    const blocks = quickstart?.sections.flatMap((section) => section.blocks) ?? [];
+    expect(blocks.some((block) => block.kind === "list" && block.ordered === true)).toBe(true);
+    expect(blocks.filter((block) => block.kind === "code").length).toBeGreaterThan(1);
+    expect(blocks.some((block) => block.kind === "table")).toBe(true);
+    expect(blocks.some((block) => block.inlines?.some((inline) => inline.kind === "link"))).toBe(true);
+
+    const pluginIndex = model.source_indexes.find((index) => index.route === "/plugins/");
+    expect(pluginIndex?.sections.length).toBeGreaterThan(0);
+    expect(pluginIndex?.sections.flatMap((section) => section.blocks).some((block) =>
+      block.inlines?.some((inline) => inline.kind === "link" && inline.href?.startsWith("/")),
+    )).toBe(true);
+  });
+
   it("rejects a model with a stale schema", () => {
     expect(() => parseSiteModel({ ...rawModel, schema: "site-model/v0" })).toThrow(SiteModelValidationError);
   });

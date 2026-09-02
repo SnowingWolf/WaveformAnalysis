@@ -10,10 +10,16 @@ import pytest
 from scripts.build_docs_site_dist import _without_trailing_whitespace
 from waveform_analysis.documentation import cli
 from waveform_analysis.documentation.site_web import (
+    SITE_PUBLISH_MAX_BYTES,
     NextSiteBuilder,
     SiteExportValidationError,
     SiteWebBuildError,
     copy_prebuilt_site,
+    filter_next_rsc_text_files,
+    is_next_rsc_text,
+    static_export_fingerprint,
+    static_file_inventory,
+    validate_published_site_budget,
     validate_static_export,
     write_prebuilt_manifest,
 )
@@ -57,6 +63,7 @@ def _fixture_model() -> dict:
         "accessors": [],
         "visualizations": [],
         "guides": [],
+        "source_indexes": [],
         "lineage": {"nodes": [], "edges": [], "views": {"overview": [], "full": []}},
     }
 
@@ -193,6 +200,129 @@ def test_prebuilt_manifest_round_trip_is_node_free(tmp_path):
     assert manifest.name == "site-manifest.json"
     assert result["SITE_INDEX"] == output / "index.html"
     assert result["SITE_MODEL"] == output / "site-model.v1.json"
+
+
+def test_next_rsc_filter_removes_only_known_payload_text(tmp_path):
+    root = tmp_path / "site"
+    root.mkdir()
+    (root / "index.html").write_text("<!doctype html><title>ok</title>", encoding="utf-8")
+    (root / "index.txt").write_text("next index", encoding="utf-8")
+    (root / "__next._index.txt").write_text("next root index", encoding="utf-8")
+    route = root / "plugins" / "records"
+    route.mkdir(parents=True)
+    (route / "index.txt").write_text("ordinary nested index", encoding="utf-8")
+    (route / "__next._full.txt").write_text("next full", encoding="utf-8")
+    (route / "__next._index.txt").write_text("next index", encoding="utf-8")
+    assets = root / "assets"
+    assets.mkdir()
+    (assets / "index.txt").write_text("ordinary asset index", encoding="utf-8")
+    (route / "__next-notes.txt").write_text("ordinary note", encoding="utf-8")
+    (route / "README.txt").write_text("ordinary readme", encoding="utf-8")
+    (route / "__next.notes.md").write_text("ordinary markdown", encoding="utf-8")
+
+    assert not is_next_rsc_text("index.txt")
+    assert is_next_rsc_text("nested/__next._full.txt")
+    assert not is_next_rsc_text("README.txt")
+    assert not is_next_rsc_text("__next-notes.txt")
+    assert not is_next_rsc_text("__next.notes.md")
+
+    removed = filter_next_rsc_text_files(root)
+
+    assert {path.as_posix() for path in removed} == {
+        "__next._index.txt",
+        "index.txt",
+        "plugins/records/__next._full.txt",
+        "plugins/records/__next._index.txt",
+        "plugins/records/index.txt",
+    }
+    assert not (root / "index.txt").exists()
+    assert not (route / "__next._full.txt").exists()
+    assert not (route / "__next._index.txt").exists()
+    assert not (route / "index.txt").exists()
+    assert (assets / "index.txt").read_text(encoding="utf-8") == "ordinary asset index"
+    assert (route / "__next-notes.txt").read_text(encoding="utf-8") == "ordinary note"
+    assert (route / "README.txt").read_text(encoding="utf-8") == "ordinary readme"
+
+
+def test_copy_prebuilt_site_filters_rsc_text_but_keeps_ordinary_text(tmp_path):
+    source = tmp_path / "prebuilt"
+    source.mkdir()
+    (source / "index.html").write_text("<!doctype html><title>ok</title>", encoding="utf-8")
+    (source / "index.txt").write_text("next index", encoding="utf-8")
+    (source / "__next._index.txt").write_text("next root index", encoding="utf-8")
+    (source / "notes.txt").write_text("keep this", encoding="utf-8")
+    assets = source / "assets"
+    assets.mkdir()
+    (assets / "index.txt").write_text("keep asset index", encoding="utf-8")
+    write_prebuilt_manifest(source)
+
+    output = tmp_path / "output"
+    result = copy_prebuilt_site(source, output)
+
+    assert not (output / "index.txt").exists()
+    assert (output / "notes.txt").read_text(encoding="utf-8") == "keep this"
+    assert (output / "assets" / "index.txt").read_text(encoding="utf-8") == "keep asset index"
+    assert result["SITE_MANIFEST"] == output / "site-manifest.json"
+    manifest = json.loads((output / "site-manifest.json").read_text(encoding="utf-8"))
+    assert {entry["path"] for entry in manifest["files"]} == {
+        "assets/index.txt",
+        "index.html",
+        "notes.txt",
+    }
+
+
+def test_published_site_budget_accepts_boundary_and_reports_largest(tmp_path):
+    root = tmp_path / "site"
+    root.mkdir()
+    (root / "index.html").write_bytes(b"1234")
+
+    accepted = validate_published_site_budget(root, max_bytes=4)
+    assert accepted["total_bytes"] == 4
+    assert accepted["max_bytes"] == 4
+
+    (root / "largest.bin").write_bytes(b"12345")
+    with pytest.raises(
+        SiteExportValidationError, match=r"largest contributors: largest\.bin=5 bytes"
+    ):
+        validate_published_site_budget(root, max_bytes=8)
+
+
+def test_manifest_includes_stable_inventory_and_fingerprint(tmp_path):
+    root = tmp_path / "site"
+    root.mkdir()
+    (root / "index.html").write_text("<!doctype html><title>ok</title>", encoding="utf-8")
+    (root / "notes.txt").write_text("ordinary text", encoding="utf-8")
+
+    expected_entries = static_file_inventory(root)
+    expected_fingerprint = static_export_fingerprint(root, entries=expected_entries)
+    manifest_path = write_prebuilt_manifest(root)
+    first_manifest = manifest_path.read_bytes()
+    second_manifest = write_prebuilt_manifest(root).read_bytes()
+    manifest = json.loads(first_manifest)
+
+    assert first_manifest == second_manifest
+    assert manifest["schema"] == "site-web/v1"
+    assert manifest["hash_algorithm"] == "sha256"
+    assert manifest["files"] == expected_entries
+    assert manifest["content_bytes"] == sum(entry["size"] for entry in expected_entries)
+    assert manifest["fingerprint"] == expected_fingerprint
+    assert len(manifest["fingerprint"]) == 64
+    assert validate_published_site_budget(root)["total_bytes"] == sum(
+        path.stat().st_size for path in root.rglob("*") if path.is_file()
+    )
+
+
+def test_write_manifest_budget_includes_manifest_itself(tmp_path):
+    root = tmp_path / "site"
+    root.mkdir()
+    (root / "index.html").write_text("<!doctype html><title>ok</title>", encoding="utf-8")
+    manifest = write_prebuilt_manifest(root)
+    total = sum(path.stat().st_size for path in root.rglob("*") if path.is_file())
+
+    with pytest.raises(SiteExportValidationError, match="published site exceeds hard byte budget"):
+        write_prebuilt_manifest(root, max_bytes=total - 1)
+    assert manifest.is_file()
+    assert SITE_PUBLISH_MAX_BYTES == 83_886_080
 
 
 def test_documentation_server_disables_cache_and_reads_republished_files(tmp_path):

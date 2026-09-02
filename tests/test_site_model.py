@@ -1,4 +1,5 @@
 from collections import Counter
+import hashlib
 import inspect
 import json
 from pathlib import Path
@@ -83,6 +84,8 @@ def test_site_model_v1_uses_real_plugin_and_guide_facts_without_html():
     assert records["fields"]
     assert json.dumps(model, ensure_ascii=False).find("<html") < 0
     assert SITE_MODEL_SCHEMA_PATH.is_file()
+    assert len(model["source_indexes"]) == 11
+    assert sum(bool(guide.get("source")) for guide in model["guides"]) == 33
 
 
 def test_site_model_builder_has_no_markdown_html_renderer():
@@ -191,6 +194,87 @@ def test_site_model_meets_pre_next_rich_content_coverage_baseline():
                 block_counts[block_kind],
                 minimum,
             )
+
+
+def _independent_guide_counts(sections):
+    counts = Counter()
+    for section in sections:
+        for block in section["blocks"]:
+            counts[block["kind"]] += 1
+            for inline in block.get("inlines", []):
+                if inline.get("kind") == "link":
+                    counts["link"] += 1
+            for row in block.get("item_inlines", []):
+                counts["link"] += sum(inline.get("kind") == "link" for inline in row)
+            for row in block.get("table_inlines", []):
+                for cell in row:
+                    counts["link"] += sum(inline.get("kind") == "link" for inline in cell)
+    return {kind: counts.get(kind, 0) for kind in ("paragraph", "link", "code", "table", "list")}
+
+
+def _independent_guide_fingerprint(sections):
+    payload = [
+        {"id": section["id"], "title": section["title"], "blocks": section["blocks"]}
+        for section in sections
+    ]
+    encoded = json.dumps(
+        payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    ).encode()
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def test_public_guide_baseline_tracks_source_and_typed_content_independently():
+    project_root = Path(__file__).parents[1]
+    model = build_site_model(project_root)
+    baseline = json.loads(
+        (project_root / "docs" / "site-content-baseline.json").read_text(encoding="utf-8")
+    )
+    guides = {
+        (guide["route"], guide["source"]): guide for guide in model["guides"] if guide.get("source")
+    }
+    assert len(guides) == 33
+    assert len(baseline["guides"]) == 33
+    for expected in baseline["guides"]:
+        actual = guides[(expected["route"], expected["source"])]
+        source_path = project_root / expected["source"]
+        assert hashlib.sha256(source_path.read_bytes()).hexdigest() == expected["source_sha256"]
+        assert actual["source_sha256"] == expected["source_sha256"]
+        assert _independent_guide_fingerprint(actual["sections"]) == expected["model_fingerprint"]
+        assert [
+            block["kind"] for section in actual["sections"] for block in section["blocks"]
+        ] == expected["block_types"]
+        assert _independent_guide_counts(actual["sections"]) == expected["content_counts"]
+
+    indexes = {(index["route"], index["source"]): index for index in model["source_indexes"]}
+    assert len(indexes) == len(baseline["source_indexes"]) == 11
+    for expected in baseline["source_indexes"]:
+        actual = indexes[(expected["route"], expected["source"])]
+        source_path = project_root / expected["source"]
+        assert hashlib.sha256(source_path.read_bytes()).hexdigest() == expected["source_sha256"]
+        assert _independent_guide_fingerprint(actual["sections"]) == expected["model_fingerprint"]
+        assert [
+            block["kind"] for section in actual["sections"] for block in section["blocks"]
+        ] == expected["block_types"]
+        assert _independent_guide_counts(actual["sections"]) == expected["content_counts"]
+
+
+def test_markdown_blocks_preserve_ordered_lists_links_multiple_code_and_tables():
+    model = build_site_model(Path(__file__).parents[1])
+    guide = next(
+        guide for guide in model["guides"] if guide["route"] == "/user-guide/QUICKSTART_GUIDE/"
+    )
+    blocks = [block for section in guide["sections"] for block in section["blocks"]]
+    kinds = [block["kind"] for block in blocks]
+    assert "list" in kinds and any(
+        block.get("ordered") for block in blocks if block["kind"] == "list"
+    )
+    assert kinds.count("code") > 1
+    assert "table" in kinds
+    assert any(
+        inline.get("kind") == "link" and inline.get("href", "").startswith("/")
+        for block in blocks
+        for inline in block.get("inlines", [])
+    )
 
 
 def test_canonical_route_rejects_legacy_html_spelling():

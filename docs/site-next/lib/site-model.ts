@@ -27,12 +27,20 @@ export type OutputField = {
   description: string;
 };
 
+export type InlineContent = {
+  kind: "text" | "code" | "link" | "image";
+  text: string;
+  href?: string;
+};
+
 export type ReferenceContentBlock = {
   kind: "paragraph" | "heading" | "list" | "note" | "code" | "image" | "mathml" | "mermaid" | "table";
   text?: string;
+  inlines?: InlineContent[];
   items?: string[];
+  item_inlines?: InlineContent[][];
   ordered?: boolean;
-  heading_level?: 3 | 4;
+  heading_level?: 2 | 3 | 4 | 5 | 6;
   title?: string;
   tone?: string;
   code?: string;
@@ -44,6 +52,7 @@ export type ReferenceContentBlock = {
   mermaid?: string;
   table_headers?: string[];
   table_rows?: string[][];
+  table_inlines?: InlineContent[][][];
 };
 
 export type ReferenceSection = {
@@ -110,6 +119,8 @@ export type VisualizationModel = {
 export type GuideSection = {
   id: string;
   title: string;
+  blocks: ReferenceContentBlock[];
+  // Deprecated compatibility projection for the pre-S1 search consumer.
   paragraphs: string[];
   bullets?: string[];
   table?: {
@@ -125,7 +136,30 @@ export type GuideModel = {
   section: string;
   summary: string;
   sections: GuideSection[];
+  source?: string;
+  source_sha256?: string;
+  model_fingerprint?: string;
+  block_types?: string[];
+  content_counts?: Record<string, number>;
+  source_indexes?: SourceIndexSummary[];
   route: string;
+  provenance: "generated" | "fixture";
+};
+
+export type SourceIndexSummary = {
+  section_id: string;
+  route: string;
+  source: string;
+  title: string;
+  summary: string;
+  source_sha256: string;
+  model_fingerprint: string;
+  block_types: string[];
+  content_counts: Record<string, number>;
+};
+
+export type SourceIndexModel = SourceIndexSummary & {
+  sections: GuideSection[];
   provenance: "generated" | "fixture";
 };
 
@@ -188,6 +222,7 @@ export type SiteModel = {
   accessors: AccessorModel[];
   visualizations: VisualizationModel[];
   guides: GuideModel[];
+  source_indexes: SourceIndexModel[];
   lineage: LineageModel;
 };
 
@@ -369,6 +404,58 @@ function validateStringRows(value: unknown, path: string): string[][] {
   return value as string[][];
 }
 
+function validateInlineContent(value: unknown, path: string): InlineContent[] {
+  if (!Array.isArray(value)) throw new SiteModelValidationError(`${path} must be an array`);
+  return value.map((item, index) => {
+    if (!isRecord(item)) throw new SiteModelValidationError(`${path}[${index}] must be an object`);
+    const itemPath = `${path}[${index}]`;
+    const kind = requiredString(item, "kind", itemPath);
+    if (!["text", "code", "link", "image"].includes(kind)) {
+      throw new SiteModelValidationError(`${itemPath}.kind is not supported`);
+    }
+    const inline: InlineContent = {
+      kind: kind as InlineContent["kind"],
+      text: requiredString(item, "text", itemPath),
+    };
+    if (item.href !== undefined) inline.href = requiredString(item, "href", itemPath);
+    if ((kind === "link" || kind === "image") && !inline.href) {
+      throw new SiteModelValidationError(`${itemPath}.href is required for ${kind}`);
+    }
+    return inline;
+  });
+}
+
+function validateInlineRows(value: unknown, path: string): InlineContent[][] {
+  if (!Array.isArray(value)) throw new SiteModelValidationError(`${path} must be an array`);
+  return value.map((row, index) => validateInlineContent(row, `${path}[${index}]`));
+}
+
+function validateInlineTable(value: unknown, path: string): InlineContent[][][] {
+  if (!Array.isArray(value)) throw new SiteModelValidationError(`${path} must be an array`);
+  return value.map((row, index) => validateInlineRows(row, `${path}[${index}]`));
+}
+
+function validateContentCounts(value: unknown, path: string): Record<string, number> {
+  if (!isRecord(value)) throw new SiteModelValidationError(`${path} must be an object`);
+  const result: Record<string, number> = {};
+  for (const [key, count] of Object.entries(value)) {
+    if (typeof count !== "number" || !Number.isInteger(count) || count < 0) {
+      throw new SiteModelValidationError(`${path}.${key} must be a non-negative integer`);
+    }
+    result[key] = count;
+  }
+  return result;
+}
+
+function optionalSha256(record: Record<string, unknown>, key: string, path: string): string | undefined {
+  const value = record[key];
+  if (value === undefined) return undefined;
+  if (typeof value !== "string" || !/^[a-f0-9]{64}$/.test(value)) {
+    throw new SiteModelValidationError(`${path}.${key} must be a SHA-256 hex digest`);
+  }
+  return value;
+}
+
 function validateReferenceSections(value: unknown, path: string): ReferenceSection[] {
   return validateCollection(value, path, (section, sectionIndex) => {
     if (!isRecord(section)) throw new SiteModelValidationError(`${path}[${sectionIndex}] must be an object`);
@@ -381,15 +468,17 @@ function validateReferenceSections(value: unknown, path: string): ReferenceSecti
         throw new SiteModelValidationError(`${blockPath}.kind is not supported`);
       }
       const headingLevel = block.heading_level;
-      if (headingLevel !== undefined && headingLevel !== 3 && headingLevel !== 4) {
-        throw new SiteModelValidationError(`${blockPath}.heading_level must be 3 or 4`);
+      if (headingLevel !== undefined && ![2, 3, 4, 5, 6].includes(headingLevel as number)) {
+        throw new SiteModelValidationError(`${blockPath}.heading_level must be between 2 and 6`);
       }
       return {
         kind: kind as ReferenceContentBlock["kind"],
         text: optionalString(block, "text", blockPath) ?? undefined,
+        inlines: block.inlines === undefined ? undefined : validateInlineContent(block.inlines, `${blockPath}.inlines`),
         items: optionalStringArrayValue(block, "items", blockPath),
+        item_inlines: block.item_inlines === undefined ? undefined : validateInlineRows(block.item_inlines, `${blockPath}.item_inlines`),
         ordered: optionalBoolean(block, "ordered", blockPath),
-        heading_level: headingLevel as 3 | 4 | undefined,
+        heading_level: headingLevel as 2 | 3 | 4 | 5 | 6 | undefined,
         title: optionalString(block, "title", blockPath) ?? undefined,
         tone: optionalString(block, "tone", blockPath) ?? undefined,
         code: optionalString(block, "code", blockPath) ?? undefined,
@@ -401,6 +490,7 @@ function validateReferenceSections(value: unknown, path: string): ReferenceSecti
         mermaid: optionalString(block, "mermaid", blockPath) ?? undefined,
         table_headers: optionalStringArrayValue(block, "table_headers", blockPath),
         table_rows: block.table_rows === undefined ? undefined : validateStringRows(block.table_rows, `${blockPath}.table_rows`),
+        table_inlines: block.table_inlines === undefined ? undefined : validateInlineTable(block.table_inlines, `${blockPath}.table_inlines`),
       };
     });
     return { id: requiredString(section, "id", sectionPath), title: requiredString(section, "title", sectionPath), blocks };
@@ -508,8 +598,10 @@ function validateGuide(value: unknown, index: number): GuideModel {
   const sections = validateCollection(value.sections, `${path}.sections`, (item, sectionIndex) => {
     if (!isRecord(item)) throw new SiteModelValidationError(`${path}.sections[${sectionIndex}] must be an object`);
     const sectionPath = `${path}.sections[${sectionIndex}]`;
+    const blocks = validateReferenceSections([item], `${sectionPath}`).at(0)?.blocks ?? [];
     const section: GuideSection = {
       id: requiredString(item, "id", sectionPath), title: requiredString(item, "title", sectionPath),
+      blocks,
       paragraphs: requiredStringArray(item, "paragraphs", sectionPath),
     };
     if (item.bullets !== undefined) section.bullets = requiredStringArray(item, "bullets", sectionPath);
@@ -528,7 +620,59 @@ function validateGuide(value: unknown, index: number): GuideModel {
   return {
     slug: requiredString(value, "slug", path), title: requiredString(value, "title", path), section: requiredString(value, "section", path),
     summary: requiredString(value, "summary", path), sections, route: requiredString(value, "route", path),
+    source: typeof value.source === "string" ? value.source : undefined,
+    source_sha256: optionalSha256(value, "source_sha256", path),
+    model_fingerprint: optionalSha256(value, "model_fingerprint", path),
+    block_types: value.block_types === undefined ? undefined : requiredStringArray(value, "block_types", path),
+    content_counts: value.content_counts === undefined ? undefined : validateContentCounts(value.content_counts, `${path}.content_counts`),
+    source_indexes: value.source_indexes === undefined ? undefined : validateCollection(value.source_indexes, `${path}.source_indexes`, validateSourceIndexSummary),
     provenance: provenance as GuideModel["provenance"],
+  };
+}
+
+function validateSourceIndexSummary(value: unknown, index: number): SourceIndexSummary {
+  if (!isRecord(value)) throw new SiteModelValidationError(`source index summary[${index}] must be an object`);
+  const path = `source index summary[${index}]`;
+  const sourceSha256 = optionalSha256(value, "source_sha256", path);
+  const modelFingerprint = optionalSha256(value, "model_fingerprint", path);
+  if (!sourceSha256 || !modelFingerprint) {
+    throw new SiteModelValidationError(`${path}.source_sha256 and model_fingerprint are required`);
+  }
+  return {
+    section_id: requiredString(value, "section_id", path),
+    route: requiredString(value, "route", path),
+    source: requiredString(value, "source", path),
+    title: requiredString(value, "title", path),
+    summary: requiredString(value, "summary", path),
+    source_sha256: sourceSha256,
+    model_fingerprint: modelFingerprint,
+    block_types: requiredStringArray(value, "block_types", path),
+    content_counts: validateContentCounts(value.content_counts, `${path}.content_counts`),
+  };
+}
+
+function validateSourceIndex(value: unknown, index: number): SourceIndexModel {
+  if (!isRecord(value)) throw new SiteModelValidationError(`source_indexes[${index}] must be an object`);
+  const path = `source_indexes[${index}]`;
+  const summary = validateSourceIndexSummary(value, index);
+  const provenance = requiredString(value, "provenance", path);
+  if (!["generated", "fixture"].includes(provenance)) throw new SiteModelValidationError(`${path}.provenance is not supported`);
+  return {
+    ...summary,
+    sections: validateCollection(value.sections, `${path}.sections`, (item, sectionIndex) => {
+      if (!isRecord(item)) throw new SiteModelValidationError(`${path}.sections[${sectionIndex}] must be an object`);
+      const sectionPath = `${path}.sections[${sectionIndex}]`;
+      const blocks = validateReferenceSections([item], sectionPath).at(0)?.blocks ?? [];
+      return {
+        id: requiredString(item, "id", sectionPath),
+        title: requiredString(item, "title", sectionPath),
+        blocks,
+        paragraphs: requiredStringArray(item, "paragraphs", sectionPath),
+        ...(item.bullets === undefined ? {} : { bullets: requiredStringArray(item, "bullets", sectionPath) }),
+        ...(item.code === undefined ? {} : { code: requiredString(item, "code", sectionPath) }),
+      };
+    }),
+    provenance: provenance as SourceIndexModel["provenance"],
   };
 }
 
@@ -555,6 +699,7 @@ export function parseSiteModel(value: unknown): SiteModel {
     accessors: validateCollection(value.accessors, "accessors", validateAccessor),
     visualizations: validateCollection(value.visualizations, "visualizations", validateVisualization),
     guides: validateCollection(value.guides, "guides", validateGuide),
+    source_indexes: validateCollection(value.source_indexes, "source_indexes", validateSourceIndex),
     lineage: validateLineage(value.lineage),
   };
   const records = model.plugins.find((plugin) => plugin.provides === "records");

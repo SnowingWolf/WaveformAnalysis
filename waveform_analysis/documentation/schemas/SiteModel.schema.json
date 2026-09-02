@@ -5,7 +5,7 @@
   "description": "HTML-free facts consumed by the offline Next.js documentation site.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema", "modelVersion", "project", "provenance", "navigation", "routes", "plugins", "contexts", "accessors", "visualizations", "guides", "lineage"],
+  "required": ["schema", "modelVersion", "project", "provenance", "navigation", "routes", "plugins", "contexts", "accessors", "visualizations", "guides", "source_indexes", "lineage"],
   "properties": {
     "schema": { "const": "site-model/v1" },
     "modelVersion": { "type": "string", "minLength": 1 },
@@ -55,6 +55,7 @@
     "accessors": { "type": "array", "items": { "$ref": "#/$defs/accessor" } },
     "visualizations": { "type": "array", "items": { "$ref": "#/$defs/visualization" } },
     "guides": { "type": "array", "items": { "$ref": "#/$defs/guide" } },
+    "source_indexes": { "type": "array", "items": { "$ref": "#/$defs/source-index" } },
     "lineage": { "$ref": "#/$defs/lineage" }
   },
   "$defs": {
@@ -163,12 +164,32 @@
         "blocks": { "type": "array", "items": { "$ref": "#/$defs/content-block" } }
       }
     },
+    "inline-content": {
+      "type": "object", "additionalProperties": false, "required": ["kind", "text"],
+      "properties": {
+        "kind": { "enum": ["text", "code", "link", "image"] },
+        "text": { "type": "string" }, "href": { "type": "string" }
+      }
+    },
+    "content-counts": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "paragraph": { "type": "integer", "minimum": 0 }, "link": { "type": "integer", "minimum": 0 },
+        "code": { "type": "integer", "minimum": 0 }, "table": { "type": "integer", "minimum": 0 },
+        "list": { "type": "integer", "minimum": 0 }, "heading": { "type": "integer", "minimum": 0 },
+        "note": { "type": "integer", "minimum": 0 }, "image": { "type": "integer", "minimum": 0 },
+        "mathml": { "type": "integer", "minimum": 0 }, "mermaid": { "type": "integer", "minimum": 0 }
+      }
+    },
     "content-block": {
       "type": "object", "additionalProperties": false, "required": ["kind"],
       "properties": {
         "kind": { "enum": ["paragraph", "heading", "list", "note", "code", "image", "mathml", "mermaid", "table"] },
         "text": { "type": "string" }, "items": { "type": "array", "items": { "type": "string" } }, "ordered": { "type": "boolean" },
-        "heading_level": { "type": "integer", "enum": [3, 4] }, "title": { "type": "string" }, "tone": { "type": "string" },
+        "inlines": { "type": "array", "items": { "$ref": "#/$defs/inline-content" } },
+        "item_inlines": { "type": "array", "items": { "type": "array", "items": { "$ref": "#/$defs/inline-content" } } },
+        "table_inlines": { "type": "array", "items": { "type": "array", "items": { "type": "array", "items": { "$ref": "#/$defs/inline-content" } } } },
+        "heading_level": { "type": "integer", "enum": [2, 3, 4, 5, 6] }, "title": { "type": "string" }, "tone": { "type": "string" },
         "code": { "type": "string" }, "language": { "type": "string" }, "image_src": { "type": "string" }, "image_alt": { "type": "string" },
         "image_caption": { "type": "string" }, "mathml": { "type": "string" }, "mermaid": { "type": "string" },
         "table_headers": { "type": "array", "items": { "type": "string" } },
@@ -176,9 +197,11 @@
       }
     },
     "guide-section": {
-      "type": "object", "additionalProperties": false, "required": ["id", "title", "paragraphs"],
+      "type": "object", "additionalProperties": false, "required": ["id", "title", "blocks"],
       "properties": {
-        "id": { "type": "string", "minLength": 1 }, "title": { "type": "string", "minLength": 1 }, "paragraphs": { "type": "array", "items": { "type": "string" } },
+        "id": { "type": "string", "minLength": 1 }, "title": { "type": "string", "minLength": 1 },
+        "blocks": { "type": "array", "items": { "$ref": "#/$defs/content-block" } },
+        "paragraphs": { "type": "array", "items": { "type": "string" } },
         "bullets": { "type": "array", "items": { "type": "string" } }, "code": { "type": "string" },
         "table": {
           "type": "object", "additionalProperties": false, "required": ["headers", "rows"],
@@ -191,7 +214,39 @@
       "properties": {
         "slug": { "type": "string", "minLength": 1 }, "title": { "type": "string", "minLength": 1 }, "section": { "type": "string", "minLength": 1 },
         "summary": { "type": "string", "minLength": 1 }, "sections": { "type": "array", "items": { "$ref": "#/$defs/guide-section" } },
+        "source": { "type": "string" }, "source_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "source_indexes": { "type": "array", "items": { "$ref": "#/$defs/source-index-summary" } },
+        "model_fingerprint": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "block_types": { "type": "array", "items": { "type": "string" } },
+        "content_counts": { "$ref": "#/$defs/content-counts" },
         "route": { "$ref": "#/$defs/route" }, "provenance": { "enum": ["generated", "fixture"] }
+      }
+    },
+    "source-index-summary": {
+      "type": "object", "additionalProperties": false,
+      "required": ["section_id", "route", "source", "title", "summary", "source_sha256", "model_fingerprint", "block_types", "content_counts"],
+      "properties": {
+        "section_id": { "type": "string", "minLength": 1 }, "route": { "$ref": "#/$defs/route" },
+        "source": { "type": "string", "minLength": 1 }, "title": { "type": "string", "minLength": 1 },
+        "summary": { "type": "string", "minLength": 1 }, "source_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "model_fingerprint": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "block_types": { "type": "array", "items": { "type": "string" } },
+        "content_counts": { "$ref": "#/$defs/content-counts" }
+      }
+    },
+    "source-index": {
+      "type": "object", "additionalProperties": false,
+      "required": ["section_id", "route", "source", "title", "summary", "sections", "source_sha256", "model_fingerprint", "block_types", "content_counts", "provenance"],
+      "properties": {
+        "section_id": { "type": "string", "minLength": 1 }, "route": { "$ref": "#/$defs/route" },
+        "source": { "type": "string", "minLength": 1 }, "title": { "type": "string", "minLength": 1 },
+        "summary": { "type": "string", "minLength": 1 },
+        "sections": { "type": "array", "items": { "$ref": "#/$defs/guide-section" } },
+        "source_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "model_fingerprint": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "block_types": { "type": "array", "items": { "type": "string" } },
+        "content_counts": { "$ref": "#/$defs/content-counts" },
+        "provenance": { "enum": ["generated", "fixture"] }
       }
     },
     "port": {

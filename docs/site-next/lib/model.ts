@@ -1,6 +1,5 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
-import fixtureModel from "@/fixture/site-model.v1.json";
 import {
   parseSiteModel,
   type AccessorModel,
@@ -17,19 +16,32 @@ const SITE_MODEL_ENV_NAMES = [
   "WAVEFORM_DOCS_MODEL_PATH",
 ] as const;
 
-/** Load generated site facts at build time; use the fixture only without an env path. */
-export function loadSiteModel(): SiteModel {
-  const configuredPath = SITE_MODEL_ENV_NAMES.map((name) => process.env[name]).find(Boolean);
-  if (!configuredPath) return parseSiteModel(fixtureModel);
+const modelCache = new Map<string, { mtimeMs: number; model: SiteModel }>();
 
-  const absolutePath = resolve(configuredPath);
+function modelPath(): string {
+  const configuredPath = SITE_MODEL_ENV_NAMES.map((name) => process.env[name]).find(Boolean);
+  if (configuredPath) return resolve(configuredPath);
+  if (process.env.NODE_ENV === "production" && process.env.WAVEFORM_DOCS_ALLOW_FIXTURE !== "1") {
+    throw new Error("WAVEFORM_DOCS_SITE_MODEL is required for a production documentation build");
+  }
+  return resolve(process.cwd(), "fixture", "site-model.v1.json");
+}
+
+/** Load and cache generated site facts at build time; production fails closed without them. */
+export function loadSiteModel(): SiteModel {
+  const absolutePath = modelPath();
   let payload: unknown;
   try {
+    const mtimeMs = statSync(absolutePath).mtimeMs;
+    const cached = modelCache.get(absolutePath);
+    if (cached && (process.env.NODE_ENV === "production" || cached.mtimeMs === mtimeMs)) return cached.model;
     payload = JSON.parse(readFileSync(absolutePath, "utf8")) as unknown;
+    const model = parseSiteModel(payload);
+    modelCache.set(absolutePath, { mtimeMs, model });
+    return model;
   } catch (error) {
     throw new Error(`Unable to read site model at ${absolutePath}`, { cause: error });
   }
-  return parseSiteModel(payload);
 }
 
 export type ReferenceModel = ContextModel | AccessorModel | VisualizationModel;

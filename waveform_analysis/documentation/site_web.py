@@ -40,6 +40,7 @@ from .site_model import (
 SITE_MANIFEST_FILENAME = "site-manifest.json"
 SITE_MANIFEST_SCHEMA = "site-web/v1"
 SITE_MANIFEST_ENV = "WAVEFORM_DOCS_PREBUILT_DIR"
+SITE_PUBLISH_MAX_BYTES = 83_886_080
 DEFAULT_APP_RELATIVE = Path("docs") / "site-next"
 # Keep the packaged export separate from the ``site_web.py`` module.  A
 # sibling directory named ``site_web`` makes import resolution ambiguous in a
@@ -116,6 +117,125 @@ def _iter_files(root: Path) -> Iterable[Path]:
     for path in sorted(root.rglob("*")):
         if path.is_file():
             yield path
+
+
+def is_next_rsc_text(path: Path | str) -> bool:
+    """Return whether *path* is one of Next's generated RSC text artifacts.
+
+    Files whose basename starts with ``__next.`` are unambiguously generated
+    route payloads.  A bare ``index.txt`` is intentionally not classified here:
+    it is only removed by :func:`filter_next_rsc_text_files` when the same
+    directory also contains an unambiguous ``__next.*.txt`` companion.  This
+    keeps ordinary user-authored ``index.txt`` assets intact.
+    """
+
+    candidate = Path(path)
+    return candidate.suffix == ".txt" and candidate.name.startswith("__next.")
+
+
+def filter_next_rsc_text_files(root: Path) -> list[Path]:
+    """Remove only known Next RSC ``.txt`` files and return removed paths."""
+
+    output = Path(root).resolve()
+    if not output.is_dir():
+        raise SiteExportValidationError(f"static export directory does not exist: {root}")
+    files = list(_iter_files(output))
+    next_payload_directories = {path.parent for path in files if is_next_rsc_text(path)}
+    removed: list[Path] = []
+    for path in files:
+        is_companion_index = path.name == "index.txt" and path.parent in next_payload_directories
+        if not is_next_rsc_text(path) and not is_companion_index:
+            continue
+        path.unlink()
+        removed.append(path.relative_to(output))
+    return removed
+
+
+def static_file_inventory(
+    directory: Path, *, include_manifest: bool = False
+) -> list[dict[str, Any]]:
+    """Return a stable relative-path/size/SHA-256 inventory.
+
+    The manifest itself is excluded by default so its fingerprint cannot be
+    self-referential.  The published byte budget is intentionally calculated
+    separately over the actual root and therefore includes the manifest.
+    """
+
+    root = Path(directory).resolve()
+    if not root.is_dir():
+        raise SiteExportValidationError(f"static export directory does not exist: {directory}")
+    entries: list[dict[str, Any]] = []
+    for path in _iter_files(root):
+        if not include_manifest and path == root / SITE_MANIFEST_FILENAME:
+            continue
+        resolved = path.resolve()
+        if not resolved.is_relative_to(root):
+            raise SiteExportValidationError(f"export file escapes output directory: {path}")
+        content = path.read_bytes()
+        entries.append(
+            {
+                "path": path.relative_to(root).as_posix(),
+                "sha256": hashlib.sha256(content).hexdigest(),
+                "size": len(content),
+            }
+        )
+    return entries
+
+
+def static_export_fingerprint(
+    directory: Path, *, entries: Iterable[Mapping[str, Any]] | None = None
+) -> str:
+    """Hash a deterministic inventory, excluding ``site-manifest.json``."""
+
+    inventory = list(entries) if entries is not None else static_file_inventory(directory)
+    canonical_lines = []
+    for entry in sorted(inventory, key=lambda item: str(item["path"])):
+        canonical_lines.append(
+            json.dumps(
+                {
+                    "path": str(entry["path"]),
+                    "sha256": str(entry["sha256"]),
+                    "size": int(entry["size"]),
+                },
+                ensure_ascii=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            )
+        )
+    return hashlib.sha256(("\n".join(canonical_lines) + "\n").encode("utf-8")).hexdigest()
+
+
+def validate_published_site_budget(
+    directory: Path, *, max_bytes: int = SITE_PUBLISH_MAX_BYTES
+) -> dict[str, Any]:
+    """Enforce the hard published-root byte budget, including the manifest."""
+
+    if isinstance(max_bytes, bool) or not isinstance(max_bytes, int) or max_bytes <= 0:
+        raise ValueError("max_bytes must be a positive integer")
+    root = Path(directory).resolve()
+    if not root.is_dir():
+        raise SiteExportValidationError(f"static export directory does not exist: {directory}")
+    files: list[tuple[str, int]] = []
+    for path in _iter_files(root):
+        resolved = path.resolve()
+        if not resolved.is_relative_to(root):
+            raise SiteExportValidationError(f"export file escapes output directory: {path}")
+        files.append((path.relative_to(root).as_posix(), path.stat().st_size))
+    total_bytes = sum(size for _path, size in files)
+    largest = sorted(files, key=lambda item: (-item[1], item[0]))
+    if total_bytes > max_bytes:
+        contributors = ", ".join(f"{path}={size} bytes" for path, size in largest[:5])
+        raise SiteExportValidationError(
+            "published site exceeds hard byte budget "
+            f"{max_bytes} bytes: total={total_bytes} bytes; "
+            f"largest contributors: {contributors}"
+        )
+    return {
+        "total_bytes": total_bytes,
+        "max_bytes": max_bytes,
+        "file_count": len(files),
+        "largest": [{"path": path, "size": size} for path, size in largest[:5]],
+    }
 
 
 def validate_static_export(
@@ -243,30 +363,27 @@ def _read_prebuilt_manifest(directory: Path) -> tuple[dict[str, Any], list[dict[
     return manifest, _manifest_entries(manifest)
 
 
-def write_prebuilt_manifest(directory: Path) -> Path:
+def write_prebuilt_manifest(directory: Path, *, max_bytes: int = SITE_PUBLISH_MAX_BYTES) -> Path:
     """Write a deterministic hash manifest for a validated static export."""
 
     root = Path(directory).resolve()
     if not root.is_dir() or not (root / "index.html").is_file():
         raise SiteExportValidationError(f"prebuilt site is incomplete: {root}")
-    entries = []
-    for path in _iter_files(root):
-        if path.name == SITE_MANIFEST_FILENAME:
-            continue
-        content = path.read_bytes()
-        entries.append(
-            {
-                "path": path.relative_to(root).as_posix(),
-                "sha256": hashlib.sha256(content).hexdigest(),
-                "size": len(content),
-            }
-        )
-    manifest = {"schema": SITE_MANIFEST_SCHEMA, "files": entries}
+    entries = static_file_inventory(root)
+    manifest = {
+        "content_bytes": sum(entry["size"] for entry in entries),
+        "file_count": len(entries),
+        "fingerprint": static_export_fingerprint(root, entries=entries),
+        "hash_algorithm": "sha256",
+        "schema": SITE_MANIFEST_SCHEMA,
+        "files": entries,
+    }
     destination = root / SITE_MANIFEST_FILENAME
     destination.write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+    validate_published_site_budget(root, max_bytes=max_bytes)
     return destination
 
 
@@ -282,7 +399,7 @@ def copy_prebuilt_site(source_dir: Path, output_dir: Path) -> dict[str, Path]:
     actual = {
         path.relative_to(source).as_posix()
         for path in _iter_files(source)
-        if path.name != SITE_MANIFEST_FILENAME
+        if path != source / SITE_MANIFEST_FILENAME
     }
     if actual != listed - {SITE_MANIFEST_FILENAME}:
         missing = sorted((listed - {SITE_MANIFEST_FILENAME}) - actual)
@@ -312,6 +429,17 @@ def copy_prebuilt_site(source_dir: Path, output_dir: Path) -> dict[str, Path]:
             raise SiteExportValidationError(f"prebuilt file escapes output root: {relative}")
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source_path, target)
+    expected_fingerprint = manifest.get("fingerprint")
+    if expected_fingerprint is not None:
+        if not isinstance(expected_fingerprint, str) or len(expected_fingerprint) != 64:
+            raise SiteExportValidationError("prebuilt site manifest has an invalid fingerprint")
+        actual_fingerprint = static_export_fingerprint(source, entries=entries)
+        if actual_fingerprint != expected_fingerprint:
+            raise SiteExportValidationError(
+                "prebuilt site manifest fingerprint mismatch: "
+                f"{actual_fingerprint} != {expected_fingerprint}"
+            )
+    filter_next_rsc_text_files(destination)
     if not (destination / "index.html").is_file():
         raise SiteExportValidationError("prebuilt site is missing index.html")
     model = None
@@ -319,10 +447,15 @@ def copy_prebuilt_site(source_dir: Path, output_dir: Path) -> dict[str, Path]:
     if model_path.is_file():
         model = load_site_model(model_path)
     validate_static_export(destination, model=model)
+    manifest_path = write_prebuilt_manifest(destination)
     return (
-        {"SITE_INDEX": destination / "index.html", "SITE_MODEL": model_path}
+        {
+            "SITE_INDEX": destination / "index.html",
+            "SITE_MODEL": model_path,
+            "SITE_MANIFEST": manifest_path,
+        }
         if model_path.is_file()
-        else {"SITE_INDEX": destination / "index.html"}
+        else {"SITE_INDEX": destination / "index.html", "SITE_MANIFEST": manifest_path}
     )
 
 
@@ -460,15 +593,18 @@ class NextSiteBuilder:
             self._run(["npm", "run", "build"], env=env)
             export_source = self._export_directory(export_path, started_ns, before_mtimes)
             shutil.copytree(export_source, output, dirs_exist_ok=True)
+            filter_next_rsc_text_files(output)
             # The model remains inspectable in the published export even when
             # the app bundles it into JS during build.
             published_model = output / SITE_MODEL_FILENAME
             if not published_model.exists():
                 shutil.copy2(model_path, published_model)
         validate_static_export(output, model=model, require_model=True)
+        manifest_path = write_prebuilt_manifest(output)
         results: dict[str, Path] = {
             "SITE_INDEX": output / "index.html",
             "SITE_MODEL": output / SITE_MODEL_FILENAME,
+            "SITE_MANIFEST": manifest_path,
         }
         return results
 
@@ -502,12 +638,18 @@ __all__ = [
     "SITE_MANIFEST_ENV",
     "SITE_MANIFEST_FILENAME",
     "SITE_MANIFEST_SCHEMA",
+    "SITE_PUBLISH_MAX_BYTES",
     "NextSiteBuilder",
     "SiteExportValidationError",
     "SiteWebBuildError",
     "SiteWebBuilder",
     "copy_prebuilt_site",
+    "filter_next_rsc_text_files",
+    "is_next_rsc_text",
     "locate_prebuilt_site",
+    "static_export_fingerprint",
+    "static_file_inventory",
     "validate_static_export",
+    "validate_published_site_budget",
     "write_prebuilt_manifest",
 ]

@@ -10,6 +10,12 @@ export function generateStaticParams() {
     .map((page) => ({ slug: page.slug }));
 }
 
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const page = pageBySlug(loadSiteModel().contexts.filter((entry) => entry.route.startsWith("/contexts/")), slug);
+  return page ? { title: page.name, description: page.summary } : {};
+}
+
 export default async function ContextPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const siteModel = loadSiteModel();
@@ -20,3 +26,4 @@ export default async function ContextPage({ params }: { params: Promise<{ slug: 
   if (!page) return notFound();
   return <CallableReferencePage model={siteModel} page={page} kind="Context" />;
 }
+import type { Metadata } from "next";

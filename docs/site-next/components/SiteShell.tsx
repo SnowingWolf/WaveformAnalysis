@@ -2,9 +2,10 @@
 
 import { StaticLink as Link } from "./StaticLink";
 import { usePathname } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { searchResults, type SiteShellModel } from "@/lib/search";
+import { useEffect, useState, type ReactNode } from "react";
+import type { SiteShellModel } from "@/lib/search";
 import { iconNames, Icon, type IconName } from "./icons";
+import { SearchDialog } from "./SearchDialog";
 
 export type TocItem = { id: string; label: string };
 
@@ -27,34 +28,6 @@ export function Brand({ compact = false }: { compact?: boolean }) {
   </Link>;
 }
 
-function SearchDialog({ model, onClose }: { model: SiteShellModel; onClose: () => void }) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [query, setQuery] = useState("");
-  const entries = useMemo(() => searchResults(model.search, query, query.trim() ? 12 : 8), [model, query]);
-
-  useEffect(() => { inputRef.current?.focus(); }, []);
-
-  return <div className="search-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-    <section className="search-dialog" role="dialog" aria-modal="true" aria-labelledby="search-title">
-      <div className="search-dialog__head">
-        <div><h2 id="search-title">搜索文档</h2></div>
-        <button className="icon-button" type="button" onClick={onClose} aria-label="关闭搜索"><Icon name="close" size={20} /></button>
-      </div>
-      <label className="search-input search-input--dialog">
-        <Icon name="search" size={19} />
-        <input ref={inputRef} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索插件、Context 或指南" aria-label="搜索插件、Context 或指南" />
-        <kbd>ESC</kbd>
-      </label>
-      <div className="search-results" aria-live="polite">
-        {entries.length ? entries.map((entry) => <Link key={`${entry.kind}:${entry.url}`} href={entry.url} onClick={onClose} className="search-result">
-          <span className="search-result__kind">{entry.kind}</span><span><strong>{entry.title}</strong><small>{entry.summary}</small></span><Icon name="arrow" size={16} />
-        </Link>) : <p className="empty-state">没有匹配的文档。试试 `records` 或 `Context`。</p>}
-      </div>
-      <footer className="search-dialog__footer"><span><kbd>↵</kbd> 打开结果</span><span><kbd>ESC</kbd> 关闭</span></footer>
-    </section>
-  </div>;
-}
-
 function SideNav({ model, pathname, onNavigate }: { model: SiteShellModel; pathname: string; onNavigate?: () => void }) {
   const [openSections, setOpenSections] = useState(() => new Set(model.navigation.map((section) => section.id)));
   return <nav className="side-nav" aria-label="文档导航">
@@ -69,7 +42,7 @@ function SideNav({ model, pathname, onNavigate }: { model: SiteShellModel; pathn
         </Link>)}</div>}
       </section>;
     })}
-    <div className="side-nav__version"><span>版本</span><button type="button" aria-label="选择文档版本">{model.project.version} <Icon name="chevron" size={14} /></button></div>
+    <div className="side-nav__version"><span>版本</span><strong className="mono">{model.project.version}</strong></div>
   </nav>;
 }
 
@@ -115,6 +88,7 @@ export function SiteShell({ model, children, toc = [], title = "文档", compact
   };
 
   return <div className={`site-root${fullBleed ? " site-root--full-bleed" : ""}`}>
+    <a className="skip-to-content" href="#main-content">跳转到主要内容</a>
     <header className="topbar">
       <div className="topbar__brand"><Brand /></div>
       <nav className="topbar__links" aria-label="主导航">{headerLinks.map(([label, href]) => <Link key={href} href={href} className={isActive(pathname, href) ? "is-active" : ""}>{label}</Link>)}</nav>

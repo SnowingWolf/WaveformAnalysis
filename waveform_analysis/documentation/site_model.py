@@ -13,6 +13,7 @@ code or silently falling back to the removed Jinja renderer.
 
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Iterable, Mapping
 from dataclasses import fields, is_dataclass
 import hashlib
@@ -53,6 +54,14 @@ SITE_MODEL_EXPORT_ENV = "WAVEFORM_SITE_EXPORT_DIR"
 _ROUTE_ID = re.compile(r"^[A-Za-z0-9._~-]+(?:/[A-Za-z0-9._~-]+)*$")
 _HEADING = re.compile(r"^(?P<indent>\s{0,3})(?P<marks>#{1,6})\s+(?P<title>.+?)\s*#*\s*$")
 _SETEXT = re.compile(r"^\s*(=+|-+)\s*$")
+_FENCE = re.compile(r"^\s*(?P<marks>`{3,}|~{3,})(?P<language>.*)$")
+_ORDERED_LIST = re.compile(r"^\s*\d+[.)]\s+(?P<item>.+?)\s*$")
+_UNORDERED_LIST = re.compile(r"^\s*[-+*]\s+(?P<item>.+?)\s*$")
+_INLINE_TOKEN = re.compile(
+    r"(?P<image>!\[(?P<image_label>[^\]]*)\]\((?P<image_href>[^)\s]+)(?:\s+[^)]*)?\))"
+    r"|(?P<link>\[(?P<link_label>[^\]]+)\]\((?P<link_href>[^)\s]+)(?:\s+[^)]*)?\))"
+    r"|(?P<code>`(?P<code_text>[^`\n]+)`)",
+)
 _FRONTMATTER = re.compile(r"\A---[ \t]*\r?\n(.*?)\r?\n---[ \t]*(?:\r?\n|$)", re.DOTALL)
 _ALLOWED_GUIDE_TAGS = {"markdown", "reflect", "plugin-provider"}
 
@@ -715,12 +724,14 @@ def _plugin_record(view: Any) -> dict[str, Any]:
 def _guide_page_record(page: GuidePageSpec, project_root: Path) -> dict[str, Any]:
     route = canonical_route(page.route, field=f"guide page route {page.source_label}")
     source: str | None = None
+    source_sha256: str | None = None
     body = ""
     headings: list[dict[str, Any]] = []
     frontmatter: dict[str, Any] = {}
     if page.source is not None:
         source_path = Path(page.source)
         source = _source_relative(source_path, project_root)
+        source_sha256 = hashlib.sha256(source_path.read_bytes()).hexdigest()
         frontmatter, body, headings = _markdown_facts(source_path)
     title = _plain(page.title_override) or _plain(frontmatter.get("title"))
     if not title:
@@ -745,108 +756,531 @@ def _guide_page_record(page: GuidePageSpec, project_root: Path) -> dict[str, Any
         "summary": summary,
         "tag": tag,
         "source": source,
+        "source_sha256": source_sha256,
         "body": body if tag == "markdown" else "",
         "headings": headings,
         "nav_weight": int(page.nav_weight),
     }
 
 
-def _markdown_sections(body: str, *, fallback_title: str) -> list[dict[str, Any]]:
-    """Project Markdown into the text-oriented guide sections used by Next.
+def _resolve_markdown_href(
+    href: str,
+    *,
+    source_path: Path | None,
+    project_root: Path | None,
+    source_routes: Mapping[str, str] | None,
+) -> str:
+    """Resolve known Markdown targets to canonical static routes.
 
-    This is intentionally a small source parser rather than a Markdown/HTML
-    renderer.  It keeps paragraphs, bullets, fenced code and simple pipe tables
-    as plain strings; the browser owns presentation and sanitization.
+    The content model stores links as data instead of HTML.  Links which point
+    at a published Markdown source are translated through the manifest route
+    map; external URLs and unknown targets remain untouched so that parsing is
+    lossless and does not invent routes for unpublished material.
     """
+
+    value = href.strip().strip("<>")
+    if not value or value.startswith("#") or re.match(r"^[A-Za-z][A-Za-z0-9+.-]*:", value):
+        return value
+    path_part, separator, suffix = value.partition("#")
+    fragment = f"#{suffix}" if separator else ""
+    query_path, query_separator, query = path_part.partition("?")
+    if query_separator:
+        # Internal docs links should not carry query strings into a static
+        # route.  Retain the source spelling when no route is known instead.
+        path_part = query_path
+    else:
+        path_part = query_path
+
+    candidate: str | None = None
+    if source_path is not None and project_root is not None:
+        target = Path(path_part)
+        if not target.is_absolute():
+            target = (source_path.parent / target).resolve()
+        try:
+            candidate = target.relative_to(project_root.resolve()).as_posix()
+        except ValueError:
+            candidate = None
+    if candidate is None:
+        candidate = path_part.lstrip("/")
+
+    routes = source_routes or {}
+    route = routes.get(candidate)
+    if route is None:
+        route = routes.get(path_part)
+    if route is not None:
+        return f"{route}{fragment}"
+
+    # Existing repository files which are intentionally outside the public
+    # site remain clickable without creating a second static-asset tree.  A
+    # missing target is deliberately left unchanged so export validation still
+    # catches stale or misspelled links.
+    if (
+        source_path is not None
+        and project_root is not None
+        and candidate
+        and target.exists()
+        and target.is_relative_to(project_root.resolve())
+    ):
+        github_kind = "tree" if target.is_dir() else "blob"
+        return (
+            "https://github.com/SnowingWolf/WaveformAnalysis/"
+            f"{github_kind}/main/{candidate}{fragment}"
+        )
+
+    # A direct canonical route is already safe; normalize a legacy direct HTML
+    # spelling only when it is clearly a route rather than an unknown source.
+    if path_part.startswith("/") and ".html" in path_part:
+        raw_route = path_part.rsplit(".html", 1)[0]
+        try:
+            return f"{canonical_route(raw_route)}{fragment}"
+        except SiteModelError:
+            return value
+    if path_part.startswith("/") and path_part.endswith("/"):
+        try:
+            return f"{canonical_route(path_part)}{fragment}"
+        except SiteModelError:
+            return value
+    return value
+
+
+def _inline_content(
+    text: str,
+    *,
+    source_path: Path | None,
+    project_root: Path | None,
+    source_routes: Mapping[str, str] | None,
+) -> list[dict[str, str]]:
+    """Tokenize inline code and links without interpreting arbitrary HTML."""
+
+    parts: list[dict[str, str]] = []
+
+    def append(kind: str, value: str, **extra: str) -> None:
+        if not value:
+            return
+        if kind == "text" and parts and parts[-1]["kind"] == "text":
+            parts[-1]["text"] += value
+            return
+        parts.append({"kind": kind, "text": value, **extra})
+
+    cursor = 0
+    for match in _INLINE_TOKEN.finditer(text):
+        append("text", text[cursor : match.start()])
+        if match.group("image"):
+            append(
+                "image",
+                match.group("image_label") or "image",
+                href=_resolve_markdown_href(
+                    match.group("image_href"),
+                    source_path=source_path,
+                    project_root=project_root,
+                    source_routes=source_routes,
+                ),
+            )
+        elif match.group("link"):
+            append(
+                "link",
+                match.group("link_label"),
+                href=_resolve_markdown_href(
+                    match.group("link_href"),
+                    source_path=source_path,
+                    project_root=project_root,
+                    source_routes=source_routes,
+                ),
+            )
+        else:
+            append("code", match.group("code_text"))
+        cursor = match.end()
+    append("text", text[cursor:])
+    return parts or [{"kind": "text", "text": text}]
+
+
+def _guide_text_block(
+    kind: str,
+    text: str,
+    *,
+    source_path: Path | None,
+    project_root: Path | None,
+    source_routes: Mapping[str, str] | None,
+    **extra: Any,
+) -> dict[str, Any]:
+    block: dict[str, Any] = {"kind": kind, "text": text, **extra}
+    block["inlines"] = _inline_content(
+        text,
+        source_path=source_path,
+        project_root=project_root,
+        source_routes=source_routes,
+    )
+    return block
+
+
+def _guide_list_block(
+    items: list[str],
+    *,
+    ordered: bool,
+    source_path: Path | None,
+    project_root: Path | None,
+    source_routes: Mapping[str, str] | None,
+) -> dict[str, Any]:
+    return {
+        "kind": "list",
+        "items": items,
+        "ordered": ordered,
+        "item_inlines": [
+            _inline_content(
+                item,
+                source_path=source_path,
+                project_root=project_root,
+                source_routes=source_routes,
+            )
+            for item in items
+        ],
+    }
+
+
+def _split_table_lines(lines: list[str]) -> tuple[list[str], list[list[str]]] | None:
+    rows = [[cell.strip() for cell in line.strip().strip("|").split("|")] for line in lines]
+    if len(rows) < 2 or not rows[0]:
+        return None
+    header = rows[0]
+    data_rows = rows[1:]
+    if data_rows and all(set(cell) <= {"-", ":", " "} for cell in data_rows[0]):
+        data_rows = data_rows[1:]
+    if not data_rows or not all(len(row) == len(header) for row in data_rows):
+        return None
+    return header, data_rows
+
+
+def _guide_table_block(
+    lines: list[str],
+    *,
+    source_path: Path | None,
+    project_root: Path | None,
+    source_routes: Mapping[str, str] | None,
+) -> dict[str, Any] | None:
+    parsed = _split_table_lines(lines)
+    if parsed is None:
+        return None
+    headers, rows = parsed
+    return {
+        "kind": "table",
+        "table_headers": headers,
+        "table_rows": rows,
+        "table_inlines": [
+            [
+                _inline_content(
+                    cell,
+                    source_path=source_path,
+                    project_root=project_root,
+                    source_routes=source_routes,
+                )
+                for cell in row
+            ]
+            for row in [headers, *rows]
+        ],
+    }
+
+
+def _guide_section_compat(section: Mapping[str, Any]) -> dict[str, Any]:
+    """Keep the pre-S1 fields for old search consumers during migration."""
+
+    result = dict(section)
+    blocks = list(section.get("blocks", ()))
+    paragraphs = [
+        str(block.get("text", "")) for block in blocks if block.get("kind") == "paragraph"
+    ]
+    lists = [block for block in blocks if block.get("kind") == "list"]
+    tables = [block for block in blocks if block.get("kind") == "table"]
+    codes = [str(block.get("code", "")) for block in blocks if block.get("kind") == "code"]
+    result["paragraphs"] = paragraphs
+    if lists:
+        # The legacy projection represented only unordered list items.  Keep
+        # ordered content discoverable as well; the typed blocks are canonical.
+        result["bullets"] = [str(item) for block in lists for item in block.get("items", ())]
+    if codes:
+        result["code"] = "\n\n".join(codes)
+    if tables:
+        table = tables[0]
+        result["table"] = {
+            "headers": list(table.get("table_headers", ())),
+            "rows": [list(row) for row in table.get("table_rows", ())],
+        }
+    return result
+
+
+def _guide_content_counts(sections: Iterable[Mapping[str, Any]]) -> dict[str, int]:
+    counts: Counter[str] = Counter()
+    for section in sections:
+        for block in section.get("blocks", ()):
+            kind = str(block.get("kind", ""))
+            if kind:
+                counts[kind] += 1
+            for inline in block.get("inlines", ()):
+                if inline.get("kind") == "link":
+                    counts["link"] += 1
+            for row in block.get("item_inlines", ()):
+                for inline in row:
+                    if inline.get("kind") == "link":
+                        counts["link"] += 1
+            for row in block.get("table_inlines", ()):
+                for cell in row:
+                    for inline in cell:
+                        if inline.get("kind") == "link":
+                            counts["link"] += 1
+    for kind in ("paragraph", "link", "code", "table", "list"):
+        counts.setdefault(kind, 0)
+    return dict(counts)
+
+
+def _guide_block_types(sections: Iterable[Mapping[str, Any]]) -> list[str]:
+    return [
+        str(block["kind"])
+        for section in sections
+        for block in section.get("blocks", ())
+        if block.get("kind")
+    ]
+
+
+def _guide_model_fingerprint(sections: Iterable[Mapping[str, Any]]) -> str:
+    payload = [
+        {
+            "id": section.get("id"),
+            "title": section.get("title"),
+            "blocks": section.get("blocks", []),
+        }
+        for section in sections
+    ]
+    encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode(
+        "utf-8"
+    )
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _markdown_sections(
+    body: str,
+    *,
+    fallback_title: str,
+    source_path: Path | None = None,
+    project_root: Path | None = None,
+    source_routes: Mapping[str, str] | None = None,
+) -> list[dict[str, Any]]:
+    """Project Markdown into ordered, typed, HTML-free content blocks."""
 
     lines = body.splitlines()
     sections: list[dict[str, Any]] = []
     current: dict[str, Any] | None = None
-    paragraphs: list[str] = []
-    bullets: list[str] = []
-    code_lines: list[str] = []
+    paragraph_lines: list[str] = []
+    list_items: list[str] = []
+    list_ordered: bool | None = None
     table_lines: list[str] = []
-    in_code = False
+    code_lines: list[str] = []
+    code_language = "text"
+    fence_mark: str | None = None
+    skip_line = False
 
-    def flush_content() -> None:
-        nonlocal paragraphs, bullets, code_lines, table_lines
-        if current is None:
-            paragraphs = []
-            bullets = []
-            code_lines = []
-            table_lines = []
-            return
-        if paragraphs:
-            current["paragraphs"].extend(_plain(item) for item in paragraphs if _plain(item))
-        if bullets:
-            current["bullets"] = [_plain(item) for item in bullets if _plain(item)]
-        if code_lines:
-            current["code"] = "\n".join(code_lines).rstrip("\n")
-        if table_lines:
-            rows = [
-                [cell.strip() for cell in line.strip().strip("|").split("|")]
-                for line in table_lines
-            ]
-            if rows:
-                header = rows[0]
-                data_rows = rows[1:]
-                if data_rows and all(set(cell) <= {"-", ":", " "} for cell in data_rows[0]):
-                    data_rows = data_rows[1:]
-                if header and data_rows and all(len(row) == len(header) for row in data_rows):
-                    current["table"] = {"headers": header, "rows": data_rows}
-        paragraphs = []
-        bullets = []
-        code_lines = []
+    def flush_paragraph() -> None:
+        nonlocal paragraph_lines
+        if current is not None and paragraph_lines:
+            text = " ".join(item.strip() for item in paragraph_lines if item.strip()).strip()
+            if text:
+                current["blocks"].append(
+                    _guide_text_block(
+                        "paragraph",
+                        text,
+                        source_path=source_path,
+                        project_root=project_root,
+                        source_routes=source_routes,
+                    )
+                )
+        paragraph_lines = []
+
+    def flush_list() -> None:
+        nonlocal list_items, list_ordered
+        if current is not None and list_items and list_ordered is not None:
+            current["blocks"].append(
+                _guide_list_block(
+                    list_items,
+                    ordered=list_ordered,
+                    source_path=source_path,
+                    project_root=project_root,
+                    source_routes=source_routes,
+                )
+            )
+        list_items = []
+        list_ordered = None
+
+    def flush_table() -> None:
+        nonlocal table_lines
+        if current is not None and table_lines:
+            table = _guide_table_block(
+                table_lines,
+                source_path=source_path,
+                project_root=project_root,
+                source_routes=source_routes,
+            )
+            if table is not None:
+                current["blocks"].append(table)
+            else:
+                paragraph_lines.extend(table_lines)
+                flush_paragraph()
         table_lines = []
 
-    def start(title: str, anchor: str) -> None:
+    def flush_pending() -> None:
+        flush_paragraph()
+        flush_list()
+        flush_table()
+
+    def finish_current(*, force: bool = False) -> None:
         nonlocal current
-        if current is not None:
-            flush_content()
-            if current["paragraphs"] or any(key in current for key in ("bullets", "code", "table")):
-                sections.append(current)
-        current = {"id": anchor, "title": title, "paragraphs": []}
+        if current is None:
+            return
+        flush_pending()
+        if force or current["blocks"]:
+            sections.append(_guide_section_compat(current))
+        current = None
+
+    def start(title: str, anchor: str, level: int | None = None) -> None:
+        nonlocal current
+        finish_current()
+        block_list: list[dict[str, Any]] = []
+        if level is not None:
+            block_list.append(
+                {
+                    "kind": "heading",
+                    "text": title,
+                    "heading_level": level,
+                    "inlines": _inline_content(
+                        title,
+                        source_path=source_path,
+                        project_root=project_root,
+                        source_routes=source_routes,
+                    ),
+                }
+            )
+        current = {"id": anchor, "title": title, "blocks": block_list}
 
     counts: dict[str, int] = {}
     start(fallback_title, _heading_slug(fallback_title, counts))
     for index, raw_line in enumerate(lines):
-        line = raw_line.rstrip()
-        if line.strip().startswith("```") or line.strip().startswith("~~~"):
-            if in_code:
-                in_code = False
-            else:
-                in_code = True
+        if skip_line:
+            skip_line = False
             continue
-        if in_code:
+        line = raw_line.rstrip()
+        fence_match = _FENCE.match(line)
+        if fence_match:
+            marks = fence_match.group("marks")
+            if fence_mark is None:
+                flush_pending()
+                fence_mark = marks[0]
+                language_tokens = fence_match.group("language").strip().split(maxsplit=1)
+                code_language = language_tokens[0] if language_tokens else "text"
+                code_lines = []
+            elif marks[0] == fence_mark:
+                if current is not None:
+                    current["blocks"].append(
+                        {
+                            "kind": "code",
+                            "code": "\n".join(code_lines).rstrip("\n"),
+                            "language": code_language,
+                        }
+                    )
+                fence_mark = None
+                code_lines = []
+                code_language = "text"
+            else:
+                code_lines.append(line)
+            continue
+        if fence_mark is not None:
             code_lines.append(line)
             continue
+
         heading_match = _HEADING.match(line)
         if heading_match:
             title = _plain(heading_match.group("title"))
             level = len(heading_match.group("marks"))
             if title and level >= 2:
-                start(title, _heading_slug(title, counts))
+                start(title, _heading_slug(title, counts), level)
+                continue
+            if title:
+                flush_pending()
                 continue
         if index + 1 < len(lines) and line.strip() and _SETEXT.match(lines[index + 1]):
             level = 1 if lines[index + 1].strip().startswith("=") else 2
             if level >= 2:
-                start(_plain(line), _heading_slug(_plain(line), counts))
+                title = _plain(line)
+                start(title, _heading_slug(title, counts), level)
+                skip_line = True
                 continue
+
         stripped = line.strip()
         if not stripped:
+            flush_pending()
             continue
-        if stripped.startswith(("- ", "* ", "+ ")):
-            bullets.append(stripped[2:])
-        elif stripped.startswith("|") and "|" in stripped[1:]:
+        if stripped.startswith("<!--") or stripped.startswith("-->"):
+            continue
+
+        ordered_match = _ORDERED_LIST.match(line)
+        unordered_match = _UNORDERED_LIST.match(line)
+        if ordered_match or unordered_match:
+            flush_paragraph()
+            flush_table()
+            ordered = ordered_match is not None
+            if list_ordered is not None and list_ordered != ordered:
+                flush_list()
+            list_ordered = ordered
+            list_items.append((ordered_match or unordered_match).group("item"))
+            continue
+        if list_items and line[:1].isspace():
+            list_items[-1] = f"{list_items[-1]} {stripped}"
+            continue
+        if list_items:
+            flush_list()
+
+        if stripped.startswith("|") and "|" in stripped[1:]:
+            flush_paragraph()
             table_lines.append(stripped)
-        elif not stripped.startswith(("<!--", "#")):
-            paragraphs.append(stripped)
-    flush_content()
-    if current is not None and (
-        current["paragraphs"] or any(key in current for key in ("bullets", "code", "table"))
-    ):
-        sections.append(current)
-    return sections or [{"id": "overview", "title": fallback_title, "paragraphs": []}]
+            continue
+        if table_lines:
+            flush_table()
+
+        if stripped.startswith(">"):
+            quote = re.sub(r"^>\s?", "", stripped)
+            if not quote:
+                continue
+            current["blocks"].append(
+                _guide_text_block(
+                    "note",
+                    quote,
+                    source_path=source_path,
+                    project_root=project_root,
+                    source_routes=source_routes,
+                    tone="note",
+                )
+            )
+            continue
+
+        image_match = re.fullmatch(r"!\[([^\]]*)\]\(([^)\s]+)(?:\s+[^)]*)?\)", stripped)
+        if image_match:
+            current["blocks"].append(
+                {
+                    "kind": "image",
+                    "image_src": _resolve_markdown_href(
+                        image_match.group(2),
+                        source_path=source_path,
+                        project_root=project_root,
+                        source_routes=source_routes,
+                    ),
+                    "image_alt": image_match.group(1),
+                }
+            )
+            continue
+        paragraph_lines.append(stripped)
+
+    if fence_mark is not None and current is not None:
+        current["blocks"].append(
+            {"kind": "code", "code": "\n".join(code_lines).rstrip("\n"), "language": code_language}
+        )
+    finish_current(force=not sections)
+    return sections or [{"id": "overview", "title": fallback_title, "blocks": [], "paragraphs": []}]
 
 
 def build_guide_facts(
@@ -882,25 +1316,177 @@ def build_guide_facts(
     return sections
 
 
-def _guide_models_from_sections(sections: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    guides: list[dict[str, Any]] = []
+def _guide_source_routes(
+    sections: Iterable[Mapping[str, Any]],
+    project_root: Path,
+    plugins: Iterable[Mapping[str, Any]] = (),
+) -> dict[str, str]:
+    """Build the source-to-route map used by Markdown inline links."""
+
+    routes: dict[str, str] = {"docs/README.md": "/"}
     for section in sections:
-        if section["route"] not in {"/plugins/", "/contexts/", "/accessors/", "/visualizations/"}:
+        section_route = str(section["route"])
+        for source in section.get("source_indexes", ()):
+            routes[str(source)] = section_route
+        for page in section.get("pages", ()):
+            source = page.get("source")
+            if source:
+                routes[str(source)] = str(page["route"])
+    for plugin in plugins:
+        provides = str(plugin.get("provides", ""))
+        route = str(plugin.get("route", ""))
+        if not provides or not route:
+            continue
+        routes[f"docs/plugins/reference/agent/{provides}.md"] = route
+        routes[f"docs/plugins/reference/builtin/auto/{provides}.md"] = route
+    return routes
+
+
+def _markdown_summary(frontmatter: Mapping[str, Any], body: str, fallback: str) -> str:
+    summary = _summary_text(frontmatter.get("summary"))
+    if summary:
+        return summary
+    for line in body.splitlines():
+        candidate = _summary_text(line)
+        if candidate and not candidate.startswith(
+            ("#", "---", "```", "- ", "* ", ">", "[", "![", "**导航**", "**Navigation**")
+        ):
+            return candidate
+    return fallback
+
+
+def _source_index_model(
+    source: str,
+    *,
+    section: Mapping[str, Any],
+    project_root: Path,
+    source_routes: Mapping[str, str],
+) -> dict[str, Any]:
+    source_path = (project_root / source).resolve()
+    frontmatter, body, headings = _markdown_facts(source_path)
+    title = _plain(frontmatter.get("title")) or next(
+        (item["title"] for item in headings if item["level"] == 1),
+        str(section["title"]),
+    )
+    parsed_sections = _markdown_sections(
+        body,
+        fallback_title=title,
+        source_path=source_path,
+        project_root=project_root,
+        source_routes=source_routes,
+    )
+    return {
+        "section_id": str(section["id"]),
+        "route": str(section["route"]),
+        "source": source,
+        "title": title,
+        "summary": _markdown_summary(frontmatter, body, title),
+        "sections": parsed_sections,
+        "source_sha256": hashlib.sha256(source_path.read_bytes()).hexdigest(),
+        "model_fingerprint": _guide_model_fingerprint(parsed_sections),
+        "block_types": _guide_block_types(parsed_sections),
+        "content_counts": _guide_content_counts(parsed_sections),
+        "provenance": "generated",
+    }
+
+
+def _directory_guide_section(
+    section: Mapping[str, Any],
+    *,
+    project_root: Path,
+    source_routes: Mapping[str, str],
+) -> dict[str, Any]:
+    items = [f"[{page['title']}]({page['route']})" for page in section.get("pages", ())]
+    blocks: list[dict[str, Any]] = [
+        _guide_text_block(
+            "paragraph",
+            "选择下列主题继续阅读。",
+            source_path=None,
+            project_root=project_root,
+            source_routes=source_routes,
+        )
+    ]
+    if items:
+        blocks.append(
+            _guide_list_block(
+                items,
+                ordered=False,
+                source_path=None,
+                project_root=project_root,
+                source_routes=source_routes,
+            )
+        )
+    return _guide_section_compat({"id": "pages", "title": "本节文档", "blocks": blocks})
+
+
+def _guide_models_from_sections(
+    sections: list[dict[str, Any]],
+    *,
+    project_root: Path,
+    source_routes: Mapping[str, str],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    guides: list[dict[str, Any]] = []
+    source_indexes: list[dict[str, Any]] = []
+    special_index_routes = {"/plugins/", "/contexts/", "/accessors/", "/visualizations/"}
+    for section in sections:
+        indexes = [
+            _source_index_model(
+                source,
+                section=section,
+                project_root=project_root,
+                source_routes=source_routes,
+            )
+            for source in section.get("source_indexes", ())
+        ]
+        source_indexes.extend(indexes)
+        if section["route"] not in special_index_routes:
+            index_sections = [item for index in indexes for item in index["sections"]]
+            if not index_sections:
+                index_sections = [
+                    _directory_guide_section(
+                        section,
+                        project_root=project_root,
+                        source_routes=source_routes,
+                    )
+                ]
+            elif section.get("pages"):
+                index_sections.append(
+                    _directory_guide_section(
+                        section,
+                        project_root=project_root,
+                        source_routes=source_routes,
+                    )
+                )
             guides.append(
                 {
                     "slug": section["route"].strip("/").replace("/", "-") or "guide",
                     "title": section["title"],
                     "section": section["title"],
-                    "summary": f"{section['title']}文档索引。",
-                    "sections": [
-                        {
-                            "id": "pages",
-                            "title": "本节文档",
-                            "paragraphs": ["选择下列主题继续阅读。"],
-                            "bullets": [page["title"] for page in section["pages"]],
-                        }
-                    ],
+                    "summary": (
+                        indexes[0]["summary"] if indexes else f"{section['title']}文档索引。"
+                    ),
+                    "sections": index_sections,
                     "route": section["route"],
+                    "source_indexes": [
+                        {
+                            key: index[key]
+                            for key in (
+                                "section_id",
+                                "route",
+                                "source",
+                                "title",
+                                "summary",
+                                "source_sha256",
+                                "model_fingerprint",
+                                "block_types",
+                                "content_counts",
+                            )
+                        }
+                        for index in indexes
+                    ],
+                    "model_fingerprint": _guide_model_fingerprint(index_sections),
+                    "block_types": _guide_block_types(index_sections),
+                    "content_counts": _guide_content_counts(index_sections),
                     "provenance": "generated",
                 }
             )
@@ -910,10 +1496,15 @@ def _guide_models_from_sections(sections: list[dict[str, Any]]) -> list[dict[str
             # collections below.
             if page["tag"] != "markdown":
                 continue
-            body = page.pop("body", "")
-            page.pop("headings", None)
-            page.pop("nav_weight", None)
-            guide_sections = _markdown_sections(body, fallback_title=page["title"])
+            source = str(page["source"])
+            source_path = (project_root / source).resolve()
+            guide_sections = _markdown_sections(
+                page.get("body", ""),
+                fallback_title=page["title"],
+                source_path=source_path,
+                project_root=project_root,
+                source_routes=source_routes,
+            )
             guides.append(
                 {
                     "slug": page["route"].strip("/").replace("/", "-") or "guide",
@@ -922,10 +1513,15 @@ def _guide_models_from_sections(sections: list[dict[str, Any]]) -> list[dict[str
                     "summary": page["summary"] or page["title"],
                     "sections": guide_sections,
                     "route": page["route"],
+                    "source": source,
+                    "source_sha256": page.get("source_sha256"),
+                    "model_fingerprint": _guide_model_fingerprint(guide_sections),
+                    "block_types": _guide_block_types(guide_sections),
+                    "content_counts": _guide_content_counts(guide_sections),
                     "provenance": "generated",
                 }
             )
-    return guides
+    return guides, source_indexes
 
 
 _LINEAGE_KIND_BY_PLUGIN_SET = {
@@ -1237,7 +1833,12 @@ def build_site_model(
             ],
         },
     ]
-    guides = _guide_models_from_sections(guide_sections)
+    source_routes = _guide_source_routes(guide_sections, root, plugins)
+    guides, source_indexes = _guide_models_from_sections(
+        guide_sections,
+        project_root=root,
+        source_routes=source_routes,
+    )
     for section in guide_sections:
         if not any(item["href"] == section["route"] for item in navigation[1]["items"]):
             navigation[1]["items"].append(
@@ -1297,6 +1898,7 @@ def build_site_model(
         "accessors": accessors,
         "visualizations": visualization_pages,
         "guides": guides,
+        "source_indexes": source_indexes,
         "lineage": build_lineage_facts(generator),
     }
     validate_site_model(model)
@@ -1318,6 +1920,7 @@ def validate_site_model(model: Mapping[str, Any]) -> None:
         "accessors",
         "visualizations",
         "guides",
+        "source_indexes",
         "lineage",
         "project",
         "modelVersion",

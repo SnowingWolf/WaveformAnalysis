@@ -8,7 +8,12 @@ import shutil
 import tempfile
 import uuid
 
-from waveform_analysis.documentation.site_web import NextSiteBuilder, write_prebuilt_manifest
+from waveform_analysis.documentation.site_model import load_site_model
+from waveform_analysis.documentation.site_web import (
+    NextSiteBuilder,
+    validate_static_export,
+    write_prebuilt_manifest,
+)
 
 _TEXT_SUFFIXES = {".css", ".html", ".js", ".json", ".svg", ".txt"}
 
@@ -82,8 +87,10 @@ def main() -> int:
         prefix=".site-dist-build-", dir=destination.parent
     ) as temporary:
         staging = Path(temporary) / "site_dist"
-        NextSiteBuilder(project_root=project_root).generate(staging)
+        results = NextSiteBuilder(project_root=project_root).generate(staging)
         _strip_trailing_whitespace(staging)
+        model = load_site_model(Path(results["SITE_MODEL"]))
+        validate_static_export(staging, model=model, require_model=True)
         write_prebuilt_manifest(staging)
 
         backup = destination.with_name(f".{destination.name}.backup-{uuid.uuid4().hex}")

@@ -12,9 +12,8 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: process.cwd(),
   },
-  // `npm run check` is the blocking TypeScript gate.  Keeping it separate
-  // avoids Next's build worker re-running (and mutating) the checked config.
-  typescript: { ignoreBuildErrors: true },
+  // Keep Next's own type gate enabled in addition to the explicit `npm run check` gate.
+  typescript: { ignoreBuildErrors: false },
 };
 
 export default nextConfig;

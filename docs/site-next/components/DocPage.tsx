@@ -1,6 +1,6 @@
 import { StaticLink as Link } from "./StaticLink";
 import type { ReactNode } from "react";
-import type { AccessorModel, ContextModel, PluginModel, ReferenceContentBlock, ReferenceSection, SiteModel, VisualizationModel } from "@/lib/site-model";
+import type { AccessorModel, ContextModel, GuideSection, InlineContent, PluginModel, ReferenceContentBlock, ReferenceSection, SiteModel, VisualizationModel } from "@/lib/site-model";
 import { siteShellModel } from "@/lib/search";
 import { CopyButton } from "./CopyButton";
 import { Icon } from "./icons";
@@ -22,6 +22,17 @@ export function InlineText({ text }: { text: string }) {
   return <>{text.split(/(`[^`]+`)/g).filter(Boolean).map((part, index) => part.startsWith("`") && part.endsWith("`") ? <code className="inline-code" key={`${part}:${index}`}>{part.slice(1, -1)}</code> : <span key={`${part}:${index}`}>{part}</span>)}</>;
 }
 
+function InlineContentView({ content, fallback }: { content?: InlineContent[]; fallback: string }) {
+  if (!content?.length) return <InlineText text={fallback} />;
+  return <>{content.map((part, index) => {
+    const key = `${part.kind}:${part.text}:${index}`;
+    if (part.kind === "code") return <code className="inline-code" key={key}>{part.text}</code>;
+    if (part.kind === "link" && part.href) return <Link href={part.href} key={key}><InlineText text={part.text} /></Link>;
+    if (part.kind === "image" && part.href) return <Link href={part.href} key={key}><InlineText text={part.text} /></Link>;
+    return <span key={key}>{part.text}</span>;
+  })}</>;
+}
+
 export function DataTable({ headers, rows, caption }: { headers: string[]; rows: string[][]; caption?: string }) {
   return <div className="data-table-wrap"><table className="data-table"><caption className="sr-only">{caption ?? "数据表"}</caption><thead><tr>{headers.map((header) => <th key={header} scope="col">{header}</th>)}</tr></thead><tbody>{rows.map((row, index) => <tr key={`${row[0] ?? "row"}:${index}`}>{headers.map((_, cellIndex) => <td key={`${cellIndex}:${row[cellIndex] ?? ""}`}><InlineText text={row[cellIndex] ?? "—"} /></td>)}</tr>)}</tbody></table></div>;
 }
@@ -31,15 +42,19 @@ function PageIntro({ title, subtitle, chips, relation }: { title: string; subtit
 }
 
 function ContentBlockView({ block }: { block: ReferenceContentBlock }) {
-  if (block.kind === "paragraph") return <p><InlineText text={block.text ?? ""} /></p>;
-  if (block.kind === "heading") return block.heading_level === 4 ? <h4><InlineText text={block.text ?? ""} /></h4> : <h3><InlineText text={block.text ?? ""} /></h3>;
+  if (block.kind === "paragraph") return <p><InlineContentView content={block.inlines} fallback={block.text ?? ""} /></p>;
+  if (block.kind === "heading") {
+    const level = block.heading_level ?? 3;
+    const Heading = level === 2 ? "h3" : level === 4 ? "h4" : level === 5 ? "h5" : level === 6 ? "h6" : "h3";
+    return <Heading><InlineContentView content={block.inlines} fallback={block.text ?? ""} /></Heading>;
+  }
   if (block.kind === "list") {
     const List = block.ordered ? "ol" : "ul";
-    return <List className="reference-list">{(block.items ?? []).map((item, index) => <li key={`${item}:${index}`}><InlineText text={item} /></li>)}</List>;
+    return <List className="reference-list">{(block.items ?? []).map((item, index) => <li key={`${item}:${index}`}><InlineContentView content={block.item_inlines?.[index]} fallback={item} /></li>)}</List>;
   }
-  if (block.kind === "note") return <aside className={`reference-note reference-note--${block.tone ?? "note"}`}>{block.title && <strong>{block.title}</strong>}<p><InlineText text={block.text ?? ""} /></p></aside>;
+  if (block.kind === "note") return <aside className={`reference-note reference-note--${block.tone ?? "note"}`}>{block.title && <strong>{block.title}</strong>}<p><InlineContentView content={block.inlines} fallback={block.text ?? ""} /></p></aside>;
   if (block.kind === "code") return <CodeBlock code={block.code ?? ""} language={block.language || "text"} />;
-  if (block.kind === "table") return <DataTable headers={block.table_headers ?? []} rows={block.table_rows ?? []} />;
+  if (block.kind === "table") return <div className="data-table-wrap"><table className="data-table"><caption className="sr-only">数据表</caption><thead><tr>{(block.table_headers ?? []).map((header, index) => <th key={`${header}:${index}`} scope="col"><InlineContentView content={block.table_inlines?.[0]?.[index]} fallback={header} /></th>)}</tr></thead><tbody>{(block.table_rows ?? []).map((row, rowIndex) => <tr key={`row:${rowIndex}`}>{(block.table_headers ?? []).map((_, cellIndex) => <td key={`${rowIndex}:${cellIndex}`}><InlineContentView content={block.table_inlines?.[rowIndex + 1]?.[cellIndex]} fallback={row[cellIndex] ?? "—"} /></td>)}</tr>)}</tbody></table></div>;
   if (block.kind === "mermaid") return <figure className="mermaid-source"><figcaption>流程图定义</figcaption><CodeBlock code={block.mermaid ?? ""} language="mermaid" /></figure>;
   if (block.kind === "image") return <figure className="reference-image"><img src={`/content-assets/${block.image_src ?? ""}`} alt={block.image_alt ?? ""} />{block.image_caption && <figcaption>{block.image_caption}</figcaption>}</figure>;
   if (block.kind === "mathml") return <CodeBlock code={block.mathml ?? ""} language="mathml" />;
@@ -48,6 +63,10 @@ function ContentBlockView({ block }: { block: ReferenceContentBlock }) {
 
 export function ReferenceSections({ sections }: { sections: ReferenceSection[] }) {
   return <>{sections.map((section) => <section id={section.id} className="doc-section reference-section" key={section.id}><SectionHeading>{section.title}</SectionHeading><div className="reference-blocks">{section.blocks.map((block, index) => <ContentBlockView block={block} key={`${section.id}:${block.kind}:${index}`} />)}</div></section>)}</>;
+}
+
+export function GuideSections({ sections }: { sections: GuideSection[] }) {
+  return <>{sections.map((section) => <section id={section.id} className="doc-section reference-section" key={section.id}><SectionHeading id={section.id}>{section.title}</SectionHeading><div className="reference-blocks">{section.blocks.map((block, index) => index === 0 && block.kind === "heading" && block.text === section.title ? null : <ContentBlockView block={block} key={`${section.id}:${block.kind}:${index}`} />)}</div></section>)}</>;
 }
 
 type CallablePage = ContextModel | AccessorModel;

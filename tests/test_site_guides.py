@@ -111,6 +111,27 @@ sections:
         load_guide_manifest(path)
 
 
+def test_manifest_rejects_duplicate_canonical_routes(tmp_path):
+    _write(tmp_path / "docs" / "one.md", "# One\n")
+    _write(tmp_path / "docs" / "two.md", "# Two\n")
+    path = _manifest(
+        tmp_path,
+        """schema_version: 2
+sections:
+  - id: guides
+    title: Guides
+    index_route: /guides/
+    pages:
+      - source: docs/one.md
+        route: /guides/one/
+      - source: docs/two.md
+        route: /guides/one/
+""",
+    )
+    with pytest.raises(ValueError, match="Duplicate guide route"):
+        load_guide_manifest(path)
+
+
 def test_schema_v2_scans_source_dirs_and_frontmatter(tmp_path):
     _write(
         tmp_path / "docs" / "features" / "a.md",
