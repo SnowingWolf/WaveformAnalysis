@@ -50,6 +50,14 @@ active_plans:
   condition: AllBlockingGatesPass
   task_file: docs/agents/runs/current/waveform-doc-lineage-density-20260901/task.yaml
   legacy_plan: docs/agents/runs/current/waveform-doc-lineage-density-20260901/legacy-plan.md
+- task_id: waveform-doc-strict-optimization-20260902
+  state: executing
+  route: modify_code
+  workflow_cost: strict
+  workflow_shape: staged
+  condition: —
+  task_file: docs/agents/runs/current/waveform-doc-strict-optimization-20260902/task.yaml
+  legacy_plan: docs/agents/runs/current/waveform-doc-strict-optimization-20260902/legacy-plan.md
 - task_id: waveform-doc-system-opt-20260831
   state: completed
   route: retire_compat

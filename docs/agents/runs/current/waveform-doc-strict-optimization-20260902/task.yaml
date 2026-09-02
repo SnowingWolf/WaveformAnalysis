@@ -1,0 +1,265 @@
+api_version: waveform-analysis/agent-task/v1
+kind: AgentTask
+metadata:
+  id: waveform-doc-strict-optimization-20260902
+  generation: 1
+  created_at: '2026-09-02T03:06:01Z'
+  updated_at: '2026-09-02T04:28:06Z'
+spec:
+  goal: 在不牺牲完整文档内容和静态直达路由的前提下，严格优化 Next.js 文档站的搜索/RSC 负载、Markdown 指南保真、桌面交互、Lineage
+    定位与构建可复现性。
+  route: modify_code
+  workflow_cost: strict
+  workflow_shape: staged
+  risk_level: high
+  scope:
+    base_sha: e5944fa30eae19240c491eaeaaec5415f420c45e
+    allowed_paths:
+    - docs/site-next
+    - docs/site-guides.yaml
+    - docs/site-content-baseline.json
+    - docs/cli/WAVEFORM_DOCS.md
+    - docs/agents/plans/INDEX.md
+    - docs/agents/plans/active.yaml
+    - docs/agents/runs/current/waveform-doc-strict-optimization-20260902/task.yaml
+    - waveform_analysis/documentation/site_model.py
+    - waveform_analysis/documentation/site_web.py
+    - waveform_analysis/documentation/schemas/SiteModel.schema.json
+    - waveform_analysis/documentation/site_dist
+    - scripts/build_docs_site_dist.py
+    - tests/test_site_model.py
+    - tests/test_site_guides.py
+    - tests/test_cli_docs_site_publish.py
+  acceptance_criteria:
+  - 33 个公开 Markdown 指南及全部 rich reference 页面保留有序段落、链接、列表、多代码块、表格与 source index 可点击入口，并有独立源指纹覆盖门禁。
+  - 完整搜索索引不再进入每页 Client Shell；搜索首次打开时加载 canonical 静态索引，支持章节锚点、上下键、Enter、Escape、焦点约束和错误回退。
+  - 在桌面导航矩阵通过后过滤不需要的 RSC .txt；静态站总大小不高于 80 MiB，且直达、点击、前进后退、硬刷新、搜索与 404 均正常。
+  - Lineage 正确消费 focus 参数、静态模式不请求不存在的 API、无效控件被实现或移除；页面标题与插件版本准确。
+  - Next 类型检查、单测、两次确定性导出、Python/文档/影响/schema gate、桌面 Firefox QA 与最小窄屏不崩坏检查全部通过。
+  required_gates:
+  - scope_check
+  - content_model_tests
+  - guide_content_baseline
+  - search_index_lazy_loading
+  - rsc_filter_compatibility
+  - static_size_budget
+  - next_typecheck
+  - next_unit_tests
+  - next_static_export
+  - deterministic_build
+  - desktop_browser_review
+  - minimal_narrow_view_smoke
+  - accessibility_review
+  - metadata_review
+  - assess_change_impact
+  - schema_compat_check
+  - doc_sync
+  - doc_anchors
+  - handoff_check
+  assignment:
+    planner_role: planner
+    executor_role: executor.code
+    reviewer_role: reviewer
+    controller: /root
+    planner: /root/docs_content_audit
+    executors:
+    - /root/docs_next_legacy_cleanup
+    - /root/docs_next_frontend
+    - /root
+    reviewer: /root/docs_ux_a11y_audit
+    execution_sequence:
+    - 冻结 33 个公开 Markdown guide、rich reference、source index、路由、RSC 文件集与发布大小基线。
+    - 先扩展 guide 有序内容 block、inline link 与独立 source/model fingerprint baseline，再修改 Next
+      渲染。
+    - 将 canonical 搜索索引移出 Client Shell，首次打开时按 fingerprint 懒加载，并补齐键盘与错误回退。
+    - 修复桌面 Lineage focus、静态 API 请求、无效控件、metadata 与插件版本。
+    - 仅在完整桌面导航矩阵通过后过滤已知 Next RSC .txt，并执行 80 MiB 与双构建确定性门禁。
+    - Executor 写入执行证据后由独立 Reviewer 重跑阻断 gate；失败进入 rework_required。
+  scope_in:
+  - 保留现有 rich reference baseline，并为 33 个公开 Markdown guide 和 source index 增加独立源 SHA-256、模型
+    fingerprint、block/link/code/table 计数和路由覆盖门禁。
+  - Guide 模型与 Next renderer 保留 paragraph、heading、ordered/unordered list、多个 code block、table、link
+    及现有 note/image 内容的原始顺序。
+  - source index 正文进入公开 index 页面，目录链接必须可点击且指向 canonical route。
+  - search-index.v1.json 由 site-model/v1 派生；Client Shell 仅携带导航、版本和带 fingerprint 的索引
+    URL。
+  - 搜索实现 loading、empty、error/retry、导航 fallback、ArrowUp/ArrowDown、Enter、Escape、focus
+    trap 与 focus restore。
+  - Lineage 在静态导出中不请求 /api/lineage，正确消费合法/非法 focus，并实现或移除无行为的桌面控件。
+  - 发布只过滤明确识别的 Next RSC .txt，保留普通文本资产；manifest 在过滤后生成。
+  - 最终发布目录全部普通文件总字节数不超过 83886080，并以有序 relative_path,size,sha256 清单证明两次独立导出一致。
+  - 浏览器主验证固定为 Firefox 1440x1100；390x844 仅做首页、guide、plugin、Lineage 不崩坏 smoke。
+  scope_out:
+  - 33 个 Markdown 真源正文改写、canonical route 迁移和 legacy 路由恢复。
+  - 插件运行时行为、dtype、缓存 lineage、公开 Python API 与算法版本。
+  - 移动端信息架构、表格卡片化、抽屉体验或完整响应式重设计。
+  - 恢复 Jinja、Mistune、Pygments 或旧 site-react 双轨生成链。
+  - 提高 80 MiB 预算、忽略 TypeScript 错误或以删减正文换取体积。
+  blocking_assumptions:
+  - 当前 33 个公开 Markdown source、catalog rich facts 与 canonical routes 是内容真源；baseline
+    更新必须由源字节与生成模型共同证明。
+  - 当前站点内部导航使用原生 anchor；若浏览器矩阵发现任何被过滤 RSC 请求，立即停止过滤并保留完整导出。
+  - Browser plugin 当前不可用，浏览器 gate 使用 Playwright Firefox fallback，并明确记录该工具边界。
+  - systemd 只读取原子发布后的 tracked site_dist；任何 gate 失败都保留上一份完整发布产物。
+  execution_plan:
+    stage_s0_contract_freeze:
+    - 记录 base SHA、工作区、33 guide、rich reference、source index、路由矩阵、RSC 文件与发布字节基线。
+    stage_s1_content_model:
+    - 扩展有序 guide block 与 inline link 契约，恢复 source index 正文。
+    - 使用独立实现校验 raw Markdown SHA-256、规范化 block fingerprint 和结构计数。
+    stage_s2_next_frontend:
+    - 拆分 search-index.v1.json 与轻量 SiteShellModel，加入懒加载缓存、重试、键盘和焦点行为。
+    - 修复 Lineage focus/static mode、metadata、真实插件版本和桌面无效控件。
+    stage_s3_publish:
+    - 在发布适配层过滤已知 RSC .txt，过滤后生成 manifest，执行路由、大小与两次导出 hash 门禁。
+    stage_s4_review:
+    - 独立 Reviewer 从 base SHA 复核 scope、内容指纹、所有路由、浏览器矩阵、确定性与全部 required gates。
+status:
+  state: completed
+  transitions:
+  - from: created
+    to: planning
+    at: '2026-09-02T03:06:01Z'
+    actor: /root
+    condition: task_initialized
+  - from: planning
+    to: ready_for_execution
+    at: '2026-09-02T03:13:14Z'
+    actor: /root/docs_content_audit
+    condition: plan_brief_ready
+  - from: ready_for_execution
+    to: executing
+    at: '2026-09-02T03:13:14Z'
+    actor: /root
+    condition: executors_assigned
+  - from: executing
+    to: reviewing
+    at: '2026-09-02T04:07:33Z'
+    actor: /root
+    condition: execution_report_ready
+  - from: reviewing
+    to: rework_required
+    at: '2026-09-02T04:15:53Z'
+    actor: /root/docs_ux_a11y_audit
+    condition: blocking_findings
+  - from: rework_required
+    to: executing
+    at: '2026-09-02T04:15:58Z'
+    actor: /root
+    condition: fix_rsc_filter_and_collect_independent_firefox_evidence
+  - from: executing
+    to: reviewing
+    at: '2026-09-02T04:19:39Z'
+    actor: /root
+    condition: rsc_rework_complete_and_execution_report_ready
+  - from: reviewing
+    to: completed
+    at: '2026-09-02T04:28:06Z'
+    actor: reviewer
+    condition: all_blocking_gates_pass
+  plan_sha256: b0b1d16c3732642c0846dbeb9e8d53b63e647fc113c5410a6598f09b20899123
+  execution:
+    actor: /root
+    plan_sha256: b0b1d16c3732642c0846dbeb9e8d53b63e647fc113c5410a6598f09b20899123
+    summary: 'Completed rework: bare index.txt is preserved unless it has an unambiguous
+      sibling __next.*.txt payload; added nested ordinary index.txt retention tests
+      and regenerated the tracked site.'
+    changed_paths:
+    - docs/site-next
+    - docs/site-content-baseline.json
+    - waveform_analysis/documentation/site_model.py
+    - waveform_analysis/documentation/site_web.py
+    - waveform_analysis/documentation/schemas/SiteModel.schema.json
+    - scripts/build_docs_site_dist.py
+    - tests/test_site_model.py
+    - tests/test_site_guides.py
+    - tests/test_cli_docs_site_publish.py
+    - waveform_analysis/documentation/site_dist
+    verification:
+      scope_check: 'PASS: 595 changed paths, 0 outside allowlist'
+      content_model_tests: 'PASS: 42 passed'
+      rsc_filter_compatibility: 'PASS: bare/nested ordinary index.txt retained unless
+        same directory has __next.*.txt companion'
+      next_typecheck: PASS
+      next_unit_tests: 'PASS: 15 tests'
+      next_static_export: 'PASS: 92 generated static pages; 89 model routes'
+      deterministic_build: 'PASS: current and independent temp exports identical;
+        180 manifest files; fingerprint b3f12c10b493d539127b42e18fc78caca132e71330bd318c56d8d83978a44d34'
+      static_size_budget: 'PASS: 181 files, 13,534,353 bytes (12.91 MiB), 0 txt files'
+      desktop_browser_review: 'PASS: final build Playwright Firefox 1440x1100; console=0
+        failed=0 txt=0'
+      minimal_narrow_view_smoke: 'PASS: final build 390x844 home, guide, plugin, lineage;
+        no body overflow'
+      accessibility_review: 'PASS in frozen scope: search keyboard/focus/fallback
+        and lineage keyboard selection'
+      metadata_review: 'PASS: 89 titles/descriptions and 36 plugin versions'
+      assess_change_impact: PASS
+      schema_compat_check: PASS
+      doc_sync: PASS
+      doc_anchors: PASS
+      formatting: 'PASS: Ruff and git diff --check'
+    browser_tool_boundary: Browser plugin unavailable; Playwright Firefox fallback
+      used as frozen.
+    open_risks:
+    - Mobile drawer modal focus management is explicitly outside the frozen mobile
+      scope.
+    - Long-page TOC scroll tracking remains a future enhancement.
+  review:
+    reviewer_actor: /root/docs_ux_a11y_audit
+    decision: approved
+    plan_sha256: b0b1d16c3732642c0846dbeb9e8d53b63e647fc113c5410a6598f09b20899123
+    gate_results:
+      scope_check: PASS
+      content_model_tests: PASS
+      guide_content_baseline: PASS
+      search_index_lazy_loading: PASS
+      rsc_filter_compatibility: PASS
+      static_size_budget: PASS
+      next_typecheck: PASS
+      next_unit_tests: PASS
+      next_static_export: PASS
+      deterministic_build: PASS
+      desktop_browser_review: PASS
+      minimal_narrow_view_smoke: PASS
+      accessibility_review: PASS
+      metadata_review: PASS
+      assess_change_impact: PASS
+      schema_compat_check: PASS
+      doc_sync: PASS
+      doc_anchors: PASS
+      handoff_check: PASS
+    evidence:
+      tests: 42 Python tests and 15 Next tests
+      browser: Firefox 1440x1100 and 390x844; console=0 failed=0 txt=0
+      export: 92 pages; 89 model routes; 13,534,353 bytes
+      deterministic: fingerprint b3f12c10b493d539127b42e18fc78caca132e71330bd318c56d8d83978a44d34
+      content: 33 guides and 11 source indexes independently fingerprinted
+    blocking_findings: []
+    residual_risks:
+    - Mobile drawer full modal focus management is outside frozen scope.
+    - Long-page TOC scroll synchronization remains a follow-up.
+    - Browser plugin was unavailable; independent review used Playwright Firefox fallback.
+    screenshots:
+    - /tmp/waveform-docs-final-home.png
+    - /tmp/waveform-docs-final-lineage.png
+    - /tmp/waveform-docs-final-mobile.png
+  approval: {}
+  handoff:
+    implementation_commit: 7a9514f90de6da3a541ff429112e3f754a379ac3
+    commit_status: committed
+    preview_url: http://10.18.154.11:8767/
+    service: waveform-docs.service active
+    artifact_hashes:
+      manifest: b3f12c10b493d539127b42e18fc78caca132e71330bd318c56d8d83978a44d34
+    artifact_metrics:
+      baseline_bytes: 297190061
+      published_bytes: 13534353
+      baseline_txt_files: 450
+      published_txt_files: 0
+    verification:
+      required_gates: 19 of 19 PASS
+      reviewer: /root/docs_ux_a11y_audit approved
+      git_status_checked: true
+      git_diff_stat_checked: true
+      scoped_large_file_hook: check-added-large-files skipped only for user-approved
+        tracked reproducible site assets; all other pre-commit hooks passed
