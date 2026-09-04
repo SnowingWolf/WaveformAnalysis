@@ -82,3 +82,11 @@ active_plans:
   condition: PlanBriefReadyWithUserConfirmation
   task_file: docs/agents/runs/current/waveform-doc-system-opt-20260831/task.yaml
   legacy_plan: docs/agents/runs/current/waveform-doc-system-opt-20260831/legacy-plan.md
+- task_id: waveform-version-sync-20260902
+  state: blocked
+  route: release_artifact_sync
+  workflow_cost: strict
+  workflow_shape: staged
+  condition: FirefoxHeadlessEnvironmentBlocked
+  task_file: docs/agents/runs/current/waveform-version-sync-20260902/task.yaml
+  legacy_plan: docs/agents/runs/current/waveform-version-sync-20260902/legacy-plan.md

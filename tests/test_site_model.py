@@ -18,11 +18,36 @@ from waveform_analysis.documentation.site_model import (
     SITE_MODEL_SCHEMA_PATH,
     SITE_MODEL_VERSION,
     SiteModelError,
+    _package_version,
     build_lineage_facts,
     build_site_model,
     canonical_route,
     validate_site_model,
 )
+
+
+def test_site_model_package_version_prefers_tracked_pyproject(tmp_path, monkeypatch):
+    (tmp_path / "pyproject.toml").write_text(
+        '[project]\nname = "waveform-analysis"\nversion = "9.8.7"\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr("importlib.metadata.version", lambda _: "1.4.0")
+
+    assert _package_version(tmp_path) == "9.8.7"
+
+
+@pytest.mark.parametrize(
+    "pyproject_text",
+    [None, '[project]\nname = "waveform-analysis"\n', "not valid toml"],
+)
+def test_site_model_package_version_falls_back_to_distribution_metadata(
+    tmp_path, monkeypatch, pyproject_text
+):
+    if pyproject_text is not None:
+        (tmp_path / "pyproject.toml").write_text(pyproject_text, encoding="utf-8")
+    monkeypatch.setattr("importlib.metadata.version", lambda _: "7.6.5")
+
+    assert _package_version(tmp_path) == "7.6.5"
 
 
 def _assert_callable_page_is_complete(page, spec):

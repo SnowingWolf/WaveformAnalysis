@@ -18,6 +18,7 @@ links and readers; edit the task record and rerun
 | `waveform-doc-sidebar-expand-20260902` | `completed` | `modify_code` | `standard` | `staged` | `—` | `docs/agents/runs/current/waveform-doc-sidebar-expand-20260902/task.yaml` |
 | `waveform-doc-strict-optimization-20260902` | `completed` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/waveform-doc-strict-optimization-20260902/task.yaml` |
 | `waveform-doc-system-opt-20260831` | `completed` | `retire_compat` | `strict` | `staged` | `PlanBriefReadyWithUserConfirmation` | `docs/agents/runs/current/waveform-doc-system-opt-20260831/task.yaml` |
+| `waveform-version-sync-20260902` | `blocked` | `release_artifact_sync` | `strict` | `staged` | `FirefoxHeadlessEnvironmentBlocked` | `docs/agents/runs/current/waveform-version-sync-20260902/task.yaml` |
 <!-- END GENERATED: current_task_registry -->
 
 Legacy plan text is retained as `legacy-plan.md` beside each current task. It is

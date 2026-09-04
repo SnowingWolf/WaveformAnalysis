@@ -1,0 +1,173 @@
+api_version: waveform-analysis/agent-task/v1
+kind: AgentTask
+metadata:
+  id: waveform-version-sync-20260902
+  generation: 1
+  created_at: '2026-09-02T05:51:58Z'
+  updated_at: '2026-09-04T13:50:17Z'
+spec:
+  goal: 将未发布的 1.4.0 元数据纠正为已发布的 1.5.0，并让文档站从 tracked pyproject 解析版本，避免受旧 editable install
+    元数据污染；重建和验证发布产物。
+  route: release_artifact_sync
+  workflow_cost: strict
+  workflow_shape: staged
+  risk_level: high
+  scope:
+    base_sha: 55e914ecff40bfdf6d789a09333f1bdd26bc3d1b
+    allowed_paths:
+    - pyproject.toml
+    - CHANGELOG.md
+    - waveform_analysis/documentation/site_model.py
+    - tests/test_site_model.py
+    - docs/site-next/fixture/site-model.v1.json
+    - waveform_analysis/documentation/site_dist
+    - docs/agents/plans/INDEX.md
+    - docs/agents/plans/active.yaml
+    - docs/agents/runs/current/waveform-version-sync-20260902/task.yaml
+  acceptance_criteria:
+  - pyproject、CHANGELOG 已发布版本和文档站显示版本统一为 1.5.0。
+  - 源码 checkout 构建优先读取 tracked pyproject 版本，不受旧 importlib.metadata 安装值影响；无 pyproject
+    时保留安装包 fallback。
+  - 官方静态导出、Firefox 版本显示、release artifact sync、全量测试与文档检查通过。
+  required_gates:
+  - release_artifacts_consistent
+  - version_source_test
+  - site_model_tests
+  - next_typecheck
+  - next_unit_tests
+  - next_static_export
+  - firefox_version_review
+  - doc_sync
+  - full_pytest
+  - handoff_check
+  assignment:
+    planner_role: planner
+    executor_role: executor.qa
+    reviewer_role: reviewer
+status:
+  state: blocked
+  condition: FirefoxHeadlessEnvironmentBlocked
+  transitions:
+  - from: created
+    to: planning
+    at: '2026-09-02T05:51:59Z'
+    actor: planner
+    condition: planning_started
+  - from: planning
+    to: ready_for_execution
+    at: '2026-09-02T05:56:23Z'
+    actor: planner
+    condition: plan_brief_ready
+  - from: ready_for_execution
+    to: executing
+    at: '2026-09-02T05:56:23Z'
+    actor: executor.qa
+    condition: executor_assigned
+  - from: executing
+    to: reviewing
+    at: '2026-09-04T13:50:17Z'
+    actor: executor.qa
+    condition: execution_report_ready
+  - from: reviewing
+    to: blocked
+    at: '2026-09-04T13:50:17Z'
+    actor: reviewer
+    condition: firefox_version_review_environment_blocked
+  plan_sha256: 090ab011724d471a7d1fa5b146debf2303ce85322d66566337375c2b25c5bea3
+  execution:
+    actor: executor.qa
+    summary: >-
+      将项目发行版本、文档站模型与静态发布产物统一为 1.5.0；源码态文档模型优先读取 tracked
+      pyproject.toml，并保留安装元数据 fallback。重建官方 site_dist 并完成代码、schema、文档、测试和
+      发布一致性检查。
+    changed_paths:
+    - pyproject.toml
+    - CHANGELOG.md
+    - waveform_analysis/documentation/site_model.py
+    - tests/test_site_model.py
+    - docs/site-next/fixture/site-model.v1.json
+    - waveform_analysis/documentation/site_dist
+    - docs/agents/plans/INDEX.md
+    - docs/agents/plans/active.yaml
+    - docs/agents/runs/current/waveform-version-sync-20260902/task.yaml
+    actions_taken:
+    - 将 pyproject.toml 及 CHANGELOG 的发行版本同步到 1.5.0。
+    - 修改 site_model 的源码 checkout 版本解析顺序，并增加 tracked pyproject 与 metadata fallback 测试。
+    - 使用官方 build_docs_site_dist.py 重建跟踪的静态站点，并同步 site-model.v1.json fixture。
+    - 重新生成 Agent 任务索引，保留本任务的阻断原因和验证证据。
+    commands_run:
+    - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m pytest -q tests/test_site_model.py tests/test_version_source.py
+    - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m pytest -q tests/
+    - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m ruff check waveform_analysis/documentation/site_model.py waveform_analysis/documentation/site_docs/catalog.py tests/test_site_model.py tests/test_site_guides.py tests/test_cli_docs_site_publish.py
+    - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/assess_change_impact.py --base HEAD
+    - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/schema_compat_check.py --base HEAD --run-smoke
+    - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/performance_regression_check.py --base HEAD
+    - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/release_artifact_sync.py --base HEAD --json-out /tmp/waveform-version-sync-release-final.json
+    - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/render_agent_docs.py --write
+    - scripts/check_doc_sync.sh
+    - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/check_doc_anchors.py --check-sync --base HEAD
+    - npm --prefix docs/site-next run check
+    - npm --prefix docs/site-next run test
+    - npm --prefix docs/site-next run build
+    - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/build_docs_site_dist.py
+    results:
+      version_source_test: PASS (19 passed)
+      site_model_tests: PASS (19 passed)
+      full_pytest: PASS (1411 passed, 2 skipped, 15 deselected)
+      ruff: PASS
+      assess_change_impact: PASS (no plugin contract changes)
+      schema_compat_check: PASS (2 files; dtype changes 0; smoke chain completed)
+      performance_regression: PASS on standalone rerun; one preceding run was a +10.03% df_events timing boundary fluctuation
+      release_artifact_sync: PASS (version/changelog, generated docs, doc sync/anchors, key tests, performance)
+      next_typecheck: PASS
+      next_unit_tests: PASS (3 files, 16 tests)
+      next_static_export: PASS (92 pages)
+      official_static_export: PASS
+      fixture_wheel_site_model: PASS (byte-identical; version 1.5.0)
+      firefox_version_review: BLOCKED/UNVERIFIED (本机 Firefox headless 崩溃或超时；仅有 HTTP 资源请求证据，无稳定 DOM/截图证据)
+      doc_sync: PASS (Agent docs、Doc Sync、29 个 Doc Anchor)
+    open_risks:
+    - Firefox headless 环境不稳定，需在可用浏览器环境重新确认页面实际显示 1.5.0。
+    - 性能 smoke 数据读取仍输出既有 Can't pickle local object '_parse_single' 噪声，但不影响通过的性能结果。
+    requested_review_focus:
+    - 复核版本源优先级、静态产物一致性与 task scope。
+    - 保持 Firefox 版本显示 gate 为未验证，不能以 HTTP 200 替代 DOM/截图证据。
+  review:
+    reviewer_actor: reviewer
+    decision: blocked
+    plan_sha256: 090ab011724d471a7d1fa5b146debf2303ce85322d66566337375c2b25c5bea3
+    gate_results:
+      release_artifacts_consistent: PASS
+      version_source_test: PASS
+      site_model_tests: PASS
+      next_typecheck: PASS
+      next_unit_tests: PASS
+      next_static_export: PASS
+      firefox_version_review: BLOCKED (Firefox headless environment; DOM/screenshot evidence unavailable)
+      doc_sync: PASS
+      full_pytest: PASS
+      handoff_check: PASS (post-commit worktree clean; task scope validated)
+    blocking_findings:
+    - firefox_version_review cannot be completed reliably in the current headless Firefox environment.
+    residual_risks:
+    - 静态 HTTP 资源可访问不等于浏览器运行时版本显示已验证。
+    - 性能 smoke 的 pickle stderr 为既有环境噪声；独立性能复测和最终聚合性能 gate 均通过。
+    follow_up_actions:
+    - 在稳定的 Firefox/Playwright 环境重新执行版本显示复核，并把结果写回本任务记录。
+    scope_changed: false
+    required_fixes: []
+    gates_to_rerun:
+    - firefox_version_review
+    release_consistency_review: PASS
+    completion_allowed: false
+  approval: {}
+  handoff:
+    status: committed
+    commit_policy: scoped commit despite environment-blocked browser review; no unrelated dirty files included
+    commit_status: committed
+    git_status_checked: true
+    git_diff_stat_checked: true
+    scope_check: PASS
+    cached_diff_check: PASS
+    handoff_check: PASS
+    post_commit_worktree: clean

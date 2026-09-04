@@ -135,7 +135,24 @@ def _summary_text(value: Any) -> str:
     return re.sub(r"\[\^[^\]]+\]", "", _plain(value)).strip()
 
 
-def _package_version() -> str:
+def _package_version(project_root: Path | None = None) -> str:
+    if project_root is not None:
+        pyproject_path = Path(project_root) / "pyproject.toml"
+        try:
+            pyproject_text = pyproject_path.read_text(encoding="utf-8")
+        except OSError:
+            pyproject_text = ""
+        project_section = re.search(
+            r"(?ms)^\[project\]\s*$\n(?P<body>.*?)(?=^\[|\Z)",
+            pyproject_text,
+        )
+        if project_section:
+            version_match = re.search(
+                r'(?m)^version\s*=\s*["\'](?P<version>[^"\']+)["\']\s*$',
+                project_section.group("body"),
+            )
+            if version_match:
+                return version_match.group("version")
     try:
         from importlib.metadata import version
 
@@ -1879,7 +1896,7 @@ def build_site_model(
         "modelVersion": "1.2.0",
         "project": {
             "name": "WaveformAnalysis",
-            "version": _package_version(),
+            "version": _package_version(root),
             "tagline": "可审计、离线优先的科学波形分析文档。",
         },
         "provenance": "generated",

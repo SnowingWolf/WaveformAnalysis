@@ -12,6 +12,7 @@
 
 ### Refactoring and performance
 
+- 修正源码分支的发行版本元数据为 `1.5.0`；文档站源码构建优先读取 tracked `pyproject.toml`，避免被旧 editable install 的包元数据污染。
 - 将文档、可视化、分析与采集实现从 `waveform_analysis.utils` 迁入按职责划分的规范包，同时保留旧导入路径、对象身份和 monkeypatch 兼容性。
 - `PositionReconstructionPlugin` 改为批量消费 `peaklet_channels`，避免逐事件构造 Accessor，并升级到 `0.4.0` 以正确失效缓存 lineage。
 - 新增 `waveform_analysis.plugins` 公共 facade，并将 `Context`、插件类、profile 与 plugin set 的用户导入统一到公开入口；旧的 `core`/`utils` 导入路径继续保留兼容性。
