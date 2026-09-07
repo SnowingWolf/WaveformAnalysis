@@ -183,12 +183,27 @@
         "mathml": { "type": "integer", "minimum": 0 }, "mermaid": { "type": "integer", "minimum": 0 }
       }
     },
+    "guide-list": {
+      "type": "object", "additionalProperties": false, "required": ["ordered", "entries"],
+      "properties": {
+        "ordered": { "type": "boolean" }, "start": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+        "entries": { "type": "array", "items": {
+          "type": "object", "additionalProperties": false, "required": ["text"],
+          "properties": {
+            "text": { "type": "string", "minLength": 1 },
+            "inlines": { "type": "array", "items": { "$ref": "#/$defs/inline-content" } },
+            "children": { "type": "array", "items": { "$ref": "#/$defs/guide-list" } }
+          }
+        } }
+      }
+    },
     "content-block": {
       "type": "object", "additionalProperties": false, "required": ["kind"],
       "properties": {
         "kind": { "enum": ["paragraph", "heading", "list", "note", "code", "image", "mathml", "mermaid", "table"] },
         "text": { "type": "string" }, "items": { "type": "array", "items": { "type": "string" } }, "ordered": { "type": "boolean" },
         "inlines": { "type": "array", "items": { "$ref": "#/$defs/inline-content" } },
+        "list_tree": { "$ref": "#/$defs/guide-list" },
         "item_inlines": { "type": "array", "items": { "type": "array", "items": { "$ref": "#/$defs/inline-content" } } },
         "table_inlines": { "type": "array", "items": { "type": "array", "items": { "type": "array", "items": { "$ref": "#/$defs/inline-content" } } } },
         "heading_level": { "type": "integer", "enum": [2, 3, 4, 5, 6] }, "title": { "type": "string" }, "tone": { "type": "string" },

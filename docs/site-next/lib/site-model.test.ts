@@ -81,3 +81,14 @@ describe("site-model/v1", () => {
     expect(() => parseSiteModel(invalid)).toThrow(/output to input/);
   });
 });
+
+it("preserves recursive list trees and rejects invalid nested starts", () => {
+  const raw = structuredClone(rawModel) as unknown as { guides: { sections: { blocks: Record<string, unknown>[] }[] }[] };
+  const tree = { ordered: true, start: 3, entries: [
+    { text: "parent", children: [{ ordered: false, entries: [{ text: "child" }] }] },
+  ] };
+  raw.guides[0].sections[0].blocks = [{ kind: "list", list_tree: tree }];
+  expect(parseSiteModel(raw).guides[0].sections[0].blocks[0].list_tree).toEqual(tree);
+  Object.assign(tree.entries[0].children[0], { start: -1 });
+  expect(() => parseSiteModel(raw)).toThrow(/children\[0\].start/);
+});

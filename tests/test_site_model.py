@@ -383,3 +383,49 @@ def test_dynamic_lineage_uses_context_metadata_only():
 
     with pytest.raises(SiteModelError, match="registered plugins"):
         build_lineage_facts(context=FakeContext())
+
+
+def test_plugin_guide_best_practices_keep_four_parent_items():
+    from waveform_analysis.documentation.site_model import _markdown_sections
+
+    source = Path(__file__).parents[1] / "docs/development/plugin-development/plugin_guide.md"
+    sections = _markdown_sections(source.read_text(), fallback_title="Plugin guide")
+    section = next(section for section in sections if section["title"] == "最佳实践")
+    lists = [block for block in section["blocks"] if block["kind"] == "list"]
+    assert len(lists) == 1
+    tree = lists[0]["list_tree"]
+    assert tree["ordered"] and tree["start"] == 1
+    assert [entry["text"] for entry in tree["entries"]] == [
+        "**命名规范**",
+        "**性能优化**",
+        "**配置管理**",
+        "**测试**",
+    ]
+    assert all(len(entry["children"][0]["entries"]) == 3 for entry in tree["entries"])
+    assert len(lists[0]["items"]) == len(lists[0]["item_inlines"]) == 16
+
+
+def test_markdown_nested_lists_keep_starts_links_continuations_and_boundaries():
+    from waveform_analysis.documentation.site_model import _markdown_sections
+
+    sections = _markdown_sections(
+        "## Lists\n\n3. parent\n   continued\n   - [child](https://example.com)\n"
+        "     7. grandchild\n        continued\n   parent continuation\n\n"
+        "4. sibling\n\nParagraph boundary\n\n0. zero\n- separate list\n\n## Next\nText\n",
+        fallback_title="test",
+    )
+    blocks = sections[0]["blocks"]
+    first = blocks[1]
+    tree = first["list_tree"]
+    assert tree["start"] == 3
+    assert len(tree["entries"]) == 2
+    parent = tree["entries"][0]
+    assert parent["text"] == "parent continued parent continuation"
+    child = parent["children"][0]["entries"][0]
+    assert child["inlines"][0]["href"] == "https://example.com"
+    assert child["children"][0]["start"] == 7
+    assert child["children"][0]["entries"][0]["text"] == "grandchild continued"
+    assert blocks[2]["text"] == "Paragraph boundary"
+    assert blocks[3]["list_tree"]["start"] == 0
+    assert blocks[4]["list_tree"]["ordered"] is False
+    assert sections[1]["title"] == "Next"

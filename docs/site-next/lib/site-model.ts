@@ -34,12 +34,19 @@ export type InlineContent = {
   href?: string;
 };
 
+export type GuideListNode = {
+  ordered: boolean;
+  start?: number;
+  entries: { text: string; inlines?: InlineContent[]; children?: GuideListNode[] }[];
+};
+
 export type ReferenceContentBlock = {
   kind: "paragraph" | "heading" | "list" | "note" | "code" | "image" | "mathml" | "mermaid" | "table";
   text?: string;
   inlines?: InlineContent[];
   items?: string[];
   item_inlines?: InlineContent[][];
+  list_tree?: GuideListNode;
   ordered?: boolean;
   heading_level?: 2 | 3 | 4 | 5 | 6;
   title?: string;
@@ -468,6 +475,28 @@ function optionalSha256(record: Record<string, unknown>, key: string, path: stri
   return value;
 }
 
+function validateGuideList(value: unknown, path: string): GuideListNode {
+  if (!isRecord(value)) throw new SiteModelValidationError(`${path} must be an object`);
+  if (typeof value.ordered !== "boolean") throw new SiteModelValidationError(`${path}.ordered must be a boolean`);
+  const start = value.start;
+  if (start !== undefined && (typeof start !== "number" || !Number.isSafeInteger(start) || start < 0)) {
+    throw new SiteModelValidationError(`${path}.start must be a non-negative safe integer`);
+  }
+  return {
+    ordered: value.ordered,
+    start: start as number | undefined,
+    entries: validateCollection(value.entries, `${path}.entries`, (entry, index) => {
+      const entryPath = `${path}.entries[${index}]`;
+      if (!isRecord(entry)) throw new SiteModelValidationError(`${entryPath} must be an object`);
+      return {
+        text: requiredString(entry, "text", entryPath),
+        inlines: entry.inlines === undefined ? undefined : validateInlineContent(entry.inlines, `${entryPath}.inlines`),
+        children: entry.children === undefined ? undefined : validateCollection(entry.children, `${entryPath}.children`, (child, childIndex) => validateGuideList(child, `${entryPath}.children[${childIndex}]`)),
+      };
+    }),
+  };
+}
+
 function validateReferenceSections(value: unknown, path: string): ReferenceSection[] {
   return validateCollection(value, path, (section, sectionIndex) => {
     if (!isRecord(section)) throw new SiteModelValidationError(`${path}[${sectionIndex}] must be an object`);
@@ -490,6 +519,7 @@ function validateReferenceSections(value: unknown, path: string): ReferenceSecti
         items: optionalStringArrayValue(block, "items", blockPath),
         item_inlines: block.item_inlines === undefined ? undefined : validateInlineRows(block.item_inlines, `${blockPath}.item_inlines`),
         ordered: optionalBoolean(block, "ordered", blockPath),
+        list_tree: block.list_tree === undefined ? undefined : validateGuideList(block.list_tree, `${blockPath}.list_tree`),
         heading_level: headingLevel as 2 | 3 | 4 | 5 | 6 | undefined,
         title: optionalString(block, "title", blockPath) ?? undefined,
         tone: optionalString(block, "tone", blockPath) ?? undefined,

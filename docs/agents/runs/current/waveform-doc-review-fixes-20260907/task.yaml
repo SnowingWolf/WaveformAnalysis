@@ -1,0 +1,151 @@
+api_version: waveform-analysis/agent-task/v1
+kind: AgentTask
+metadata:
+  id: waveform-doc-review-fixes-20260907
+  generation: 1
+  created_at: '2026-09-07T02:23:41.440514+00:00'
+  updated_at: '2026-09-07T03:19:42Z'
+spec:
+  goal: 修复文档搜索键盘交互、嵌套列表结构、标题层级和重复锚点，并重建验证静态站点。
+  route: modify_code
+  workflow_cost: strict
+  workflow_shape: staged
+  risk_level: medium
+  scope:
+    base_sha: eb1c6bb7772c476ebd24dad2d2c0233f1640c81c
+    allowed_paths:
+    - docs/site-next
+    - waveform_analysis/documentation/site_model.py
+    - waveform_analysis/documentation/schemas/SiteModel.schema.json
+    - waveform_analysis/documentation/site_dist
+    - tests/test_site_model.py
+    - tests/test_site_guides.py
+    - docs/site-content-baseline.json
+    - docs/agents/plans/INDEX.md
+    - docs/agents/plans/active.yaml
+    - docs/agents/runs/current/waveform-doc-review-fixes-20260907/task.yaml
+  acceptance_criteria:
+  - Enter respects focused controls and IME; input arrows still select results
+  - Nested ordered/unordered lists retain hierarchy and start with backward-compatible
+    legacy fields
+  - Guide heading levels retained and fragment IDs unique
+  - Focused tests, static build, browser flows and required route gates pass
+  required_gates:
+  - scope_check
+  - targeted_tests
+  - next_typecheck
+  - next_static_export
+  - browser_review
+  - generate_docs
+  - assess_change_impact
+  - schema_compat_check
+  - doc_sync
+  - doc_anchors
+  - handoff_check
+  assignment:
+    planner_role: planner
+    executor_role: executor.code
+    reviewer_role: reviewer
+  compatibility: Add optional structured list data; retain existing flat fields and
+    existing guide routes/anchors.
+status:
+  state: completed
+  plan_sha256: 664f7e405f3617df1c2d22ec809d156b28bad784ec42d8c6cdd0dd0ce9d12ba8
+  transitions:
+  - from: created
+    to: planning
+    at: '2026-09-07T02:23:41.440514+00:00'
+    actor: planner
+    condition: planning_started
+  - from: planning
+    to: ready_for_execution
+    at: '2026-09-07T02:23:41.440514+00:00'
+    actor: planner
+    condition: plan_brief_ready
+  - from: ready_for_execution
+    to: executing
+    at: '2026-09-07T02:23:41.440514+00:00'
+    actor: executor.code
+    condition: executor_assigned
+  - from: executing
+    to: reviewing
+    at: '2026-09-07T03:08:59Z'
+    actor: executor.code
+    condition: execution_report_ready
+  - from: reviewing
+    to: completed
+    at: '2026-09-07T03:19:42Z'
+    actor: reviewer
+    condition: all_blocking_gates_pass
+  execution:
+    summary: 三个 executor 分别修复搜索键盘交互、Markdown 嵌套列表模型和指南标题层级；主 agent 完成模型/基线同步、静态站点重建及最终集成验证。
+    changed_paths:
+    - waveform_analysis/documentation/site_model.py
+    - waveform_analysis/documentation/schemas/SiteModel.schema.json
+    - docs/site-next/components/SearchDialog.tsx
+    - docs/site-next/components/DocPage.tsx
+    - docs/site-next/components/GuideList.tsx
+    - docs/site-next/lib/site-model.ts
+    - docs/site-next/lib/site-model.test.ts
+    - docs/site-next/lib/doc-page.test.ts
+    - docs/site-next/app/globals.css
+    - docs/site-next/vitest.config.ts
+    - docs/site-next/fixture/site-model.v1.json
+    - tests/test_site_model.py
+    - docs/site-content-baseline.json
+    - waveform_analysis/documentation/site_dist
+    - docs/agents/plans/INDEX.md
+    - docs/agents/plans/active.yaml
+    - docs/agents/runs/current/waveform-doc-review-fixes-20260907/task.yaml
+    command_results:
+      scope_check: PASS
+      targeted_tests: 'PASS: Python 49 passed; Vitest 22 passed'
+      next_typecheck: PASS
+      next_static_export: 'PASS: production static export rebuilt'
+      browser_review: 'PASS: Firefox desktop/mobile; search keyboard/IME, 4 nested
+        lists, h3, duplicate IDs 0, page errors 0'
+      generate_docs: 'PASS: both plugin reference generators completed via current
+        module entrypoint'
+      assess_change_impact: 'PASS: no plugin contract changes'
+      schema_compat_check: 'PASS: dtype changes 0; smoke chain passed'
+      doc_sync: PASS
+      doc_anchors: PASS
+    compatibility: Site model 1.3.0 adds optional list_tree while retaining items,
+      item_inlines, guide routes and existing fragment IDs.
+    open_risks:
+    - Markdown strong/emphasis tokens remain displayed literally in guide inline content;
+      this predates the scoped list, heading and search fixes.
+    requested_review_focus:
+    - Search key handling and IME propagation
+    - Recursive list ownership, start values and flat fallback
+    - Heading semantics and unique fragment IDs
+  review:
+    reviewer_actor: reviewer
+    decision: approved
+    plan_sha256: 664f7e405f3617df1c2d22ec809d156b28bad784ec42d8c6cdd0dd0ce9d12ba8
+    blocking_findings: []
+    gate_results:
+      scope_check: PASS
+      targeted_tests: PASS
+      next_typecheck: PASS
+      next_static_export: PASS
+      browser_review: PASS
+      generate_docs: PASS
+      assess_change_impact: PASS
+      schema_compat_check: PASS
+      doc_sync: PASS
+      doc_anchors: PASS
+      handoff_check: PASS
+    cross_review:
+      search_and_list: APPROVE by heading agent; independent Python site-model tests
+        17 passed
+      heading_and_rendering: APPROVE by search agent; independent SSR tests 5 passed
+    residual_risks:
+    - Guide inline emphasis parsing is outside this repair scope and remains literal
+      in existing generated content.
+  approval: {}
+  handoff:
+    commit_status: pending scoped commit after terminal lifecycle update
+    summary: Three reviewed documentation defects fixed; all blocking gates passed.
+    browser_tool_boundary: Browser plugin unavailable; Playwright Firefox fallback
+      used against final packaged static export.

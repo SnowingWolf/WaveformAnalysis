@@ -134,7 +134,11 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 .doc-section > p { max-width: 780px; margin: 0 0 14px; color: var(--ink-soft); }
 .section-heading { display: flex; gap: 13px; align-items: flex-start; margin-bottom: 14px; }
 .section-heading__mark { flex: 0 0 5px; width: 5px; height: 34px; margin-top: 2px; border-radius: 6px; background: var(--teal); }
-.section-heading h2 { margin: 0; color: var(--ink); font-size: 23px; font-weight: 760; letter-spacing: -.035em; line-height: 1.2; }
+.section-heading :is(h2, h3, h4, h5, h6) { margin: 0; color: var(--ink); font-weight: 760; letter-spacing: -.035em; line-height: 1.2; }
+.section-heading h2 { font-size: 23px; }
+.section-heading h3 { font-size: 20px; }
+.section-heading h4 { font-size: 17px; }
+.section-heading :is(h5, h6) { font-size: 14px; }
 .section-heading p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
 .doc-list { margin: 0 0 14px; padding-left: 22px; color: var(--ink-soft); }
 .doc-list li::marker { color: var(--teal); }

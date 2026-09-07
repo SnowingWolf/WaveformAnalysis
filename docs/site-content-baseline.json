@@ -1609,7 +1609,7 @@
       "title": "常见场景示例",
       "source": "docs/user-guide/EXAMPLES_GUIDE.md",
       "source_sha256": "21cb058cb2a37fdaecd788ee10dca996003190d6f2745f26d86193ac0ac40a88",
-      "model_fingerprint": "f0cb084fcc25c864eff370b63b81923b9e01e51e80e596356895f0fe91487bca",
+      "model_fingerprint": "5b04fa22e7aa802e33b6d332fa96d605eb041351ac4c0976a4095e674ab78527",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -1675,7 +1675,7 @@
       "title": "快速开始指南",
       "source": "docs/user-guide/QUICKSTART_GUIDE.md",
       "source_sha256": "d4119a2f60e52ed0e57819f217d98f5adbc7a92c7b7b11e0a1b68a693450dec0",
-      "model_fingerprint": "2a5ac147f4e195dea3bd93bae56ff37d9efa12550548325be48dbbf5c62c1e15",
+      "model_fingerprint": "301adbf7277756ecb06a2862e8a27ce1d600ebdd9bffa1eac797a959e4eeb1fb",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -1788,7 +1788,7 @@
       "title": "流式处理框架指南",
       "source": "docs/plugins/guides/STREAMING_PLUGINS_GUIDE.md",
       "source_sha256": "6f602d521d327d44aa4f428076e16e093254c4b0aead27cd2714d6b61d785175",
-      "model_fingerprint": "664e74f216079d67ccb613dab3cb99c037837facde5e4ea0dbc7942f0eaf9053",
+      "model_fingerprint": "a532a682c4874a122fa0922c6ba6a478cb1fc12d58a13e4c86c41359bca12a50",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -1850,7 +1850,7 @@
       "title": "插件系统与模板 API",
       "source": "docs/plugins/PLUGIN_SYSTEM_OVERVIEW.md",
       "source_sha256": "8fcccd53b0f002dde4f540ccd59922bd9f57e89ae58a66d803132169d3a7e903",
-      "model_fingerprint": "66b5e64d51771a624193c699f8799f258b0c1c76954a5a45da9afc46f4aeade3",
+      "model_fingerprint": "9e151d46c6cad9670b9cb87f0366bb415538cd33319a0e9a71b90108ecc1b93e",
       "block_types": [
         "paragraph",
         "heading",
@@ -1959,38 +1959,17 @@
         "paragraph",
         "paragraph",
         "list",
-        "list",
-        "list",
-        "list",
-        "list",
-        "list",
-        "list",
-        "list",
         "paragraph",
         "code",
         "heading",
         "paragraph",
         "paragraph",
         "list",
-        "list",
-        "list",
-        "list",
-        "list",
-        "list",
-        "list",
-        "list",
         "paragraph",
         "code",
         "heading",
         "paragraph",
         "paragraph",
-        "list",
-        "list",
-        "list",
-        "list",
-        "list",
-        "list",
-        "list",
         "list",
         "paragraph",
         "code",
@@ -2062,7 +2041,7 @@
         "link": 3,
         "code": 27,
         "table": 8,
-        "list": 39
+        "list": 18
       }
     },
     {
@@ -2070,7 +2049,7 @@
       "title": "插件系统对不同适配器的行为差异",
       "source": "docs/plugins/reference/ADAPTER_PLUGIN_BEHAVIOR.md",
       "source_sha256": "1dda2586ca4821ddd0d8addb2d3340397c4db9a95f762aafc510e007eb72e44d",
-      "model_fingerprint": "d4f17e99aee3a7f812bfaae5db557f3b4d5e45b89cec0cd9be44c1a60459f2ed",
+      "model_fingerprint": "827765c5a51463d5fa92ad0c524c5454919a0e34efe09ceaa1dd258ab7359eb9",
       "block_types": [
         "heading",
         "paragraph",
@@ -2168,11 +2147,6 @@
         "heading",
         "heading",
         "list",
-        "list",
-        "list",
-        "list",
-        "list",
-        "list",
         "heading",
         "list",
         "heading",
@@ -2185,7 +2159,7 @@
         "link": 0,
         "code": 21,
         "table": 1,
-        "list": 17
+        "list": 12
       }
     },
     {
@@ -2193,7 +2167,7 @@
       "title": "DAQ 适配器系统详解",
       "source": "docs/plugins/reference/ADAPTER_SYSTEM_GUIDE.md",
       "source_sha256": "6b1a6ababf5524cb56a9ea8208b8ff61f238805955fb19ef0daf49d1316ec66f",
-      "model_fingerprint": "d131864e490038a1289058e783580836f581a4dfaf2db805f1a2ab571b3ca9ac",
+      "model_fingerprint": "cdeeb0de776a9357ca7621373333cefe2dc70fa334c18aeab3e41b7ca6229073",
       "block_types": [
         "heading",
         "paragraph",
@@ -2209,9 +2183,6 @@
         "heading",
         "paragraph",
         "paragraph",
-        "list",
-        "list",
-        "list",
         "list",
         "paragraph",
         "code",
@@ -2377,7 +2348,7 @@
         "link": 0,
         "code": 46,
         "table": 0,
-        "list": 18
+        "list": 15
       }
     },
     {
@@ -2385,7 +2356,7 @@
       "title": "项目结构",
       "source": "docs/architecture/PROJECT_STRUCTURE.md",
       "source_sha256": "29cb65d30a7488a15d0f23689186744019d4f05800a97c77df5ac32b5aa9d862",
-      "model_fingerprint": "b5576884e71f39ea91ede47c92e4d799fd6c19bc6081e5d9a79d36e7ccd39ed2",
+      "model_fingerprint": "12f4682075f8a1f90461edcccd77aefe1d00a5a8b66bc7793fa33641f38badd4",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -2413,7 +2384,7 @@
       "title": "分析查询与批量运行",
       "source": "docs/architecture/ACCESSOR_ANALYSIS.md",
       "source_sha256": "70443c05d6212d54d076feccda02f113897cb254f47bd5eb3bbf814a93fdea3d",
-      "model_fingerprint": "e6fb2710fc6884780b67a2db3327659c2ba669378c321f6e39f4af4b5be6dd4e",
+      "model_fingerprint": "648eea31fe817ef6213341ae3ee9e5e4ce8682d3b181f18baa38df5bc89d403d",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -2529,7 +2500,7 @@
       "title": "数据产物与波形访问",
       "source": "docs/architecture/DATA_PRODUCTS.md",
       "source_sha256": "f91e12d2ac6b863694eeaca1151c3009cf3413eef6de643adb547ea78babbb66",
-      "model_fingerprint": "da5d81d8ebe7d36e9e5e6bf4a6b6e4178d6d1dc87d65e96bb9fc032615c693f5",
+      "model_fingerprint": "2fffbe952daa27e79661a986b2a335c193ebf09bd270266819f1b45712b35613",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -2651,7 +2622,7 @@
       "title": "插件缓存架构",
       "source": "docs/architecture/PLUGIN_CACHE_ARCHITECTURE.md",
       "source_sha256": "d5b4cb83d3897e46a86266c8712a314c1ab9ddfd81fac1ed34a8d5988e81faab",
-      "model_fingerprint": "87de9ab4ef2c1a4800b8a96dbd99bd09060d912064d469e711d354c40d74ffe7",
+      "model_fingerprint": "5605be2d549456deb09b2c64566ab78d0a04f2cfee1bf47fbc7051b21e84d7bd",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -2719,7 +2690,7 @@
       "title": "插件执行链与缓存",
       "source": "docs/architecture/PLUGIN_DAG_LINEAGE_CACHE.md",
       "source_sha256": "f6245502c930cbdbf4dbdd17f4b64f75d394611b88217da9bd919ae2305f850e",
-      "model_fingerprint": "d6e678090409105a9bbad10516d2aa020bb45dc5a10d17aa438f5a8dffba3346",
+      "model_fingerprint": "50f30f70a70962972a64cf80c340839b67ab5ea7722d3d42a4195142b94e6ed3",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -2796,7 +2767,7 @@
       "title": "系统架构与数据流",
       "source": "docs/architecture/ARCHITECTURE.md",
       "source_sha256": "7eb9a092ef9249824c7f4a8f1df59ec40ae64b0ecd74c54f407e1db678a05e08",
-      "model_fingerprint": "3c7d37f3eebefcf158cc3e6a93b8055b75ec1e7f971d9f637e0b0c23c910cd16",
+      "model_fingerprint": "9251a7411bfba21f6d6e5d9cee4a42868692d426d7ac4ea8d1c53359ca9b060c",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -2867,7 +2838,7 @@
       "title": "统一进度追踪系统使用指南",
       "source": "docs/features/advanced/PROGRESS_TRACKING_GUIDE.md",
       "source_sha256": "6aeac80b775f469703ebe8cc332bd29f8f56e83853a06afa64653c6e3d438ec0",
-      "model_fingerprint": "a9c87878b1b92ac982c65c635e26dc574c41b636947a51dba3834f33159be7b2",
+      "model_fingerprint": "c9023fbd64c85799fe42b0a9b9b6174ecbd12b0e3f5eb8292c32f2cf309446d9",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -2984,7 +2955,7 @@
       "title": "绝对时间查询指南",
       "source": "docs/features/context/ABSOLUTE_TIME_GUIDE.md",
       "source_sha256": "5b6de5773e73e40f425254b47b4c34cffdc0bb5e08de7bf26c9c6810d98f5b5e",
-      "model_fingerprint": "2997df55bcbe79be080634e78cecf7b715613c6270f2016d807bf7d987fe6d8f",
+      "model_fingerprint": "33c79b13adeea09dda9cf4fafe2b2665a0d3b9410a629ef0c668ab545a6dc96e",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -3067,7 +3038,7 @@
       "title": "BatchProcessor - 多运行批量处理",
       "source": "docs/features/context/BATCH_PROCESSOR.md",
       "source_sha256": "ec1015953645d389ec1170c7b5d83dcad3d3ab38ac491e6912443ec4e40e8db8",
-      "model_fingerprint": "4c6d8d0395f058a49377fc46cabe6b870ccada30abd38fa98bbaba9f9bf618b2",
+      "model_fingerprint": "dff3d5a6288b57ab5ee08b01f7616b949c87b81d17f8a9259103adfc1c863733",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -3126,10 +3097,6 @@
         "paragraph",
         "heading",
         "list",
-        "list",
-        "list",
-        "list",
-        "list",
         "code",
         "list",
         "paragraph",
@@ -3155,7 +3122,7 @@
         "link": 3,
         "code": 17,
         "table": 1,
-        "list": 10
+        "list": 6
       }
     },
     {
@@ -3163,7 +3130,7 @@
       "title": "配置管理",
       "source": "docs/features/context/CONFIGURATION.md",
       "source_sha256": "0d70769499bd2fc677c3e305844eba5199818242df0aed361fdf22806d7c75e4",
-      "model_fingerprint": "9fe671d7f488cab667cda6de2f09b32c639dbf1910283878f186e5ee30ba4718",
+      "model_fingerprint": "aa3521c796e80a2144f7b9a55e43216fcd812fb3553bb8dbde16de1390fbf810",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -3202,7 +3169,6 @@
         "heading",
         "paragraph",
         "list",
-        "list",
         "paragraph",
         "paragraph",
         "paragraph",
@@ -3216,7 +3182,7 @@
         "link": 2,
         "code": 3,
         "table": 0,
-        "list": 9
+        "list": 8
       }
     },
     {
@@ -3224,7 +3190,7 @@
       "title": "依赖分析功能使用指南",
       "source": "docs/features/context/DEPENDENCY_ANALYSIS_GUIDE.md",
       "source_sha256": "2ef3a28f6bb1a03bb0cc1c80dee6f1fd1388381ea50765daad5bb436c1942674",
-      "model_fingerprint": "7905ed29a45c988e4b81b0f788f7102f50f1293e6f00906f6f89692e314b5ac6",
+      "model_fingerprint": "3d41c75d164429b4811bde1b14416b0ca16055d4ca549c2a73759be1131e6ce1",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -3298,7 +3264,7 @@
       "title": "血缘可视化功能使用指南",
       "source": "docs/features/context/LINEAGE_VISUALIZATION_GUIDE.md",
       "source_sha256": "1f23980ee50d2b2bc7ff9ff5c067fe0584284c9bb0a6bfb31cce741d7b97ef5c",
-      "model_fingerprint": "c49a86e01b93efb2e6e6f03b6052b2cde296d3ebdc60aa497427892d335c9ab2",
+      "model_fingerprint": "25ac79ee630b76d1b6b62f78cc2ca5c356ac1803b6a6bdfae1eda3330b800835",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -3385,7 +3351,7 @@
       "title": "自适应二维分层抽样",
       "source": "docs/features/utils/ADAPTIVE_2D_SAMPLING_GUIDE.md",
       "source_sha256": "99e60a4bdfe157832ca5a17702c6731c0c0809818ba463bd920d67aeca637fea",
-      "model_fingerprint": "5bc400d8e15a735bbffc11bb82bc36ca471b6116864414d77fe454b03cabcfa5",
+      "model_fingerprint": "fbe49a8c271b7a4eed4300faa4236101d4c21f958c7511465a0b16f422c6aaa3",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -3434,7 +3400,7 @@
       "title": "📊 DAQ 运行分析器",
       "source": "docs/features/utils/DAQ_ANALYZER_GUIDE.md",
       "source_sha256": "b9fe6d70f18d77211a51f90195b867f9183399a8f3d2ded378ac4d2acda07454",
-      "model_fingerprint": "81af8ec0001988bf597272dee18bb5b6fd2f4b21476891bd6a2df8d4cf56221e",
+      "model_fingerprint": "d7da226c9a3b04671a8e7d840930871af2b2f8d5599c7e6be292470eaac48fbe",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -3485,7 +3451,7 @@
       "title": "Matplotlib PDF 导出",
       "source": "docs/features/utils/PDF_EXPORT_GUIDE.md",
       "source_sha256": "f9d8713c99472b5786c4c3ce7ec497e4d5805b79a112103407623cc37790bcb8",
-      "model_fingerprint": "731a27f52d90100d0f7313e00dc94d8f2cefe1c65d93f1885543730f532e0d45",
+      "model_fingerprint": "8116a6f828a26bb5970e17a87ef87c0be5ae0797b0f3208a77a3398cd15ae7c3",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -3512,7 +3478,7 @@
       "title": "位置二维 Dashboard",
       "source": "docs/features/visualizations/POSITION_DASHBOARD_GUIDE.md",
       "source_sha256": "a561de77e48738c4ea1c58737628dee1f6022a6d6202712c342e99bb1a630a8f",
-      "model_fingerprint": "55e8b46621d2583a20adaad29dcc597d8fe2002c656c2a31fc6e8f5a82a8c163",
+      "model_fingerprint": "95d79320d4a698ea0d86896c0c9349165cb0b77e57d2f5125d195e14f6fa86c8",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -3555,7 +3521,7 @@
       "title": "waveform-cache 命令参考",
       "source": "docs/cli/WAVEFORM_CACHE.md",
       "source_sha256": "298829d8cea0b1f9b13c146060f595dfc7b6fdb3efdaf5eef00da6f263ea8cf0",
-      "model_fingerprint": "f503f4deef3a38d6a929722a23b8bd26cf23e644a6d954d499cd171336035728",
+      "model_fingerprint": "d0bc013183afa29c3bf4233c840970b0b457a8d66ce13968882a164e1267eaf7",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -3677,7 +3643,7 @@
       "title": "waveform-docs 命令参考",
       "source": "docs/cli/WAVEFORM_DOCS.md",
       "source_sha256": "b04f1622f36c01cbb7bed2e8ef81de9dd3f0a70befed0bcbc0e1f131106d82f0",
-      "model_fingerprint": "ef0faeeb8a9a7e39ccd93d4b6cda5293c3dac4830041b658b519e934519c12cd",
+      "model_fingerprint": "9dcb2e9f9d8c2a6f29c277294042b584339294e64e8f4a16c8f6bdfe854366ab",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -3768,8 +3734,6 @@
         "paragraph",
         "heading",
         "list",
-        "list",
-        "list",
         "paragraph",
         "paragraph"
       ],
@@ -3778,7 +3742,7 @@
         "link": 5,
         "code": 14,
         "table": 3,
-        "list": 9
+        "list": 7
       }
     },
     {
@@ -3786,7 +3750,7 @@
       "title": "waveform-process 命令参考",
       "source": "docs/cli/WAVEFORM_PROCESS.md",
       "source_sha256": "4161d9bb526fe5181ad4163ff2b43da00974be9755093513a31b9c3169c50d0b",
-      "model_fingerprint": "80565adbe4d71217b45ff9a24b8e090bf0f0df858401b812b0af889476fcac36",
+      "model_fingerprint": "a9e50873e3009fe8e93c5efc6b10033ce767a9e73850b219eb773a8be9ab1087",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -3873,7 +3837,7 @@
       "title": "合同测试 (Contract Tests)",
       "source": "docs/development/CONTRACT_TESTS.md",
       "source_sha256": "fe775cc5b9032410c5d17ec07f4c0d25aa34fb23ed25a4b8446de9d6ae072b16",
-      "model_fingerprint": "ff4244566a621aba94635630d8cb19a0f85aca0a43a3c0726f2f42ddff9ac96d",
+      "model_fingerprint": "abd5cb98f38c1e74961d54cb95440d401f1b86abebd7cd3e42edc29707367325",
       "block_types": [
         "paragraph",
         "list",
@@ -3930,7 +3894,7 @@
       "title": "提交规范（Conventional Commits）",
       "source": "docs/development/contributing/COMMIT_CONVENTION.md",
       "source_sha256": "bfeb08125e7f27040cbdd192003d17e605f3d8b6cf922b99ca60f06cbdfb943d",
-      "model_fingerprint": "1915fe10b565652310cd7a8de4790785734da5848deb59a3116611bede6d1825",
+      "model_fingerprint": "9054df52dc2f6e46e4a5b528f17910d746baeb846cf3649044fd269d61a2c18e",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -3983,7 +3947,7 @@
       "title": "Doc Anchor 文档同步指南",
       "source": "docs/development/contributing/DOC_ANCHOR_GUIDE.md",
       "source_sha256": "276755710ed34d8938e527d7336c9fab8884279d1c2f4c44ff7c07d3e420a891",
-      "model_fingerprint": "c8f4672fb99df3ea87c4091271601fe8bf4ffdac5446caa9709d8024a0528d6b",
+      "model_fingerprint": "00c81a16f47af4ef1a269c50649351e8335d5e5e9b1c11e783e73b8b8357ac15",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -4060,7 +4024,7 @@
       "title": "导入风格指南",
       "source": "docs/development/contributing/IMPORT_STYLE_GUIDE.md",
       "source_sha256": "176988221341f1af0e8a16c84e090ae71cf055596556230ff62a750aaba2a604",
-      "model_fingerprint": "49e0ffe699fa715b9af1cd30c4b4ef7b7dbc92e5a11190efafab9dda973e6978",
+      "model_fingerprint": "e0f56b49b5393d7159e21017e2da1b92ed423920030fe2bef0445453781bfc24",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -4120,12 +4084,7 @@
         "list",
         "heading",
         "list",
-        "list",
-        "list",
         "code",
-        "list",
-        "list",
-        "list",
         "list",
         "heading",
         "heading",
@@ -4147,7 +4106,7 @@
         "link": 3,
         "code": 17,
         "table": 1,
-        "list": 16
+        "list": 11
       }
     },
     {
@@ -4155,7 +4114,7 @@
       "title": "插件脚手架与测试夹具",
       "source": "docs/development/plugin-development/PLUGIN_SCAFFOLD.md",
       "source_sha256": "6a4e782480dcbb37b2c7a3946376f955c3c3969c564cb913264ec27b7a9a321b",
-      "model_fingerprint": "5898af3d3c0a3847832cd4515eb135b2f6edef9bcfea1d7ad4ecf8142511d6ae",
+      "model_fingerprint": "93c34579703baa5b9e2ed083c20ff671744d94b478977ed662e95f08655df0e9",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -4199,7 +4158,7 @@
       "title": "PluginSpec 与 ConfigField 高级指南",
       "source": "docs/development/plugin-development/PLUGIN_SPEC_GUIDE.md",
       "source_sha256": "26ad95f5c051f92e13991928b2756b7c07eabee1a796a7b4c795784703920aea",
-      "model_fingerprint": "728fee76156c5ee58d57109b6f46eab94520d3fcae38e90534f31364088e248b",
+      "model_fingerprint": "2b590524e645ad2be0b351e2cd07f52ef285d3d819f89d6b7b3daa9c82f35a4c",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -4312,7 +4271,7 @@
       "title": "插件开发指南",
       "source": "docs/development/plugin-development/plugin_guide.md",
       "source_sha256": "3bf4645d29b9df1c82a50ca4c8bdada37c30814b0d638a01cdb0210eb5c6e74d",
-      "model_fingerprint": "cae677ceb45f561b70526037b538954e54f13d28aa672347a50dd85a15c84dc8",
+      "model_fingerprint": "ba212e964e2c24d2149c6a20e04481c17257d13424351345f60a6d4f7385f63f",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -4401,13 +4360,6 @@
         "code",
         "heading",
         "list",
-        "list",
-        "list",
-        "list",
-        "list",
-        "list",
-        "list",
-        "list",
         "paragraph",
         "paragraph"
       ],
@@ -4416,7 +4368,7 @@
         "link": 6,
         "code": 7,
         "table": 0,
-        "list": 14
+        "list": 7
       }
     },
     {
@@ -4424,7 +4376,7 @@
       "title": "Worktree Workflow",
       "source": "docs/development/worktrees.md",
       "source_sha256": "feca5799589a44fd8d4c9c6f1cf1c75b35429957fb5d3b45194668bc0faf389c",
-      "model_fingerprint": "af4264193ee1c68a15c7c4e43d60664e061ec840b8b23fba6a1dce84eed75f72",
+      "model_fingerprint": "dc0bebabf95eabaaa4e58daeeed5af2aeb63862caf0261f0ef811f81a1a88416",
       "block_types": [
         "paragraph",
         "heading",
@@ -4486,7 +4438,7 @@
       "source": "docs/user-guide/README.md",
       "title": "用户指南",
       "source_sha256": "d1c0528768b742866b049d044fa37fd075e52b69d2c6603259564b760ae8d25f",
-      "model_fingerprint": "16e30a4a94eebb1bc7184946c1b4e44243725364ac72976629d448cc035df518",
+      "model_fingerprint": "5c399c16270cba0fdc1791cbf7982e988c97fb4c0db1ecf178fbcfd885929490",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -4518,7 +4470,7 @@
       "source": "docs/plugins/README.md",
       "title": "插件系统文档",
       "source_sha256": "6360a517df34424bbe62f366d71a96a18e6c0b1f118b2d1b15bb34ae620fa74b",
-      "model_fingerprint": "1cbe75676833f77663a6c7581d70fbdd61d41e068def43ab252d0570d20918be",
+      "model_fingerprint": "4198e3338b4de160dee226dbc3dc4b4061021ea2431d5e534792e546ba169b08",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -4557,7 +4509,7 @@
       "source": "docs/architecture/README.md",
       "title": "系统架构与数据模型",
       "source_sha256": "7bf819d09054b302062ac02bcdd26aa1189d3531677d499ac3fbf6079ae8045d",
-      "model_fingerprint": "b4540e93d3288e66e3fb95282e429beb1ac118bcde5f1a4bba9cf2cc26109f1c",
+      "model_fingerprint": "b0f852d3df1d7a5d6b7fbc57a973486fb0c5922bd013ce1712ff165a76647f07",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -4582,7 +4534,7 @@
       "source": "docs/features/README.md",
       "title": "功能特性",
       "source_sha256": "ff1f92f0afced89fea8bca44ac5342c6f31156548ca62e7d5eebc30589dc673e",
-      "model_fingerprint": "0f2cc93493923fa00fd8de90a00e1fefa243b61848f5ab59dbc5c2051efa73e8",
+      "model_fingerprint": "c9698b58df5ec68784510c798a40a342955ca515528d3c66e793fc478a710225",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -4632,7 +4584,7 @@
       "source": "docs/features/context/README.md",
       "title": "Context 功能",
       "source_sha256": "48caccf697cd4590115c4280eae2a5d3da1bb9c8077e52177f01be5ba623b5f0",
-      "model_fingerprint": "069ed52babb4f2e1768905e1b0fdde19249c6c1d47e1255cbb700110f7441980",
+      "model_fingerprint": "b00bb78c127b9f30e42da068a4d5a0d18b0bb1108578a5217e7406634c8ef685",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -4657,7 +4609,7 @@
       "source": "docs/features/advanced/README.md",
       "title": "高级功能",
       "source_sha256": "d48ce6353cfa3ea66ec7c5dc3945e0a194537c5811cf28f6b08a71e3711b59a6",
-      "model_fingerprint": "fe50c29359ac0e08e0ee33b0ffdbaa304c2a2d2698d8f01536e2c4aab220b28b",
+      "model_fingerprint": "176fd459c80c60252fc139f66c70096f213edf00fb73cf8cc27a73a30e26b1b7",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -4682,7 +4634,7 @@
       "source": "docs/features/utils/README.md",
       "title": "工具函数",
       "source_sha256": "853375e1e3d118432ae941fca79c48a76da59ed138eab2fae4fb42a8290605d9",
-      "model_fingerprint": "5b2ef22c37b9283903249da56de3824e2d5fb4450e050111ad9aea14ac81050b",
+      "model_fingerprint": "f8312d491bc54010a9243e8a3e376ec946c47599cbc868328c3e529737d94c99",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -4747,7 +4699,7 @@
       "source": "docs/development/README.md",
       "title": "开发者指南",
       "source_sha256": "95d91bbdd6960897a49385594dc527e47ff30baa0c65277415ac4c9b38bb2355",
-      "model_fingerprint": "6573f9327e1108b5e7647245f32cf3a61c9b8927f84a4f8a50f449e5e455dca2",
+      "model_fingerprint": "e4578c08ff9cba6f22530fc4c63f0e92e8f73b3c25578cbe727f34673b1d1874",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -4775,7 +4727,7 @@
       "source": "docs/development/contributing/README.md",
       "title": "开发规范",
       "source_sha256": "a6e50fb94f5ab3da4dd6ba85f539b6479bc286f17dc0598a98f00b0281f8707b",
-      "model_fingerprint": "96eb98ef32bf323e48596b9878c9e69eb1cfde2fc2300dfbc1dd830bb9545bf9",
+      "model_fingerprint": "0ddc5d0c6980ace0156b56953f848fd7fa54590d4c2662a67ef73a87a4c68d7a",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -4798,7 +4750,7 @@
       "source": "docs/development/plugin-development/README.md",
       "title": "插件开发",
       "source_sha256": "c38d30904e794e5c666ce088cb4e844467b09fba5d5294de769e854517bf27fa",
-      "model_fingerprint": "a2876fe6354a7f9584f4e91ac8b16aed05c16a43e6a336cee43a8060a999f200",
+      "model_fingerprint": "83388d580e658984b8598d404f3a116281c465d992d2dd9f02addae6f0e3bc9e",
       "block_types": [
         "paragraph",
         "paragraph",

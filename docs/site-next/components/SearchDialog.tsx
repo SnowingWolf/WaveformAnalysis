@@ -110,12 +110,11 @@ export function SearchDialog({
     void requestIndex().catch(() => undefined);
   };
 
-  const onKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
-    if (event.key === "Escape") {
-      event.preventDefault();
-      onClose();
-      return;
-    }
+  const isComposing = (event: React.KeyboardEvent<HTMLElement>) =>
+    event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229;
+
+  const onInputKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (isComposing(event)) return;
     if (event.key === "ArrowDown" && results.length) {
       event.preventDefault();
       setSelectedIndex((current) => Math.min(current + 1, results.length - 1));
@@ -130,6 +129,19 @@ export function SearchDialog({
       event.preventDefault();
       const result = document.getElementById(`${dialogId}-result-${selectedIndex}`);
       if (result instanceof HTMLAnchorElement) result.click();
+      return;
+    }
+  };
+
+  const onKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
+    if (isComposing(event)) {
+      // Do not let global shortcuts dismiss the dialog while choosing IME text.
+      event.stopPropagation();
+      return;
+    }
+    if (event.key === "Escape") {
+      event.preventDefault();
+      onClose();
       return;
     }
     if (event.key !== "Tab") return;
@@ -182,6 +194,7 @@ export function SearchDialog({
             ref={inputRef}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={onInputKeyDown}
             placeholder="搜索插件、Context 或指南"
             aria-label="搜索插件、Context 或指南"
             aria-controls={`${dialogId}-results`}

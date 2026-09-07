@@ -15,6 +15,7 @@ links and readers; edit the task record and rerun
 | `waveform-doc-content-recovery-20260901` | `completed` | `modify_code` | `standard` | `staged` | `—` | `docs/agents/runs/current/waveform-doc-content-recovery-20260901/task.yaml` |
 | `waveform-doc-lineage-density-20260901` | `completed` | `modify_code` | `standard` | `staged` | `AllBlockingGatesPass` | `docs/agents/runs/current/waveform-doc-lineage-density-20260901/task.yaml` |
 | `waveform-doc-nested-nav-20260902` | `completed` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/waveform-doc-nested-nav-20260902/task.yaml` |
+| `waveform-doc-review-fixes-20260907` | `completed` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/waveform-doc-review-fixes-20260907/task.yaml` |
 | `waveform-doc-sidebar-expand-20260902` | `completed` | `modify_code` | `standard` | `staged` | `—` | `docs/agents/runs/current/waveform-doc-sidebar-expand-20260902/task.yaml` |
 | `waveform-doc-strict-optimization-20260902` | `completed` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/waveform-doc-strict-optimization-20260902/task.yaml` |
 | `waveform-doc-system-opt-20260831` | `completed` | `retire_compat` | `strict` | `staged` | `PlanBriefReadyWithUserConfirmation` | `docs/agents/runs/current/waveform-doc-system-opt-20260831/task.yaml` |

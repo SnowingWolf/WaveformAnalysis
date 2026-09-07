@@ -55,8 +55,8 @@ _ROUTE_ID = re.compile(r"^[A-Za-z0-9._~-]+(?:/[A-Za-z0-9._~-]+)*$")
 _HEADING = re.compile(r"^(?P<indent>\s{0,3})(?P<marks>#{1,6})\s+(?P<title>.+?)\s*#*\s*$")
 _SETEXT = re.compile(r"^\s*(=+|-+)\s*$")
 _FENCE = re.compile(r"^\s*(?P<marks>`{3,}|~{3,})(?P<language>.*)$")
-_ORDERED_LIST = re.compile(r"^\s*\d+[.)]\s+(?P<item>.+?)\s*$")
-_UNORDERED_LIST = re.compile(r"^\s*[-+*]\s+(?P<item>.+?)\s*$")
+_ORDERED_LIST = re.compile(r"^(?P<indent>\s*)(?P<number>\d+)[.)]\s+(?P<item>.+?)\s*$")
+_UNORDERED_LIST = re.compile(r"^(?P<indent>\s*)[-+*]\s+(?P<item>.+?)\s*$")
 _INLINE_TOKEN = re.compile(
     r"(?P<image>!\[(?P<image_label>[^\]]*)\]\((?P<image_href>[^)\s]+)(?:\s+[^)]*)?\))"
     r"|(?P<link>\[(?P<link_label>[^\]]+)\]\((?P<link_href>[^)\s]+)(?:\s+[^)]*)?\))"
@@ -954,6 +954,74 @@ def _guide_list_block(
     }
 
 
+def _guide_nested_list_blocks(
+    lines: list[str],
+    *,
+    source_path: Path | None,
+    project_root: Path | None,
+    source_routes: Mapping[str, str] | None,
+) -> list[dict[str, Any]]:
+    """Retain list ownership and a flat projection for existing consumers."""
+    roots: list[dict[str, Any]] = []
+    stack: list[tuple[int, int, dict[str, Any]]] = []
+    for raw_line in lines:
+        line = raw_line.expandtabs(4)
+        match = _ORDERED_LIST.match(line) or _UNORDERED_LIST.match(line)
+        indent = len(line) - len(line.lstrip())
+        if match is None:
+            # Dedented continuation belongs to its ancestor, not the last leaf.
+            while len(stack) > 1 and indent < stack[-1][1]:
+                stack.pop()
+            if stack:
+                entry = stack[-1][2]["entries"][-1]
+                entry["text"] += " " + line.strip()
+            continue
+        ordered = "number" in match.groupdict()
+        while stack and indent < stack[-1][0]:
+            stack.pop()
+        if stack and indent == stack[-1][0] and ordered != stack[-1][2]["ordered"]:
+            stack.pop()
+        if not stack or indent > stack[-1][0]:
+            node: dict[str, Any] = {"ordered": ordered, "entries": []}
+            if ordered:
+                node["start"] = int(match.group("number"))
+            if stack:
+                stack[-1][2]["entries"][-1].setdefault("children", []).append(node)
+            else:
+                roots.append(node)
+            stack.append((indent, match.start("item"), node))
+        stack[-1][2]["entries"].append({"text": match.group("item")})
+        stack[-1] = (stack[-1][0], match.start("item"), stack[-1][2])
+
+    def populate(node: dict[str, Any]) -> list[dict[str, Any]]:
+        flattened = []
+        for entry in node["entries"]:
+            entry["inlines"] = _inline_content(
+                entry["text"],
+                source_path=source_path,
+                project_root=project_root,
+                source_routes=source_routes,
+            )
+            flattened.append(entry)
+            for child in entry.get("children", []):
+                flattened.extend(populate(child))
+        return flattened
+
+    blocks = []
+    for root in roots:
+        entries = populate(root)
+        blocks.append(
+            {
+                "kind": "list",
+                "ordered": root["ordered"],
+                "list_tree": root,
+                "items": [entry["text"] for entry in entries],
+                "item_inlines": [entry["inlines"] for entry in entries],
+            }
+        )
+    return blocks
+
+
 def _split_table_lines(lines: list[str]) -> tuple[list[str], list[list[str]]] | None:
     rows = [[cell.strip() for cell in line.strip().strip("|").split("|")] for line in lines]
     if len(rows) < 2 or not rows[0]:
@@ -1086,8 +1154,7 @@ def _markdown_sections(
     sections: list[dict[str, Any]] = []
     current: dict[str, Any] | None = None
     paragraph_lines: list[str] = []
-    list_items: list[str] = []
-    list_ordered: bool | None = None
+    list_lines: list[str] = []
     table_lines: list[str] = []
     code_lines: list[str] = []
     code_language = "text"
@@ -1111,19 +1178,17 @@ def _markdown_sections(
         paragraph_lines = []
 
     def flush_list() -> None:
-        nonlocal list_items, list_ordered
-        if current is not None and list_items and list_ordered is not None:
-            current["blocks"].append(
-                _guide_list_block(
-                    list_items,
-                    ordered=list_ordered,
+        nonlocal list_lines
+        if current is not None and list_lines:
+            current["blocks"].extend(
+                _guide_nested_list_blocks(
+                    list_lines,
                     source_path=source_path,
                     project_root=project_root,
                     source_routes=source_routes,
                 )
             )
-        list_items = []
-        list_ordered = None
+        list_lines = []
 
     def flush_table() -> None:
         nonlocal table_lines
@@ -1230,6 +1295,14 @@ def _markdown_sections(
 
         stripped = line.strip()
         if not stripped:
+            # Loose list siblings may be separated by blank lines.
+            following = next((item for item in lines[index + 1 :] if item.strip()), "")
+            if list_lines and (
+                _ORDERED_LIST.match(following)
+                or _UNORDERED_LIST.match(following)
+                or following[:1].isspace()
+            ):
+                continue
             flush_pending()
             continue
         if stripped.startswith("<!--") or stripped.startswith("-->"):
@@ -1240,16 +1313,12 @@ def _markdown_sections(
         if ordered_match or unordered_match:
             flush_paragraph()
             flush_table()
-            ordered = ordered_match is not None
-            if list_ordered is not None and list_ordered != ordered:
-                flush_list()
-            list_ordered = ordered
-            list_items.append((ordered_match or unordered_match).group("item"))
+            list_lines.append(line)
             continue
-        if list_items and line[:1].isspace():
-            list_items[-1] = f"{list_items[-1]} {stripped}"
+        if list_lines and line[:1].isspace():
+            list_lines.append(line)
             continue
-        if list_items:
+        if list_lines:
             flush_list()
 
         if stripped.startswith("|") and "|" in stripped[1:]:
@@ -1893,7 +1962,7 @@ def build_site_model(
 
     model: dict[str, Any] = {
         "schema": SITE_MODEL_VERSION,
-        "modelVersion": "1.2.0",
+        "modelVersion": "1.3.0",
         "project": {
             "name": "WaveformAnalysis",
             "version": _package_version(root),

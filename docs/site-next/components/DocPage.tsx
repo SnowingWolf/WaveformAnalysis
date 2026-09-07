@@ -5,13 +5,15 @@ import { siteShellModel } from "@/lib/search";
 import { CopyButton } from "./CopyButton";
 import { Icon } from "./icons";
 import { SiteShell } from "./SiteShell";
+import { GuideList } from "./GuideList";
 
 export function Breadcrumbs({ items }: { items: Array<{ label: string; href?: string }> }) {
   return <nav className="breadcrumbs" aria-label="面包屑导航">{items.map((item, index) => <span key={`${item.label}:${index}`}>{item.href ? <Link href={item.href}>{item.label}</Link> : <span aria-current="page">{item.label}</span>}{index < items.length - 1 && <b>/</b>}</span>)}</nav>;
 }
 
-export function SectionHeading({ id, children, note }: { id?: string; children: ReactNode; note?: string }) {
-  return <div className="section-heading">{id && <span className="section-heading__mark" aria-hidden="true" />}<div>{<h2 id={id}>{children}</h2>}{note && <p>{note}</p>}</div></div>;
+export function SectionHeading({ id, children, note, level = 2, showMarker = Boolean(id) }: { id?: string; children: ReactNode; note?: string; level?: 2 | 3 | 4 | 5 | 6; showMarker?: boolean }) {
+  const Heading = `h${level}` as "h2" | "h3" | "h4" | "h5" | "h6";
+  return <div className="section-heading">{showMarker && <span className="section-heading__mark" aria-hidden="true" />}<div><Heading id={id}>{children}</Heading>{note && <p>{note}</p>}</div></div>;
 }
 
 export function CodeBlock({ code, language = "python" }: { code: string; language?: string }) {
@@ -49,8 +51,7 @@ function ContentBlockView({ block }: { block: ReferenceContentBlock }) {
     return <Heading><InlineContentView content={block.inlines} fallback={block.text ?? ""} /></Heading>;
   }
   if (block.kind === "list") {
-    const List = block.ordered ? "ol" : "ul";
-    return <List className="reference-list">{(block.items ?? []).map((item, index) => <li key={`${item}:${index}`}><InlineContentView content={block.item_inlines?.[index]} fallback={item} /></li>)}</List>;
+    return <GuideList block={block} renderInline={(content, fallback) => <InlineContentView content={content} fallback={fallback} />} />;
   }
   if (block.kind === "note") return <aside className={`reference-note reference-note--${block.tone ?? "note"}`}>{block.title && <strong>{block.title}</strong>}<p><InlineContentView content={block.inlines} fallback={block.text ?? ""} /></p></aside>;
   if (block.kind === "code") return <CodeBlock code={block.code ?? ""} language={block.language || "text"} />;
@@ -66,7 +67,11 @@ export function ReferenceSections({ sections }: { sections: ReferenceSection[] }
 }
 
 export function GuideSections({ sections }: { sections: GuideSection[] }) {
-  return <>{sections.map((section) => <section id={section.id} className="doc-section reference-section" key={section.id}><SectionHeading id={section.id}>{section.title}</SectionHeading><div className="reference-blocks">{section.blocks.map((block, index) => index === 0 && block.kind === "heading" && block.text === section.title ? null : <ContentBlockView block={block} key={`${section.id}:${block.kind}:${index}`} />)}</div></section>)}</>;
+  return <>{sections.map((section) => {
+    const firstBlock = section.blocks[0];
+    const titleBlock = firstBlock?.kind === "heading" && firstBlock.text === section.title ? firstBlock : undefined;
+    return <section id={section.id} className="doc-section reference-section" key={section.id}><SectionHeading level={titleBlock?.heading_level} showMarker>{section.title}</SectionHeading><div className="reference-blocks">{section.blocks.map((block, index) => index === 0 && titleBlock ? null : <ContentBlockView block={block} key={`${section.id}:${block.kind}:${index}`} />)}</div></section>;
+  })}</>;
 }
 
 type CallablePage = ContextModel | AccessorModel;
