@@ -175,12 +175,30 @@ status:
     actor: executor
     condition: Generation 2 fixes and required gates passed; fresh parent real builds
       received; actual Reviewer owns terminal review.
+  - from: reviewing
+    to: rework_required
+    actor: reviewer
+    at: '2026-09-08T09:12:17.935192+00:00'
+    condition: fixable_gate_failure
+    evidence: 'User-supplied independent review: Numba import writes in-tree cache.'
+  - from: rework_required
+    to: executing
+    actor: executor
+    at: '2026-09-08T09:12:17.935192+00:00'
+    condition: scope_unchanged
+  - from: executing
+    to: reviewing
+    at: '2026-09-08T09:15:44.395399+00:00'
+    actor: executor
+    condition: execution_report_ready
+    evidence: Numba isolation fix, focused regression, all required gates and new
+      parent real builds verified; actual Reviewer retains terminal decision.
   plan_sha256: null
   execution:
     generation: 2
-    summary: Added guide 34 independent content baseline and route migration coverage;
-      existing implementation preserved. Parent performed new default and stage-output
-      real builds while source held stable.
+    summary: 'Generation 2 rework complete: external Numba cache configured before
+      cold imports; full-workspace fresh-process isolation regression passed. Parent
+      fresh real builds verified against unchanged source fingerprint.'
     actions_taken:
     - Updated three stale guide count assertions to 34 without weakening independent
       checks.
@@ -232,37 +250,39 @@ status:
       command: PYTHONPATH=current-worktree /home/wxy/anaconda3/envs/pyroot-kernel/bin/python
         -m pytest tests/test_docs_build.py tests/test_cli_docs_site_publish.py tests/test_site_model.py
         -q --no-cov -o addopts=
-      result: 49 passed, 1 skipped, 2 warnings
-      log: /tmp/waveform-docs-skill-task/rework-targeted-full.log
+      result: '50 passed, 1 skipped before new real evidence; skipped real-build test
+        rerun afterward: 1 passed'
+      log: /tmp/waveform-docs-skill-task/numba-targeted.log
     real_build:
       default_before_hash: 297d346edaa6b8887749e0d56bd34d2b404b6da082113626a0be6c27d45ff6ba
-      default_report: /tmp/waveform-docs-skill-task/builds/runs/rework-default-01/report.json
+      default_report: /tmp/waveform-docs-skill-task/builds/runs/rework-default-02/report.json
       default_after_hash: 297d346edaa6b8887749e0d56bd34d2b404b6da082113626a0be6c27d45ff6ba
-      staged_report: /tmp/waveform-docs-skill-task/builds/runs/rework-staged-01/report.json
+      staged_report: /tmp/waveform-docs-skill-task/builds/runs/rework-staged-02/report.json
       execution_note: Generation 2 real default and staged builds run by parent outside
         sandbox, using the held Executor worktree inputs and isolated dependencies.
       status: success
-    formatting: ruff check PASS; black --workers 1 unchanged
+    formatting: ruff check PASS; black --workers 1 PASS (files checked individually
+      with external cache).
     open_risks: []
     real_build_validation:
-      static_exports: 'PASS: both external exports and current site_dist validated
-        with validate_static_export(require_model=True)'
-      marker: 'PASS: both real HTML guides and models contain docs-build external
-        workspace'
-      package_manifest: 'PASS: tests/test_docs_build.py::test_real_build_evidence
-        validates copy_prebuilt_site'
-      acceptance_log: /tmp/waveform-docs-skill-task/rework-real-validation.log
-      result: 1 passed in 7.71s
+      result: Both external exports and staged site_dist validated; marker, command
+        statuses, input fingerprints and package manifest passed.
+      evidence: /tmp/waveform-docs-skill-task/numba-real-validation.json
+      acceptance_log: /tmp/waveform-docs-skill-task/numba-real-test.log
       input_verification:
-        final_input_fingerprint: b3b2bb2ea91ef75cb6528269f64c5c4c02129b9b9509a558c863e796bbea8fa7
-        build_input_fingerprint: b3b2bb2ea91ef75cb6528269f64c5c4c02129b9b9509a558c863e796bbea8fa7
+        final_input_fingerprint: fb5dc32ee3480e04aaf3162ab726685b51f76340b68d1c5a56cb0dd79deebd61
+        build_input_fingerprint: fb5dc32ee3480e04aaf3162ab726685b51f76340b68d1c5a56cb0dd79deebd61
         requires_revalidation: false
-        note: Only required task status and generated task navigation updated after
-          parent build; runs and plans excluded by canonical fingerprint.
     original_develop_verification:
       head: e2c6c5b97d73763fc141b33f90f2453ace77c2be
       git_status_short: ''
       read_only: true
+    numba_rework:
+      summary: Redirect Numba cache before documentation imports and in child command
+        environment. Fresh-process test snapshots all workspace file bytes and file/directory
+        modification times, overriding inherited in-tree NUMBA_CACHE_DIR.
+      targeted_log: /tmp/waveform-docs-skill-task/numba-targeted.log
+      real_build: Fresh parent default and staged reports validated; see real_build.
   review: {}
   approval: {}
   handoff:

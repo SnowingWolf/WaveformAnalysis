@@ -177,3 +177,73 @@ def test_real_build_evidence():
         copy_prebuilt_site(
             ROOT / "waveform_analysis/documentation/site_dist", Path(temporary) / "verified"
         )
+
+
+def test_fresh_process_leaves_entire_workspace_unchanged(tmp_path):
+    """Exercise real cold imports, including Numba, with controlled npm output."""
+    import os
+    import sys
+
+    workspace = tmp_path / "checkout"
+    workspace.mkdir()
+    for name in ("docs", "waveform_analysis", "scripts"):
+        shutil.copytree(
+            ROOT / name,
+            workspace / name,
+            ignore=lambda _, names: [n for n in names if docs_build.ignored(n)],
+        )
+    for name in ("pyproject.toml", "AGENTS.md"):
+        shutil.copy2(ROOT / name, workspace / name)
+
+    def snapshot():
+        import hashlib
+
+        return {
+            str(path.relative_to(workspace)): (
+                path.stat().st_mtime_ns,
+                hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else None,
+            )
+            for path in [workspace, *sorted(workspace.rglob("*"))]
+        }
+
+    before = snapshot()
+    code = r"""
+import importlib.util
+import json
+import pathlib
+import shutil
+import subprocess
+import sys
+workspace, original, build_root = map(pathlib.Path, sys.argv[1:])
+spec = importlib.util.spec_from_file_location("docs_build", workspace / "scripts/docs_build.py")
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+def runner(command, *, env, **kwargs):
+    if command == ["npm", "ci", "--ignore-scripts"]:
+        (pathlib.Path(kwargs["cwd"]) / "node_modules").mkdir()
+    assert pathlib.Path(env["NUMBA_CACHE_DIR"]).is_relative_to(build_root)
+    if command == ["npm", "run", "build"]:
+        shutil.copytree(original / "waveform_analysis/documentation/site_dist",
+                        env["WAVEFORM_SITE_EXPORT_DIR"], dirs_exist_ok=True)
+    return subprocess.CompletedProcess(command, 0)
+report = module.build(workspace, "cold", build_root, command_runner=runner)
+assert report["status"] == "success", json.dumps(report)
+assert pathlib.Path(report["import_source"]).is_relative_to(workspace)
+"""
+    env = dict(os.environ, PYTHONPATH=str(workspace), PYTHONDONTWRITEBYTECODE="1")
+    env["GIT_DIR"] = subprocess.check_output(
+        ["git", "rev-parse", "--absolute-git-dir"], cwd=ROOT, text=True
+    ).strip()
+    env["GIT_WORK_TREE"] = str(workspace)
+    env["NUMBA_CACHE_DIR"] = str(workspace / "inherited-cache")
+    result = subprocess.run(
+        [sys.executable, "-B", "-c", code, str(workspace), str(ROOT), str(tmp_path / "build")],
+        cwd=workspace,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=180,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert snapshot() == before
+    assert (tmp_path / "build/runs/cold/numba-cache").is_dir()

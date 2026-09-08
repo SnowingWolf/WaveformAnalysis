@@ -149,6 +149,7 @@ def build(
                 npm_config_cache=str(build_root / "npm-cache"),
                 PYTHONPATH=str(workspace),
                 PYTHONDONTWRITEBYTECODE="1",
+                NUMBA_CACHE_DIR=str(run / "numba-cache"),
             )
             record = {"command": command, "cwd": kwargs.get("cwd"), "exit_status": None}
             report["commands"].append(record)
@@ -173,6 +174,9 @@ def build(
                 raise
 
         try:
+            # Numba's cache=True decorators may write during import even when
+            # Python bytecode is disabled. Override inherited in-tree locations.
+            os.environ["NUMBA_CACHE_DIR"] = str(run / "numba-cache")
             sys.path.insert(0, str(workspace))
             sys.path.insert(1, str(workspace / "scripts"))
             from build_docs_site_dist import _strip_trailing_whitespace
