@@ -12,6 +12,7 @@ links and readers; edit the task record and rerun
 | `hit-merged-peaklet-responsibility` | `planning` | `modify_code` | `standard` | `staged` | `NeedsRevalidation` | `docs/agents/runs/current/hit-merged-peaklet-responsibility/task.yaml` |
 | `hit-threshold-ragged-optimization` | `planning` | `modify_plugin` | `standard` | `staged` | `NeedsRevalidation` | `docs/agents/runs/current/hit-threshold-ragged-optimization/task.yaml` |
 | `import-topology-optimization` | `executing` | `modify_code` | `strict` | `staged` | `ReworkExecutionStarted` | `docs/agents/runs/current/import-topology-optimization/task.yaml` |
+| `managed-workflow-mvp` | `completed` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/managed-workflow-mvp/task.yaml` |
 | `waveform-doc-content-recovery-20260901` | `completed` | `modify_code` | `standard` | `staged` | `—` | `docs/agents/runs/current/waveform-doc-content-recovery-20260901/task.yaml` |
 | `waveform-doc-lineage-density-20260901` | `completed` | `modify_code` | `standard` | `staged` | `AllBlockingGatesPass` | `docs/agents/runs/current/waveform-doc-lineage-density-20260901/task.yaml` |
 | `waveform-doc-nested-nav-20260902` | `completed` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/waveform-doc-nested-nav-20260902/task.yaml` |

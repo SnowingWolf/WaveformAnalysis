@@ -1,0 +1,147 @@
+api_version: waveform-analysis/agent-task/v1
+kind: AgentTask
+metadata:
+  id: managed-workflow-mvp
+  generation: 1
+  created_at: '2026-09-08T02:40:35Z'
+  updated_at: '2026-09-08T02:48:31Z'
+spec:
+  goal: Run a single managed worktree task through Executor, test evidence, Reviewer,
+    bounded rework and explicit human acceptance before integration.
+  route: modify_code
+  workflow_cost: strict
+  workflow_shape: staged
+  risk_level: low
+  scope:
+    base_sha: e939550222a871e74aa7e49df1b2afd6b73b72ac
+    allowed_paths:
+    - scripts/managed_workflow.py
+    - tests/test_managed_workflow.py
+    - docs/agents
+  acceptance_criteria:
+  - CLI creates an isolated worktree and runs one Executor and one Reviewer with at
+    most two reworks.
+  - Real smoke reaches awaiting acceptance with diff, tests and reports; source branch
+    stays unchanged.
+  - Accept checks the reviewed snapshot and integrates only explicitly; reject preserves
+    artifacts.
+  required_gates:
+  - targeted_tests
+  - assess_change_impact
+  - schema_compat_check
+  - doc_sync
+  - doc_anchors
+  assignment:
+    planner_role: planner
+    executor_role: executor.code
+    reviewer_role: reviewer
+status:
+  state: completed
+  transitions:
+  - from: created
+    to: planning
+    at: '2026-09-08T02:40:35Z'
+    actor: system
+  - from: planning
+    to: ready_for_execution
+    at: '2026-09-08T02:40:35Z'
+    actor: planner
+  - from: ready_for_execution
+    to: executing
+    at: '2026-09-08T02:40:35Z'
+    actor: planner
+  - from: executing
+    to: reviewing
+    at: '2026-09-08T02:47:58Z'
+    actor: executor
+  - from: reviewing
+    to: completed
+    at: '2026-09-08T02:48:31Z'
+    actor: reviewer
+  plan_sha256: 6e1f04fbc22fd719c971dae725d9cb4c36c539335581bd3cd494eded5bbac644
+  execution:
+    task_id: managed-workflow-mvp
+    executor_role: executor.code
+    workflow_cost: strict
+    workflow_shape: staged
+    changed_paths:
+    - scripts/managed_workflow.py
+    - tests/test_managed_workflow.py
+    - docs/agents/managed-workflow.md
+    - docs/agents/INDEX.md
+    - docs/agents/plans/INDEX.md
+    - docs/agents/plans/active.yaml
+    - docs/agents/runs/current/managed-workflow-mvp/task.yaml
+    actions_taken:
+    - Implemented CLI run/status/accept/reject, managed worktree, real Codex agents,
+      named test gates, bounded rework and explicit fast-forward acceptance.
+    - Added user guide and 18 focused runner regression tests.
+    - Executed actual Codex Executor and Reviewer on a local WaveformAnalysis clone;
+      preserved awaiting_acceptance without integration.
+    commands_run:
+    - command: /home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m pytest tests/test_managed_workflow.py
+        tests/test_agent_workflow.py -q --no-cov -o addopts=
+      result: 'PASS: 30 tests'
+    - command: python scripts/assess_change_impact.py --task docs/agents/runs/current/managed-workflow-mvp/task.yaml
+      result: 'PASS: no plugin contract changes'
+    - command: python scripts/schema_compat_check.py --task docs/agents/runs/current/managed-workflow-mvp/task.yaml
+        --run-smoke
+      result: 'PASS: raw_files=2 st_waveforms=24 hit=0 df=24 events=12'
+    - command: WAVEFORM_PYTHON=/home/wxy/anaconda3/envs/pyroot-kernel/bin/python bash
+        scripts/check_doc_sync.sh --task docs/agents/runs/current/managed-workflow-mvp/task.yaml
+      result: 'PASS: includes doc_anchors; 0 errors, 0 warnings'
+    real_smoke:
+      run_id: e4b59322e4a2
+      state: awaiting_acceptance
+      base_sha: e939550222a871e74aa7e49df1b2afd6b73b72ac
+      reviewed_head: 172f2390bdc26f1a3a013bd5eac7bc3c6d08d56c
+      artifacts: /tmp/waveform-managed-smoke-HOLsIw/repo/.git/managed-workflow/e4b59322e4a2
+      test_exit_code: 0
+      review:
+        decision: pass
+        report: 指定 Base 到 Head 仅新增 docs/agents/managed-workflow-smoke.txt，内容精确为 Managed
+          workflow smoke passed. 加一个换行符。已核对提交与工作区字节内容、实际测试日志，并复跑 smoke_content，退出码为
+          0。工作区干净，验收条件及必需 gate 全部通过。
+        findings: []
+      target_unchanged: true
+      accept_executed: false
+      validation_boundary: Actual Codex agents verified happy path. Rework/reject/accept
+        verified with real Git and controlled fake agent responses in tests. Final
+        process-group timeout and raw-diff adjustments verified by targeted tests
+        after the live run.
+    open_risks:
+    - CLI MVP only; no DevSpace UI or automatic environment setup.
+    - Runtime records do not automatically transition the canonical task lifecycle.
+    requested_review_focus:
+    - Failure gating, bounded rework, exact reviewed snapshot acceptance, scope and
+      evidence.
+  review:
+    task_id: managed-workflow-mvp
+    workflow_cost: strict
+    reviewer: /root/reviewer
+    decision: completed
+    plan_sha256: 6e1f04fbc22fd719c971dae725d9cb4c36c539335581bd3cd494eded5bbac644
+    blocking_findings: []
+    gate_results:
+      targeted_tests: PASS
+      assess_change_impact: PASS
+      schema_compat_check: PASS
+      doc_sync: PASS
+      doc_anchors: PASS
+    evidence: 'Independent reviewer inspected implementation and actual smoke logs;
+      18 runner tests passed independently. Parent full focused set: 30 passed.'
+    residual_risks:
+    - CLI MVP only; no DevSpace UI or automatic environment setup.
+    - Runtime records do not automatically transition the canonical task lifecycle.
+    follow_up_actions:
+    - User may accept or reject preserved smoke run.
+  approval: {}
+  handoff:
+    commit_status: included_in_delivery_commit
+    commit_reference: Resolve the implementation commit with git log -1 --format=%H
+      -- scripts/managed_workflow.py; this task record is included in that scoped
+      commit.
+    summary: CLI MVP and real Agent smoke verified; smoke intentionally awaiting acceptance.
+    checks:
+    - git status --short
+    - git diff --stat
