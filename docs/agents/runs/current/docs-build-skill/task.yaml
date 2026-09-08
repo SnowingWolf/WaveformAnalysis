@@ -2,7 +2,7 @@ api_version: waveform-analysis/agent-task/v1
 kind: AgentTask
 metadata:
   id: docs-build-skill
-  generation: 1
+  generation: 2
   created_at: '2026-09-08'
   updated_at: '2026-09-08'
 spec:
@@ -75,7 +75,29 @@ spec:
     30min per invocation. Final report summarize exact tests/build evidence and any
     blockers. If network/sandbox blocks dependency install, report concrete error;
     do not disable sandbox or alter provider. Scope minimal; no preview server, cleanup
-    command, DevSpace UI, new repo, or global environment changes.'
+    command, DevSpace UI, new repo, or global environment changes.
+
+
+    PLANNER REPLAN generation 2: Independent Reviewer found the new public guide requires
+    tests/test_site_model.py, docs/site-content-baseline.json and docs/site-route-migration.yaml
+    to be updated. These three files are now explicitly authorized by parent within
+    user-approved implementation scope. Fix the three failed tests preserving independent
+    baseline checks; do not remove or weaken coverage. First rework was interrupted
+    before edits to expand scope; retained log attempt-2-interrupted is historical.
+    Existing CLI/Skill and prior parent real builds already pass. Do not recreate
+    implementation or repeat blocked sandbox builds. After finishing source/baseline/route
+    changes and targeted tests, create /tmp/waveform-docs-skill-task/rework-ready.json
+    identifying current fingerprint and what changed; then wait with bounded 20-second
+    sleeps (up to 15min) for /tmp/waveform-docs-skill-task/rework-build-done.json.
+    Parent will run fresh real default and staged builds with permission, updating
+    real-build-evidence.json and final fixture while you hold source files stable.
+    Read done report, validate, update task execution evidence, regenerate task nav
+    and finish. Do not modify source after parent successful build unless required;
+    if changed, explicitly report need for revalidation. Preserve canonical generation
+    2 scope and append lifecycle evidence. Parent supplied .agents skill already exists
+    and passed validation.
+
+    '
   route: modify_code
   workflow_cost: strict
   workflow_shape: staged
@@ -91,6 +113,9 @@ spec:
     - docs/site-guides.yaml
     - docs/site-next/fixture/site-model.v1.json
     - waveform_analysis/documentation/site_dist
+    - tests/test_site_model.py
+    - docs/site-content-baseline.json
+    - docs/site-route-migration.yaml
   acceptance_criteria:
   - Build uses current worktree inputs and keeps dependencies/output external by default.
   - Validated stage-output changes only managed worktree site_dist; failure preserves
@@ -123,69 +148,121 @@ status:
     at: '2026-09-08T08:53:32.326294+00:00'
     actor: executor
     condition: Implementation and validation evidence ready for actual parent Reviewer.
-  plan_sha256: 87715e71453ad8bc785b0bf548ce3b571bc492ddd9efa3b1884162d4b792fae5
+  - from: reviewing
+    to: rework_required
+    at: '2026-09-08T09:00:34.052979+00:00'
+    actor: reviewer
+    condition: fixable_gate_failure
+  - from: rework_required
+    to: planning
+    at: '2026-09-08T09:00:34.052979+00:00'
+    actor: planner
+    scope_changed: true
+    condition: scope_changed
+  - to: ready_for_execution
+    at: '2026-09-08T09:01:41.093168+00:00'
+    actor: executor
+    condition: Parent-approved generation 2 rework; no independent planning
+    from: planning
+  - to: executing
+    at: '2026-09-08T09:01:41.093168+00:00'
+    actor: executor
+    condition: Parent-approved generation 2 rework; no independent planning
+    from: ready_for_execution
+  - from: executing
+    to: reviewing
+    at: '2026-09-08T09:06:21.345910+00:00'
+    actor: executor
+    condition: Generation 2 fixes and required gates passed; fresh parent real builds
+      received; actual Reviewer owns terminal review.
+  plan_sha256: null
   execution:
-    summary: Implemented isolated docs-build CLI, scoped repository Skill, guide/navigation
-      and focused tests. Parent supplied real default and staged builds after Executor
-      environment failures; both artifacts independently checked.
-    changed_paths:
-    - .gitignore
-    - .agents/skills/docs-build/SKILL.md
-    - scripts/docs_build.py
-    - tests/test_docs_build.py
-    - docs/agents/INDEX.md
-    - docs/agents/docs-build.md
-    - docs/agents/plans/INDEX.md
-    - docs/agents/plans/active.yaml
-    - docs/agents/runs/current/docs-build-skill/task.yaml
-    - docs/site-guides.yaml
-    - docs/site-next/fixture/site-model.v1.json
-    - waveform_analysis/documentation/site_dist
+    generation: 2
+    summary: Added guide 34 independent content baseline and route migration coverage;
+      existing implementation preserved. Parent performed new default and stage-output
+      real builds while source held stable.
+    actions_taken:
+    - Updated three stale guide count assertions to 34 without weakening independent
+      checks.
+    - Appended only docs-build guide baseline and historical route spelling.
+    - Preserved approved generation 2 scope and appended lifecycle evidence.
     commands_run:
-    - python -m pytest -q --no-cov -p no:cacheprovider tests/test_docs_build.py
-    - skill-creator/scripts/quick_validate.py .agents/skills/docs-build
-    - python -m ruff check scripts/docs_build.py tests/test_docs_build.py
-    - python -m black --check --workers 1 scripts/docs_build.py tests/test_docs_build.py
-    - python scripts/render_agent_docs.py --write
-    - scripts/check_doc_sync.sh
-    - python scripts/check_doc_anchors.py --check-sync --task docs/agents/runs/current/docs-build-skill/task.yaml
-    - python scripts/assess_change_impact.py --task docs/agents/runs/current/docs-build-skill/task.yaml
-    - python scripts/schema_compat_check.py --task docs/agents/runs/current/docs-build-skill/task.yaml
-      --run-smoke
-    - python -m waveform_analysis.documentation.cli generate plugins-auto -o /tmp/waveform-docs-skill-task/plugins-auto
-    - python -m waveform_analysis.documentation.cli generate plugins-agent -o /tmp/waveform-docs-skill-task/plugins-agent
-    - python scripts/docs_build.py build --workspace WORKTREE --run-id parent-default-01
-      --build-root /tmp/waveform-docs-skill-task/builds (parent)
-    - python scripts/docs_build.py build --workspace WORKTREE --run-id parent-staged-01
-      --stage-output --build-root /tmp/waveform-docs-skill-task/builds (parent)
-    results:
-      targeted_tests: 'PASS: 11 focused tests and 1 real acceptance test'
-      skill: 'PASS: actual repository SKILL.md validated; supplied by parent because
-        Executor .agents mount is read-only'
-      format: 'PASS: ruff and black --workers 1'
-      doc_sync: 'PASS: full and task-scoped'
-      doc_anchors: PASS
-      assess_change_impact: 'PASS: no plugin contract changes'
-      schema_compat_check: 'PASS: no dtype changes, synthetic smoke completed'
-      plugin_generation: 'PASS: both commands generated externally to preserve allowed_paths'
-      real_build: 'PASS via parent reports: npm ci, check, build all exit 0; both
-        models and sites include marker; staged manifest verified'
-      old_output_preserved: 'PASS: parent default before/after hashes equal'
-      original_develop: 'PASS: HEAD, clean status and dependency/output directory
-        mtimes match parent baseline'
-      fixture: Synchronized from validated staged site-model.v1.json
-      task_validation: 'PASS: strict validation with imported snapshot history'
-    evidence: /tmp/waveform-docs-skill-task/real-build-evidence.json
-    open_risks:
-    - Executor sandbox rejected initial npm proxy connections and later returned empty
-      Node child stdout. Parent completed identical CLI builds in functioning execution
-      environment; failed reports and minimal reproduction remain inspectable.
-    - Final Reviewer decision and commits belong to parent/Runner.
-    requested_review_focus:
-    - Review isolation, path guards, retained command reports and transactional output
-      replacement.
-    - Inspect parent-default-01 and parent-staged-01 reports and confirm current staged
-      manifest.
+      skill:
+        command:
+        - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python
+        - /home/wxy/.codex/skills/.system/skill-creator/scripts/quick_validate.py
+        - .agents/skills/docs-build
+        exit_status: 0
+        log: /tmp/waveform-docs-skill-task/rework-skill.log
+      doc_sync:
+        command:
+        - bash
+        - scripts/check_doc_sync.sh
+        - --base
+        - e2c6c5b97d73763fc141b33f90f2453ace77c2be
+        exit_status: 0
+        log: /tmp/waveform-docs-skill-task/rework-doc_sync.log
+      doc_anchors:
+        command:
+        - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python
+        - scripts/check_doc_anchors.py
+        - --check-sync
+        - --base
+        - e2c6c5b97d73763fc141b33f90f2453ace77c2be
+        exit_status: 0
+        log: /tmp/waveform-docs-skill-task/rework-doc_anchors.log
+      assess_change_impact:
+        command:
+        - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python
+        - scripts/assess_change_impact.py
+        - --base
+        - e2c6c5b97d73763fc141b33f90f2453ace77c2be
+        exit_status: 0
+        log: /tmp/waveform-docs-skill-task/rework-assess_change_impact.log
+      schema_compat_check:
+        command:
+        - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python
+        - scripts/schema_compat_check.py
+        - --base
+        - e2c6c5b97d73763fc141b33f90f2453ace77c2be
+        - --run-smoke
+        exit_status: 0
+        log: /tmp/waveform-docs-skill-task/rework-schema_compat_check.log
+    targeted_tests:
+      command: PYTHONPATH=current-worktree /home/wxy/anaconda3/envs/pyroot-kernel/bin/python
+        -m pytest tests/test_docs_build.py tests/test_cli_docs_site_publish.py tests/test_site_model.py
+        -q --no-cov -o addopts=
+      result: 49 passed, 1 skipped, 2 warnings
+      log: /tmp/waveform-docs-skill-task/rework-targeted-full.log
+    real_build:
+      default_before_hash: 297d346edaa6b8887749e0d56bd34d2b404b6da082113626a0be6c27d45ff6ba
+      default_report: /tmp/waveform-docs-skill-task/builds/runs/rework-default-01/report.json
+      default_after_hash: 297d346edaa6b8887749e0d56bd34d2b404b6da082113626a0be6c27d45ff6ba
+      staged_report: /tmp/waveform-docs-skill-task/builds/runs/rework-staged-01/report.json
+      execution_note: Generation 2 real default and staged builds run by parent outside
+        sandbox, using the held Executor worktree inputs and isolated dependencies.
+      status: success
+    formatting: ruff check PASS; black --workers 1 unchanged
+    open_risks: []
+    real_build_validation:
+      static_exports: 'PASS: both external exports and current site_dist validated
+        with validate_static_export(require_model=True)'
+      marker: 'PASS: both real HTML guides and models contain docs-build external
+        workspace'
+      package_manifest: 'PASS: tests/test_docs_build.py::test_real_build_evidence
+        validates copy_prebuilt_site'
+      acceptance_log: /tmp/waveform-docs-skill-task/rework-real-validation.log
+      result: 1 passed in 7.71s
+      input_verification:
+        final_input_fingerprint: b3b2bb2ea91ef75cb6528269f64c5c4c02129b9b9509a558c863e796bbea8fa7
+        build_input_fingerprint: b3b2bb2ea91ef75cb6528269f64c5c4c02129b9b9509a558c863e796bbea8fa7
+        requires_revalidation: false
+        note: Only required task status and generated task navigation updated after
+          parent build; runs and plans excluded by canonical fingerprint.
+    original_develop_verification:
+      head: e2c6c5b97d73763fc141b33f90f2453ace77c2be
+      git_status_short: ''
+      read_only: true
   review: {}
   approval: {}
   handoff:

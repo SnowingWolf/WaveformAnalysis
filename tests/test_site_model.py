@@ -110,7 +110,7 @@ def test_site_model_v1_uses_real_plugin_and_guide_facts_without_html():
     assert json.dumps(model, ensure_ascii=False).find("<html") < 0
     assert SITE_MODEL_SCHEMA_PATH.is_file()
     assert len(model["source_indexes"]) == 11
-    assert sum(bool(guide.get("source")) for guide in model["guides"]) == 33
+    assert sum(bool(guide.get("source")) for guide in model["guides"]) == 34
     reference = next(section for section in model["navigation"] if section["id"] == "reference")
     cli_navigation = next(item for item in reference["items"] if item["href"] == "/cli/")
     assert [(item["label"], item["href"]) for item in cli_navigation["children"]] == [
@@ -277,8 +277,8 @@ def test_public_guide_baseline_tracks_source_and_typed_content_independently():
     guides = {
         (guide["route"], guide["source"]): guide for guide in model["guides"] if guide.get("source")
     }
-    assert len(guides) == 33
-    assert len(baseline["guides"]) == 33
+    assert len(guides) == 34
+    assert len(baseline["guides"]) == 34
     for expected in baseline["guides"]:
         actual = guides[(expected["route"], expected["source"])]
         source_path = project_root / expected["source"]

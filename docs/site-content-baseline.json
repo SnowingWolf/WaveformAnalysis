@@ -4429,6 +4429,30 @@
         "table": 0,
         "list": 8
       }
+    },
+    {
+      "route": "/user-guide/docs-build/",
+      "source": "docs/agents/docs-build.md",
+      "source_sha256": "37929f3d8737fa6b85afc55a0fb999155805fe703413790b1a7a349c973f0346",
+      "model_fingerprint": "123e87bf478dbd453e4a969c97b26433ed9bbc4ab4f0ce70df56e54818fef2d3",
+      "block_types": [
+        "paragraph",
+        "code",
+        "paragraph",
+        "paragraph",
+        "paragraph",
+        "list",
+        "paragraph",
+        "paragraph",
+        "paragraph"
+      ],
+      "content_counts": {
+        "paragraph": 7,
+        "link": 0,
+        "code": 1,
+        "table": 0,
+        "list": 1
+      }
     }
   ],
   "source_indexes": [

@@ -22,6 +22,8 @@ mappings:
     to: /user-guide/
   - from: /user-guide/QUICKSTART_GUIDE.html
     to: /user-guide/QUICKSTART_GUIDE/
+  - from: /user-guide/docs-build.html
+    to: /user-guide/docs-build/
   - from: /user-guide/EXAMPLES_GUIDE.html
     to: /user-guide/EXAMPLES_GUIDE/
   - from: /contexts/context.html
