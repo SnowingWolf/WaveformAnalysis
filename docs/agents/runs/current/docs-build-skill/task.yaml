@@ -1,0 +1,193 @@
+api_version: waveform-analysis/agent-task/v1
+kind: AgentTask
+metadata:
+  id: docs-build-skill
+  generation: 1
+  created_at: '2026-09-08'
+  updated_at: '2026-09-08'
+spec:
+  goal: 'Implement the approved docs-build Skill plan in this managed worktree. You
+    are the sole Executor, parent owns planning and Runner owns commits, Reviewer
+    and integration. User has approved implementation; do not ask for design approval
+    or spawn agents. Do not merge/push/commit or access DAQ data. Never install/upgrade
+    shared Python environment. Use /home/wxy/anaconda3/envs/pyroot-kernel/bin/python
+    and PYTHONPATH=current worktree to ensure local imports.
+
+
+    Add .agents/skills/docs-build/SKILL.md and scripts/docs_build.py. Read skill-creator
+    instructions /home/wxy/.codex/skills/.system/skill-creator/SKILL.md and update-docs
+    skill as needed. .agents is gitignored: add narrowly scoped .gitignore exceptions
+    to track ONLY this skill folder (not all other .agents content), so Runner git
+    add includes it. Do not install a global skill. Preserve documentation source
+    and existing commands. Add docs/agents/docs-build.md and an INDEX link. Reuse
+    NextSiteBuilder(project_root=current worktree, app_root=external copied app),
+    static validation, and existing package normalization/manifest helpers instead
+    of duplicating HTML generation.
+
+
+    CLI: python scripts/docs_build.py build --workspace WORKTREE --run-id ID [--build-root
+    DIR] [--stage-output]. Default root tempfile.gettempdir()/waveform-doc-build.
+    Unique runs/ID directory, reject existing ID without overwriting evidence. Reject
+    roots inside workspace and unsafe IDs/symlink output paths. Copy docs/site-next
+    source from current worktree excluding node_modules/.next/out/dist/export/tsbuildinfo
+    and transient files. Build app and dependencies independently under runs/ID/app,
+    share only npm download cache under root/npm-cache. npm ci --ignore-scripts followed
+    by check/build via current builder. All writes outside workspace except explicit
+    --stage-output. Import current workspace code even if shared environment has an
+    editable install pointing elsewhere.
+
+
+    Output external site/, site-model.json, build.log and report.json. Report status,
+    source HEAD, dirty path summary, input fingerprint based on actual input bytes
+    (exclude old site_dist/generated reports and Git metadata), command exit statuses
+    and artifact paths. Failure exit nonzero and persist error report. Default never
+    modifies site_dist; --stage-output after successful validation replaces current
+    worktree site_dist with rollback on replacement error, normalizes generated text
+    and writes valid package manifest. Do not git add within script.
+
+
+    Tests tests/test_docs_build.py cover isolation, duplicate ID, default/no stage
+    writes, stage success and failure old-output preservation, actual-input fingerprint
+    changes, failure exit and report. Prefer controlled fake command runner for focused
+    tests. Use real build for acceptance: new usage guide should contain marker ''docs-build
+    external workspace'' and generated site/model must include it; run default build
+    and stage-output build in external root, record reports under /tmp/waveform-docs-skill-task/real-build-evidence.json
+    with keys default_report and staged_report absolute paths for parent gates. Ensure
+    tests can validate both reports, marker, original site_dist hash unchanged after
+    default, staged manifest valid. Restore no source doc marker; use marker as meaningful
+    guide text.
+
+
+    Record canonical task docs/agents/runs/current/docs-build-skill/task.yaml using
+    approved spec copied from /tmp/waveform-docs-skill-task/task.yaml; update execution
+    evidence and lifecycle at least through reviewing, leave terminal review to actual
+    Reviewer parent evidence. Generated task navigation must be refreshed using render_agent_docs.py
+    --write. Source task external is immutable run input; no independent planning
+    expansion. Parent will register final review evidence separately without modifying
+    reviewed code.
+
+
+    Run required tests/skill validation/doc sync/anchors/impact/schema smoke. If waveform_analysis
+    files change, run both plugins-auto and plugins-agent doc generation commands
+    during execution and preserve no unrelated diffs. Run existing static export validation
+    on staged result; don''t claim builds from unit tests alone. Preformat changed
+    Python with shared ruff and black --workers 1 as available. Runtime budget max
+    30min per invocation. Final report summarize exact tests/build evidence and any
+    blockers. If network/sandbox blocks dependency install, report concrete error;
+    do not disable sandbox or alter provider. Scope minimal; no preview server, cleanup
+    command, DevSpace UI, new repo, or global environment changes.'
+  route: modify_code
+  workflow_cost: strict
+  workflow_shape: staged
+  risk_level: medium
+  scope:
+    base_sha: e2c6c5b97d73763fc141b33f90f2453ace77c2be
+    allowed_paths:
+    - .gitignore
+    - .agents/skills/docs-build
+    - scripts/docs_build.py
+    - tests/test_docs_build.py
+    - docs/agents
+    - docs/site-guides.yaml
+    - docs/site-next/fixture/site-model.v1.json
+    - waveform_analysis/documentation/site_dist
+  acceptance_criteria:
+  - Build uses current worktree inputs and keeps dependencies/output external by default.
+  - Validated stage-output changes only managed worktree site_dist; failure preserves
+    previous export.
+  - Actual external build includes updated documentation and both reports are inspectable.
+  - Skill, focused tests and repository gates pass; original develop unchanged.
+  required_gates:
+  - targeted_tests
+  - skill
+  - doc_sync
+  - doc_anchors
+  - assess_change_impact
+  - schema_compat_check
+  - real_build
+  assignment:
+    planner_role: planner
+    executor_role: executor.code
+    reviewer_role: reviewer
+status:
+  state: reviewing
+  transitions:
+  - from: created
+    to: executing
+    at: '2026-09-08T08:42:00Z'
+    actor: executor
+    condition: Imported the parent-approved ready_for_execution snapshot; external
+      input contains no transition history. No new planning performed.
+  - from: executing
+    to: reviewing
+    at: '2026-09-08T08:53:32.326294+00:00'
+    actor: executor
+    condition: Implementation and validation evidence ready for actual parent Reviewer.
+  plan_sha256: 87715e71453ad8bc785b0bf548ce3b571bc492ddd9efa3b1884162d4b792fae5
+  execution:
+    summary: Implemented isolated docs-build CLI, scoped repository Skill, guide/navigation
+      and focused tests. Parent supplied real default and staged builds after Executor
+      environment failures; both artifacts independently checked.
+    changed_paths:
+    - .gitignore
+    - .agents/skills/docs-build/SKILL.md
+    - scripts/docs_build.py
+    - tests/test_docs_build.py
+    - docs/agents/INDEX.md
+    - docs/agents/docs-build.md
+    - docs/agents/plans/INDEX.md
+    - docs/agents/plans/active.yaml
+    - docs/agents/runs/current/docs-build-skill/task.yaml
+    - docs/site-guides.yaml
+    - docs/site-next/fixture/site-model.v1.json
+    - waveform_analysis/documentation/site_dist
+    commands_run:
+    - python -m pytest -q --no-cov -p no:cacheprovider tests/test_docs_build.py
+    - skill-creator/scripts/quick_validate.py .agents/skills/docs-build
+    - python -m ruff check scripts/docs_build.py tests/test_docs_build.py
+    - python -m black --check --workers 1 scripts/docs_build.py tests/test_docs_build.py
+    - python scripts/render_agent_docs.py --write
+    - scripts/check_doc_sync.sh
+    - python scripts/check_doc_anchors.py --check-sync --task docs/agents/runs/current/docs-build-skill/task.yaml
+    - python scripts/assess_change_impact.py --task docs/agents/runs/current/docs-build-skill/task.yaml
+    - python scripts/schema_compat_check.py --task docs/agents/runs/current/docs-build-skill/task.yaml
+      --run-smoke
+    - python -m waveform_analysis.documentation.cli generate plugins-auto -o /tmp/waveform-docs-skill-task/plugins-auto
+    - python -m waveform_analysis.documentation.cli generate plugins-agent -o /tmp/waveform-docs-skill-task/plugins-agent
+    - python scripts/docs_build.py build --workspace WORKTREE --run-id parent-default-01
+      --build-root /tmp/waveform-docs-skill-task/builds (parent)
+    - python scripts/docs_build.py build --workspace WORKTREE --run-id parent-staged-01
+      --stage-output --build-root /tmp/waveform-docs-skill-task/builds (parent)
+    results:
+      targeted_tests: 'PASS: 11 focused tests and 1 real acceptance test'
+      skill: 'PASS: actual repository SKILL.md validated; supplied by parent because
+        Executor .agents mount is read-only'
+      format: 'PASS: ruff and black --workers 1'
+      doc_sync: 'PASS: full and task-scoped'
+      doc_anchors: PASS
+      assess_change_impact: 'PASS: no plugin contract changes'
+      schema_compat_check: 'PASS: no dtype changes, synthetic smoke completed'
+      plugin_generation: 'PASS: both commands generated externally to preserve allowed_paths'
+      real_build: 'PASS via parent reports: npm ci, check, build all exit 0; both
+        models and sites include marker; staged manifest verified'
+      old_output_preserved: 'PASS: parent default before/after hashes equal'
+      original_develop: 'PASS: HEAD, clean status and dependency/output directory
+        mtimes match parent baseline'
+      fixture: Synchronized from validated staged site-model.v1.json
+      task_validation: 'PASS: strict validation with imported snapshot history'
+    evidence: /tmp/waveform-docs-skill-task/real-build-evidence.json
+    open_risks:
+    - Executor sandbox rejected initial npm proxy connections and later returned empty
+      Node child stdout. Parent completed identical CLI builds in functioning execution
+      environment; failed reports and minimal reproduction remain inspectable.
+    - Final Reviewer decision and commits belong to parent/Runner.
+    requested_review_focus:
+    - Review isolation, path guards, retained command reports and transactional output
+      replacement.
+    - Inspect parent-default-01 and parent-staged-01 reports and confirm current staged
+      manifest.
+  review: {}
+  approval: {}
+  handoff:
+    commit_status: uncommitted
+    reason: Runner owns commits; executor instructed not to modify Git metadata.

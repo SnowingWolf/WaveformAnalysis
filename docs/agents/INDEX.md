@@ -52,6 +52,7 @@
 <!-- END GENERATED: recommended_read_order -->
 
 ## 质量闸门
+- 外部构建与打包产物更新：[隔离文档构建](docs-build.md)。
 - 单任务自动执行与人工集成：[Managed Workflow MVP](managed-workflow.md)。
 - PR 固定闸门：见 `workflows.md` 中“PR 前固定质量闸门（3 类，4 条命令）”
 - 扩展检查 / 发布前检查：见 `workflows.md` 中 `performance_regression_check` 与 `release_artifact_sync`

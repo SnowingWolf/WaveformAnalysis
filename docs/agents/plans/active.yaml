@@ -2,6 +2,14 @@ version: 2
 generated_by: scripts/render_agent_docs.py
 source: docs/agents/runs/current/*/task.yaml
 active_plans:
+- task_id: docs-build-skill
+  state: reviewing
+  route: modify_code
+  workflow_cost: strict
+  workflow_shape: staged
+  condition: —
+  task_file: docs/agents/runs/current/docs-build-skill/task.yaml
+  legacy_plan: docs/agents/runs/current/docs-build-skill/legacy-plan.md
 - task_id: get-data-output-unification
   state: planning
   route: modify_code

@@ -378,3 +378,11 @@ docs_todo.md
 
 # Root benchmark files (use benchmarks/ for organized results)
 /benchmark_*.txt
+
+# Only the repository docs-build skill is shared.
+!/.agents/
+/.agents/*
+!/.agents/skills/
+/.agents/skills/*
+!/.agents/skills/docs-build/
+!/.agents/skills/docs-build/**
