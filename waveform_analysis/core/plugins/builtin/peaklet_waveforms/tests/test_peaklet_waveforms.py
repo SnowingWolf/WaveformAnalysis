@@ -183,6 +183,34 @@ def test_peaklet_waveforms_routed_numba_cross_record_matches_python_canonical():
     np.testing.assert_array_equal(routed_pool, reference_pool)
 
 
+def test_peaklet_waveforms_routed_numba_fast_parallel_matches_python():
+    peaklets, components, merged, records, wave_pool = _make_all_single_numba_inputs(8)
+    plugin = PeakletWaveformPlugin()
+    plugin._clip_negative_signal = False
+    plugin._hit_merged_components = np.zeros(0, dtype=HIT_MERGED_COMPONENTS_DTYPE)
+    plugin._hit_threshold = np.zeros(0, dtype=THRESHOLD_HIT_DTYPE)
+
+    routed_rows, routed_pool = plugin._build_routed_numba(
+        peaklets=peaklets,
+        components=components,
+        merged=merged,
+        records=records,
+        wave_pool=wave_pool,
+    )
+    reference_rows, reference_pool = plugin._build_python(
+        peaklets=peaklets,
+        components=components,
+        merged=merged,
+        records=records,
+        wave_pool=wave_pool,
+    )
+
+    np.testing.assert_array_equal(routed_rows, reference_rows)
+    np.testing.assert_array_equal(routed_pool, reference_pool)
+    assert plugin._last_waveform_diagnostics["fast_peaklets"] == len(peaklets)
+    assert plugin._last_waveform_diagnostics["canonical_peaklets"] == 0
+
+
 @pytest.mark.parametrize("clip_negative_signal", [False, True])
 def test_peaklet_waveforms_all_single_numba_first_jit_matches_python(clip_negative_signal):
     peaklets, components, merged, records, wave_pool = _make_all_single_numba_inputs()
@@ -351,6 +379,8 @@ def test_peaklet_waveforms_reports_preallocated_expansion_phases():
         "index_build",
         "expand_components",
         "lexsort",
+        "classify",
+        "kernel",
         "materialize_output",
     }
     assert all(value >= 0.0 for value in diagnostics["phase_timings"].values())
@@ -738,7 +768,7 @@ def test_peaklet_waveform_pool_lineage_tracks_canonical_waveform(tmp_path):
     assert lineage["config"] == {}
     assert list(lineage["depends_on"]) == ["peaklet_waveforms"]
     waveform_lineage = lineage["depends_on"]["peaklet_waveforms"]
-    assert waveform_lineage["plugin_version"] == "2.1.1"
+    assert waveform_lineage["plugin_version"] == "2.2.0"
     assert waveform_lineage["config"]["use_filtered"] is True
     assert waveform_lineage["config"]["clip_negative_signal"] is True
     assert "wave_pool_filtered" in waveform_lineage["depends_on"]
