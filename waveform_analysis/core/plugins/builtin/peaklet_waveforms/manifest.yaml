@@ -1,6 +1,6 @@
 provides: peaklet_waveforms
 plugin_class: PeakletWaveformPlugin
-version: 2.2.0
+version: 2.2.1
 third_party_dependencies:
   - numpy
   - numba

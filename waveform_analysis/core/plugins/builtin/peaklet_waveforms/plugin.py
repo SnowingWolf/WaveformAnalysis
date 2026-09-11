@@ -268,7 +268,6 @@ def _fill_fast_peaklet_pool_numba(
     record_sign,
     wave_pool,
     clip_negative_signal,
-    unique_samples_by_peaklet,
 ):
     """Fill disjoint fast-route pool ranges in parallel.
 
@@ -276,8 +275,15 @@ def _fill_fast_peaklet_pool_numba(
     windows on one hardware channel.  Every peaklet owns a private interval
     in ``pool64``; the inner piece/sample order and float64 accumulation are
     therefore unchanged while independent peaklets execute concurrently.
-    The per-peaklet counters are reduced by the caller in peaklet order.
+    The diagnostic sample count is reduced as a scalar by the parallel loop;
+    it does not participate in waveform accumulation or output ordering.
     """
+    # Keep the reduction scalar in the parallel kernel.  The previous
+    # implementation allocated one int64 counter per peaklet (about 317 MiB
+    # for Run 00601) and wrote it from every scheduled iteration.  Fast-route
+    # peaklets own disjoint pool ranges, so the counter is only diagnostic and
+    # can be reduced without changing any output or accumulation order.
+    unique_samples = 0
     for peaklet_id in prange(len(rows)):
         if routes[peaklet_id] != _ROUTE_FAST:
             continue
@@ -290,7 +296,7 @@ def _fill_fast_peaklet_pool_numba(
         peaklet_time_start = rows[peaklet_id, 1]
         dt_ps = rows[peaklet_id, 3] * 1000
         pool_offset = rows[peaklet_id, 4]
-        unique_samples = 0
+        peaklet_unique_samples = 0
 
         for piece_i in range(piece_begin, piece_end):
             rec_idx = piece_record_indices[piece_i]
@@ -313,9 +319,11 @@ def _fill_fast_peaklet_pool_numba(
                     signal = np.float32(0.0)
                 # Keep the original float64 accumulation and iteration order.
                 pool64[dst + sample_i] += np.float64(signal)
-                unique_samples += 1
+                peaklet_unique_samples += 1
 
-        unique_samples_by_peaklet[peaklet_id] = unique_samples
+        unique_samples += peaklet_unique_samples
+
+    return unique_samples
 
 
 @njit(cache=True, nogil=True)
@@ -323,6 +331,7 @@ def _fill_canonical_peaklet_pool_numba(
     pool64,
     rows,
     routes,
+    canonical_peaklet_ids,
     piece_starts,
     piece_ends,
     piece_record_indices,
@@ -341,7 +350,6 @@ def _fill_canonical_peaklet_pool_numba(
     wave_pool,
     clip_negative_signal,
     max_wave_length,
-    unique_samples_by_peaklet,
 ):
     """Fill canonical peaklets serially using occupancy scratch."""
     occupancy_values = np.empty(max_wave_length, dtype=np.float32)
@@ -351,10 +359,14 @@ def _fill_canonical_peaklet_pool_numba(
     bit_value = np.empty(1, dtype=np.float32)
     bit_view = bit_value.view(np.uint32)
     stamp = 0
+    unique_samples = 0
 
-    for peaklet_id in range(len(rows)):
-        if routes[peaklet_id] != _ROUTE_CANONICAL:
-            continue
+    # Iterate only canonical IDs.  The canonical population is sparse in the
+    # Run 00601 workload (~0.6M of ~39.6M peaklets); scanning every row here
+    # adds avoidable scheduling-independent work and does not affect the
+    # deterministic peaklet order because ``flatnonzero`` is sorted.
+    for canonical_pos in range(len(canonical_peaklet_ids)):
+        peaklet_id = canonical_peaklet_ids[canonical_pos]
         wave_length = rows[peaklet_id, 5]
         if wave_length <= 0:
             continue
@@ -404,7 +416,7 @@ def _fill_canonical_peaklet_pool_numba(
                         occupancy_values[local_i] = signal
                         occupancy_bits[local_i] = signal_bits
                         occupancy_source[local_i] = channel_piece_i
-                        unique_samples_by_peaklet[peaklet_id] += 1
+                        unique_samples += 1
                     elif occupancy_bits[local_i] != signal_bits:
                         return (
                             peaklet_id,
@@ -413,7 +425,7 @@ def _fill_canonical_peaklet_pool_numba(
                             channel_piece_i,
                             occupancy_values[local_i],
                             signal,
-                            unique_samples_by_peaklet[peaklet_id],
+                            unique_samples,
                         )
 
             for local_i in range(wave_length):
@@ -421,13 +433,14 @@ def _fill_canonical_peaklet_pool_numba(
                     pool64[pool_offset + local_i] += np.float64(occupancy_values[local_i])
             piece_i = channel_end
 
-    return -1, -1, -1, -1, np.float32(0.0), np.float32(0.0), -1
+    return -1, -1, -1, -1, np.float32(0.0), np.float32(0.0), unique_samples
 
 
 def _fill_routed_peaklet_pool_numba(
     pool64,
     rows,
     routes,
+    canonical_peaklet_ids,
     piece_starts,
     piece_ends,
     piece_record_indices,
@@ -448,9 +461,9 @@ def _fill_routed_peaklet_pool_numba(
     max_wave_length,
 ):
     """Compatibility wrapper for the pre-2.2 routed kernel entry point."""
-    unique_samples_by_peaklet = np.zeros(len(rows), dtype=np.int64)
+    unique_samples = 0
     if bool(np.any(routes == _ROUTE_FAST)):
-        _fill_fast_peaklet_pool_numba(
+        unique_samples += _fill_fast_peaklet_pool_numba(
             pool64,
             rows,
             routes,
@@ -466,13 +479,13 @@ def _fill_routed_peaklet_pool_numba(
             record_sign,
             wave_pool,
             clip_negative_signal,
-            unique_samples_by_peaklet,
         )
     if bool(np.any(routes == _ROUTE_CANONICAL)):
         conflict = _fill_canonical_peaklet_pool_numba(
             pool64,
             rows,
             routes,
+            canonical_peaklet_ids,
             piece_starts,
             piece_ends,
             piece_record_indices,
@@ -491,10 +504,10 @@ def _fill_routed_peaklet_pool_numba(
             wave_pool,
             clip_negative_signal,
             max_wave_length,
-            unique_samples_by_peaklet,
         )
+        unique_samples += int(conflict[-1])
         if conflict[0] >= 0:
-            return (*conflict[:-1], int(np.sum(unique_samples_by_peaklet, dtype=np.int64)))
+            return (*conflict[:-1], unique_samples)
     return (
         -1,
         -1,
@@ -502,7 +515,7 @@ def _fill_routed_peaklet_pool_numba(
         -1,
         np.float32(0.0),
         np.float32(0.0),
-        int(np.sum(unique_samples_by_peaklet, dtype=np.int64)),
+        unique_samples,
     )
 
 
@@ -919,7 +932,7 @@ class PeakletWaveformPlugin(Plugin):
     provides = "peaklet_waveforms"
     depends_on = []  # 使用 resolve_depends_on() 动态解析
     description = "Build peaklet waveform index rows from records-backed hit_merged samples. Supports cross-record hits via component expansion."
-    version = "2.2.0"
+    version = "2.2.1"
     output_dtype = PEAKLET_WAVEFORMS_DTYPE
     save_when = "always"
     agent_doc = {
@@ -957,7 +970,7 @@ class PeakletWaveformPlugin(Plugin):
             "parallel_threshold": "仅控制 Python fallback 何时尝试 process pool。",
         },
         "downstream_notes": [
-            "版本 2.2.0 将 fast peaklet 的 pool 填充拆为独立区间并行内核，并保留 canonical 串行语义；peaklet_waveform_pool 因依赖 peaklet_waveforms 自动获得新的 cache lineage。",
+            "版本 2.2.1 保留 fast peaklet 的独立区间并行内核，并将仅用于诊断的样本计数改为标量归约，降低线程调度与峰值内存开销；peaklet_waveform_pool 因依赖 peaklet_waveforms 自动获得新的 cache lineage。",
             "peaklet_features 读取本插件的 index 与配对 pool，因此始终使用已经按绝对时间、通道去重后的求和波形。",
         ],
         "agent_change_notes": [
@@ -1457,14 +1470,14 @@ class PeakletWaveformPlugin(Plugin):
             self._raise_numba_status(int(status), int(status_peaklet))
 
         pool64 = np.zeros(int(total_wave_length), dtype=np.float64)
-        unique_samples_by_peaklet = np.zeros(len(waveform_rows), dtype=np.int64)
         n_fast = int(np.count_nonzero(routes == _ROUTE_FAST))
-        n_canonical = int(np.count_nonzero(routes == _ROUTE_CANONICAL))
+        canonical_peaklet_ids = np.flatnonzero(routes == _ROUTE_CANONICAL)
+        n_canonical = len(canonical_peaklet_ids)
         fast_kernel_sec = 0.0
         canonical_kernel_sec = 0.0
         if n_fast:
             fast_kernel_started = time.perf_counter()
-            _fill_fast_peaklet_pool_numba(
+            fast_unique_samples = _fill_fast_peaklet_pool_numba(
                 pool64,
                 waveform_rows,
                 routes,
@@ -1480,7 +1493,6 @@ class PeakletWaveformPlugin(Plugin):
                 record_sign,
                 wave_pool,
                 bool(getattr(self, "_clip_negative_signal", False)),
-                unique_samples_by_peaklet,
             )
             fast_kernel_sec = time.perf_counter() - fast_kernel_started
 
@@ -1504,6 +1516,7 @@ class PeakletWaveformPlugin(Plugin):
                 pool64,
                 waveform_rows,
                 routes,
+                canonical_peaklet_ids,
                 piece_starts,
                 piece_ends,
                 piece_record_indices,
@@ -1522,11 +1535,11 @@ class PeakletWaveformPlugin(Plugin):
                 wave_pool,
                 bool(getattr(self, "_clip_negative_signal", False)),
                 int(max_wave_length),
-                unique_samples_by_peaklet,
             )
             canonical_kernel_sec = time.perf_counter() - canonical_kernel_started
         kernel_sec = fast_kernel_sec + canonical_kernel_sec
-        unique_samples = int(np.sum(unique_samples_by_peaklet, dtype=np.int64))
+        canonical_unique_samples = int(_canonical_unique_samples) if n_canonical else 0
+        unique_samples = int(fast_unique_samples if n_fast else 0) + canonical_unique_samples
         if conflict_peaklet >= 0:
             abs_time_ps = (
                 int(waveform_rows[conflict_peaklet, 1])

@@ -5,7 +5,7 @@ profile: "auto"
 provides: "peaklet_waveforms"
 plugin_class: "PeakletWaveformPlugin"
 module: "waveform_analysis.core.plugins.builtin.peaklet_waveforms.plugin"
-version: "2.2.0"
+version: "2.2.1"
 summary: "Build peaklet waveform index rows from records-backed hit_merged samples. Supports cross-record hits via component expansion."
 depends_on: []
 declared_depends_on: []
@@ -17,7 +17,7 @@ output_kind: "structured_array"
 execution_kind: "static"
 narrative_source: "source"
 narrative_source_reason: null
-source_fingerprint: "0188b1670edbc7f5d5883f4334e0aa5df01af135e1806f2db5093b8fd8ca15c7"
+source_fingerprint: "8d07f6e37f70bbe84437882340ff998100364fceffd7ce4d6fc8bf57064101d7"
 generated: true
 ---
 # peaklet_waveforms
@@ -32,7 +32,7 @@ Build peaklet waveform index rows from records-backed hit_merged samples. Suppor
 | Provides | `peaklet_waveforms` |
 | Plugin Class | `PeakletWaveformPlugin` |
 | Module | `waveform_analysis.core.plugins.builtin.peaklet_waveforms.plugin` |
-| Version | `2.2.0` |
+| Version | `2.2.1` |
 | Category | 峰构建 |
 | Output Container | `structured_array` |
 | Execution Mode | `static` |
@@ -41,7 +41,7 @@ Build peaklet waveform index rows from records-backed hit_merged samples. Suppor
 | Timeout | `none` |
 | Side Effect | no |
 | Narrative Source | `source` |
-| Source Fingerprint | `0188b1670edbc7f5d5883f4334e0aa5df01af135e1806f2db5093b8fd8ca15c7` |
+| Source Fingerprint | `8d07f6e37f70bbe84437882340ff998100364fceffd7ce4d6fc8bf57064101d7` |
 
 ### Dependencies
 

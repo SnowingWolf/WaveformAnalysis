@@ -768,7 +768,7 @@ def test_peaklet_waveform_pool_lineage_tracks_canonical_waveform(tmp_path):
     assert lineage["config"] == {}
     assert list(lineage["depends_on"]) == ["peaklet_waveforms"]
     waveform_lineage = lineage["depends_on"]["peaklet_waveforms"]
-    assert waveform_lineage["plugin_version"] == "2.2.0"
+    assert waveform_lineage["plugin_version"] == "2.2.1"
     assert waveform_lineage["config"]["use_filtered"] is True
     assert waveform_lineage["config"]["clip_negative_signal"] is True
     assert "wave_pool_filtered" in waveform_lineage["depends_on"]

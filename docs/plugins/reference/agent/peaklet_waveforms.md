@@ -5,7 +5,7 @@ profile: "agent"
 provides: "peaklet_waveforms"
 plugin_class: "PeakletWaveformPlugin"
 module: "waveform_analysis.core.plugins.builtin.peaklet_waveforms.plugin"
-version: "2.2.0"
+version: "2.2.1"
 summary: "Build peaklet waveform index rows from records-backed hit_merged samples. Supports cross-record hits via component expansion."
 depends_on: []
 declared_depends_on: []
@@ -17,7 +17,7 @@ output_kind: "structured_array"
 execution_kind: "static"
 narrative_source: "source"
 narrative_source_reason: null
-source_fingerprint: "0188b1670edbc7f5d5883f4334e0aa5df01af135e1806f2db5093b8fd8ca15c7"
+source_fingerprint: "8d07f6e37f70bbe84437882340ff998100364fceffd7ce4d6fc8bf57064101d7"
 generated: true
 ---
 # peaklet_waveforms
@@ -32,7 +32,7 @@ Build peaklet waveform index rows from records-backed hit_merged samples. Suppor
 | Provides | `peaklet_waveforms` |
 | Plugin Class | `PeakletWaveformPlugin` |
 | Module | `waveform_analysis.core.plugins.builtin.peaklet_waveforms.plugin` |
-| Version | `2.2.0` |
+| Version | `2.2.1` |
 | Category | 峰构建 |
 | Output Container | `structured_array` |
 | Execution Mode | `static` |
@@ -41,7 +41,7 @@ Build peaklet waveform index rows from records-backed hit_merged samples. Suppor
 | Timeout | `none` |
 | Side Effect | no |
 | Narrative Source | `source` |
-| Source Fingerprint | `0188b1670edbc7f5d5883f4334e0aa5df01af135e1806f2db5093b8fd8ca15c7` |
+| Source Fingerprint | `8d07f6e37f70bbe84437882340ff998100364fceffd7ce4d6fc8bf57064101d7` |
 
 ### Dependencies
 
@@ -117,7 +117,7 @@ result = ctx.get_data("run_001", "peaklet_waveforms")
 - Numba 缺失或发生非契约性内部错误时回退 Python canonical；debug_numba=True 会直接暴露该内部异常。
 ### Downstream Impact
 
-直接消费者：`peaklet_features`、`peaklet_waveform_pool`- 版本 2.2.0 将 fast peaklet 的 pool 填充拆为独立区间并行内核，并保留 canonical 串行语义；peaklet_waveform_pool 因依赖 peaklet_waveforms 自动获得新的 cache lineage。
+直接消费者：`peaklet_features`、`peaklet_waveform_pool`- 版本 2.2.1 保留 fast peaklet 的独立区间并行内核，并将仅用于诊断的样本计数改为标量归约，降低线程调度与峰值内存开销；peaklet_waveform_pool 因依赖 peaklet_waveforms 自动获得新的 cache lineage。
 - peaklet_features 读取本插件的 index 与配对 pool，因此始终使用已经按绝对时间、通道去重后的求和波形。
 
 ## Maintenance
