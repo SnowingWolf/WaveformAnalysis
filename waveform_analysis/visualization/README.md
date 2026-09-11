@@ -16,7 +16,28 @@
   - 能量谱（S1, S2）和 R² 均匀性检测
   - 事件悬停信息显示
 
-### 2. 静态图表（matplotlib）
+### 2. 增强版交互式 2D 仪表板
+
+推荐通过 `render_position_dashboard_2d` 或 CLI 的 `--dashboard-2d`
+生成统一的二维位置分析页面。页面包含 XY/XZ/YZ、R²-Z、R-cos(θ)、S1-S2
+二维 histogram、3D position 图、S1/S2 过滤、框选联动和响应式布局。
+
+```python
+from waveform_analysis import render_position_dashboard_2d
+
+render_position_dashboard_2d(
+    df=df,
+    layout=layout,
+    run_id="run_001",
+    output_dir="output",
+)
+```
+
+`render_position_dashboard_with_2d_hist` 和 `--dashboard-2d-hist` 仍可用于
+旧脚本，但已弃用并转发到同一实现。两种调用都会生成
+`run_{run_id}_position_dashboard_2d.html`。
+
+### 3. 静态图表（matplotlib）
 - 2x2 布局的位置分布图
 - XY 平面分布（按 S2 着色）
 - Z 坐标直方图

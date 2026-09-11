@@ -14,38 +14,40 @@ Execution 子模块 - 并行执行和超时管理
     from waveform_analysis.core import get_executor  # 通过 core.__init__.py 兼容
 """
 
-# 执行器管理
-# 执行器配置
-from .config import (
-    EXECUTOR_CONFIGS,
-    get_config,
-    register_config,
-)
-from .manager import (
-    ExecutorManager,
-    ParallelProgressConfig,
-    configure_default_workers,
-    disable_global_load_balancing,
-    enable_global_load_balancing,
-    get_default_workers,
-    get_executor,
-    get_executor_manager,
-    get_load_balancer_stats,
-    get_stats,
-    parallel_apply,
-    parallel_map,
-    parallel_progress,
+from waveform_analysis._lazy_exports import LazyExport as _LazyExport
+from waveform_analysis._lazy_exports import lazy_dir as _lazy_dir
+from waveform_analysis._lazy_exports import (
+    resolve_lazy_attribute as _resolve_lazy_attribute,
 )
 
-# 超时管理
-from .timeout import (
-    TimeoutManager,
-    get_timeout_manager,
-    with_timeout,
-)
-
-# 验证管理
-from .validation import ValidationManager
+_LAZY_EXPORTS: dict[str, _LazyExport] = {
+    # 执行器管理
+    "ExecutorManager": (".manager", "ExecutorManager"),
+    "get_executor_manager": (".manager", "get_executor_manager"),
+    "get_executor": (".manager", "get_executor"),
+    "parallel_map": (".manager", "parallel_map"),
+    "parallel_apply": (".manager", "parallel_apply"),
+    # 进度配置
+    "ParallelProgressConfig": (".manager", "ParallelProgressConfig"),
+    "parallel_progress": (".manager", "parallel_progress"),
+    "configure_default_workers": (".manager", "configure_default_workers"),
+    "get_default_workers": (".manager", "get_default_workers"),
+    "get_stats": (".manager", "get_stats"),
+    # 负载均衡
+    "enable_global_load_balancing": (".manager", "enable_global_load_balancing"),
+    "disable_global_load_balancing": (".manager", "disable_global_load_balancing"),
+    "get_load_balancer_stats": (".manager", "get_load_balancer_stats"),
+    # 执行器配置
+    "EXECUTOR_CONFIGS": (".config", "EXECUTOR_CONFIGS"),
+    "get_config": (".config", "get_config"),
+    "register_config": (".config", "register_config"),
+    # 超时管理
+    "TimeoutManager": (".timeout", "TimeoutManager"),
+    "get_timeout_manager": (".timeout", "get_timeout_manager"),
+    "with_timeout": (".timeout", "with_timeout"),
+    # 验证管理
+    "ValidationManager": (".validation", "ValidationManager"),
+}
 
 __all__ = [
     # 执行器管理
@@ -75,3 +77,11 @@ __all__ = [
     # 验证管理
     "ValidationManager",
 ]
+
+
+def __getattr__(name: str) -> object:
+    return _resolve_lazy_attribute(name, _LAZY_EXPORTS, globals())
+
+
+def __dir__() -> list[str]:
+    return _lazy_dir(globals(), _LAZY_EXPORTS, __all__)

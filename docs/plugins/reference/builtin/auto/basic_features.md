@@ -1,14 +1,23 @@
 ---
-schema_version: 1
+schema_version: 2
 document_type: "plugin_reference"
 profile: "auto"
 provides: "basic_features"
 plugin_class: "BasicFeaturesPlugin"
-module: "waveform_analysis.core.plugins.builtin.cpu.basic_features"
+module: "waveform_analysis.core.plugins.builtin.basic_features.plugin"
 version: "4.1.0"
 summary: "Compute basic height, amplitude, area, and max-abs-diff features from waveform data."
 depends_on: []
+declared_depends_on: []
+resolved_depends_on: ["records", "wave_pool"]
+dependency_profile: "documentation-default-v1"
+dependency_profile_values: {"daq_adapter": "vx2730", "use_filtered": false, "wave_source": "records"}
+dependency_config_keys: ["use_filtered", "wave_source"]
 output_kind: "structured_array"
+execution_kind: "static"
+narrative_source: "source"
+narrative_source_reason: null
+source_fingerprint: "c418569295963ec951c2fb2910f8fc3706542531607b1ed7bb9037a313fd29d3"
 generated: true
 ---
 # basic_features
@@ -16,21 +25,38 @@ generated: true
 ## Overview
 
 Compute basic height, amplitude, area, and max-abs-diff features from waveform data.
+Plugin to compute basic height/area features from structured waveforms.
+
 | Item | Value |
 | --- | --- |
 | Provides | `basic_features` |
 | Plugin Class | `BasicFeaturesPlugin` |
-| Module | `waveform_analysis.core.plugins.builtin.cpu.basic_features` |
+| Module | `waveform_analysis.core.plugins.builtin.basic_features.plugin` |
 | Version | `4.1.0` |
 | Category | 特征提取 |
-| Accelerator | CPU (NumPy/SciPy) |
-| Output Kind | `structured_array` |
+| Output Container | `structured_array` |
+| Execution Mode | `static` |
+| Save Policy | `always` |
+| Uses Run Config | no |
+| Timeout | `none` |
+| Side Effect | no |
+| Narrative Source | `source` |
+| Source Fingerprint | `c418569295963ec951c2fb2910f8fc3706542531607b1ed7bb9037a313fd29d3` |
+
+### Dependencies
+
+默认文档画像：`documentation-default-v1`（{"daq_adapter": "vx2730", "use_filtered": false, "wave_source": "records"}）。
+该插件通过 `resolve_depends_on(context, run_id)` 动态解析依赖；可能影响解析的配置键：`use_filtered`, `wave_source`。
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| - | - | - | - | No declared inputs. |
+| `records` | - | dynamic-default | - | Build records (event index table) from the shared internal records bundle. |
+| `wave_pool` | - | dynamic-default | - | Build wave_pool from the shared internal records bundle. |
 ### How It Works
 
+1. 计算基础特征（height/amp/area/max_abs_diff）
+2. 使用逐条处理模式，支持任意长度波形，不使用 padding。
+3. height = baseline - min(wave)  (信号偏离基线的幅度) amp = max - min  (峰峰值振幅) area = sum(baseline - wave)  (不包含 padding) max_abs_diff = max(abs(diff(wave)))
 
 ## Configuration
 
@@ -50,26 +76,29 @@ structured_array output with fields: height, amp, area, max_abs_diff, timestamp,
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
-| `height` | `float32` | - | Pulse height (baseline minus minimum sample) |
-| `amp` | `float32` | - | Peak-to-peak amplitude (max minus min) |
-| `area` | `float32` | - | Waveform integral area |
-| `max_abs_diff` | `float32` | - | Maximum absolute difference between consecutive samples |
-| `timestamp` | `int64` | - | ADC timestamp in picoseconds |
-| `board` | `int16` | - | Hardware board index |
-| `channel` | `int16` | - | Physical channel number |
-| `record_id` | `int64` | - | Source record identifier |
+| `height` | `float32` | ADC counts | Pulse height (baseline minus minimum sample) |
+| `amp` | `float32` | ADC counts | Peak-to-peak amplitude (max minus min) |
+| `area` | `float32` | ADC counts | Waveform integral area |
+| `max_abs_diff` | `float32` | ADC counts | Maximum absolute difference between consecutive samples |
+| `timestamp` | `int64` | ps | ADC timestamp in picoseconds |
+| `board` | `int16` | None | Hardware board index |
+| `channel` | `int16` | None | Physical channel number |
+| `record_id` | `int64` | None | Source record identifier |
 ## Usage
 
 ### Minimal Example
 
 ```python
-from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import BasicFeaturesPlugin
+from waveform_analysis import Context
+from waveform_analysis.plugins import profiles
 
-ctx = Context(config={"data_root": "DAQ"})
-ctx.register(BasicFeaturesPlugin())
-data = ctx.get_data("run_001", "basic_features")
+ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
+ctx.register(*profiles.cpu_default())
+result = ctx.get_data("run_001", "basic_features")
 ```
+
+示例使用 `run_id="run_001"` 和文档默认运行画像；真实数据路径与配置应以当前实验设置为准。
+
 ### Downstream Consumers
 
-- Terminal output; no direct builtin consumer is declared.
+- `df`

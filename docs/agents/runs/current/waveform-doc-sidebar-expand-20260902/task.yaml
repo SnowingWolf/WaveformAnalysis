@@ -1,0 +1,100 @@
+api_version: waveform-analysis/agent-task/v1
+kind: AgentTask
+metadata:
+  id: waveform-doc-sidebar-expand-20260902
+  generation: 1
+  created_at: '2026-09-02T04:56:50Z'
+  updated_at: '2026-09-02T05:12:35Z'
+spec:
+  goal: 修复 Lineage 左侧插件栏在窄桌面视口下被 CSS 隐藏且没有可用展开入口的问题，并保持宽屏文档分组展开行为不回归。
+  route: modify_code
+  workflow_cost: standard
+  workflow_shape: staged
+  risk_level: medium
+  scope:
+    base_sha: c2dde9b4c23bb9ea970555ee169a35e9a6a5e98c
+    allowed_paths:
+    - docs/site-next/app/globals.css
+    - waveform_analysis/documentation/site_dist
+    - docs/agents/plans/INDEX.md
+    - docs/agents/plans/active.yaml
+    - docs/agents/runs/current/waveform-doc-sidebar-expand-20260902/task.yaml
+  acceptance_criteria:
+  - 800px 视口的 Lineage 左栏可见、可收起并可重新展开，不存在状态与 CSS 不一致。
+  - 1440px 文档左栏分组和 Lineage 左栏展开/收起行为保持正常。
+  - Next 类型检查、单测、静态导出和 Firefox 交互回归全部通过。
+  required_gates:
+  - scope_check
+  - next_typecheck
+  - next_unit_tests
+  - next_static_export
+  - firefox_sidebar_review
+  - doc_sync
+  - handoff_check
+  assignment:
+    planner_role: planner
+    executor_role: executor.code
+    reviewer_role: reviewer
+status:
+  state: completed
+  transitions:
+  - from: created
+    to: planning
+    at: '2026-09-02T05:00:22Z'
+    actor: planner
+    condition: planning_started
+  - from: planning
+    to: ready_for_execution
+    at: '2026-09-02T05:00:22Z'
+    actor: planner
+    condition: plan_brief_ready
+  - from: ready_for_execution
+    to: executing
+    at: '2026-09-02T05:00:22Z'
+    actor: executor.code
+    condition: executor_assigned
+  - from: executing
+    to: reviewing
+    at: '2026-09-02T05:03:17Z'
+    actor: executor.code
+    condition: execution_report_ready
+  - from: reviewing
+    to: completed
+    at: '2026-09-02T05:12:35Z'
+    actor: reviewer
+    condition: all_blocking_gates_pass
+  plan_sha256: b01b492be59cbd13054abce68c14e6e4d6b093989ebee9aaa806239527768fe9
+  execution:
+    actor: executor.code
+    summary: Removed the narrow-viewport forced hidden state, bounded the visible
+      filter panel height, regenerated tracked site_dist, and verified Firefox interactions.
+    changed_paths:
+    - docs/site-next/app/globals.css
+    - waveform_analysis/documentation/site_dist
+    checks:
+      next_typecheck: PASS
+      next_unit_tests: PASS
+      next_static_export: PASS
+      firefox_sidebar_review: PASS
+      doc_sync: PASS
+  review:
+    reviewer_actor: reviewer
+    decision: approved
+    plan_sha256: b01b492be59cbd13054abce68c14e6e4d6b093989ebee9aaa806239527768fe9
+    gate_results:
+      scope_check: PASS
+      next_typecheck: PASS
+      next_unit_tests: PASS
+      next_static_export: PASS
+      firefox_sidebar_review: PASS
+      doc_sync: PASS
+      handoff_check: PASS
+    findings: []
+    residual_risks:
+    - Mobile drawer focus trapping and body scroll locking remain outside this task.
+    - Long-document TOC scroll synchronization remains a separate enhancement.
+  approval: {}
+  handoff:
+    status: ready
+    commit_policy: scoped commit after lifecycle completion
+    service_url: http://10.18.154.11:8767/

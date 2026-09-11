@@ -1,0 +1,11 @@
+provides: hit_merged
+plugin_class: HitMergePlugin
+version: 2.1.0
+depends_on:
+  - hit_threshold
+third_party_dependencies:
+  - numpy
+  - numba
+plugin_dependencies:
+  - hit_threshold
+category: feature_extraction

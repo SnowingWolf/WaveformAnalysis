@@ -16,6 +16,8 @@ repos:
     rev: v5.0.0
     hooks:
       - id: trailing-whitespace
+        exclude: ^waveform_analysis/documentation/templates/web/assets/elkjs-0\.11\.0\.bundled\.js$
       - id: end-of-file-fixer
+        exclude: ^waveform_analysis/documentation/templates/web/assets/CYTOSCAPE-LICENSE\.txt$
       - id: check-yaml
       - id: check-added-large-files

@@ -1,0 +1,27 @@
+# task_report
+
+- `task_id`: `pr-commit-description-rule`
+- `route`: `generate_docs`
+- `workflow_cost`: `light`
+- `workflow_shape`: `compact`
+- `scope`: PR commit 清单与逐项说明规则、PR 模板和自动校验。
+- `actions_taken`:
+  - 在 PR 模板中增加完整 SHA、变更目的和影响、验证证据三列表格。
+  - 增加 PR CI；它以 GitHub `pulls.listCommits` 返回的集合为真源，校验全部 SHA 一一对应且说明有效。
+  - 在 AGENTS 与 PR 固定质量闸门工作流中记录合并条件。
+- `changed_paths`:
+  - `.github/PULL_REQUEST_TEMPLATE.md`
+  - `.github/workflows/pr-commit-description-check.yml`
+  - `AGENTS.md`
+  - `docs/agents/workflows.md`
+  - `docs/agents/protocol/artifacts/pr-commit-description-rule_task_report.md`
+- `verification`:
+  - PASS: PyYAML parsed `.github/workflows/pr-commit-description-check.yml` and confirmed its PR trigger and `pulls.listCommits` use.
+  - PASS: Node mock executed the workflow script: a complete table passed; omitted SHA, blank/placeholder description, and extra SHA failed.
+  - PASS: `PATH=/home/wxy/anaconda3/envs/pyroot-kernel/bin:$PATH scripts/check_doc_sync.sh`.
+  - PASS: `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/check_doc_anchors.py --check-sync --base HEAD`.
+  - PASS: `git diff --check`.
+- `decision`: `completed`
+- `commit_status`: `uncommitted: final scoped commit pending`
+- `open_risks`:
+  - GitHub branch protection or ruleset must mark `PR Commit Description Check / commit-description` as required before the workflow can block merging; this repository-side change cannot set that external GitHub configuration.

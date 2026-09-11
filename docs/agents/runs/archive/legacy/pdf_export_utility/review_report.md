@@ -1,0 +1,26 @@
+# review_report
+
+- `task_id`: `pdf_export_utility`
+- `workflow_cost`: `strict`
+- `workflow_shape`: `staged`
+- `reviewer`: `inline_reviewer`
+- `gate_results`:
+  - `focused_pdf_export_tests`: PASS (4 passed)
+  - `ruff`: PASS
+  - `diff_check`: PASS
+  - `plugins_auto_generation`: PASS (environment cache warnings only)
+  - `plugins_agent_generation`: PASS (environment cache warnings only)
+  - `assess_change_impact`: PASS (no plugin contract changes)
+  - `schema_compat_smoke`: PASS
+  - `doc_sync`: PASS with pre-existing unrelated `core/context.py` documentation warning
+  - `doc_anchors`: PASS with the same pre-existing unrelated warning
+- `decision`: `completed`
+- `blocking_findings`:
+  - None.
+- `residual_risks`:
+  - PDF validation counts generated page objects without a third-party PDF reader; focused tests also verify successful file creation and per-figure iteration.
+  - Existing unrelated worktree changes and regenerated plugin references are intentionally excluded from this task's commit.
+- `follow_up_actions`:
+  - Stage only the PDF export utility scope and create the scoped commit.
+- `agent_profile`: `none`
+- `agent_profile_review`: Not applicable.

@@ -46,6 +46,13 @@
 - 实时 S1/S2 过滤器
 - 事件计数实时更新
 - 缩放、平移、旋转
+- XY/XZ/YZ、R²-Z、R-cos(θ) 和 S1-S2 的二维 histogram
+- Plotly 框选联动、清除选择和大数据集选择保护
+- Plotly CDN 加载失败提示和响应式布局
+
+`render_position_dashboard_2d` 是当前唯一推荐的二维仪表板入口。
+旧的 `render_position_dashboard_with_2d_hist` 和 `--dashboard-2d-hist`
+仍可兼容调用，但已经弃用，输出统一为 `run_{run_id}_position_dashboard_2d.html`。
 
 ---
 
@@ -60,7 +67,7 @@ python examples/export_positions_for_visualization.py \
     --output output/ \
     --plot
 
-# 2. 生成交互式 2D 密度仪表板（推荐）
+# 2. 生成增强版交互式 2D 密度仪表板（推荐）
 python examples/export_positions_for_visualization.py \
     --run-id run_001 \
     --output output/ \
@@ -114,8 +121,8 @@ render_position_dashboard_2d(
 
 ### 交互式仪表板
 - **文件名**: `run_{run_id}_position_dashboard_2d.html`
-- **大小**: < 3 MB
-- **特点**: 纯前端，无需服务器
+- **大小**: 随事件数量变化
+- **特点**: 纯前端，无需服务器；支持二维 histogram 和框选联动
 
 ---
 
@@ -293,7 +300,8 @@ plt.savefig(..., dpi=150)           # 分辨率
 
 ### 向后兼容
 - 原始 `--dashboard` 选项保留
-- 新增 `--dashboard-2d` 选项
+- 新增并统一 `--dashboard-2d` 选项
+- `--dashboard-2d-hist` 保留为弃用兼容别名
 - 静态图自动切换到 2D 密度图
 
 ### 迁移指南
@@ -308,6 +316,6 @@ plt.savefig(..., dpi=150)           # 分辨率
 
 ---
 
-**更新日期**: 2026-07-01
+**更新日期**: 2026-08-26
 **作者**: Claude Code (Opus 4.8)
 **状态**: ✅ 已集成

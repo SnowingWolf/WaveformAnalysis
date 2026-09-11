@@ -513,6 +513,8 @@ def _write_records_part(
     if len(bundle.wave_pool) > 0:
         wave_pool_mm[:] = bundle.wave_pool
     wave_pool_mm.flush()
+    records_mm._mmap.close()
+    wave_pool_mm._mmap.close()
 
     if len(bundle.records) > 0:
         time_range = (int(bundle.records["time"].min()), int(bundle.records["time"].max()))
@@ -986,6 +988,7 @@ def _write_records_only_part(
         return None
     records = np.memmap(records_path, dtype=RECORDS_DTYPE, mode="r", shape=(n_records,))
     time_range = (int(records["time"].min()), int(records["time"].max()))
+    records._mmap.close()
     del records
     return _RecordsPartRef(
         records_path=records_path,
@@ -1067,6 +1070,9 @@ def _merge_records_part_refs_records_only_to_disk(
     if assign_record_ids:
         records_out["record_id"] = np.arange(total_records, dtype=np.int64)
     records_out.flush()
+    for records_part in records_parts:
+        records_part._mmap.close()
+    records_out._mmap.close()
     del records_out
 
     return _write_records_only_part(records_path, total_records)
@@ -1108,6 +1114,7 @@ def _merge_records_only_part_refs_to_disk(
             )
             records_unsorted[cursor : cursor + part.n_records] = records_src
             cursor += part.n_records
+            records_src._mmap.close()
 
         if cursor != total_records:
             raise RuntimeError(f"merged records count mismatch: {cursor} != {total_records}")
@@ -1128,9 +1135,11 @@ def _merge_records_only_part_refs_to_disk(
         if assign_record_ids:
             records_out["record_id"] = np.arange(total_records, dtype=np.int64)
         records_out.flush()
+        records_out._mmap.close()
         del records_out
         del order
     finally:
+        records_unsorted._mmap.close()
         del records_unsorted
         try:
             unsorted_path.unlink()
@@ -1179,11 +1188,13 @@ def _concat_wave_pool_part_refs_to_disk(
         )
         wave_pool_out[cursor : cursor + part.n_samples] = wave_pool_src
         cursor += part.n_samples
+        wave_pool_src._mmap.close()
 
     if cursor != total_samples:
         raise RuntimeError(f"merged wave_pool size mismatch: {cursor} != {total_samples}")
 
     wave_pool_out.flush()
+    wave_pool_out._mmap.close()
     del wave_pool_out
     return wave_pool_path
 
@@ -1567,7 +1578,7 @@ def _build_records_part_refs_for_channel(
     chunksize: int | None,
     use_process_pool: bool,
 ) -> tuple[int, list[_RecordsPartRef], dict[str, tuple[float, int]]]:
-    from waveform_analysis.utils.formats import get_adapter
+    from waveform_analysis.acquisition.formats import get_adapter
 
     adapter = get_adapter(adapter_name)
     reader = adapter.format_reader
@@ -1994,7 +2005,7 @@ def _build_v1725_records_part_from_waves(
     if not waves:
         return RecordsBundle(np.zeros(0, dtype=RECORDS_DTYPE), np.zeros(0, dtype=np.uint16))
 
-    from waveform_analysis.utils.formats.v1725_numba import (
+    from waveform_analysis.acquisition.formats.v1725_numba import (
         fill_v1725_records_metadata_parallel,
         fill_v1725_records_metadata_serial,
     )
@@ -2077,6 +2088,75 @@ def _resolve_v1725_file_workers(file_count: int, n_jobs: int | None) -> int:
     return max(int(n_jobs), 1)
 
 
+def _reclaim_v1725_merge_inputs(
+    part_dir: Path, parts: Sequence[_RecordsPartRef], result: RecordsBundleRef
+) -> None:
+    """Validate final output before removing intermediates owned by this V1725 build.
+
+    This is deliberately outside the shared merger: its callers may still own
+    and use input parts. The returned bundle retains ownership of final files.
+    """
+    if result.temp_dir != part_dir or len(result.part_refs) != 1:
+        raise RuntimeError("V1725 merge did not return one owned final part")
+    final = result.part_refs[0]
+    total_records = sum(part.n_records for part in parts)
+    total_samples = sum(part.n_samples for part in parts)
+    if (result.total_records, result.total_samples) != (total_records, total_samples) or (
+        final.n_records,
+        final.n_samples,
+    ) != (total_records, total_samples):
+        raise RuntimeError("V1725 merged counts do not match input parts")
+
+    final_paths = {final.records_path, final.wave_pool_path}
+    if len(final_paths) != 2 or any(path.parent != part_dir / "merged" for path in final_paths):
+        raise RuntimeError("V1725 final files are outside the owned merged directory")
+    batch_dir = part_dir / "merged" / "records_only_batches"
+    inputs = {path for part in parts for path in (part.records_path, part.wave_pool_path)}
+    if batch_dir.exists():
+        inputs.update(batch_dir.glob("records_merged_*.dat"))
+    if inputs & final_paths:
+        raise RuntimeError("V1725 final files overlap intermediate inputs")
+
+    # Check every candidate before the first unlink; never follow a symlink out
+    # of the private build directory or remove a caller's unrelated files.
+    root = part_dir.resolve()
+    for path in inputs | final_paths:
+        if not path.is_file() or path.resolve() != path.absolute() or not path.is_relative_to(root):
+            raise RuntimeError(f"V1725 merge file is not an owned regular file: {path}")
+    for path, expected in (
+        (final.records_path, total_records * RECORDS_DTYPE.itemsize),
+        (final.wave_pool_path, total_samples * np.dtype(np.uint16).itemsize),
+    ):
+        if path.stat().st_size != expected:
+            raise RuntimeError(f"V1725 merged file size mismatch: {path}")
+
+    records = np.memmap(final.records_path, dtype=RECORDS_DTYPE, mode="r", shape=(total_records,))
+    try:
+        samples_seen = 0
+        for start in range(0, total_records, 250_000):
+            chunk = records[start : start + 250_000]
+            offsets = chunk["wave_offset"]
+            lengths = chunk["event_length"].astype(np.int64)
+            if (
+                np.any(offsets < 0)
+                or np.any(offsets > total_samples)
+                or np.any(lengths < 0)
+                or np.any(lengths > total_samples - offsets)
+            ):
+                raise RuntimeError("V1725 merged wave offsets or lengths are invalid")
+            samples_seen += int(lengths.sum())
+        if samples_seen != total_samples:
+            raise RuntimeError("V1725 merged event lengths do not match input sample count")
+    finally:
+        records._mmap.close()
+
+    for path in sorted(inputs):
+        path.unlink()
+    for directory in {path.parent for path in inputs}:
+        if not any(directory.iterdir()):
+            directory.rmdir()
+
+
 @export
 def build_records_from_v1725_files(
     file_paths: list[str],
@@ -2113,7 +2193,7 @@ def build_records_from_v1725_files(
     if not file_paths:
         return RecordsBundle(np.zeros(0, dtype=RECORDS_DTYPE), np.zeros(0, dtype=np.uint16))
 
-    from waveform_analysis.utils.formats import get_adapter
+    from waveform_analysis.acquisition.formats import get_adapter
 
     adapter = get_adapter("v1725")
     reader = adapter.format_reader
@@ -2215,7 +2295,10 @@ def build_records_from_v1725_files(
         # 如果返回 RecordsBundle（内存模式），清理临时目录
         if isinstance(result, RecordsBundle):
             shutil.rmtree(part_dir, ignore_errors=True)
-        # 如果返回 RecordsBundleRef（磁盘模式），保留目录
+        else:
+            # Workers and merge helpers have closed their intermediate mappings.
+            # Keep only validated final files until the returned ref is cleaned up.
+            _reclaim_v1725_merge_inputs(part_dir, part_refs, result)
 
         return result
     except Exception:

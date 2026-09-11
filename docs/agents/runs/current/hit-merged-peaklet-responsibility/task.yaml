@@ -1,0 +1,55 @@
+api_version: waveform-analysis/agent-task/v1
+kind: AgentTask
+metadata:
+  id: hit-merged-peaklet-responsibility
+  generation: 1
+  created_at: '2026-08-31'
+  updated_at: '2026-08-31'
+spec:
+  goal: >-
+    Clarify the responsibility boundary between hit_threshold, hit_merged,
+    feature extraction, and peaklet before any implementation changes.
+  route: modify_code
+  workflow_cost: standard
+  workflow_shape: staged
+  risk_level: medium
+  scope:
+    base_sha: 6f90f8ab56a96205639bdcab13478ca7aeae315b
+    allowed_paths:
+      - docs
+      - tests
+      - waveform_analysis/core/plugins
+  acceptance_criteria:
+    - Plugin responsibility boundaries are explicitly documented and accepted.
+    - Input and output dtype ownership is specified before implementation.
+    - Backward compatibility and protective tests are identified.
+    - No hit finding, merge, peaklet, dtype, or notebook implementation is changed by the planning task.
+  required_gates:
+    - responsibility_boundary_review
+    - doc_sync
+    - doc_anchors
+    - diff_scope_check
+  assignment:
+    planner_role: planner
+    executor_role: executor.code
+    reviewer_role: reviewer
+    source_route: refactor
+status:
+  state: planning
+  condition: NeedsRevalidation
+  conditions:
+    - type: NeedsRevalidation
+      status: 'True'
+      reason: legacy_plan_migrated
+      message: The legacy plan predates the v6 route and task contract; review scope and acceptance criteria before execution.
+  transitions:
+    - from: null
+      to: planning
+      at: '2026-08-31'
+      actor: migration
+      condition: legacy_plan_migrated
+  plan_sha256: null
+  execution: {}
+  review: {}
+  approval: {}
+  handoff: {}

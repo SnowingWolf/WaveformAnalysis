@@ -9,6 +9,7 @@
 - `workflow_cost`: `strict`
 - `primary_doc`: `docs/agents/workflows.md`
 - `profile_doc`: `docs/agents/protocol/route-profiles/retire_compat.md`
+- `executor_role`: `executor.config`
 
 ## Blocking Gates
 - `compat_inventory_ready`

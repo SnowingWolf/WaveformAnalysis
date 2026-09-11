@@ -61,11 +61,13 @@
 
 ## Workflow Cost 快速决策
 
-| workflow_cost | 适用范围 | Artifact 口径 | Gate 口径 |
+<!-- BEGIN GENERATED: workflow_cost_catalog -->
+| workflow_cost | 默认 shape | 允许 shape | routes |
 | --- | --- | --- | --- |
-| `light` | 只读解释、定向测试、文档小修、缓存诊断 | 默认 `compact` 单份 `task_report`；只读简单任务可 `direct` | 只跑命中目标的最小 gate |
-| `standard` | 普通代码、插件内部算法、QA 扫描 | 使用完整 `plan_brief` / `execution_report` / `review_report` | 跑 route 默认 gate 与定向测试 |
-| `strict` | 插件契约、dtype/字段、compat 删除、发布前检查 | 完整 artifact，不得压缩 | 固定 gate 必须全部记录 PASS/FAIL |
+| `light` | `compact` | `direct, compact, staged` | `debug_cache`, `generate_docs`, `run_tests` |
+| `standard` | `staged` | `staged` | `modify_plugin`, `modify_code`, `assess_change_impact`, `schema_compat_check`, `performance_regression_check` |
+| `strict` | `staged` | `staged` | `retire_compat`, `release_artifact_sync` |
+<!-- END GENERATED: workflow_cost_catalog -->
 
 - route 默认成本见 `docs/agents/index.yaml` 的 `workflow_cost`。
 - 实际任务可在 `plan_brief.workflow_cost` 中上调；涉及 public surface、缓存 lineage、契约或发布时必须上调到 `strict`。
@@ -73,6 +75,7 @@
 
 ## Route 选择速查
 - 改插件行为、输出、依赖或配置语义：选 `modify_plugin`；若涉及 dtype/字段或缓存 lineage，将 `workflow_cost` 上调到 `strict`。
+- 改普通核心、Accessor、visualization 或 refactor 代码：选 `modify_code`；`modify_context` 与 `refactor` 仅作为兼容别名。
 - 删除 legacy/compat 路径：选 `retire_compat`；先写 `compat_inventory`，再定删除范围。
 - 只做文档生成、引用同步或锚点检查：选 `generate_docs`；代码契约变化带来的文档同步继承源 route 成本。
 - 只跑测试、影响分析、schema 检查、性能检查或发布检查：选对应 QA route（`run_tests` / `assess_change_impact` / `schema_compat_check` / `performance_regression_check` / `release_artifact_sync`）。
@@ -102,20 +105,28 @@
 - 专项 agent 使用 `agent_profile` 贯穿规划、执行与审查；规划贡献写入 `profile_plan`，执行时映射到允许的 executor role，profile 不新增状态，也不能替代 `Planner` 或 `Reviewer`。
 
 ### Workflow Shape
-- `light` 默认 `compact`，明确只读的简单任务可选 `direct`；`standard`/`strict` 默认 `staged`。
-- 触及 public surface、插件契约、dtype/字段、cache lineage、compat、release、审批、破坏性动作、scope 扩大或 gate 失败时，必须升级到 `staged`。
+<!-- BEGIN GENERATED: workflow_shape_catalog -->
+| workflow_shape | mutation | artifact | topology | terminal condition |
+| --- | --- | --- | --- | --- |
+| `direct` | `read_only` | `none` | `single_actor_inline` | `direct_task_verified` |
+| `compact` | `low_risk_scoped_write` | `task_report` | `single_actor_with_inline_checkpoints` | `compact_task_report_ready` |
+| `staged` | `route_scoped` | `plan_brief, execution_report, review_report` | `planner_executor_reviewer` | `all_blocking_gates_pass` |
+<!-- END GENERATED: workflow_shape_catalog -->
+
+- 升级触发条件由 `workflow_shape_contract.escalation_triggers` 统一维护；命中任一条件必须升级到 `staged`。
 
 ## Standard Artifacts
-- `plan_brief`：`planning -> ready_for_execution` 前必须存在。
-- `compat_inventory`：`retire_compat` 在 `planning` 阶段先于 `plan_brief` 完成，用于锁定删除范围。
-- `execution_report`：`executing -> reviewing` 前必须存在。
-- `review_report`：`reviewing -> completed` 前必须存在。
-- `task_report`：`compact` 从 `executing -> completed` 前必须存在；`direct` 不要求仓库 artifact。
-- 交接模板统一在 `docs/agents/protocol/artifacts/`，route 模板统一在 `docs/agents/protocol/route-profiles/`。
+- 活动任务统一使用 `docs/agents/runs/current/<task-id>/task.yaml`；`spec` 保存计划，`status` 保存执行、审查、批准和交接证据。
+- `planning -> ready_for_execution` 前，`task.yaml.spec` 必须完整，且 route 所需的兼容清单信息已嵌入同一记录。
+- `executing -> reviewing` 前，执行结果写入 `task.yaml.status.execution`；`reviewing -> completed` 前，阻断 gate、决定与残余风险写入 `task.yaml.status.review`。
+- `compact` 的内联验证写入同一 `task.yaml`；`direct` 仍不要求仓库 artifact。
+- `docs/agents/protocol/artifacts/` 下五个通用 Markdown 文件仅为 deprecated 兼容入口；历史报告位于 `docs/agents/runs/archive/legacy/`。
+- `docs/agents/protocol/route-profiles/` 只提供 manifest 驱动的 route 摘要与操作说明。
 
 ## Supported Routes
 <!-- BEGIN GENERATED: supported_routes -->
 - `modify_plugin`：插件与契约改动；主入口：`docs/agents/workflows.md`；profile: `docs/agents/protocol/route-profiles/modify_plugin.md`
+- `modify_code`：普通核心、accessor、visualization 与 refactor 代码改动；主入口：`docs/agents/workflows.md`；profile: `docs/agents/protocol/route-profiles/modify_code.md`
 - `retire_compat`：兼容冗余识别、分级与删除；主入口：`docs/agents/workflows.md`；profile: `docs/agents/protocol/route-profiles/retire_compat.md`
 - `debug_cache`：缓存、lineage 与执行链排障；主入口：`docs/agents/workflows.md`；profile: `docs/agents/protocol/route-profiles/debug_cache.md`
 - `generate_docs`：文档生成、引用同步与锚点检查；主入口：`docs/agents/references.md`；profile: `docs/agents/protocol/route-profiles/generate_docs.md`
@@ -129,6 +140,7 @@
 ## Route Catalog
 <!-- BEGIN GENERATED: route_catalog -->
 - `modify_plugin`：`docs/agents/workflows.md` -> `docs/agents/protocol/route-profiles/modify_plugin.md`
+- `modify_code`：`docs/agents/workflows.md` -> `docs/agents/protocol/route-profiles/modify_code.md`
 - `retire_compat`：`docs/agents/workflows.md` -> `docs/agents/protocol/route-profiles/retire_compat.md`
 - `debug_cache`：`docs/agents/workflows.md` -> `docs/agents/protocol/route-profiles/debug_cache.md`
 - `generate_docs`：`docs/agents/references.md` -> `docs/agents/protocol/route-profiles/generate_docs.md`
@@ -209,7 +221,9 @@ waveform-process --show-daq --daq-root DAQ
 - 需要 records-backed 波形访问时统一使用 `records_view(ctx, run_id)`。
 
 ## Recommended Practices
-- 推荐导入路径：`waveform_analysis.core.plugins.builtin.cpu`。
+- 推荐导入路径：Context 使用 `waveform_analysis`，插件类、profile 和 plugin set 使用
+  `waveform_analysis.plugins`；analysis、acquisition、visualization 和 documentation API
+  分别从对应的 domain package 导入。
 
 ## Plugin Contract Checklist
 新增/修改插件时至少确认：
@@ -252,13 +266,16 @@ waveform-process --show-daq --daq-root DAQ
   - `python scripts/release_artifact_sync.py --base HEAD`
 - PR 记录要求：
   - 在 PR 描述中附三类闸门执行摘要（命令 + PASS/FAIL）。
+  - 在 `提交清单与逐项说明` 中列出 GitHub 当前 PR commit 集合的全部完整 40 位 SHA；每个 SHA 只能出现一次，并填写该 commit 的变更目的和影响、验证证据或未执行理由。
+  - `.github/workflows/pr-commit-description-check.yml` 必须通过；遗漏、重复、过期 SHA 或空白/占位说明均不得合并。
+  - 目标分支的 GitHub branch protection 或 ruleset 必须将 `PR Commit Description Check / commit-description` 设为 required status check；在此配置完成前，工作流失败只会报告失败，不能技术性阻止合并。
 
 ## Commit & PR
 - Commit 前缀：`feat:`, `fix:`, `refactor:`, `docs:`, `chore:`。
 - 修改任务完成后默认提交本轮相关改动；收尾时必须显式交代 commit 状态。
 - 若未提交，必须说明原因；若工作区存在无关改动，提交时只 stage 本轮相关文件。
 - 可使用 `python scripts/check_agent_handoff.py --allow-uncommitted --reason "<原因>"` 记录“未提交但已说明”的交付状态。
-- PR 至少包含：变更摘要、测试结果、文档变更说明（若用户可见）。
+- PR 至少包含：变更摘要、测试结果、文档变更说明（若用户可见），以及与当前 PR 全部 commit 一一对应的逐项说明。
 
 ## Common Pitfalls
 - 缺失 `run_id` 导致缓存冲突或数据覆盖。
@@ -287,7 +304,7 @@ waveform-process --show-daq --daq-root DAQ
 - 配置：`docs/features/context/CONFIGURATION.md`
 - 执行预览：`docs/features/context/PREVIEW_EXECUTION.md`
 - 流式插件：`docs/features/plugin/STREAMING_PLUGINS_GUIDE.md`
-- 执行器管理：`docs/features/advanced/EXECUTOR_MANAGER_GUIDE.md`
+- 执行器管理：`docs/architecture/ARCHITECTURE.md#执行器管理框架`
 - CLI: `docs/cli/WAVEFORM_PROCESS.md`
 - 文档 CLI: `docs/cli/WAVEFORM_DOCS.md`
 - 缓存 CLI: `docs/cli/WAVEFORM_CACHE.md`

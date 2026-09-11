@@ -17,7 +17,7 @@
 7. [场景 2: 批量处理](#场景-2-批量处理)
 8. [场景 3: 流式处理](#场景-3-流式处理)
 9. [场景 4: 使用自定义 DAQ 格式](#场景-4-使用自定义-daq-格式)
-10. [快速参考卡](#快速参考卡)
+10. [快速参考](#快速参考)
 
 ---
 
@@ -46,6 +46,14 @@ pip install -e ".[dev]"
 | **Plugin** | 数据处理单元（RawFiles → Waveforms → Features） |
 | **Lineage** | 自动血缘追踪，确保缓存一致性 |
 
+### `run_name` 与 `run_id`
+
+- `run_name` 是 DAQ/CLI 使用的数据集名称，通常对应下面目录树中的运行目录名。
+- `run_id` 是 Context/API 访问数据时显式传入的标识。Context 不保存隐式当前 run，每次 `ctx.get_data(run_id, target)` 都要明确传入它。
+- `waveform-process` 使用正式参数 `--run-name` 指定 `run_name`；`--char` 仅作为旧脚本的兼容别名，新命令统一使用 `--run-name`。
+
+常见情况下两个名称的字符串相同，但语义不同：`run_name` 面向 DAQ/CLI 数据集，`run_id` 面向 API 调用边界。
+
 推荐使用 **Context** API 进行数据处理。
 
 ---
@@ -56,7 +64,7 @@ WaveformAnalysis 期望的 DAQ 数据目录结构：
 
 ```
 DAQ/                          # data_root（可配置）
-├── run_001/                  # run_id
+├── run_001/                  # run_name（API 调用时作为 run_id 传入）
 │   └── RAW/                  # 原始数据子目录
 │       ├── DataR_CH6.CSV     # 通道 6 数据文件
 │       ├── DataR_CH7.CSV     # 通道 7 数据文件
@@ -80,8 +88,8 @@ DAQ/                          # data_root（可配置）
 ## 最小代码
 
 ```python
-from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins import profiles
+from waveform_analysis import Context
+from waveform_analysis.plugins import profiles
 
 # 1. 创建 Context
 ctx = Context(storage_dir='./cache')
@@ -301,8 +309,8 @@ ctx.plot_lineage('basic_features', kind='labview')
 # -*- coding: utf-8 -*-
 """基础波形分析"""
 
-from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins import profiles
+from waveform_analysis import Context
+from waveform_analysis.plugins import profiles
 
 def main():
     # 1. 初始化 Context
@@ -358,45 +366,15 @@ if __name__ == '__main__':
 
 ## 场景 2: 批量处理
 
-处理多个 run，并行处理多个数据集。
-
-```python
-from waveform_analysis.core.context import Context
-from waveform_analysis.core.data.export import BatchProcessor
-from waveform_analysis.core.plugins import profiles
-
-# 初始化
-ctx = Context(storage_dir='./strax_data')
-ctx.register(*profiles.cpu_default())
-ctx.set_config({'data_root': 'DAQ', 'daq_adapter': 'vx2730'})
-
-# 批量处理
-processor = BatchProcessor(ctx)
-results = processor.process_runs(
-    run_ids=['run_001', 'run_002', 'run_003'],
-    data_name='basic_features',
-    max_workers=4,
-    show_progress=True,
-    on_error='continue'  # 'continue', 'stop', 'raise'
-)
-
-# 访问结果
-for run_id, data in results['results'].items():
-    print(f"{run_id}: {len(data)} events")
-
-# 检查错误
-if results['errors']:
-    print(f"Errors: {results['errors']}")
-```
+处理多个 run，并行处理多个数据集。完整用法见 [BatchProcessor 文档](../features/context/BATCH_PROCESSOR.md)。
 
 ## 场景 3: 流式处理
 
 处理大数据，分块处理，内存友好。
 
 ```python
-from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.core.streaming import get_streaming_context
-from waveform_analysis.core.plugins import profiles
+from waveform_analysis import Context, get_streaming_context
+from waveform_analysis.plugins import profiles
 
 # 初始化
 ctx = Context(storage_dir='./strax_data')
@@ -418,10 +396,8 @@ for chunk in stream_ctx.get_stream('st_waveforms'):
 ### 使用内置适配器（推荐）
 
 ```python
-from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import (
-    RawFilesPlugin, WaveformsPlugin
-)
+from waveform_analysis import Context
+from waveform_analysis.plugins import RawFileNamesPlugin as RawFilesPlugin, WaveformsPlugin
 
 # 初始化 Context
 ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
@@ -438,9 +414,14 @@ print(f"Loaded {len(st_waveforms)} channels")
 ### 注册自定义适配器
 
 ```python
-from waveform_analysis.utils.formats import register_adapter, DAQAdapter
-from waveform_analysis.utils.formats.base import FormatSpec, ColumnMapping, TimestampUnit
-from waveform_analysis.utils.formats.directory import DirectoryLayout
+from waveform_analysis.acquisition.formats import (
+    ColumnMapping,
+    DAQAdapter,
+    DirectoryLayout,
+    FormatSpec,
+    TimestampUnit,
+    register_adapter,
+)
 
 # 定义格式规范
 my_spec = FormatSpec(
@@ -533,7 +514,7 @@ ctx.clear_cache_for('run_001')
 ## 下一步
 
 - [配置管理](../features/context/CONFIGURATION.md) - 详细配置说明
-- [插件教程](../plugins/tutorials/SIMPLE_PLUGIN_GUIDE.md) - 自定义插件开发
+- [插件编写规范](../plugins/PLUGIN_SYSTEM_OVERVIEW.md) - 自定义插件开发
 - [血缘可视化](../features/context/LINEAGE_VISUALIZATION_GUIDE.md) - 可视化数据流
 - [示例代码](EXAMPLES_GUIDE.md) - 更多使用场景
 

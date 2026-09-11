@@ -1,0 +1,180 @@
+api_version: waveform-analysis/agent-task/v1
+kind: AgentTask
+metadata:
+  id: release-v2.0.0
+  generation: 4
+  created_at: '2026-09-11T08:27:10Z'
+  updated_at: '2026-09-11T11:03:55Z'
+spec:
+  goal: Prepare and publish v2.0.0 from approved develop 84bd5a8, summarize changes
+    since v1.5.0, rebuild packaged documentation, build and validate wheel/sdist,
+    pass release gates and independent review. No PyPI upload or production service
+    deployment.
+  route: release_artifact_sync
+  workflow_cost: strict
+  workflow_shape: staged
+  risk_level: high
+  scope:
+    base_sha: 84bd5a85378e4181544ae81111395cb8efc5c0f8
+    allowed_paths:
+    - pyproject.toml
+    - CHANGELOG.md
+    - docs/releases/
+    - docs/plugins/reference/
+    - docs/agents/runs/current/release-v2.0.0/
+    - docs/agents/plans/
+    - waveform_analysis/documentation/site_dist/
+    - waveform_analysis/documentation/site_model.py
+    - docs/site-next/lib/site-model.ts
+    - docs/site-next/lib/site-model.test.ts
+    - docs/site-next/fixture/site-model.v1.json
+    - docs/site-content-baseline.json
+    - tests/test_site_model.py
+    - tests/test_cli_docs_site_publish.py
+    - tests/test_docs_build.py
+    - scripts/release_artifact_sync.py
+    - scripts/performance_regression_check.py
+    - tests/test_agent_quality_checks.py
+    - examples/demo_peak_channel_accessor.py
+    - examples/demo_peaklet_s1_s2_classification.py
+    - scripts/scaffold_plugin.py
+    - tests/contracts/test_cli_import_contract.py
+    - tests/contracts/test_plugin_lazy_exports.py
+    - waveform_analysis/core/storage/backends.py
+    - waveform_analysis/documentation/plugin_docs/generator.py
+  acceptance_criteria:
+  - Version, release notes and packaged documentation describe v2.0.0 and all changes
+    since v1.5.0 with explicit API migration notes.
+  - Release gate, installed artifact smoke and independent review pass before publishing
+    the immutable release tag and GitHub assets.
+  required_gates:
+  - documentation_contract_consistent
+  - frontend_typecheck_and_tests
+  - release_artifacts_consistent
+  - documentation_build
+  - full_testpaths_fast
+  - slow_tests
+  - python_version_matrix
+  - schema_and_plugin_contract_review
+  - performance_baseline_verified
+  - wheel_install_smoke
+  - sdist_install_smoke
+  - exact_candidate_ci
+  - independent_review
+  - remote_release_verification
+  assignment:
+    planner_role: planner
+    executor_role: executor.qa
+    reviewer_role: reviewer
+status:
+  state: executing
+  transitions:
+  - from: created
+    to: planning
+    at: '2026-09-11T08:27:10Z'
+    actor: planner
+  - from: planning
+    to: ready_for_execution
+    at: '2026-09-11T08:27:10Z'
+    actor: planner
+  - from: ready_for_execution
+    to: executing
+    at: '2026-09-11T08:27:10Z'
+    actor: executor
+  - from: executing
+    to: blocked
+    at: '2026-09-11T08:48:26Z'
+    actor: executor
+    condition: environment_or_permission_blocker
+  - from: blocked
+    to: planning
+    at: '2026-09-11T09:00:49Z'
+    actor: planner
+    condition: planning_blocker_removed
+  - from: planning
+    to: ready_for_execution
+    at: '2026-09-11T09:01:19Z'
+    actor: planner
+  - from: ready_for_execution
+    to: executing
+    at: '2026-09-11T09:01:20Z'
+    actor: executor
+  - from: executing
+    to: reviewing
+    at: '2026-09-11T09:31:49Z'
+    actor: executor
+  - from: reviewing
+    to: rework_required
+    at: '2026-09-11T09:31:50Z'
+    actor: reviewer
+  - from: rework_required
+    to: planning
+    at: '2026-09-11T09:31:55Z'
+    actor: planner
+    condition: scope_changed
+    scope_changed: true
+  - from: planning
+    to: ready_for_execution
+    at: '2026-09-11T09:32:10Z'
+    actor: planner
+  - from: ready_for_execution
+    to: executing
+    at: '2026-09-11T09:32:10Z'
+    actor: executor
+  - from: executing
+    to: reviewing
+    at: '2026-09-11T11:03:21Z'
+    actor: executor
+  - from: reviewing
+    to: rework_required
+    at: '2026-09-11T11:03:31Z'
+    actor: reviewer
+  - from: rework_required
+    to: planning
+    at: '2026-09-11T11:03:31Z'
+    actor: planner
+    condition: scope_changed
+    scope_changed: true
+  - from: planning
+    to: ready_for_execution
+    at: '2026-09-11T11:03:55Z'
+    actor: planner
+  - from: ready_for_execution
+    to: executing
+    at: '2026-09-11T11:03:55Z'
+    actor: executor
+  plan_sha256: 3514493e01ff58ba51ff3cf4d948a695c80003d4852a18ae97e38856192158e4
+  execution:
+    task_id: release-v2.0.0
+    workflow_cost: strict
+    workflow_shape: staged
+    changed_paths:
+    - release metadata and migration notes
+    - documentation model contracts and packaged static site
+    - release and performance quality scripts with regression tests
+    - seven generation 4 Black-only CI baseline files
+    actions_taken:
+    - prepared the v2.0.0 candidate from develop 84bd5a8 with v1.5.0 history
+    - rebuilt and staged the isolated documentation export
+    - repaired benchmark validity and verified representative baseline performance
+    - formatted the complete Python CI baseline without semantic changes
+    commands_run:
+    - python -m pytest
+    - python -m pytest -m slow -o addopts=
+    - black --check .
+    - ruff check .
+    - scripts/check_plugin_deps.py
+    - scripts/check_doc_sync.sh
+    - scripts/check_doc_anchors.py --check-sync --base v1.5.0^{}
+    - scripts/schema_compat_check.py --base v1.5.0^{} --run-smoke
+    - scripts/performance_regression_check.py --base v1.5.0^{}
+    - scripts/release_artifact_sync.py --base v1.5.0^{}
+    - scripts/docs_build.py build --stage-output
+    open_risks:
+    - exact candidate GitHub CI and final artifact installation remain pending
+    - npm audit reports two moderate advisories in build-only dependencies
+    requested_review_focus:
+    - exact candidate CI matrix, artifact smoke, tag and remote release verification
+  review: {}
+  approval: {}
+  handoff: {}

@@ -1,0 +1,447 @@
+"""
+DAQ 数据格式基础定义 - FormatSpec, ColumnMapping, TimestampUnit, FormatReader
+
+本模块定义了 DAQ 数据格式适配器的核心抽象，包括：
+- TimestampUnit: 时间戳单位枚举
+- RawTimestampMode: 原生时间戳语义枚举
+- ColumnMapping: CSV 列映射配置
+- FormatSpec: 格式规范数据类
+- FormatReader: 格式读取器抽象基类
+
+Examples:
+    >>> from waveform_analysis.utils.formats import FormatSpec, ColumnMapping, TimestampUnit
+    >>> spec = FormatSpec(
+    ...     name="my_format",
+    ...     columns=ColumnMapping(timestamp=3),
+    ...     timestamp_unit=TimestampUnit.NANOSECONDS,
+    ... )
+    >>> print(spec.get_timestamp_scale())  # 1.0 (ns -> ns)
+"""
+
+from abc import ABC, abstractmethod
+from collections.abc import Iterator
+from dataclasses import dataclass, field
+from enum import Enum
+from pathlib import Path
+from typing import Any
+
+import numpy as np
+
+from waveform_analysis.core.foundation.utils import exporter
+
+export, __all__ = exporter()
+
+
+@export
+class TimestampUnit(Enum):
+    """时间戳单位枚举
+
+    定义 DAQ 系统中常见的时间戳单位，用于在读取数据时进行单位转换。
+    标准链路中的 `timestamp` 最终统一为皮秒 (ps)。
+
+    Attributes:
+        PICOSECONDS: 皮秒 (1e-12 秒)
+        NANOSECONDS: 纳秒 (1e-9 秒)
+        MICROSECONDS: 微秒 (1e-6 秒)
+        MILLISECONDS: 毫秒 (1e-3 秒)
+        SECONDS: 秒
+    """
+
+    PICOSECONDS = "ps"  # 1e-12 秒
+    NANOSECONDS = "ns"  # 1e-9 秒
+    MICROSECONDS = "us"  # 1e-6 秒
+    MILLISECONDS = "ms"  # 1e-3 秒
+    SECONDS = "s"  # 1 秒
+
+
+@export
+class RawTimestampMode(Enum):
+    """原生时间戳语义枚举。"""
+
+    UNIT = "unit"
+    SAMPLE_INDEX = "sample_index"
+
+
+@export
+@dataclass
+class ColumnMapping:
+    """CSV 列映射配置
+
+    定义 CSV 文件中各数据列的索引位置。不同 DAQ 系统的 CSV 格式可能有不同的列布局，
+    通过 ColumnMapping 可以灵活配置列索引。
+
+    Attributes:
+        board: BOARD 列索引（板卡编号）
+        channel: CHANNEL 列索引（通道编号）
+        timestamp: TIMETAG 列索引（时间戳）
+        samples_start: 波形采样起始列索引
+        samples_end: 波形采样结束列索引（None 表示到行末）
+        baseline_start: 基线计算起始列索引
+        baseline_end: 基线计算结束列索引
+
+    Examples:
+        >>> cols = ColumnMapping(board=0, channel=1, timestamp=2, samples_start=7)
+        >>> cols.samples_end  # None，表示到行末
+    """
+
+    board: int = 0  # BOARD 列索引
+    channel: int = 1  # CHANNEL 列索引
+    timestamp: int = 2  # TIMETAG 列索引
+    samples_start: int = 7  # 波形采样起始列
+    samples_end: int | None = None  # 波形采样结束列 (None = 到末尾)
+    baseline_start: int = 7  # 基线计算起始列
+    baseline_end: int = 47  # 基线计算结束列
+
+
+@export
+@dataclass
+class FormatSpec:
+    """DAQ 数据格式规范
+
+    完整描述一种 DAQ 数据格式，包括列映射、原生时间戳语义、文件模式、头部处理等。
+
+    Attributes:
+        name: 格式名称（唯一标识符）
+        version: 格式版本号
+        columns: 列映射配置
+        timestamp_unit: 原生时间戳使用物理单位时的单位描述
+        raw_timestamp_mode: 原生时间戳语义（物理单位或 sample index）
+        file_pattern: 文件 glob 模式
+        header_rows_first_file: 首个文件跳过的头部行数
+        header_rows_other_files: 其他文件跳过的头部行数
+        delimiter: CSV 分隔符
+        sampling_rate_hz: 采样率（Hz，可选）
+        metadata: 额外元数据字典
+
+    Examples:
+        >>> spec = FormatSpec(
+        ...     name="vx2730_csv",
+        ...     columns=ColumnMapping(),
+        ...     timestamp_unit=TimestampUnit.PICOSECONDS,
+        ...     header_rows_first_file=2,
+        ... )
+        >>> spec.get_timestamp_scale()  # 返回 ps -> ns 的转换因子
+        0.001
+    """
+
+    name: str  # 格式名称
+    version: str = "1.0"  # 格式版本
+    columns: ColumnMapping = field(default_factory=ColumnMapping)
+    timestamp_unit: TimestampUnit = TimestampUnit.PICOSECONDS
+    raw_timestamp_mode: RawTimestampMode = RawTimestampMode.UNIT
+    file_pattern: str = "*CH*.CSV"  # 文件 glob 模式
+    header_rows_first_file: int = 2  # 首文件头部行数
+    header_rows_other_files: int = 0  # 其他文件头部行数
+    delimiter: str = ";"  # CSV 分隔符
+    sampling_rate_hz: float | None = None  # 采样率（Hz）
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    def get_timestamp_scale(self) -> float:
+        """获取时间戳到纳秒的转换因子
+
+        Returns:
+            转换因子，乘以原始时间戳后得到纳秒值
+        """
+        scales = {
+            TimestampUnit.PICOSECONDS: 1e-3,  # ps -> ns
+            TimestampUnit.NANOSECONDS: 1.0,  # ns -> ns
+            TimestampUnit.MICROSECONDS: 1e3,  # us -> ns
+            TimestampUnit.MILLISECONDS: 1e6,  # ms -> ns
+            TimestampUnit.SECONDS: 1e9,  # s -> ns
+        }
+        return scales.get(self.timestamp_unit, 1.0)
+
+    def get_default_dt_ps(self) -> int:
+        """获取默认采样间隔（ps）。"""
+        if not self.sampling_rate_hz:
+            raise ValueError("sampling_rate_hz is required for sample-index timestamps")
+        return int(round(1e12 / float(self.sampling_rate_hz)))
+
+    def get_timestamp_scale_to_ps(self) -> float:
+        """获取时间戳到皮秒的转换因子
+
+        为了向后兼容，部分代码仍使用皮秒作为内部单位。
+
+        Returns:
+            转换因子，乘以原始时间戳后得到皮秒值
+        """
+        scales = {
+            TimestampUnit.PICOSECONDS: 1.0,  # ps -> ps
+            TimestampUnit.NANOSECONDS: 1e3,  # ns -> ps
+            TimestampUnit.MICROSECONDS: 1e6,  # us -> ps
+            TimestampUnit.MILLISECONDS: 1e9,  # ms -> ps
+            TimestampUnit.SECONDS: 1e12,  # s -> ps
+        }
+        return scales.get(self.timestamp_unit, 1.0)
+
+    def normalize_timestamp_to_ps(
+        self,
+        timestamps: np.ndarray,
+        dt_ns: int | None = None,
+    ) -> np.ndarray:
+        """将原生时间戳标准化为 ps。"""
+        timestamps = np.asarray(timestamps, dtype=np.int64)
+        if self.raw_timestamp_mode == RawTimestampMode.SAMPLE_INDEX:
+            dt_ps = int(dt_ns) * 1000 if dt_ns is not None else self.get_default_dt_ps()
+            return timestamps * np.int64(dt_ps)
+
+        scale = self.get_timestamp_scale_to_ps()
+        if scale == 1.0:
+            return timestamps.astype(np.int64, copy=False)
+        if float(scale).is_integer():
+            return timestamps * int(scale)
+        return (timestamps.astype(np.float64) * scale).astype(np.int64)
+
+
+@export
+class FormatReader(ABC):
+    """DAQ 数据格式读取器抽象基类
+
+    定义了读取 DAQ 数据文件的标准接口。子类需要实现具体的文件读取逻辑。
+
+    Attributes:
+        spec: 格式规范
+
+    Examples:
+        >>> class MyReader(FormatReader):
+        ...     def read_file(self, file_path, is_first_file=True):
+        ...         # 实现具体读取逻辑
+        ...         pass
+        ...     def read_files(self, file_paths, show_progress=False):
+        ...         pass
+        ...     def read_files_generator(self, file_paths, chunk_size=10):
+        ...         pass
+    """
+
+    def __init__(self, spec: FormatSpec):
+        """初始化格式读取器
+
+        Args:
+            spec: 格式规范
+        """
+        self.spec = spec
+
+    @abstractmethod
+    def read_file(self, file_path: str | Path, is_first_file: bool = True) -> np.ndarray:
+        """读取单个文件
+
+        Args:
+            file_path: 文件路径
+            is_first_file: 是否为首个文件（决定是否跳过头部）
+
+        Returns:
+            二维 NumPy 数组，每行一条记录
+        """
+        pass
+
+    @abstractmethod
+    def read_files(
+        self,
+        file_paths: list[str | Path],
+        show_progress: bool = False,
+        *,
+        chunksize: int | None = None,
+        n_jobs: int | None = None,
+        use_process_pool: bool = False,
+        parse_engine: str | None = "auto",
+    ) -> np.ndarray:
+        """读取并堆叠多个文件
+
+        Args:
+            file_paths: 文件路径列表
+            show_progress: 是否显示进度条
+
+        Returns:
+            所有文件数据垂直堆叠后的二维数组
+        """
+        pass
+
+    @abstractmethod
+    def read_files_generator(
+        self,
+        file_paths: list[str | Path],
+        chunk_size: int = 10,
+        *,
+        chunksize: int | None = None,
+        n_jobs: int | None = None,
+        use_process_pool: bool = False,
+        parse_engine: str | None = "auto",
+        show_progress: bool = False,
+    ) -> Iterator[np.ndarray]:
+        """生成器模式读取
+
+        Args:
+            file_paths: 文件路径列表
+            chunk_size: 每次返回的文件数量
+
+        Yields:
+            每个 chunk 的数据数组
+        """
+        pass
+
+    def count_total_rows(self, file_paths: list[str | Path]) -> int:
+        """Count total rows using the reader's configured header policy."""
+        total = 0
+        for idx, fp in enumerate(file_paths):
+            fp = Path(fp)
+            if not fp.exists() or fp.stat().st_size == 0:
+                continue
+
+            skiprows = (
+                self.spec.header_rows_first_file if idx == 0 else self.spec.header_rows_other_files
+            )
+            with open(fp, "rb") as handle:
+                line_count = sum(1 for _ in handle)
+            total += max(0, line_count - skiprows)
+        return total
+
+    def read_files_streaming(
+        self,
+        file_paths: list[str | Path],
+        output_dtype: np.dtype,
+        output_path: Path,
+        structurizer,
+        show_progress: bool = False,
+        *,
+        chunksize: int | None = None,
+        n_jobs: int | None = None,
+        use_process_pool: bool = False,
+        parse_engine: str | None = "auto",
+    ) -> np.memmap:
+        """Fallback streaming implementation using read_file/read_files_generator."""
+        if not file_paths:
+            return np.memmap(output_path, dtype=output_dtype, mode="w+", shape=(0,))
+
+        total_rows = self.count_total_rows(file_paths)
+        output = np.memmap(output_path, dtype=output_dtype, mode="w+", shape=(total_rows,))
+
+        if show_progress:
+            try:
+                from tqdm import tqdm
+
+                iterator = tqdm(file_paths, desc="流式读取", leave=False)
+            except ImportError:
+                iterator = file_paths
+        else:
+            iterator = file_paths
+
+        offset = 0
+        for idx, fp in enumerate(iterator):
+            arr = self.read_file(fp, is_first_file=(idx == 0))
+            if arr.size == 0:
+                continue
+            offset += int(structurizer(arr, output, offset))
+
+        output.flush()
+        if offset < total_rows:
+            return np.memmap(output_path, dtype=output_dtype, mode="r+", shape=(offset,))
+        return output
+
+    def extract_columns(self, data: np.ndarray) -> dict[str, np.ndarray]:
+        """从原始数据提取各列
+
+        根据列映射配置，从原始数据中提取 board、channel、timestamp、samples、baseline 等列。
+
+        Args:
+            data: 原始数据数组
+
+        Returns:
+            包含各列数据的字典:
+            - 'board': 板卡编号数组
+            - 'channel': 通道编号数组
+            - 'timestamp': 时间戳数组（原始单位）
+            - 'samples': 波形采样数组
+            - 'baseline': 基线值数组
+        """
+        if data.size == 0:
+            return {
+                "board": np.array([], dtype=int),
+                "channel": np.array([], dtype=int),
+                "timestamp": np.array([], dtype=np.int64),
+                "samples": np.array([]).reshape(0, 0),
+                "baseline": np.array([], dtype=float),
+            }
+
+        cols = self.spec.columns
+
+        # 提取各列
+        board = data[:, cols.board].astype(int)
+        channel = data[:, cols.channel].astype(int)
+        timestamp = data[:, cols.timestamp].astype(np.int64)
+
+        # 提取波形采样
+        samples_end = cols.samples_end if cols.samples_end is not None else data.shape[1]
+        samples = data[:, cols.samples_start : samples_end].astype(float)
+
+        # 计算基线（取均值）
+        baseline_data = data[:, cols.baseline_start : cols.baseline_end].astype(float)
+        baseline = np.mean(baseline_data, axis=1)
+
+        return {
+            "board": board,
+            "channel": channel,
+            "timestamp": timestamp,
+            "samples": samples,
+            "baseline": baseline,
+        }
+
+    def convert_timestamp_to_ns(self, timestamps: np.ndarray) -> np.ndarray:
+        """将时间戳转换为纳秒
+
+        Args:
+            timestamps: 原始时间戳数组
+
+        Returns:
+            纳秒单位的时间戳数组
+        """
+        scale = self.spec.get_timestamp_scale()
+        if scale == 1.0:
+            return timestamps.astype(np.int64)
+        return (timestamps * scale).astype(np.int64)
+
+    def convert_timestamp_to_ps(self, timestamps: np.ndarray) -> np.ndarray:
+        """将时间戳转换为皮秒（向后兼容）
+
+        Args:
+            timestamps: 原始时间戳数组
+
+        Returns:
+            皮秒单位的时间戳数组
+        """
+        scale = self.spec.get_timestamp_scale_to_ps()
+        if scale == 1.0:
+            return timestamps.astype(np.int64)
+        return (timestamps * scale).astype(np.int64)
+
+    def validate_data(self, data: np.ndarray) -> bool:
+        """验证数据是否符合格式规范
+
+        检查数据列数是否满足最低要求。
+
+        Args:
+            data: 数据数组
+
+        Returns:
+            验证是否通过
+
+        Raises:
+            ValueError: 如果数据不符合规范
+        """
+        if data.size == 0:
+            return True
+
+        # 检查最小列数
+        min_cols = (
+            max(
+                self.spec.columns.board,
+                self.spec.columns.channel,
+                self.spec.columns.timestamp,
+                self.spec.columns.samples_start,
+            )
+            + 1
+        )
+
+        if data.shape[1] < min_cols:
+            raise ValueError(f"数据列数不足: 期望至少 {min_cols} 列, 实际 {data.shape[1]} 列")
+
+        return True

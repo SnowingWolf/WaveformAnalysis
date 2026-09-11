@@ -11,6 +11,14 @@ import sys
 from typing import Any
 
 try:
+    from scripts._python_compat import require_supported_python
+except ImportError:  # direct ``python scripts/render_agent_docs.py`` execution
+    from _python_compat import require_supported_python
+
+if not require_supported_python("render_agent_docs.py"):
+    raise SystemExit(1)
+
+try:
     import yaml
 except ImportError as exc:  # pragma: no cover
     raise SystemExit(
@@ -40,6 +48,7 @@ class Route:
     aliases: list[str]
     read_order: list[str]
     alias_of: str | None
+    executor_role: str | None
 
     @property
     def is_alias(self) -> bool:
@@ -106,6 +115,11 @@ def _normalize_routes(data: dict[str, Any]) -> list[Route]:
         if task in seen:
             raise ValueError(f"Duplicate route task: {task}")
         seen.add(task)
+        handoff_sequence = _as_str_list(raw, "handoff_sequence")
+        executor_role = next(
+            (role for role in handoff_sequence if role.startswith("executor.")),
+            None,
+        )
         routes.append(
             Route(
                 task=task,
@@ -121,6 +135,7 @@ def _normalize_routes(data: dict[str, Any]) -> list[Route]:
                 aliases=_as_str_list(raw, "aliases"),
                 read_order=_as_str_list(raw, "read_order"),
                 alias_of=_as_optional_str(raw, "alias_of"),
+                executor_role=executor_role,
             )
         )
     return routes
@@ -556,55 +571,31 @@ def route_raw_by_task(data: dict[str, Any], task: str) -> dict[str, Any]:
     return {}
 
 
-def build_generated_sections(data: dict[str, Any]) -> dict[str, str]:
+def build_generated_sections(
+    data: dict[str, Any], project_root: Path = PROJECT_ROOT
+) -> dict[str, str]:
     routes = _normalize_routes(data)
     canonical_routes = [route for route in routes if not route.is_alias]
     profiles = _normalize_agent_profiles(data)
 
-    return {
+    sections = {
         "supported_routes": _render_supported_routes(canonical_routes),
         "route_catalog": _render_route_catalog(canonical_routes),
         "quick_links": _render_quick_links(data, canonical_routes),
         "recommended_read_order": _render_recommended_read_order(data, canonical_routes),
         "protocol_index": _render_protocol_index(data),
-        "route_profile_index": _render_route_profile_index(canonical_routes),
+        "route_profile_index": _render_route_profile_index(routes),
         "adapter_index": _render_adapter_index(data),
         "agent_profile_catalog": _render_agent_profile_catalog(profiles),
-        "profile_summary_modify_plugin": _render_profile_summary(
-            _find_route(canonical_routes, "modify_plugin")
-        ),
-        "profile_summary_retire_compat": _render_profile_summary(
-            _find_route(canonical_routes, "retire_compat")
-        ),
-        "profile_summary_generate_docs": _render_profile_summary(
-            _find_route(canonical_routes, "generate_docs")
-        ),
-        "profile_summary_schema_compat_check": _render_profile_summary(
-            _find_route(canonical_routes, "schema_compat_check")
-        ),
-        "profile_summary_assess_change_impact": _render_profile_summary(
-            _find_route(canonical_routes, "assess_change_impact")
-        ),
-        "profile_summary_release_artifact_sync": _render_profile_summary(
-            _find_route(canonical_routes, "release_artifact_sync")
-        ),
-        "profile_summary_debug_cache": _render_profile_summary(
-            _find_route(canonical_routes, "debug_cache")
-        ),
-        "profile_summary_run_tests": _render_profile_summary(
-            _find_route(canonical_routes, "run_tests")
-        ),
-        "profile_summary_performance_regression_check": _render_profile_summary(
-            _find_route(canonical_routes, "performance_regression_check")
-        ),
+        "workflow_cost_catalog": _render_workflow_cost_catalog(data, canonical_routes),
+        "workflow_shape_catalog": _render_workflow_shape_catalog(data),
+        "lifecycle_state_catalog": _render_lifecycle_state_catalog(data),
+        "current_task_registry": _render_current_task_registry(project_root),
     }
-
-
-def _find_route(routes: list[Route], task: str) -> Route:
-    for route in routes:
-        if route.task == task:
-            return route
-    raise KeyError(task)
+    for route in canonical_routes:
+        if route.profile_doc:
+            sections[f"profile_summary_{route.task}"] = _render_profile_summary(route)
+    return sections
 
 
 def _render_supported_routes(routes: list[Route]) -> str:
@@ -675,10 +666,14 @@ def _render_protocol_index(data: dict[str, Any]) -> str:
         "- `docs/agents/index.yaml`",
         "- `docs/agents/protocol/README.md`",
         "- `docs/agents/protocol/task-lifecycle.md`",
+        "- `docs/agents/schema/agent-task.schema.json`",
+        "- `docs/agents/runs/current/`（活动 task.yaml）",
+        "- `docs/agents/runs/archive/legacy/`（只读历史归档）",
         "- `docs/agents/protocol/artifacts/plan_brief.md`",
         "- `docs/agents/protocol/artifacts/compat_inventory.md`",
         "- `docs/agents/protocol/artifacts/execution_report.md`",
         "- `docs/agents/protocol/artifacts/review_report.md`",
+        "- `docs/agents/protocol/artifacts/task_report.md`",
         "- `docs/agents/protocol/route-profiles/template.md`",
     ]
     seen = set(lines)
@@ -692,13 +687,228 @@ def _render_protocol_index(data: dict[str, Any]) -> str:
 
 def _render_route_profile_index(routes: list[Route]) -> str:
     lines = []
-    for route in routes:
-        if route.profile_doc:
+    seen_profiles: set[str] = set()
+    canonical_routes = [route for route in routes if not route.is_alias]
+    for route in canonical_routes:
+        if route.profile_doc and route.profile_doc not in seen_profiles:
             lines.append(f"- `{route.profile_doc}`")
-    lines.append(
-        "- `release_check` 复用 `docs/agents/protocol/route-profiles/release_artifact_sync.md`"
-    )
+            seen_profiles.add(route.profile_doc)
+    for route in routes:
+        if route.is_alias and route.alias_of:
+            target = next(
+                (candidate for candidate in canonical_routes if candidate.task == route.alias_of),
+                None,
+            )
+            if target and target.profile_doc:
+                lines.append(f"- `{route.task}` 兼容别名 -> `{target.profile_doc}`")
     return "\n".join(lines)
+
+
+def _display_value(value: Any, *, empty: str = "—") -> str:
+    """Format manifest scalars/lists for a compact Markdown table cell."""
+
+    if value is None or value == "":
+        return empty
+    if isinstance(value, list):
+        if not value:
+            return empty
+        return ", ".join(str(item) for item in value)
+    return str(value)
+
+
+def _render_workflow_cost_catalog(data: dict[str, Any], routes: list[Route]) -> str:
+    contract = data.get("workflow_shape_contract", {})
+    defaults = contract.get("default_by_workflow_cost", {})
+    allowed_by_cost = contract.get("allowed_by_workflow_cost", {})
+    if not isinstance(defaults, dict):
+        defaults = {}
+    if not isinstance(allowed_by_cost, dict):
+        allowed_by_cost = {}
+
+    routes_by_cost: dict[str, list[str]] = {}
+    for route in routes:
+        if route.workflow_cost:
+            routes_by_cost.setdefault(route.workflow_cost, []).append(route.task)
+
+    cost_order = list(defaults)
+    for cost in routes_by_cost:
+        if cost not in cost_order:
+            cost_order.append(cost)
+
+    lines = [
+        "| workflow_cost | 默认 shape | 允许 shape | routes |",
+        "| --- | --- | --- | --- |",
+    ]
+    for cost in cost_order:
+        default_shape = defaults.get(cost)
+        allowed_shapes = allowed_by_cost.get(cost, [])
+        route_names = routes_by_cost.get(cost, [])
+        lines.append(
+            "| `{cost}` | `{default}` | `{allowed}` | {routes} |".format(
+                cost=cost,
+                default=_display_value(default_shape),
+                allowed=_display_value(allowed_shapes),
+                routes=_display_value(", ".join(f"`{route}`" for route in route_names)),
+            )
+        )
+    return "\n".join(lines)
+
+
+def _render_workflow_shape_catalog(data: dict[str, Any]) -> str:
+    contract = data.get("workflow_shape_contract", {})
+    if not isinstance(contract, dict):
+        return "| workflow_shape | mutation | artifact | topology | terminal condition |\n| --- | --- | --- | --- | --- |"
+    shapes = contract.get("shapes", {})
+    allowed_shapes = contract.get("allowed_shapes", [])
+    if not isinstance(shapes, dict):
+        shapes = {}
+    if not isinstance(allowed_shapes, list):
+        allowed_shapes = list(shapes)
+
+    lines = [
+        "| workflow_shape | mutation | artifact | topology | terminal condition |",
+        "| --- | --- | --- | --- | --- |",
+    ]
+    for shape in allowed_shapes:
+        raw = shapes.get(shape, {})
+        if not isinstance(raw, dict):
+            raw = {}
+        lines.append(
+            "| `{shape}` | {mutation} | {artifact} | {topology} | {terminal} |".format(
+                shape=shape,
+                mutation=f"`{raw['mutation']}`" if raw.get("mutation") else "—",
+                artifact=(
+                    f"`{_display_value(raw.get('artifact'))}`"
+                    if raw.get("artifact") is not None
+                    else "—"
+                ),
+                topology=f"`{raw['topology']}`" if raw.get("topology") else "—",
+                terminal=f"`{raw['terminal_condition']}`" if raw.get("terminal_condition") else "—",
+            )
+        )
+    return "\n".join(lines)
+
+
+def _render_lifecycle_state_catalog(data: dict[str, Any]) -> str:
+    lifecycle = data.get("lifecycle", {})
+    if not isinstance(lifecycle, dict):
+        lifecycle = {}
+    states = lifecycle.get("primary_states", [])
+    transitions = lifecycle.get("transitions", [])
+    if not isinstance(states, list):
+        states = []
+    if not isinstance(transitions, list):
+        transitions = []
+
+    exits: dict[str, list[str]] = {str(state): [] for state in states}
+    for transition in transitions:
+        if not isinstance(transition, dict):
+            continue
+        source = transition.get("from")
+        target = transition.get("to")
+        if source not in exits or not target:
+            continue
+        condition = transition.get("condition")
+        rendered = f"`{target}`"
+        if condition:
+            rendered += f" ({condition})"
+        exits[source].append(rendered)
+
+    lines = [
+        "| state | allowed exits |",
+        "| --- | --- |",
+    ]
+    for state in states:
+        state_name = str(state)
+        lines.append(f"| `{state_name}` | {' / '.join(exits[state]) or '终态'} |")
+    return "\n".join(lines)
+
+
+def _load_current_tasks(project_root: Path) -> list[tuple[Path, dict[str, Any]]]:
+    current_root = project_root / "docs" / "agents" / "runs" / "current"
+    if not current_root.exists():
+        return []
+    tasks: list[tuple[Path, dict[str, Any]]] = []
+    for path in sorted(current_root.glob("*/task.yaml")):
+        document = yaml.safe_load(path.read_text(encoding="utf-8"))
+        if not isinstance(document, dict):
+            raise ValueError(f"{path}: task.yaml must contain a mapping")
+        tasks.append((path, document))
+    return tasks
+
+
+def _nested_value(document: dict[str, Any], *keys: str, default: Any = None) -> Any:
+    value: Any = document
+    for key in keys:
+        if not isinstance(value, dict) or key not in value:
+            return default
+        value = value[key]
+    return value
+
+
+def _task_condition(document: dict[str, Any]) -> str:
+    condition = _nested_value(document, "status", "condition")
+    if isinstance(condition, str) and condition:
+        return condition
+    conditions = _nested_value(document, "status", "conditions", default=[])
+    if isinstance(conditions, list):
+        for item in conditions:
+            if not isinstance(item, dict):
+                continue
+            if item.get("status") in {True, "True", "true"} and item.get("type"):
+                return str(item["type"])
+    return "—"
+
+
+def _render_current_task_registry(project_root: Path) -> str:
+    lines = [
+        "| task_id | state | route | cost | shape | condition | record |",
+        "| --- | --- | --- | --- | --- | --- | --- |",
+    ]
+    for path, document in _load_current_tasks(project_root):
+        task_id = _nested_value(document, "metadata", "id", default=path.parent.name)
+        state = _nested_value(document, "status", "state", default="—")
+        route = _nested_value(document, "spec", "route", default="—")
+        cost = _nested_value(document, "spec", "workflow_cost", default="—")
+        shape = _nested_value(document, "spec", "workflow_shape", default="—")
+        record = path.relative_to(project_root).as_posix()
+        lines.append(
+            f"| `{task_id}` | `{state}` | `{route}` | `{cost}` | `{shape}` | "
+            f"`{_task_condition(document)}` | `{record}` |"
+        )
+    return "\n".join(lines)
+
+
+def render_active_plan_view(project_root: Path = PROJECT_ROOT) -> str:
+    """Render the legacy active.yaml view from canonical current task records."""
+
+    active_plans: list[dict[str, Any]] = []
+    for path, document in _load_current_tasks(project_root):
+        task_id = _nested_value(document, "metadata", "id", default=path.parent.name)
+        active_plans.append(
+            {
+                "task_id": task_id,
+                "state": _nested_value(document, "status", "state", default="—"),
+                "route": _nested_value(document, "spec", "route", default="—"),
+                "workflow_cost": _nested_value(document, "spec", "workflow_cost", default="—"),
+                "workflow_shape": _nested_value(document, "spec", "workflow_shape", default="—"),
+                "condition": _task_condition(document),
+                "task_file": path.relative_to(project_root).as_posix(),
+                "legacy_plan": (path.parent / "legacy-plan.md")
+                .relative_to(project_root)
+                .as_posix(),
+            }
+        )
+    return yaml.safe_dump(
+        {
+            "version": 2,
+            "generated_by": "scripts/render_agent_docs.py",
+            "source": "docs/agents/runs/current/*/task.yaml",
+            "active_plans": active_plans,
+        },
+        allow_unicode=True,
+        sort_keys=False,
+    )
 
 
 def _render_adapter_index(data: dict[str, Any]) -> str:
@@ -748,6 +958,8 @@ def _render_profile_summary(route: Route) -> str:
     ]
     if route.profile_doc:
         lines.append(f"- `profile_doc`: `{route.profile_doc}`")
+    if route.executor_role:
+        lines.append(f"- `executor_role`: `{route.executor_role}`")
     if route.aliases:
         alias_text = ", ".join(f"`{alias}`" for alias in route.aliases)
         lines.append(f"- `aliases`: {alias_text}")
@@ -780,37 +992,32 @@ def render_file(path: Path, sections: dict[str, str]) -> str:
     return text
 
 
-def collect_targets(project_root: Path = PROJECT_ROOT) -> list[Path]:
-    return [
-        project_root / "AGENTS.md",
-        project_root / "docs" / "agents" / "INDEX.md",
-        project_root / "docs" / "agents" / "references.md",
-        project_root / "docs" / "agents" / "adapters" / "skills.md",
-        project_root / "docs" / "agents" / "protocol" / "route-profiles" / "modify_plugin.md",
-        project_root / "docs" / "agents" / "protocol" / "route-profiles" / "retire_compat.md",
-        project_root / "docs" / "agents" / "protocol" / "route-profiles" / "generate_docs.md",
-        project_root / "docs" / "agents" / "protocol" / "route-profiles" / "schema_compat_check.md",
-        project_root
-        / "docs"
-        / "agents"
-        / "protocol"
-        / "route-profiles"
-        / "assess_change_impact.md",
-        project_root
-        / "docs"
-        / "agents"
-        / "protocol"
-        / "route-profiles"
-        / "release_artifact_sync.md",
-        project_root / "docs" / "agents" / "protocol" / "route-profiles" / "debug_cache.md",
-        project_root / "docs" / "agents" / "protocol" / "route-profiles" / "run_tests.md",
-        project_root
-        / "docs"
-        / "agents"
-        / "protocol"
-        / "route-profiles"
-        / "performance_regression_check.md",
-    ]
+def collect_targets(
+    project_root: Path = PROJECT_ROOT, data: dict[str, Any] | None = None
+) -> list[Path]:
+    """Find every existing Markdown file containing a generated section.
+
+    Targets are discovered from markers rather than a route-name allowlist. This
+    lets a new canonical route/profile become renderable by adding its manifest
+    entry and a marked profile document, without changing this generator.
+    """
+
+    candidates: set[Path] = {project_root / "AGENTS.md"}
+    docs_root = project_root / "docs" / "agents"
+    if docs_root.exists():
+        candidates.update(docs_root.rglob("*.md"))
+
+    targets: list[Path] = []
+    for path in sorted(candidates):
+        if not path.is_file():
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            continue
+        if BEGIN_RE.search(text):
+            targets.append(path)
+    return targets
 
 
 def run_check(write: bool) -> int:
@@ -821,9 +1028,9 @@ def run_check(write: bool) -> int:
             print(f"ERROR: {issue}", file=sys.stderr)
         return 1
 
-    sections = build_generated_sections(data)
+    sections = build_generated_sections(data, PROJECT_ROOT)
     rc = 0
-    for path in collect_targets():
+    for path in collect_targets(data=data):
         rendered = render_file(path, sections)
         current = path.read_text(encoding="utf-8")
         if write:
@@ -832,6 +1039,16 @@ def run_check(write: bool) -> int:
         elif rendered != current:
             print(f"OUTDATED: {path.relative_to(PROJECT_ROOT)}", file=sys.stderr)
             rc = 1
+
+    active_view = PROJECT_ROOT / "docs" / "agents" / "plans" / "active.yaml"
+    rendered_active_view = render_active_plan_view(PROJECT_ROOT)
+    current_active_view = active_view.read_text(encoding="utf-8") if active_view.exists() else ""
+    if write:
+        if rendered_active_view != current_active_view:
+            active_view.write_text(rendered_active_view, encoding="utf-8")
+    elif rendered_active_view != current_active_view:
+        print(f"OUTDATED: {active_view.relative_to(PROJECT_ROOT)}", file=sys.stderr)
+        rc = 1
     return rc
 
 

@@ -410,46 +410,6 @@ class TimeRangeQueryEngine:
         """获取时间索引"""
         return self._indices.get((run_id, data_name))
 
-    def clear_index(self, run_id: str | None = None, data_name: str | None = None):
-        """
-        清除索引
-
-        Args:
-            run_id: 运行ID,None则清除所有
-            data_name: 数据名称,None则清除指定run_id的所有索引
-        """
-        if run_id is None:
-            # 清除所有
-            self._indices.clear()
-            self.logger.info("Cleared all time indices")
-        elif data_name is None:
-            # 清除指定run_id的所有索引
-            keys_to_remove = [k for k in self._indices.keys() if k[0] == run_id]
-            for key in keys_to_remove:
-                del self._indices[key]
-            self.logger.info(f"Cleared {len(keys_to_remove)} indices for run_id '{run_id}'")
-        else:
-            # 清除特定索引
-            key = (run_id, data_name)
-            if key in self._indices:
-                del self._indices[key]
-                self.logger.info(f"Cleared index for {key}")
-
-    def get_stats(self) -> dict[str, Any]:
-        """获取统计信息"""
-        return {
-            "total_indices": len(self._indices),
-            "indices": {
-                f"{k[0]}.{k[1]}": {
-                    "n_records": idx.n_records,
-                    "time_range": (idx.min_time, idx.max_time),
-                    "build_time": idx.build_time,
-                    "has_endtime": idx.endtimes is not None,
-                }
-                for k, idx in self._indices.items()
-            },
-        }
-
 
 # ===========================
 # Context集成辅助函数

@@ -25,11 +25,6 @@ def test_context_time_range_builds_index_single_array(tmp_path):
     result = ctx.time_range("run1", "time_data", start_time=0, end_time=1000)
     assert len(result) == 5
 
-    stats = ctx.get_time_index_stats()
-    assert stats["total_indices"] == 1
-    assert "run1.time_data" in stats["indices"]
-    assert stats["indices"]["run1.time_data"]["n_records"] == 5
-
 
 def test_context_time_range_builds_index_channel_field(tmp_path):
     dtype = np.dtype([("time", "<i8"), ("board", "<i2"), ("channel", "<i2"), ("value", "<f8")])
@@ -49,10 +44,6 @@ def test_context_time_range_builds_index_channel_field(tmp_path):
 
     result = ctx.time_range("run1", "multi_channel_data", start_time=0, end_time=1000)
     assert len(result) == 4
-
-    stats = ctx.get_time_index_stats()
-    assert stats["total_indices"] == 1
-    assert stats["indices"]["run1.multi_channel_data"]["n_records"] == 4
 
     ch1 = ctx.time_range("run1", "multi_channel_data", channel="0:1")
     assert len(ch1) == 2

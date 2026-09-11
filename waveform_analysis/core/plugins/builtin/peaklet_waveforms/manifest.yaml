@@ -1,0 +1,8 @@
+provides: peaklet_waveforms
+plugin_class: PeakletWaveformPlugin
+version: 2.1.0
+third_party_dependencies:
+  - numpy
+  - numba
+plugin_dependencies:
+  - peaklets

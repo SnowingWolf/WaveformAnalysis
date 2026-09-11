@@ -6,8 +6,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-from waveform_analysis.core import Context
-from waveform_analysis.utils import S1S2PairAccessor
+from waveform_analysis import Context
+from waveform_analysis.analysis import S1S2PairAccessor
 
 
 def plot_pair_waveforms(accessor, pair_id, ax=None, show_info=True):

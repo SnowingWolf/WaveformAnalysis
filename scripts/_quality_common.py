@@ -3,6 +3,7 @@
 
 from collections.abc import Iterable
 from pathlib import Path
+from statistics import median
 import tempfile
 import time
 import tracemalloc
@@ -143,6 +144,8 @@ def benchmark_hot_targets(targets: Iterable[str], repeats: int = 3) -> dict[str,
                 "max_time_sec": 0.0,
                 "avg_peak_mem_mb": 0.0,
                 "max_peak_mem_mb": 0.0,
+                "median_time_sec": 0.0,
+                "median_peak_mem_mb": 0.0,
             }
             continue
 
@@ -153,5 +156,7 @@ def benchmark_hot_targets(targets: Iterable[str], repeats: int = 3) -> dict[str,
             "max_time_sec": max(times),
             "avg_peak_mem_mb": sum(mems) / float(len(mems)),
             "max_peak_mem_mb": max(mems),
+            "median_time_sec": median(times),
+            "median_peak_mem_mb": median(mems),
         }
     return out

@@ -9,6 +9,7 @@
 - `workflow_cost`: `light`
 - `primary_doc`: `AGENTS.md`
 - `profile_doc`: `docs/agents/protocol/route-profiles/run_tests.md`
+- `executor_role`: `executor.qa`
 
 ## Blocking Gates
 - `requested_tests_complete`

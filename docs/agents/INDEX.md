@@ -18,6 +18,7 @@
 - 常见工作流：`workflows.md`
 - 协议模板：`protocol/README.md`
 - `modify_plugin` 实例：`protocol/route-profiles/modify_plugin.md`
+- `modify_code` 实例：`protocol/route-profiles/modify_code.md`
 - `retire_compat` 实例：`protocol/route-profiles/retire_compat.md`
 - `debug_cache` 实例：`protocol/route-profiles/debug_cache.md`
 - `generate_docs` 实例：`protocol/route-profiles/generate_docs.md`
@@ -39,17 +40,20 @@
 4. `plugins.md`
 5. `configuration.md`
 6. `protocol/route-profiles/modify_plugin.md`
-7. `protocol/route-profiles/retire_compat.md`
-8. `protocol/route-profiles/debug_cache.md`
-9. `protocol/route-profiles/generate_docs.md`
-10. `protocol/route-profiles/run_tests.md`
-11. `protocol/route-profiles/assess_change_impact.md`
-12. `protocol/route-profiles/schema_compat_check.md`
-13. `protocol/route-profiles/performance_regression_check.md`
-14. `protocol/route-profiles/release_artifact_sync.md`
+7. `protocol/route-profiles/modify_code.md`
+8. `protocol/route-profiles/retire_compat.md`
+9. `protocol/route-profiles/debug_cache.md`
+10. `protocol/route-profiles/generate_docs.md`
+11. `protocol/route-profiles/run_tests.md`
+12. `protocol/route-profiles/assess_change_impact.md`
+13. `protocol/route-profiles/schema_compat_check.md`
+14. `protocol/route-profiles/performance_regression_check.md`
+15. `protocol/route-profiles/release_artifact_sync.md`
 <!-- END GENERATED: recommended_read_order -->
 
 ## 质量闸门
+- 外部构建与打包产物更新：[隔离文档构建](docs-build.md)。
+- 单任务自动执行与人工集成：[Managed Workflow MVP](managed-workflow.md)。
 - PR 固定闸门：见 `workflows.md` 中“PR 前固定质量闸门（3 类，4 条命令）”
 - 扩展检查 / 发布前检查：见 `workflows.md` 中 `performance_regression_check` 与 `release_artifact_sync`
 

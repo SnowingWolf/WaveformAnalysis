@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 
 from tests.utils import DummyContext, make_records
 from waveform_analysis.core.plugins.builtin.hit.hit_finder import THRESHOLD_HIT_DTYPE
@@ -19,7 +20,131 @@ from waveform_analysis.core.plugins.builtin.peaks.peaklets import (
 from waveform_analysis.utils.peak_channel_accessor import (
     PeakChannelAccessor,
     PeakChannelDataUnavailableError,
+    WaveformOverlapConflictError,
 )
+from waveform_analysis.utils.query_helpers import get_hits_for_merged, get_hits_for_peak
+
+
+def test_hit_queries_reuse_helper_contract_without_loading_features_or_waveforms():
+    class CountingContext(DummyContext):
+        def __init__(self, data):
+            super().__init__(data=data)
+            self.calls = []
+
+        def get_data(self, run_id, name, **kwargs):
+            self.calls.append(name)
+            return super().get_data(run_id, name, **kwargs)
+
+    peaklet_components = np.zeros(2, dtype=PEAKLET_COMPONENTS_DTYPE)
+    peaklet_components["peak_id"] = [919, 919]
+    peaklet_components["merged_index"] = [7, 8]
+
+    merged_components = np.zeros(3, dtype=HIT_MERGED_COMPONENTS_DTYPE)
+    merged_components["merged_index"] = [7, 7, 8]
+    merged_components["hit_index"] = [0, 1, 2]
+
+    hit_threshold = np.zeros(3, dtype=THRESHOLD_HIT_DTYPE)
+    hit_threshold["position"] = [5, 2, 1]
+    hit_threshold["edge_start"] = [4, 1, 0]
+    hit_threshold["edge_end"] = [7, 4, 3]
+    hit_threshold["width"] = [3, 3, 3]
+    hit_threshold["dt"] = [2, 2, 2]
+    hit_threshold["timestamp"] = [20_000, 10_000, 30_000]
+    hit_threshold["board"] = [0, 0, 1]
+    hit_threshold["channel"] = [5, 6, 2]
+    hit_threshold["record_id"] = [100, 101, 102]
+
+    ctx = CountingContext(
+        data={
+            "peaklet_components": peaklet_components,
+            "hit_merged_components": merged_components,
+            "hit_threshold": hit_threshold,
+        }
+    )
+    accessor = PeakChannelAccessor(ctx, "run", lazy_load=True)
+
+    actual_peak = accessor.get_hits(peak_id=919)
+    expected_peak = get_hits_for_peak(
+        peak_id=919,
+        peaklet_components=peaklet_components,
+        hit_merged_components=merged_components,
+        hit_threshold=hit_threshold,
+    )
+    pd.testing.assert_frame_equal(actual_peak, expected_peak)
+
+    actual_merged = accessor.get_merged_hits(merged_index=7)
+    expected_merged = get_hits_for_merged(7, merged_components, hit_threshold)
+    pd.testing.assert_frame_equal(actual_merged, expected_merged)
+    assert accessor.get_hits(peak_id=999).empty
+    assert accessor.get_merged_hits(merged_index=999).empty
+
+    assert ctx.calls == ["peaklet_components", "hit_merged_components", "hit_threshold"]
+    assert not {
+        "peaklet_channels",
+        "hit_merged",
+        "hit_merged_features",
+        "records",
+        "wave_pool",
+        "wave_pool_filtered",
+    }.intersection(ctx.calls)
+
+
+def test_hit_query_layer_reuses_eagerly_loaded_peaklet_components():
+    class CountingContext(DummyContext):
+        def __init__(self, data):
+            super().__init__(data=data)
+            self.calls = []
+
+        def get_data(self, run_id, name, **kwargs):
+            self.calls.append(name)
+            return super().get_data(run_id, name, **kwargs)
+
+    ctx = CountingContext(
+        data={
+            "peaklet_components": np.zeros(0, dtype=PEAKLET_COMPONENTS_DTYPE),
+            "peaklet_channels": np.zeros(0, dtype=PEAKLET_CHANNELS_DTYPE),
+            "hit_merged": np.zeros(0, dtype=HIT_MERGED_DTYPE),
+            "hit_merged_features": np.zeros(0, dtype=HIT_MERGED_FEATURES_DTYPE),
+            "hit_merged_components": np.zeros(0, dtype=HIT_MERGED_COMPONENTS_DTYPE),
+            "hit_threshold": np.zeros(0, dtype=THRESHOLD_HIT_DTYPE),
+        }
+    )
+
+    accessor = PeakChannelAccessor(ctx, "run")
+    result = accessor.get_hits(peak_id=919)
+
+    assert result.empty
+    assert ctx.calls.count("peaklet_components") == 1
+    assert ctx.calls.count("hit_merged_components") == 1
+    assert ctx.calls.count("hit_threshold") == 1
+
+
+def test_feature_layer_reuses_hit_query_peaklet_components():
+    class CountingContext(DummyContext):
+        def __init__(self, data):
+            super().__init__(data=data)
+            self.calls = []
+
+        def get_data(self, run_id, name, **kwargs):
+            self.calls.append(name)
+            return super().get_data(run_id, name, **kwargs)
+
+    ctx = CountingContext(
+        data={
+            "peaklet_components": np.zeros(0, dtype=PEAKLET_COMPONENTS_DTYPE),
+            "peaklet_channels": np.zeros(0, dtype=PEAKLET_CHANNELS_DTYPE),
+            "hit_merged": np.zeros(0, dtype=HIT_MERGED_DTYPE),
+            "hit_merged_features": np.zeros(0, dtype=HIT_MERGED_FEATURES_DTYPE),
+            "hit_merged_components": np.zeros(0, dtype=HIT_MERGED_COMPONENTS_DTYPE),
+            "hit_threshold": np.zeros(0, dtype=THRESHOLD_HIT_DTYPE),
+        }
+    )
+
+    accessor = PeakChannelAccessor(ctx, "run", lazy_load=True)
+    accessor.get_hits(peak_id=919)
+    assert accessor.get_channels(peak_id=919) == []
+
+    assert ctx.calls.count("peaklet_components") == 1
 
 
 def test_get_channels_uses_peaklet_channels_aggregates():
@@ -136,6 +261,64 @@ def test_get_channels_combines_all_channel_merged_waveforms():
 
     accessor.clear_waveform_cache()
     assert accessor._channel_waveform_cache == {}
+
+
+def test_get_channels_deduplicates_equal_absolute_samples_and_rejects_conflicts():
+    peaklet_components = np.zeros(2, dtype=PEAKLET_COMPONENTS_DTYPE)
+    peaklet_components["peak_id"] = [919, 919]
+    peaklet_components["merged_index"] = [0, 1]
+
+    hit_merged = np.zeros(2, dtype=HIT_MERGED_DTYPE)
+    hit_merged["board"] = 0
+    hit_merged["channel"] = 5
+    hit_merged["sample_start"] = 1
+    hit_merged["sample_end"] = 3
+    hit_merged["record_id"] = [0, 1]
+    hit_merged["is_single_record"] = True
+
+    features = np.zeros(2, dtype=HIT_MERGED_FEATURES_DTYPE)
+    features["merged_index"] = [0, 1]
+    features["board"] = 0
+    features["channel"] = 5
+    features["height"] = 20.0
+
+    channel_rows = np.zeros(1, dtype=PEAKLET_CHANNELS_DTYPE)
+    channel_rows["peaklet_id"] = 919
+    channel_rows["board"] = 0
+    channel_rows["channel"] = 5
+    channel_rows["area"] = 30.0
+    channel_rows["height"] = 20.0
+    channel_rows["n_hits"] = 2
+    channel_rows["area_fraction"] = 1.0
+
+    records = make_records(2, event_length=4, baseline=100.0, dt=1)
+    records["timestamp"] = [0, 0]
+    records["channel"] = [5, 5]
+    wave_pool = np.array([100, 90, 80, 100, 100, 90, 80, 100], dtype=np.uint16)
+    ctx = DummyContext(
+        data={
+            "peaklet_components": peaklet_components,
+            "peaklet_channels": channel_rows,
+            "hit_merged": hit_merged,
+            "hit_merged_features": features,
+            "records": records,
+            "hit_threshold": np.zeros(0, dtype=THRESHOLD_HIT_DTYPE),
+            "hit_merged_components": np.zeros(0, dtype=HIT_MERGED_COMPONENTS_DTYPE),
+            "wave_pool": wave_pool,
+        }
+    )
+
+    channel = PeakChannelAccessor(ctx, "run").get_channels(
+        peak_id=919, include_waveforms=True, pad=0
+    )[0]
+    np.testing.assert_array_equal(channel["waveform"], np.array([10, 20], dtype=np.float32))
+    np.testing.assert_array_equal(channel["abs_time_ps"], np.array([1000, 2000]))
+    assert channel["waveform_area"] == 30.0
+
+    wave_pool[5] = 89
+    conflict_accessor = PeakChannelAccessor(ctx, "run")
+    with np.testing.assert_raises_regex(WaveformOverlapConflictError, "conflicting overlap"):
+        conflict_accessor.get_channels(peak_id=919, include_waveforms=True, pad=0)
 
 
 def test_get_sum_waveform_loads_and_indexes_layer_once():

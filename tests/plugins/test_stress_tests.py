@@ -34,29 +34,40 @@ def generate_large_dataset(n_records=10000, n_channels=16, hits_per_record=5):
     total_hits = n_records * hits_per_record
     hits = np.zeros(total_hits, dtype=THRESHOLD_HIT_DTYPE)
 
+    dt = 2
+    event_length = 50
+    record_spacing_ps = event_length * dt * 1000
+
     for i in range(total_hits):
         record_id = i // hits_per_record
         channel = record_id % n_channels
-        timestamp = record_id * 1000 + (i % hits_per_record) * 100
+        position = 15
+        record_timestamp = record_id * record_spacing_ps
+        timestamp = record_timestamp + position * dt * 1000
 
         hits[i]["record_id"] = record_id
         hits[i]["board"] = 0
         hits[i]["channel"] = channel
         hits[i]["edge_start"] = 10
         hits[i]["edge_end"] = 20
-        hits[i]["position"] = 15
+        hits[i]["position"] = position
         hits[i]["width"] = 10
-        hits[i]["dt"] = 2
+        hits[i]["dt"] = dt
         hits[i]["timestamp"] = timestamp
 
-    records = make_records(n_records=n_records, event_length=50, baseline=100.0, dt=2)
+    records = make_records(
+        n_records=n_records,
+        event_length=event_length,
+        baseline=100.0,
+        dt=dt,
+    )
     for i in range(n_records):
         records[i]["board"] = 0
         records[i]["channel"] = i % n_channels
-        records[i]["timestamp"] = i * 1000
+        records[i]["timestamp"] = i * record_spacing_ps
         records[i]["polarity"] = "negative"
 
-    wave_pool = np.random.randint(90, 110, size=n_records * 50, dtype=np.uint16)
+    wave_pool = np.random.randint(90, 110, size=n_records * event_length, dtype=np.uint16)
 
     return hits, records, wave_pool
 

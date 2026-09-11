@@ -9,6 +9,7 @@
 - `workflow_cost`: `light`
 - `primary_doc`: `docs/agents/references.md`
 - `profile_doc`: `docs/agents/protocol/route-profiles/generate_docs.md`
+- `executor_role`: `executor.docs`
 
 ## Blocking Gates
 - `doc_sync`
@@ -22,6 +23,8 @@
 ## Canonical Commands
 - `waveform-docs generate plugins-auto -o docs/plugins/reference/builtin/auto/`
 - `waveform-docs generate plugins-agent -o docs/plugins/reference/agent/`
+- `waveform-docs check links --docs-dir docs`
+- `waveform-docs check coverage --strict --fail-on-warning`
 - `scripts/check_doc_sync.sh`
 - `python scripts/check_doc_anchors.py --check-sync --base HEAD`
 <!-- END GENERATED: profile_summary_generate_docs -->

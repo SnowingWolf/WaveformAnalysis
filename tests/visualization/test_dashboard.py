@@ -5,9 +5,11 @@
 
 from pathlib import Path
 import tempfile
+import warnings
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from waveform_analysis.core.hardware.geometry import load_fallback_layout
 
@@ -148,9 +150,9 @@ def test_html_return():
         return False
 
 
-def test_dashboard_with_2d_hist_html_guards_large_frontend_arrays():
-    """Expanded 2D dashboard HTML should avoid fragile JS array spreads."""
-    from waveform_analysis.visualization import render_position_dashboard_with_2d_hist
+def test_dashboard_2d_canonical_html_guards_large_frontend_arrays():
+    """The canonical 2D dashboard should keep robust frontend guards."""
+    from waveform_analysis.visualization import render_position_dashboard_2d
 
     rng = np.random.default_rng(42)
     n_events = 100
@@ -167,13 +169,15 @@ def test_dashboard_with_2d_hist_html_guards_large_frontend_arrays():
         }
     )
 
-    html_content = render_position_dashboard_with_2d_hist(
+    original = df.copy(deep=True)
+    html_content = render_position_dashboard_2d(
         df=df,
         layout=load_fallback_layout(),
         run_id="test_2d_hist_layout",
         return_html=True,
     )
 
+    pd.testing.assert_frame_equal(df, original)
     assert "type: 'heatmap'" in html_content
     assert 'class="plot-grid plot-grid-two"' in html_content
     assert "function showPlotlyLoadError" in html_content
@@ -190,6 +194,68 @@ def test_dashboard_with_2d_hist_html_guards_large_frontend_arrays():
     assert "Math.min(...values.map" not in html_content
     assert "Math.max(...values.map" not in html_content
     assert "Math.max(1, ...counts.flat())" not in html_content
+
+
+def test_dashboard_2d_rejects_invalid_input_and_serializes_nonfinite_values():
+    from waveform_analysis.visualization import render_position_dashboard_2d
+
+    df = pd.DataFrame(
+        {
+            "x_rec": [0.0, np.inf, 2.0],
+            "y_rec": [0.0, 1.0, 2.0],
+            "z_rec": [-10.0, -20.0, -30.0],
+            "s1_area": [10.0, np.nan, 30.0],
+            "s2_area": [100.0, 200.0, 300.0],
+            "s2_peak_id": [1, 2, 3],
+        }
+    )
+
+    html_content = render_position_dashboard_2d(
+        df=df,
+        layout=load_fallback_layout(),
+        return_html=True,
+    )
+    assert '"x_rec": null' in html_content
+    assert '"s1_area": null' in html_content
+    assert '"x_rec": Infinity' not in html_content
+    assert '"s1_area": NaN' not in html_content
+
+    invalid = df.astype({"x_rec": object}).copy()
+    invalid.loc[0, "x_rec"] = "not-a-number"
+    with pytest.raises(ValueError, match="x_rec"):
+        render_position_dashboard_2d(
+            df=invalid,
+            layout=load_fallback_layout(),
+            return_html=True,
+        )
+
+
+def test_dashboard_2d_hist_alias_warns_and_uses_canonical_output(tmp_path):
+    from waveform_analysis.visualization import render_position_dashboard_with_2d_hist
+
+    df = pd.DataFrame(
+        {
+            "x_rec": [0.0, 1.0],
+            "y_rec": [0.0, 1.0],
+            "z_rec": [-10.0, -20.0],
+            "s1_area": [10.0, 20.0],
+            "s2_area": [100.0, 200.0],
+            "s2_peak_id": [1, 2],
+        }
+    )
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        output = render_position_dashboard_with_2d_hist(
+            df=df,
+            layout=load_fallback_layout(),
+            run_id="deprecated",
+            output_dir=str(tmp_path),
+        )
+
+    assert any(issubclass(item.category, DeprecationWarning) for item in caught)
+    assert Path(output).name == "run_deprecated_position_dashboard_2d.html"
+    assert Path(output).exists()
 
 
 def main():

@@ -1,3 +1,4 @@
+from importlib import import_module
 from unittest.mock import patch
 
 import numpy as np
@@ -8,6 +9,8 @@ from waveform_analysis.core.plugins.builtin.cpu.peak_finding import (
     HIT_DTYPE,
     HitFinderPlugin,
 )
+
+records_view_module = import_module("waveform_analysis.core.data.records_view")
 
 
 def test_hitfinder_empty_dtype():
@@ -133,7 +136,7 @@ def test_hitfinder_reads_records_view_when_wave_source_records():
 
     rv = RecordsView(records, wave_pool)
 
-    with patch("waveform_analysis.core.data.records_view.records_view", return_value=rv) as mocked:
+    with patch.object(records_view_module, "records_view", return_value=rv) as mocked:
         result = plugin.compute(ctx, "run_001")
 
     assert mocked.call_count == 1
@@ -173,7 +176,7 @@ def test_hitfinder_records_use_filtered_reads_filtered_pool():
 
     rv = RecordsView(records, wave_pool_filtered)
 
-    with patch("waveform_analysis.core.data.records_view.records_view", return_value=rv) as mocked:
+    with patch.object(records_view_module, "records_view", return_value=rv) as mocked:
         plugin.compute(ctx, "run_001")
 
     assert mocked.call_args.kwargs["wave_pool_name"] == "wave_pool_filtered"

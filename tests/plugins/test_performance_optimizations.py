@@ -9,7 +9,7 @@
 import numpy as np
 import pytest
 
-from tests.utils import DummyContext, make_records
+from tests.utils import DummyContext, make_hit, make_records
 from waveform_analysis.core.plugins.builtin.cpu.hit_merge import (
     HIT_MERGED_DTYPE,
     HitMergedComponentsPlugin,
@@ -24,9 +24,9 @@ from waveform_analysis.core.plugins.builtin.cpu.peaklets import (
     PeakletComponentsPlugin,
     PeakletPlugin,
     PeakletWaveformPlugin,
-    _cluster_merged_hits,
 )
 from waveform_analysis.core.plugins.builtin.hit.hit_finder import THRESHOLD_HIT_DTYPE
+from waveform_analysis.core.plugins.builtin.peaklets._compute import _cluster_merged_hits
 
 try:
     from numba import njit  # noqa: F401
@@ -36,22 +36,6 @@ except ImportError:
     HAS_NUMBA = False
 
 
-def _make_hit(*, record_id, board, channel, edge_start, edge_end, dt=2, timestamp=0):
-    """创建测试用的 hit 数据"""
-    arr = np.zeros(1, dtype=THRESHOLD_HIT_DTYPE)
-    position = (edge_start + edge_end - 1) // 2
-    arr[0]["position"] = position
-    arr[0]["edge_start"] = edge_start
-    arr[0]["edge_end"] = edge_end
-    arr[0]["width"] = edge_end - edge_start
-    arr[0]["dt"] = dt
-    arr[0]["timestamp"] = timestamp + position * dt * 1000
-    arr[0]["board"] = board
-    arr[0]["channel"] = channel
-    arr[0]["record_id"] = record_id
-    return arr[0]
-
-
 def _make_test_context(n_hits=10, n_channels=4, time_gap=2):
     """创建测试上下文，包含完整的数据流"""
     # 生成测试数据：多通道、时间上有轻微间隔
@@ -59,7 +43,7 @@ def _make_test_context(n_hits=10, n_channels=4, time_gap=2):
     for i in range(n_hits):
         channel = i % n_channels
         timestamp = i * time_gap * 1000  # 每个 hit 间隔 time_gap ns
-        hit = _make_hit(
+        hit = make_hit(
             record_id=i,
             board=0,
             channel=channel,
@@ -81,7 +65,11 @@ def _make_test_context(n_hits=10, n_channels=4, time_gap=2):
         records[i]["polarity"] = "negative"
 
     # 生成测试波形数据
-    wave_pool = np.random.randint(90, 110, size=n_hits * 50, dtype=np.uint16)
+    # The synthetic records use negative polarity, so keep samples below the
+    # baseline to make the expected integrated signal non-negative.  The
+    # feature implementation intentionally preserves signed (unclipped)
+    # semantics; this fixture should not introduce random sign failures.
+    wave_pool = np.random.randint(90, 100, size=n_hits * 50, dtype=np.uint16)
 
     # 构建完整的数据流
     merge_ctx = DummyContext(
@@ -215,7 +203,13 @@ class TestPeakletsNumbaAcceleration:
     def test_peaklet_waveform_numba_vs_python(self):
         """对比 Numba 和 Python fallback 的输出一致性"""
         hits, records, wave_pool, merged, components = _make_test_context(
-            n_hits=20, n_channels=4, time_gap=2
+            # Keep repeated hits on one hardware channel disjoint.  The
+            # canonical merger now (correctly) raises on conflicting
+            # same-time samples; this test is about backend equivalence, not
+            # the overlap-conflict diagnostic.
+            n_hits=20,
+            n_channels=4,
+            time_gap=20,
         )
 
         ctx = DummyContext(
@@ -282,7 +276,12 @@ class TestHitMergedFeaturesParallel:
     def test_features_basic_correctness(self):
         """测试基本的特征计算正确性"""
         hits, records, wave_pool, merged, components = _make_test_context(
-            n_hits=50, n_channels=4, time_gap=2
+            # Keep records on one hardware channel disjoint.  The strict
+            # waveform merger rejects conflicting samples when record windows
+            # overlap; this test exercises feature correctness instead.
+            n_hits=50,
+            n_channels=4,
+            time_gap=30,
         )
 
         ctx = DummyContext(
@@ -324,7 +323,9 @@ class TestHitMergedFeaturesParallel:
 
         # 创建简单的测试数据
         n = 5
-        wave_pool = np.array([100, 105, 110, 105, 100] * n, dtype=np.uint16)
+        # Negative-polarity samples below baseline produce a positive signal;
+        # the production kernel intentionally preserves signed integration.
+        wave_pool = np.array([100, 95, 90, 95, 100] * n, dtype=np.uint16)
         rec_indices = np.arange(n, dtype=np.int64)
         rec_wave_offset = np.arange(0, n * 5, 5, dtype=np.int64)
         rec_event_length = np.full(n, 5, dtype=np.int64)
@@ -337,7 +338,8 @@ class TestHitMergedFeaturesParallel:
         merged_dt = np.full(n, 2, dtype=np.int64)
         merged_position = np.zeros(n, dtype=np.int64)
 
-        # 调用 Numba 内核：签名要求第 12 个参数为预分配的 out 数组，内核直接写入而非返回
+        # 调用 Numba 内核：clip_negative_signal 位于输出数组之前，内核
+        # 直接写入预分配的 out 数组而非返回中间结果。
         out = np.zeros(n, dtype=HIT_MERGED_FEATURES_DTYPE)
         _features_fast_kernel(
             wave_pool,
@@ -351,6 +353,7 @@ class TestHitMergedFeaturesParallel:
             merged_timestamp,
             merged_dt,
             merged_position,
+            False,
             out,
         )
 
@@ -433,7 +436,11 @@ class TestOptimizationConsistency:
     def test_features_computation_stability(self):
         """测试特征计算的稳定性"""
         hits, records, wave_pool, merged, components = _make_test_context(
-            n_hits=50, n_channels=4, time_gap=2
+            # Keep records on one hardware channel disjoint for deterministic
+            # feature materialization under strict overlap validation.
+            n_hits=50,
+            n_channels=4,
+            time_gap=30,
         )
 
         ctx = DummyContext(

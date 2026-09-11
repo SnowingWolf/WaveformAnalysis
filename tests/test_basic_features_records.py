@@ -10,8 +10,8 @@ from tests.basic_features_helpers import (
     make_records_view,
 )
 from tests.utils import FakeContext
-import waveform_analysis.core.plugins.builtin.cpu.basic_features as basic_features_module
-from waveform_analysis.core.plugins.builtin.cpu.basic_features import BasicFeaturesPlugin
+from waveform_analysis.core.plugins.builtin.basic_features import BasicFeaturesPlugin
+import waveform_analysis.core.plugins.builtin.basic_features.plugin as basic_features_module
 from waveform_analysis.core.processing.records_builder import RECORDS_DTYPE
 
 

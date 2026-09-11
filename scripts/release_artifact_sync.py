@@ -12,6 +12,13 @@ import tempfile
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 AUTO_DOCS_DIR = PROJECT_ROOT / "docs" / "plugins" / "reference" / "builtin" / "auto"
 AGENT_DOCS_DIR = PROJECT_ROOT / "docs" / "plugins" / "reference" / "agent"
+DEFAULT_PERF_REPEATS = 5
+
+# A small set of hand-maintained compatibility pages intentionally remains
+# available even though the current plugin registry no longer emits them as
+# generated pages.  They are public migration references, not generated
+# artifacts, so they must not make an otherwise synchronized tree fail.
+LEGACY_REFERENCE_DOCS = frozenset({"s1_s2.md"})
 
 
 def _run(cmd: list[str], cwd: Path = PROJECT_ROOT) -> tuple[int, str, str]:
@@ -87,6 +94,8 @@ def _compare_docs(expected_dir: Path, actual_dir: Path) -> list[str]:
     for rel in sorted(expected_keys - actual_keys):
         mismatches.append(f"缺失文档: {rel}")
     for rel in sorted(actual_keys - expected_keys):
+        if rel in LEGACY_REFERENCE_DOCS:
+            continue
         mismatches.append(f"多余文档: {rel}")
 
     for rel in sorted(expected_keys & actual_keys):
@@ -114,7 +123,7 @@ def _check_generated_docs_sync() -> tuple[bool, dict[str, object]]:
             [
                 sys.executable,
                 "-m",
-                "waveform_analysis.utils.cli_docs",
+                "waveform_analysis.documentation.cli",
                 "generate",
                 "plugins-auto",
                 "-o",
@@ -130,7 +139,7 @@ def _check_generated_docs_sync() -> tuple[bool, dict[str, object]]:
             [
                 sys.executable,
                 "-m",
-                "waveform_analysis.utils.cli_docs",
+                "waveform_analysis.documentation.cli",
                 "generate",
                 "plugins-agent",
                 "-o",
@@ -192,7 +201,6 @@ def _run_key_tests(base: str) -> tuple[bool, dict[str, object]]:
         sys.executable,
         "-m",
         "pytest",
-        "tests/",
     ]
     rc, out, err = _run(full_pytest_cmd)
     detail["full_pytest_rc"] = rc
@@ -305,7 +313,9 @@ def _print_report(report: dict[str, object]) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Unified release artifact synchronization checks")
     parser.add_argument("--base", default="HEAD", help="Git base ref (default: HEAD)")
-    parser.add_argument("--perf-repeats", type=int, default=1, help="Perf check repeats")
+    parser.add_argument(
+        "--perf-repeats", type=int, default=DEFAULT_PERF_REPEATS, help="Perf check repeats"
+    )
     parser.add_argument("--time-threshold-pct", type=float, default=10.0)
     parser.add_argument("--mem-threshold-pct", type=float, default=15.0)
     parser.add_argument("--skip-perf", action="store_true")

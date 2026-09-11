@@ -1,0 +1,1075 @@
+{
+  "BasicFeaturesPlugin": {
+    "before": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/cpu/basic_features.py",
+        "class": "BasicFeaturesPlugin",
+        "line": 171,
+        "bases": [
+          "Plugin"
+        ],
+        "provides": "'basic_features'",
+        "depends_on": "[]",
+        "version": "'4.1.0'",
+        "output_dtype": "BASIC_FEATURES_DTYPE"
+      }
+    ],
+    "after": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/basic_features/plugin.py",
+        "class": "BasicFeaturesPlugin",
+        "line": 171,
+        "bases": [
+          "Plugin"
+        ],
+        "provides": "'basic_features'",
+        "depends_on": "[]",
+        "version": "'4.1.0'",
+        "output_dtype": "BASIC_FEATURES_DTYPE"
+      }
+    ]
+  },
+  "CacheAnalysisPlugin": {
+    "before": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/cpu/cache_analysis.py",
+        "class": "CacheAnalysisPlugin",
+        "line": 126,
+        "bases": [
+          "Plugin"
+        ],
+        "provides": "'cache_analysis'",
+        "version": "'0.1.0'"
+      }
+    ],
+    "after": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/cache_analysis/plugin.py",
+        "class": "CacheAnalysisPlugin",
+        "line": 126,
+        "bases": [
+          "Plugin"
+        ],
+        "provides": "'cache_analysis'",
+        "version": "'0.1.0'"
+      }
+    ]
+  },
+  "DataFramePlugin": {
+    "before": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/cpu/dataframe.py",
+        "class": "DataFramePlugin",
+        "line": 32,
+        "bases": [
+          "Plugin"
+        ],
+        "provides": "'df'",
+        "depends_on": "[]",
+        "version": "'1.7.0'"
+      }
+    ],
+    "after": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/df/plugin.py",
+        "class": "DataFramePlugin",
+        "line": 32,
+        "bases": [
+          "Plugin"
+        ],
+        "provides": "'df'",
+        "depends_on": "[]",
+        "version": "'1.7.0'"
+      }
+    ]
+  },
+  "EventPlugin": {
+    "before": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/cpu/event.py",
+        "class": "EventPlugin",
+        "line": 94,
+        "bases": [
+          "Plugin"
+        ],
+        "provides": "'events'",
+        "depends_on": "['s1_s2_pairs', 'position_reconstruction']",
+        "version": "'0.0.1'",
+        "output_dtype": "EVENT_DTYPE"
+      }
+    ],
+    "after": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/events/plugin.py",
+        "class": "EventPlugin",
+        "line": 94,
+        "bases": [
+          "Plugin"
+        ],
+        "provides": "'events'",
+        "depends_on": "['s1_s2_pairs', 'position_reconstruction']",
+        "version": "'0.0.3'",
+        "output_dtype": "EVENT_DTYPE"
+      }
+    ]
+  },
+  "GroupedEventsPlugin": {
+    "before": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/cpu/event_analysis.py",
+        "class": "GroupedEventsPlugin",
+        "line": 20,
+        "bases": [
+          "Plugin"
+        ],
+        "provides": "'df_events'",
+        "depends_on": "['df']",
+        "version": "'0.0.1'"
+      }
+    ],
+    "after": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/df_events/plugin.py",
+        "class": "GroupedEventsPlugin",
+        "line": 9,
+        "bases": [
+          "Plugin"
+        ],
+        "provides": "'df_events'",
+        "depends_on": "['df']",
+        "version": "'0.0.1'"
+      }
+    ]
+  },
+  "PairedEventsPlugin": {
+    "before": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/cpu/event_analysis.py",
+        "class": "PairedEventsPlugin",
+        "line": 72,
+        "bases": [
+          "Plugin"
+        ],
+        "provides": "'df_paired'",
+        "depends_on": "['df_events']",
+        "version": "'0.0.1'"
+      }
+    ],
+    "after": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/df_paired/plugin.py",
+        "class": "PairedEventsPlugin",
+        "line": 9,
+        "bases": [
+          "Plugin"
+        ],
+        "provides": "'df_paired'",
+        "depends_on": "['df_events']",
+        "version": "'0.0.1'"
+      }
+    ]
+  },
+  "FilteredWaveformsPlugin": {
+    "before": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/cpu/filtering.py",
+        "class": "FilteredWaveformsPlugin",
+        "line": 410,
+        "bases": [
+          "Plugin"
+        ],
+        "provides": "'filtered_waveforms'",
+        "depends_on": "['st_waveforms']",
+        "version": "FILTER_ENGINE_VERSION",
+        "output_dtype": "create_filtered_waveform_dtype(np.dtype(ST_WAVEFORM_DTYPE))"
+      }
+    ],
+    "after": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/filtered_waveforms/plugin.py",
+        "class": "FilteredWaveformsPlugin",
+        "line": 410,
+        "bases": [
+          "Plugin"
+        ],
+        "provides": "'filtered_waveforms'",
+        "depends_on": "['st_waveforms']",
+        "version": "FILTER_ENGINE_VERSION",
+        "output_dtype": "create_filtered_waveform_dtype(np.dtype(ST_WAVEFORM_DTYPE))"
+      }
+    ]
+  },
+  "PeakClassificationPlugin": {
+    "before": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/cpu/peak_classification.py",
+        "class": "PeakClassificationPlugin",
+        "line": 89,
+        "bases": [
+          "Plugin"
+        ],
+        "provides": "'peak_classification'",
+        "depends_on": "['peaks']",
+        "version": "'1.2.1'",
+        "output_dtype": "PEAK_CLASSIFICATION_DTYPE"
+      }
+    ],
+    "after": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/peak_classification/plugin.py",
+        "class": "PeakClassificationPlugin",
+        "line": 89,
+        "bases": [
+          "Plugin"
+        ],
+        "provides": "'peak_classification'",
+        "depends_on": "['peaks']",
+        "version": "'1.2.1'",
+        "output_dtype": "PEAK_CLASSIFICATION_DTYPE"
+      }
+    ]
+  },
+  "HitFinderPlugin": {
+    "before": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/cpu/peak_finding.py",
+        "class": "HitFinderPlugin",
+        "line": 49,
+        "bases": [
+          "Plugin"
+        ],
+        "provides": "'hit'",
+        "depends_on": "[]",
+        "version": "'3.0.0'",
+        "output_dtype": "HIT_DTYPE"
+      }
+    ],
+    "after": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/hit/plugin.py",
+        "class": "HitFinderPlugin",
+        "line": 47,
+        "bases": [
+          "Plugin"
+        ],
+        "provides": "'hit'",
+        "depends_on": "[]",
+        "version": "'3.0.0'",
+        "output_dtype": "HIT_DTYPE"
+      }
+    ]
+  },
+  "PositionReconstructionPlugin": {
+    "before": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/cpu/position_reconstruction.py",
+        "class": "PositionReconstructionPlugin",
+        "line": 104,
+        "bases": [
+          "Plugin"
+        ],
+        "provides": "'position_reconstruction'",
+        "depends_on": "['s1_s2_pairs']",
+        "version": "'0.2.1'",
+        "output_dtype": "POSITION_RECONSTRUCTION_DTYPE"
+      }
+    ],
+    "after": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/position_reconstruction/plugin.py",
+        "class": "PositionReconstructionPlugin",
+        "line": 102,
+        "bases": [
+          "Plugin"
+        ],
+        "provides": "'position_reconstruction'",
+        "depends_on": "['s1_s2_pairs', 'peaklet_channels']",
+        "version": "'0.4.0'",
+        "output_dtype": "POSITION_RECONSTRUCTION_DTYPE"
+      }
+    ]
+  },
+  "RawFileNamesPlugin": {
+    "before": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/cpu/raw_files.py",
+        "class": "RawFileNamesPlugin",
+        "line": 17,
+        "bases": [
+          "Plugin"
+        ],
+        "provides": "'raw_files'",
+        "version": "'0.0.2'"
+      },
+      {
+        "path": "waveform_analysis/core/plugins/builtin/cpu/waveforms.py",
+        "class": "RawFileNamesPlugin",
+        "line": 887,
+        "bases": [
+          "Plugin"
+        ],
+        "provides": "'raw_files'",
+        "version": "'0.0.2'"
+      }
+    ],
+    "after": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/raw_files/plugin.py",
+        "class": "RawFileNamesPlugin",
+        "line": 17,
+        "bases": [
+          "Plugin"
+        ],
+        "provides": "'raw_files'",
+        "version": "'0.0.2'"
+      }
+    ]
+  },
+  "WavePoolFilteredPlugin": {
+    "before": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/cpu/records.py",
+        "class": "WavePoolFilteredPlugin",
+        "line": 547,
+        "bases": [
+          "Plugin"
+        ],
+        "provides": "'wave_pool_filtered'",
+        "depends_on": "['records', 'wave_pool']",
+        "version": "FILTER_ENGINE_VERSION",
+        "output_dtype": "np.dtype(np.float32)"
+      }
+    ],
+    "after": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/wave_pool_filtered/plugin.py",
+        "class": "WavePoolFilteredPlugin",
+        "line": 15,
+        "bases": [
+          "Plugin"
+        ],
+        "provides": "'wave_pool_filtered'",
+        "depends_on": "['records', 'wave_pool']",
+        "version": "FILTER_ENGINE_VERSION",
+        "output_dtype": "np.dtype(np.float32)"
+      }
+    ]
+  },
+  "_RecordsBundlePluginBase": {
+    "before": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/cpu/records.py",
+        "class": "_RecordsBundlePluginBase",
+        "line": 361,
+        "bases": [
+          "Plugin"
+        ],
+        "version": "'0.14.2'"
+      }
+    ],
+    "after": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/records/_compute.py",
+        "class": "_RecordsBundlePluginBase",
+        "line": 390,
+        "bases": [
+          "Plugin"
+        ],
+        "version": "'0.14.3'"
+      }
+    ]
+  },
+  "RecordsAsymmetryMaskPlugin": {
+    "before": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/cpu/records_asymmetry.py",
+        "class": "RecordsAsymmetryMaskPlugin",
+        "line": 112,
+        "bases": [
+          "Plugin"
+        ],
+        "provides": "'records_asymmetry_mask'",
+        "depends_on": "['records', 'wave_pool']",
+        "version": "'0.2.0'",
+        "output_dtype": "np.dtype(np.bool_)"
+      }
+    ],
+    "after": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/records_asymmetry_mask/plugin.py",
+        "class": "RecordsAsymmetryMaskPlugin",
+        "line": 112,
+        "bases": [
+          "Plugin"
+        ],
+        "provides": "'records_asymmetry_mask'",
+        "depends_on": "['records', 'wave_pool']",
+        "version": "'0.2.0'",
+        "output_dtype": "np.dtype(np.bool_)"
+      }
+    ]
+  },
+  "RecordsDetectorMaskPlugin": {
+    "before": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/cpu/records_channel_role.py",
+        "class": "RecordsDetectorMaskPlugin",
+        "line": 105,
+        "bases": [
+          "_RecordsChannelRoleMaskPlugin"
+        ],
+        "provides": "'records_detector_mask'",
+        "version": "'0.1.0'"
+      }
+    ],
+    "after": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/records_detector_mask/plugin.py",
+        "class": "RecordsDetectorMaskPlugin",
+        "line": 9,
+        "bases": [
+          "_RecordsChannelRoleMaskPlugin"
+        ],
+        "provides": "'records_detector_mask'",
+        "version": "'0.1.0'"
+      }
+    ]
+  },
+  "RecordsVetoMaskPlugin": {
+    "before": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/cpu/records_channel_role.py",
+        "class": "RecordsVetoMaskPlugin",
+        "line": 114,
+        "bases": [
+          "_RecordsChannelRoleMaskPlugin"
+        ],
+        "provides": "'records_veto_mask'",
+        "version": "'0.1.0'"
+      }
+    ],
+    "after": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/records_veto_mask/plugin.py",
+        "class": "RecordsVetoMaskPlugin",
+        "line": 12,
+        "bases": [
+          "_RecordsChannelRoleMaskPlugin"
+        ],
+        "provides": "'records_veto_mask'",
+        "version": "'0.1.0'"
+      }
+    ]
+  },
+  "_RecordsChannelRoleMaskPlugin": {
+    "before": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/cpu/records_channel_role.py",
+        "class": "_RecordsChannelRoleMaskPlugin",
+        "line": 64,
+        "bases": [
+          "Plugin"
+        ],
+        "depends_on": "['records', 'records_asymmetry_mask']",
+        "output_dtype": "np.dtype(np.bool_)"
+      }
+    ],
+    "after": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/records_detector_mask/_compute.py",
+        "class": "_RecordsChannelRoleMaskPlugin",
+        "line": 77,
+        "bases": [
+          "Plugin"
+        ],
+        "depends_on": "['records', 'records_asymmetry_mask']",
+        "output_dtype": "np.dtype(np.bool_)"
+      }
+    ]
+  },
+  "S1S2PairCandidatesPlugin": {
+    "before": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/cpu/s1_s2_pair_candidates.py",
+        "class": "S1S2PairCandidatesPlugin",
+        "line": 131,
+        "bases": [
+          "Plugin"
+        ],
+        "provides": "'s1_s2_pair_candidates'",
+        "depends_on": "['peak_classification', 'peaks']",
+        "version": "'0.1.3'",
+        "output_dtype": "S1_S2_PAIR_CANDIDATES_DTYPE"
+      }
+    ],
+    "after": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/s1_s2_pair_candidates/plugin.py",
+        "class": "S1S2PairCandidatesPlugin",
+        "line": 131,
+        "bases": [
+          "Plugin"
+        ],
+        "provides": "'s1_s2_pair_candidates'",
+        "depends_on": "['peak_classification', 'peaks']",
+        "version": "'0.2.0'",
+        "output_dtype": "S1_S2_PAIR_CANDIDATES_DTYPE"
+      }
+    ]
+  },
+  "S1S2PairSelectionPlugin": {
+    "before": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/cpu/s1_s2_pair_selection.py",
+        "class": "S1S2PairSelectionPlugin",
+        "line": 21,
+        "bases": [
+          "Plugin"
+        ],
+        "provides": "'s1_s2_pairs'",
+        "depends_on": "['s1_s2_pair_candidates']",
+        "version": "'0.2.0'",
+        "output_dtype": "S1_S2_PAIR_CANDIDATES_DTYPE"
+      }
+    ],
+    "after": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/s1_s2_pairs/plugin.py",
+        "class": "S1S2PairSelectionPlugin",
+        "line": 23,
+        "bases": [
+          "Plugin"
+        ],
+        "provides": "'s1_s2_pairs'",
+        "depends_on": "['s1_s2_pair_candidates']",
+        "version": "'0.3.0'",
+        "output_dtype": "S1_S2_PAIR_CANDIDATES_DTYPE"
+      }
+    ]
+  },
+  "WaveformWidthPlugin": {
+    "before": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/cpu/waveform_width.py",
+        "class": "WaveformWidthPlugin",
+        "line": 40,
+        "bases": [
+          "Plugin"
+        ],
+        "provides": "'waveform_width'",
+        "depends_on": "[]",
+        "version": "'3.0.0'",
+        "output_dtype": "WAVEFORM_WIDTH_DTYPE"
+      }
+    ],
+    "after": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/waveform_width/plugin.py",
+        "class": "WaveformWidthPlugin",
+        "line": 40,
+        "bases": [
+          "Plugin"
+        ],
+        "provides": "'waveform_width'",
+        "depends_on": "[]",
+        "version": "'3.0.0'",
+        "output_dtype": "WAVEFORM_WIDTH_DTYPE"
+      }
+    ]
+  },
+  "WaveformWidthIntegralPlugin": {
+    "before": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/cpu/waveform_width_integral.py",
+        "class": "WaveformWidthIntegralPlugin",
+        "line": 42,
+        "bases": [
+          "Plugin"
+        ],
+        "provides": "'waveform_width_integral'",
+        "depends_on": "[]",
+        "version": "'2.7.0'",
+        "output_dtype": "WAVEFORM_WIDTH_INTEGRAL_DTYPE"
+      }
+    ],
+    "after": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/waveform_width_integral/plugin.py",
+        "class": "WaveformWidthIntegralPlugin",
+        "line": 42,
+        "bases": [
+          "Plugin"
+        ],
+        "provides": "'waveform_width_integral'",
+        "depends_on": "[]",
+        "version": "'2.7.0'",
+        "output_dtype": "WAVEFORM_WIDTH_INTEGRAL_DTYPE"
+      }
+    ]
+  },
+  "WaveformsPlugin": {
+    "before": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/cpu/waveforms.py",
+        "class": "WaveformsPlugin",
+        "line": 937,
+        "bases": [
+          "Plugin"
+        ],
+        "version": "'0.10.0'",
+        "provides": "'st_waveforms'",
+        "depends_on": "[]",
+        "output_dtype": "np.dtype(ST_WAVEFORM_DTYPE)"
+      }
+    ],
+    "after": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/st_waveforms/plugin.py",
+        "class": "WaveformsPlugin",
+        "line": 886,
+        "bases": [
+          "Plugin"
+        ],
+        "version": "'0.10.0'",
+        "provides": "'st_waveforms'",
+        "depends_on": "[]",
+        "output_dtype": "np.dtype(ST_WAVEFORM_DTYPE)"
+      }
+    ]
+  },
+  "EnergyReconstructionPlugin": {
+    "before": [],
+    "after": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/energy_reconstruction/plugin.py",
+        "class": "EnergyReconstructionPlugin",
+        "line": 90,
+        "bases": [
+          "Plugin"
+        ],
+        "provides": "'energy_reconstruction'",
+        "depends_on": "['s1_s2_pairs']",
+        "version": "'0.1.0'",
+        "output_dtype": "ENERGY_RECONSTRUCTION_DTYPE"
+      }
+    ]
+  },
+  "ThresholdHitPlugin": {
+    "before": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/hit/hit_finder.py",
+        "class": "ThresholdHitPlugin",
+        "line": 178,
+        "bases": [
+          "BatchProcessingPlugin"
+        ],
+        "provides": "'hit_threshold'",
+        "depends_on": "[]",
+        "version": "'1.2.0'",
+        "output_dtype": "THRESHOLD_HIT_DTYPE"
+      }
+    ],
+    "after": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/hit_threshold/plugin.py",
+        "class": "ThresholdHitPlugin",
+        "line": 166,
+        "bases": [
+          "BatchProcessingPlugin"
+        ],
+        "provides": "'hit_threshold'",
+        "depends_on": "[]",
+        "version": "'1.2.2'",
+        "output_dtype": "THRESHOLD_HIT_DTYPE"
+      }
+    ]
+  },
+  "HitGroupedPlugin": {
+    "before": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/hit/hit_grouped.py",
+        "class": "HitGroupedPlugin",
+        "line": 22,
+        "bases": [
+          "Plugin"
+        ],
+        "provides": "'hit_grouped'",
+        "depends_on": "['hit_merged', 'hit_merged_components', 'hit_threshold']",
+        "version": "'0.5.0'"
+      }
+    ],
+    "after": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/hit_grouped/plugin.py",
+        "class": "HitGroupedPlugin",
+        "line": 14,
+        "bases": [
+          "Plugin"
+        ],
+        "provides": "'hit_grouped'",
+        "depends_on": "['hit_merged', 'hit_merged_components', 'hit_threshold']",
+        "version": "'0.5.0'"
+      }
+    ]
+  },
+  "HitMergeClustersPlugin": {
+    "before": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/hit/hit_merge.py",
+        "class": "HitMergeClustersPlugin",
+        "line": 759,
+        "bases": [
+          "Plugin"
+        ],
+        "provides": "'hit_merge_clusters'",
+        "depends_on": "['hit_merged', 'hit_threshold']",
+        "version": "'1.1.0'",
+        "output_dtype": "HIT_MERGE_CLUSTERS_DTYPE"
+      }
+    ],
+    "after": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/hit_merge_clusters/plugin.py",
+        "class": "HitMergeClustersPlugin",
+        "line": 16,
+        "bases": [
+          "Plugin"
+        ],
+        "provides": "'hit_merge_clusters'",
+        "depends_on": "['hit_merged', 'hit_threshold']",
+        "version": "'1.1.0'",
+        "output_dtype": "HIT_MERGE_CLUSTERS_DTYPE"
+      }
+    ]
+  },
+  "HitMergePlugin": {
+    "before": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/hit/hit_merge.py",
+        "class": "HitMergePlugin",
+        "line": 619,
+        "bases": [
+          "BatchProcessingPlugin"
+        ],
+        "provides": "'hit_merged'",
+        "depends_on": "['hit_threshold']",
+        "version": "'2.1.0'",
+        "output_dtype": "HIT_MERGED_DTYPE"
+      }
+    ],
+    "after": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/hit_merged/plugin.py",
+        "class": "HitMergePlugin",
+        "line": 20,
+        "bases": [
+          "BatchProcessingPlugin"
+        ],
+        "provides": "'hit_merged'",
+        "depends_on": "['hit_threshold']",
+        "version": "'2.1.0'",
+        "output_dtype": "HIT_MERGED_DTYPE"
+      }
+    ]
+  },
+  "HitMergedComponentsPlugin": {
+    "before": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/hit/hit_merge.py",
+        "class": "HitMergedComponentsPlugin",
+        "line": 788,
+        "bases": [
+          "Plugin"
+        ],
+        "provides": "'hit_merged_components'",
+        "depends_on": "['hit_merged', 'hit_threshold']",
+        "version": "'1.1.0'",
+        "output_dtype": "HIT_MERGED_COMPONENTS_DTYPE"
+      }
+    ],
+    "after": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/hit_merged_components/plugin.py",
+        "class": "HitMergedComponentsPlugin",
+        "line": 19,
+        "bases": [
+          "Plugin"
+        ],
+        "provides": "'hit_merged_components'",
+        "depends_on": "['hit_merged', 'hit_threshold']",
+        "version": "'1.1.0'",
+        "output_dtype": "HIT_MERGED_COMPONENTS_DTYPE"
+      }
+    ]
+  },
+  "HitMergedFeaturesPlugin": {
+    "before": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/hit/hit_merged_features.py",
+        "class": "HitMergedFeaturesPlugin",
+        "line": 389,
+        "bases": [
+          "Plugin"
+        ],
+        "provides": "'hit_merged_features'",
+        "depends_on": "[]",
+        "version": "'0.5.1'",
+        "output_dtype": "HIT_MERGED_FEATURES_DTYPE"
+      }
+    ],
+    "after": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/hit_merged_features/plugin.py",
+        "class": "HitMergedFeaturesPlugin",
+        "line": 336,
+        "bases": [
+          "Plugin"
+        ],
+        "provides": "'hit_merged_features'",
+        "depends_on": "[]",
+        "version": "'1.1.3'",
+        "output_dtype": "HIT_MERGED_FEATURES_DTYPE"
+      }
+    ]
+  },
+  "PeakletChannelsPlugin": {
+    "before": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/peaks/peaklet_channels.py",
+        "class": "PeakletChannelsPlugin",
+        "line": 45,
+        "bases": [
+          "Plugin"
+        ],
+        "provides": "'peaklet_channels'",
+        "depends_on": "['peaklets', 'peaklet_components', 'hit_merged_features', 'peaklet_features']",
+        "version": "'1.0.1'",
+        "output_dtype": "PEAKLET_CHANNELS_DTYPE"
+      }
+    ],
+    "after": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/peaklet_channels/plugin.py",
+        "class": "PeakletChannelsPlugin",
+        "line": 486,
+        "bases": [
+          "Plugin"
+        ],
+        "provides": "'peaklet_channels'",
+        "depends_on": "['peaklets', 'peaklet_components', 'hit_merged', 'hit_merged_components', 'hit_threshold', 'hit_merged_features', 'peaklet_features', 'records', 'wave_pool']",
+        "version": "'2.0.5'",
+        "output_dtype": "PEAKLET_CHANNELS_DTYPE"
+      }
+    ]
+  },
+  "PeakletComponentsPlugin": {
+    "before": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/peaks/peaklets.py",
+        "class": "PeakletComponentsPlugin",
+        "line": 1468,
+        "bases": [
+          "BatchProcessingPlugin"
+        ],
+        "provides": "'peaklet_components'",
+        "depends_on": "['hit_merged']",
+        "version": "'1.4.0'",
+        "output_dtype": "PEAKLET_COMPONENTS_DTYPE"
+      }
+    ],
+    "after": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/peaklet_components/plugin.py",
+        "class": "PeakletComponentsPlugin",
+        "line": 20,
+        "bases": [
+          "BatchProcessingPlugin"
+        ],
+        "provides": "'peaklet_components'",
+        "depends_on": "['hit_merged']",
+        "version": "'1.4.0'",
+        "output_dtype": "PEAKLET_COMPONENTS_DTYPE"
+      }
+    ]
+  },
+  "PeakletFeaturesPlugin": {
+    "before": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/peaks/peaklets.py",
+        "class": "PeakletFeaturesPlugin",
+        "line": 2597,
+        "bases": [
+          "Plugin"
+        ],
+        "provides": "'peaklet_features'",
+        "depends_on": "['peaklet_waveforms', 'peaklet_waveform_pool', 'peaklets']",
+        "version": "'4.1.0'",
+        "output_dtype": "PEAKLET_FEATURES_DTYPE"
+      }
+    ],
+    "after": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/peaklet_features/plugin.py",
+        "class": "PeakletFeaturesPlugin",
+        "line": 30,
+        "bases": [
+          "Plugin"
+        ],
+        "provides": "'peaklet_features'",
+        "depends_on": "['peaklet_waveforms', 'peaklet_waveform_pool', 'peaklets']",
+        "version": "'5.0.0'",
+        "output_dtype": "PEAKLET_FEATURES_DTYPE"
+      }
+    ]
+  },
+  "PeakletWaveformPoolPlugin": {
+    "before": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/peaks/peaklets.py",
+        "class": "PeakletWaveformPoolPlugin",
+        "line": 2506,
+        "bases": [
+          "Plugin"
+        ],
+        "provides": "'peaklet_waveform_pool'",
+        "depends_on": "['peaklet_waveforms']",
+        "version": "'2.0.0'",
+        "output_dtype": "np.dtype('f4')"
+      }
+    ],
+    "after": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/peaklet_waveform_pool/plugin.py",
+        "class": "PeakletWaveformPoolPlugin",
+        "line": 18,
+        "bases": [
+          "Plugin"
+        ],
+        "provides": "'peaklet_waveform_pool'",
+        "depends_on": "['peaklet_waveforms']",
+        "version": "'3.0.0'",
+        "output_dtype": "np.dtype('f4')"
+      }
+    ]
+  },
+  "PeakletWaveformPlugin": {
+    "before": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/peaks/peaklets.py",
+        "class": "PeakletWaveformPlugin",
+        "line": 1680,
+        "bases": [
+          "Plugin"
+        ],
+        "provides": "'peaklet_waveforms'",
+        "depends_on": "[]",
+        "version": "'1.4.0'",
+        "output_dtype": "PEAKLET_WAVEFORMS_DTYPE"
+      }
+    ],
+    "after": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/peaklet_waveforms/plugin.py",
+        "class": "PeakletWaveformPlugin",
+        "line": 786,
+        "bases": [
+          "Plugin"
+        ],
+        "provides": "'peaklet_waveforms'",
+        "depends_on": "[]",
+        "version": "'2.1.1'",
+        "output_dtype": "PEAKLET_WAVEFORMS_DTYPE"
+      }
+    ]
+  },
+  "PeakletPlugin": {
+    "before": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/peaks/peaklets.py",
+        "class": "PeakletPlugin",
+        "line": 1375,
+        "bases": [
+          "BatchProcessingPlugin"
+        ],
+        "provides": "'peaklets'",
+        "depends_on": "['hit_merged', 'peaklet_components']",
+        "version": "'1.2.0'",
+        "output_dtype": "PEAKLET_DTYPE"
+      }
+    ],
+    "after": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/peaklets/plugin.py",
+        "class": "PeakletPlugin",
+        "line": 20,
+        "bases": [
+          "BatchProcessingPlugin"
+        ],
+        "provides": "'peaklets'",
+        "depends_on": "['hit_merged', 'peaklet_components']",
+        "version": "'1.2.0'",
+        "output_dtype": "PEAKLET_DTYPE"
+      }
+    ]
+  },
+  "PeaksPlugin": {
+    "before": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/peaks/peaklets.py",
+        "class": "PeaksPlugin",
+        "line": 2715,
+        "bases": [
+          "Plugin"
+        ],
+        "provides": "'peaks'",
+        "depends_on": "['peaklets', 'peaklet_features', 'peaklet_channels']",
+        "version": "'4.0.1'",
+        "output_dtype": "PEAKS_DTYPE"
+      }
+    ],
+    "after": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/peaks/plugin.py",
+        "class": "PeaksPlugin",
+        "line": 14,
+        "bases": [
+          "Plugin"
+        ],
+        "provides": "'peaks'",
+        "depends_on": "['peaklets', 'peaklet_features', 'peaklet_channels']",
+        "version": "'5.0.0'",
+        "output_dtype": "PEAKS_DTYPE"
+      }
+    ]
+  },
+  "SignalPeaksStreamPlugin": {
+    "before": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/streaming/cpu/signal_peaks.py",
+        "class": "SignalPeaksStreamPlugin",
+        "line": 37,
+        "bases": [
+          "StreamingPlugin"
+        ],
+        "provides": "'signal_peaks_stream'",
+        "depends_on": "['filtered_waveforms', 'st_waveforms']",
+        "version": "'1.2.0'",
+        "output_dtype": "None"
+      }
+    ],
+    "after": [
+      {
+        "path": "waveform_analysis/core/plugins/builtin/signal_peaks_stream/plugin.py",
+        "class": "SignalPeaksStreamPlugin",
+        "line": 37,
+        "bases": [
+          "StreamingPlugin"
+        ],
+        "provides": "'signal_peaks_stream'",
+        "depends_on": "['filtered_waveforms', 'st_waveforms']",
+        "version": "'1.2.0'",
+        "output_dtype": "None"
+      }
+    ]
+  }
+}

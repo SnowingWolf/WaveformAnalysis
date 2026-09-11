@@ -3,7 +3,7 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
-from tests.utils import FakeContext
+from tests.utils import FakeContext, make_records
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.data.records_view import RecordsView, records_view
 from waveform_analysis.core.plugins import profiles
@@ -24,20 +24,6 @@ def _make_sample_view():
 
     wave_pool = np.array([1, 2, 3, 10, 11, 99], dtype=np.uint16)
     return RecordsView(records, wave_pool)
-
-
-def _make_records() -> np.ndarray:
-    records = np.zeros(2, dtype=RECORDS_DTYPE)
-    records["record_id"] = np.array([11, 12], dtype=np.int64)
-    records["timestamp"] = np.array([100, 200], dtype=np.int64)
-    records["board"] = 0
-    records["channel"] = np.array([1, 2], dtype=np.int16)
-    records["baseline"] = 100.0
-    records["polarity"] = "negative"
-    records["dt"] = 2
-    records["wave_offset"] = np.array([0, 4], dtype=np.int64)
-    records["event_length"] = 4
-    return records
 
 
 def test_records_view_wave_slicing():
@@ -192,7 +178,15 @@ def test_records_view_requires_formal_wave_pool_output():
 
 
 def test_records_view_supports_custom_wave_pool_name():
-    records = _make_records()
+    records = make_records(
+        n_records=2,
+        record_id=[11, 12],
+        timestamp=[100, 200],
+        channel=[1, 2],
+        event_length=4,
+        dt=2,
+        polarity="negative",
+    )
     ctx = FakeContext(
         data={
             "records": records,
@@ -209,7 +203,15 @@ def test_records_view_supports_custom_wave_pool_name():
 
 
 def test_records_view_missing_custom_wave_pool_raises():
-    records = _make_records()
+    records = make_records(
+        n_records=2,
+        record_id=[11, 12],
+        timestamp=[100, 200],
+        channel=[1, 2],
+        event_length=4,
+        dt=2,
+        polarity="negative",
+    )
     ctx = FakeContext(data={"records": records})
 
     with pytest.raises(ValueError, match="wave_pool_filtered"):

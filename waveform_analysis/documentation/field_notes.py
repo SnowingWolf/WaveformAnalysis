@@ -15,7 +15,7 @@ def load_dtype_field_notes() -> dict[str, dict[str, dict[str, str]]]:
     """Return bundled per-plugin output field narratives with units.
 
     Each field value may be either a plain string (treated as the description,
-    with units defaulting to "-") or a dict with ``doc`` and ``units`` keys.
+    with units defaulting to "None") or a dict with ``doc`` and ``units`` keys.
     """
     resource = files("waveform_analysis.documentation").joinpath("dtype_field_notes.yaml")
     raw = yaml.safe_load(resource.read_text(encoding="utf-8"))
@@ -34,10 +34,10 @@ def load_dtype_field_notes() -> dict[str, dict[str, dict[str, str]]]:
                 continue
             if isinstance(value, str):
                 if value.strip():
-                    plugin_notes[name] = {"doc": value, "units": "-"}
+                    plugin_notes[name] = {"doc": value, "units": "None"}
             elif isinstance(value, dict):
                 doc = str(value.get("doc", ""))
-                units = str(value.get("units", "-"))
+                units = str(value.get("units", "None"))
                 if doc.strip():
                     plugin_notes[name] = {"doc": doc, "units": units}
         notes[provides] = plugin_notes

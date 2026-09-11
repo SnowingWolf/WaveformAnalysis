@@ -1,0 +1,59 @@
+# plan_brief
+
+- `task_id`: `s1_s2_orphan_hotpath`
+- `route`: `modify_plugin`
+- `workflow_cost`: `strict`
+- `workflow_shape`: `staged`
+- `lifecycle_profile`: `reviewed_change`
+- `risk_level`: `high`
+- `scope_in`:
+  - 将 `s1_s2_pair_candidates` 的 orphan 生成从逐行 Python dict/list 构造改为 NumPy mask、一次预分配和逐字段向量化写入。
+  - 保持候选表中显式启用 orphan 时的 dtype、字段值、行顺序、sentinel、flags 与 `allow_orphan_s1/s2` 配置语义不变。
+  - `s1_s2_pairs` 在复制、打分和排名前排除任一 peak id 为负数的 orphan 行，使物理配对主链永远只包含完整 S1-S2 pair；orphan QA 仍可通过 `source="candidates"` 访问。
+  - 增加候选生成、pair selection 与下游 selected-pair 边界回归，并同步插件版本、manifest 和生成文档。
+- `scope_out`:
+  - 不新增 `provides`、依赖、配置项、字段或独立 orphan 产品。
+  - 不改变完整 pair 的时间窗搜索、候选顺序、score、rank 或 selected 选择结果。
+  - 不删除 `FLAG_ORPHAN_*`、`allow_orphan_*` 或兼容导出；不写入或删除正式运行缓存。
+  - 不顺带重构 `S1S2PairAccessor` 的通用 Python 索引实现。
+- `required_gates`:
+  - `s1_s2_pair_candidates`、`s1_s2_pairs`、position/events 相关定向测试。
+  - orphan 向量化实现与旧语义 oracle 的逐字段等价测试，覆盖空输入、仅 S1、仅 S2、混合输入、全部已配对和重复/无序 peak id。
+  - Run 00196 只读 memmap 对照：显式启用 orphan 时，新 candidate 输出与现有缓存逐字段/hash 等价；确认 pairs 不再含负 peak id。
+  - 100k orphan 样本旧/新路径基准与完整新路径计时、行数和峰值内存记录。
+  - 两类插件文档生成、impact、schema smoke、doc sync、anchors、Ruff、Black check、compileall 和 handoff 检查。
+- `executor_role`: `executor.plugin`
+- `agent_profile`: `graph_engineer`
+- `profile_plan`:
+  - 使用单层 NumPy 向量化；以 `np.isin`/等价向量集合判断构造 orphan mask，一次分配最终 structured array，避免 Python row dict 和中间 dict list。
+  - 共用一个向量化填充 helper 处理普通 orphan 与“仅有一类 peak”的路径，保证两条路径的 sentinel 和 flags 一致。
+  - `s1_s2_pairs` 先应用完整 pair mask，再执行 `.copy()`、物理面积筛选、score 与 ranking，避免复制和遍历大体积 orphan 表。
+  - 不引入线程、进程或 Numba 并行；审查临时 mask/id 数组的生命周期，避免与 1.9 GiB 输出产生不必要的重复驻留。
+- `blocking_assumptions`:
+  - Run 00196 的既有 candidate/peaks/classification 缓存只读可用；若完整对照受内存限制，必须保留定向 oracle 和分块 hash 证据并明确记录未完成项。
+
+## modify_plugin Notes
+
+- `change_level`: `L2`
+- `provides_impact`: none
+- `depends_on_impact`: none
+- `output_contract_impact`: `s1_s2_pair_candidates` 契约不变；`s1_s2_pairs` 明确收敛为只含完整 pair，修复 orphan S2 进入 selected 下游的行为。
+- `version_action`: `s1_s2_pair_candidates 0.1.3 -> 0.2.0`; `s1_s2_pairs 0.2.0 -> 0.3.0`。
+- `docs_sync_required`: true
+- `execution_backend_decision`:
+  - `backend`: `numpy`
+  - `backend_reason`: `memory-bound；热点来自 Python row/dict 构造和大表无效复制`
+  - `parallel_scope`: `none`
+  - `worker_option`: `none`
+  - `fallback_path`: `无需可选后端；空数组和单类 peak 走同一 NumPy helper`
+  - `benchmark_required`: true
+- `must_run_commands`:
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m pytest -q --no-cov waveform_analysis/core/plugins/builtin/s1_s2_pair_candidates/tests waveform_analysis/core/plugins/builtin/s1_s2_pairs/tests waveform_analysis/core/plugins/builtin/position_reconstruction/tests`
+  - `waveform-docs generate plugins-auto -o docs/plugins/reference/builtin/auto/`
+  - `waveform-docs generate plugins-agent -o docs/plugins/reference/agent/`
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/assess_change_impact.py --base HEAD`
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/schema_compat_check.py --base HEAD --run-smoke`
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/render_agent_docs.py --check`
+  - `scripts/check_doc_sync.sh`
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/check_doc_anchors.py --check-sync --base HEAD`
+  - `/home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/check_agent_handoff.py`

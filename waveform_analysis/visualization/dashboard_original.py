@@ -9,33 +9,46 @@ import pandas as pd
 from .layout import PmtLayout
 
 
-def render_instant_html_dashboard(df: pd.DataFrame, layout: PmtLayout, r_tpc: float = 62.5, run_id: str = "unknown", output_dir: str = "output") -> str:
+def render_instant_html_dashboard(
+    df: pd.DataFrame,
+    layout: PmtLayout,
+    r_tpc: float = 62.5,
+    run_id: str = "unknown",
+    output_dir: str = "output",
+) -> str:
     """
     生成纯前端零延迟大面板，含 X-Y、X-Z 剖面、1D 空间直方图、1D 能量能谱与 R² 不均匀性检测图
     """
-    df_clean = df[['x_rec', 'y_rec', 'z_rec', 's1_area', 's2_area', 's2_peak_id', 'drift_time_ns']].copy()
+    df_clean = df[
+        ["x_rec", "y_rec", "z_rec", "s1_area", "s2_area", "s2_peak_id", "drift_time_ns"]
+    ].copy()
 
     # 预计算特征，防止前端大算力计算引起页面假死
-    df_clean['r2_rec'] = df_clean['x_rec']**2 + df_clean['y_rec']**2
-    df_clean['log10_s1'] = np.log10(df_clean['s1_area'].clip(lower=1.0))
-    df_clean['log10_s2'] = np.log10(df_clean['s2_area'].clip(lower=1.0))
+    df_clean["r2_rec"] = df_clean["x_rec"] ** 2 + df_clean["y_rec"] ** 2
+    df_clean["log10_s1"] = np.log10(df_clean["s1_area"].clip(lower=1.0))
+    df_clean["log10_s2"] = np.log10(df_clean["s2_area"].clip(lower=1.0))
 
-    json_data = json.dumps(df_clean.to_dict(orient='records'))
+    json_data = json.dumps(df_clean.to_dict(orient="records"))
 
-    z_min = float(df_clean['z_rec'].min())
-    z_max = float(df_clean['z_rec'].max())
-    s1_min_raw = float(max(df_clean['s1_area'].min(), 1.0))
-    s1_max_raw = float(df_clean['s1_area'].max())
-    s2_min_raw = float(max(df_clean['s2_area'].min(), 1.0))
-    s2_max_raw = float(df_clean['s2_area'].max())
+    z_min = float(df_clean["z_rec"].min())
+    z_max = float(df_clean["z_rec"].max())
+    s1_min_raw = float(max(df_clean["s1_area"].min(), 1.0))
+    s1_max_raw = float(df_clean["s1_area"].max())
+    s2_min_raw = float(max(df_clean["s2_area"].min(), 1.0))
+    s2_max_raw = float(df_clean["s2_area"].max())
 
     # 序列化当前的 PMT 排布信息传到前端进行图形绘制
     pmt_list = []
     for entry in layout.entries:
-        pmt_list.append({
-            "pmt_no": entry.pmt_no, "pmt_id": entry.pmt_id,
-            "x_mm": entry.x_mm, "y_mm": entry.y_mm, "gain": entry.gain
-        })
+        pmt_list.append(
+            {
+                "pmt_no": entry.pmt_no,
+                "pmt_id": entry.pmt_id,
+                "x_mm": entry.x_mm,
+                "y_mm": entry.y_mm,
+                "gain": entry.gain,
+            }
+        )
     pmt_config_json = json.dumps(pmt_list)
 
     html_template = """
@@ -391,4 +404,4 @@ def render_instant_html_dashboard(df: pd.DataFrame, layout: PmtLayout, r_tpc: fl
         f.write(full_html_page)
 
     print(f"[✓] 离线网页文件已成功导出至: {file_path}")
-    #display(HTML(html_content))
+    # display(HTML(html_content))

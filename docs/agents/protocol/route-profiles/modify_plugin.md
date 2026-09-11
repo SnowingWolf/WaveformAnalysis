@@ -9,6 +9,7 @@
 - `workflow_cost`: `standard`
 - `primary_doc`: `docs/agents/workflows.md`
 - `profile_doc`: `docs/agents/protocol/route-profiles/modify_plugin.md`
+- `executor_role`: `executor.plugin`
 
 ## Blocking Gates
 - `assess_change_impact`

@@ -1,27 +1,132 @@
-version: 1
-last_update: 2026-06-05
-
+version: 2
+generated_by: scripts/render_agent_docs.py
+source: docs/agents/runs/current/*/task.yaml
 active_plans:
-  - task_id: get-data-output-unification
-    status: doing
-    route: modify_context
-    owner_role: executor
-    plan_file: docs/agents/plans/current/get-data-output-unification.md
-    next_action: "Unify ctx.get_data(..., output=...) behavior across direct, cache, and stream paths."
-    updated_at: 2026-06-05
-
-  - task_id: hit-threshold-ragged-optimization
-    status: todo
-    route: modify_plugin
-    owner_role: executor
-    plan_file: docs/agents/plans/current/hit-threshold-ragged-optimization.md
-    next_action: "Optimize records ragged waveform access after get_data output behavior is stable."
-    updated_at: 2026-06-05
-
-  - task_id: hit-merged-peaklet-responsibility
-    status: todo
-    route: refactor
-    owner_role: planner
-    plan_file: docs/agents/plans/current/hit-merged-peaklet-responsibility.md
-    next_action: "Clarify responsibility boundaries before implementation."
-    updated_at: 2026-06-05
+- task_id: docs-build-skill
+  state: reviewing
+  route: modify_code
+  workflow_cost: strict
+  workflow_shape: staged
+  condition: —
+  task_file: docs/agents/runs/current/docs-build-skill/task.yaml
+  legacy_plan: docs/agents/runs/current/docs-build-skill/legacy-plan.md
+- task_id: get-data-output-unification
+  state: planning
+  route: modify_code
+  workflow_cost: standard
+  workflow_shape: staged
+  condition: NeedsRevalidation
+  task_file: docs/agents/runs/current/get-data-output-unification/task.yaml
+  legacy_plan: docs/agents/runs/current/get-data-output-unification/legacy-plan.md
+- task_id: hit-merged-peaklet-responsibility
+  state: planning
+  route: modify_code
+  workflow_cost: standard
+  workflow_shape: staged
+  condition: NeedsRevalidation
+  task_file: docs/agents/runs/current/hit-merged-peaklet-responsibility/task.yaml
+  legacy_plan: docs/agents/runs/current/hit-merged-peaklet-responsibility/legacy-plan.md
+- task_id: hit-threshold-ragged-optimization
+  state: planning
+  route: modify_plugin
+  workflow_cost: standard
+  workflow_shape: staged
+  condition: NeedsRevalidation
+  task_file: docs/agents/runs/current/hit-threshold-ragged-optimization/task.yaml
+  legacy_plan: docs/agents/runs/current/hit-threshold-ragged-optimization/legacy-plan.md
+- task_id: import-topology-optimization
+  state: executing
+  route: modify_code
+  workflow_cost: strict
+  workflow_shape: staged
+  condition: ReworkExecutionStarted
+  task_file: docs/agents/runs/current/import-topology-optimization/task.yaml
+  legacy_plan: docs/agents/runs/current/import-topology-optimization/legacy-plan.md
+- task_id: managed-workflow-mvp
+  state: completed
+  route: modify_code
+  workflow_cost: strict
+  workflow_shape: staged
+  condition: —
+  task_file: docs/agents/runs/current/managed-workflow-mvp/task.yaml
+  legacy_plan: docs/agents/runs/current/managed-workflow-mvp/legacy-plan.md
+- task_id: release-v2.0.0
+  state: executing
+  route: release_artifact_sync
+  workflow_cost: strict
+  workflow_shape: staged
+  condition: —
+  task_file: docs/agents/runs/current/release-v2.0.0/task.yaml
+  legacy_plan: docs/agents/runs/current/release-v2.0.0/legacy-plan.md
+- task_id: v1725-merged-parts-cleanup
+  state: completed
+  route: modify_code
+  workflow_cost: strict
+  workflow_shape: staged
+  condition: —
+  task_file: docs/agents/runs/current/v1725-merged-parts-cleanup/task.yaml
+  legacy_plan: docs/agents/runs/current/v1725-merged-parts-cleanup/legacy-plan.md
+- task_id: waveform-doc-content-recovery-20260901
+  state: completed
+  route: modify_code
+  workflow_cost: standard
+  workflow_shape: staged
+  condition: —
+  task_file: docs/agents/runs/current/waveform-doc-content-recovery-20260901/task.yaml
+  legacy_plan: docs/agents/runs/current/waveform-doc-content-recovery-20260901/legacy-plan.md
+- task_id: waveform-doc-lineage-density-20260901
+  state: completed
+  route: modify_code
+  workflow_cost: standard
+  workflow_shape: staged
+  condition: AllBlockingGatesPass
+  task_file: docs/agents/runs/current/waveform-doc-lineage-density-20260901/task.yaml
+  legacy_plan: docs/agents/runs/current/waveform-doc-lineage-density-20260901/legacy-plan.md
+- task_id: waveform-doc-nested-nav-20260902
+  state: completed
+  route: modify_code
+  workflow_cost: strict
+  workflow_shape: staged
+  condition: —
+  task_file: docs/agents/runs/current/waveform-doc-nested-nav-20260902/task.yaml
+  legacy_plan: docs/agents/runs/current/waveform-doc-nested-nav-20260902/legacy-plan.md
+- task_id: waveform-doc-review-fixes-20260907
+  state: completed
+  route: modify_code
+  workflow_cost: strict
+  workflow_shape: staged
+  condition: —
+  task_file: docs/agents/runs/current/waveform-doc-review-fixes-20260907/task.yaml
+  legacy_plan: docs/agents/runs/current/waveform-doc-review-fixes-20260907/legacy-plan.md
+- task_id: waveform-doc-sidebar-expand-20260902
+  state: completed
+  route: modify_code
+  workflow_cost: standard
+  workflow_shape: staged
+  condition: —
+  task_file: docs/agents/runs/current/waveform-doc-sidebar-expand-20260902/task.yaml
+  legacy_plan: docs/agents/runs/current/waveform-doc-sidebar-expand-20260902/legacy-plan.md
+- task_id: waveform-doc-strict-optimization-20260902
+  state: completed
+  route: modify_code
+  workflow_cost: strict
+  workflow_shape: staged
+  condition: —
+  task_file: docs/agents/runs/current/waveform-doc-strict-optimization-20260902/task.yaml
+  legacy_plan: docs/agents/runs/current/waveform-doc-strict-optimization-20260902/legacy-plan.md
+- task_id: waveform-doc-system-opt-20260831
+  state: completed
+  route: retire_compat
+  workflow_cost: strict
+  workflow_shape: staged
+  condition: PlanBriefReadyWithUserConfirmation
+  task_file: docs/agents/runs/current/waveform-doc-system-opt-20260831/task.yaml
+  legacy_plan: docs/agents/runs/current/waveform-doc-system-opt-20260831/legacy-plan.md
+- task_id: waveform-version-sync-20260902
+  state: blocked
+  route: release_artifact_sync
+  workflow_cost: strict
+  workflow_shape: staged
+  condition: FirefoxHeadlessEnvironmentBlocked
+  task_file: docs/agents/runs/current/waveform-version-sync-20260902/task.yaml
+  legacy_plan: docs/agents/runs/current/waveform-version-sync-20260902/legacy-plan.md

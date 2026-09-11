@@ -18,7 +18,9 @@ class _RunConfigContext(FakeContext):
         return self._run_config_payload
 
 
-def _make_st_waveforms(include_board: bool = True):
+def _make_df_rows(include_board: bool = True):
+    # 文件局部自定义 mini dtype（仅 timestamp/record_id/board/channel），非 tests.utils.make_st_waveforms 标准结构
+
     fields = [("timestamp", "i8"), ("record_id", "i8")]
     if include_board:
         fields.append(("board", "i2"))
@@ -50,7 +52,9 @@ def _make_basic_features():
     return data
 
 
-def _make_records():
+def _make_df_records():
+    # 文件局部 helper（额外设置 pid/time 字段），非 tests.utils.make_records 默认值
+
     records = np.zeros(3, dtype=RECORDS_DTYPE)
     records["timestamp"] = [300, 100, 200]
     records["pid"] = [0, 0, 0]
@@ -67,7 +71,7 @@ def _make_records():
 def test_dataframe_plugin_no_gain_columns_by_default():
     ctx = FakeContext(
         data={
-            "st_waveforms": _make_st_waveforms(),
+            "st_waveforms": _make_df_rows(),
             "basic_features": _make_basic_features(),
         }
     )
@@ -87,7 +91,7 @@ def test_dataframe_plugin_gain_columns_with_partial_map():
     ctx = FakeContext(
         config={"df.gain_adc_per_pe": {"2:0": 10.0}},
         data={
-            "st_waveforms": _make_st_waveforms(),
+            "st_waveforms": _make_df_rows(),
             "basic_features": _make_basic_features(),
         },
     )
@@ -104,7 +108,7 @@ def test_dataframe_plugin_invalid_gain_key_raises(caplog):
     ctx = FakeContext(
         config={"gain_adc_per_pe": {"2:0": 0.0, "1:1": -1.0, "bad": "x"}},
         data={
-            "st_waveforms": _make_st_waveforms(),
+            "st_waveforms": _make_df_rows(),
             "basic_features": _make_basic_features(),
         },
     )
@@ -117,7 +121,7 @@ def test_dataframe_plugin_invalid_gain_key_raises(caplog):
 def test_dataframe_plugin_gain_from_run_config():
     ctx = _RunConfigContext(
         data={
-            "st_waveforms": _make_st_waveforms(),
+            "st_waveforms": _make_df_rows(),
             "basic_features": _make_basic_features(),
         },
         run_config_payload={"calibration": {"gain_adc_per_pe": {"2:0": 10.0}}},
@@ -135,7 +139,7 @@ def test_dataframe_plugin_explicit_none_disables_run_config_gain():
     ctx = _RunConfigContext(
         config={"df.gain_adc_per_pe": None},
         data={
-            "st_waveforms": _make_st_waveforms(),
+            "st_waveforms": _make_df_rows(),
             "basic_features": _make_basic_features(),
         },
         run_config_payload={"calibration": {"gain_adc_per_pe": {"2:0": 10.0}}},
@@ -151,7 +155,7 @@ def test_dataframe_plugin_explicit_gain_overrides_run_config():
     ctx = _RunConfigContext(
         config={"df.gain_adc_per_pe": {"2:0": 5.0}},
         data={
-            "st_waveforms": _make_st_waveforms(),
+            "st_waveforms": _make_df_rows(),
             "basic_features": _make_basic_features(),
         },
         run_config_payload={"calibration": {"gain_adc_per_pe": {"2:0": 10.0}}},
@@ -166,7 +170,7 @@ def test_dataframe_plugin_explicit_gain_overrides_run_config():
 def test_dataframe_plugin_fallback_board_when_field_missing():
     ctx = FakeContext(
         data={
-            "st_waveforms": _make_st_waveforms(include_board=False),
+            "st_waveforms": _make_df_rows(include_board=False),
             "basic_features": _make_basic_features(),
         }
     )
@@ -177,7 +181,7 @@ def test_dataframe_plugin_fallback_board_when_field_missing():
 
 
 def test_dataframe_plugin_fallback_record_id_when_field_missing():
-    waveform_data = _make_st_waveforms()
+    waveform_data = _make_df_rows()
     waveform_data = rfn.drop_fields(waveform_data, ["record_id"], usemask=False)
     ctx = FakeContext(
         data={
@@ -205,7 +209,7 @@ def test_dataframe_plugin_reads_records_directly_when_wave_source_records():
             "basic_features.wave_source": "records",
         },
         data={
-            "records": _make_records(),
+            "records": _make_df_records(),
             "basic_features": _make_basic_features(),
         },
     )
@@ -230,7 +234,7 @@ def test_dataframe_plugin_records_requires_basic_features_records_source():
             "basic_features.wave_source": "st_waveforms",
         },
         data={
-            "records": _make_records(),
+            "records": _make_df_records(),
             "basic_features": _make_basic_features(),
         },
     )

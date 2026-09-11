@@ -1,14 +1,23 @@
 ---
-schema_version: 1
+schema_version: 2
 document_type: "plugin_reference"
 profile: "auto"
 provides: "s1_s2_pairs"
 plugin_class: "S1S2PairSelectionPlugin"
-module: "waveform_analysis.core.plugins.builtin.cpu.s1_s2_pair_selection"
-version: "0.2.0"
+module: "waveform_analysis.core.plugins.builtin.s1_s2_pairs.plugin"
+version: "0.3.0"
 summary: "Select best S1-S2 pairs from candidates"
 depends_on: ["s1_s2_pair_candidates"]
+declared_depends_on: ["s1_s2_pair_candidates"]
+resolved_depends_on: ["s1_s2_pair_candidates"]
+dependency_profile: "declared"
+dependency_profile_values: {}
+dependency_config_keys: []
 output_kind: "structured_array"
+execution_kind: "static"
+narrative_source: "source"
+narrative_source_reason: null
+source_fingerprint: "c5d11e855ae24e66adfa15bf67eb75bd41decf5989bf179b0651b34c621f5f94"
 generated: true
 ---
 # s1_s2_pairs
@@ -16,28 +25,48 @@ generated: true
 ## Overview
 
 Select best S1-S2 pairs from candidates
+S1-S2 配对选择插件
+
+对候选进行打分并选择最佳配对。为每个 S2 选择最优的 S1。
+
+选择模式: - largest: 选择面积最大的 S1 (v0.1 实现) - nearest: 选择时间最近的 S1 (预留) - best_score: 综合打分 (预留) - all: 不做选择,保留所有候选 (预留)
+
+输出: - 过滤掉缺少 S1 或 S2 的 orphan 行 - 修改 candidates 的 selected flag - 填充 score 字段 - 计算 delta_score_to_next_best - 计算 rank_for_s2
+
 | Item | Value |
 | --- | --- |
 | Provides | `s1_s2_pairs` |
 | Plugin Class | `S1S2PairSelectionPlugin` |
-| Module | `waveform_analysis.core.plugins.builtin.cpu.s1_s2_pair_selection` |
-| Version | `0.2.0` |
+| Module | `waveform_analysis.core.plugins.builtin.s1_s2_pairs.plugin` |
+| Version | `0.3.0` |
 | Category | 事件分析 |
-| Accelerator | CPU (NumPy/SciPy) |
-| Output Kind | `structured_array` |
+| Output Container | `structured_array` |
+| Execution Mode | `static` |
+| Save Policy | `always` |
+| Uses Run Config | no |
+| Timeout | `none` |
+| Side Effect | no |
+| Narrative Source | `source` |
+| Source Fingerprint | `c5d11e855ae24e66adfa15bf67eb75bd41decf5989bf179b0651b34c621f5f94` |
+
+### Dependencies
+
+默认文档画像：`declared`。
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
 | `s1_s2_pair_candidates` | - | declared | - | Generate all physically allowed S1-S2 pairing candidates |
 ### How It Works
 
+1. 选择最佳配对
+2. 算法: 1. 获取候选 2. 过滤缺少任一端 peak ID 的 orphan 3. 过滤不满足物理约束的候选 (S1_area < S2_area) 4. 计算 score (根据 selection_mode) 5. 为每个 S2 选择最优 S1 6. 设置 selected flag 7. 计算 delta_score_to_next_best 8. 计算 rank_for_s2 9. 标记 CLOSE_COMPETITOR
 
 ## Configuration
 
 | Name | Type | Default | Unit | Tracked | Deprecated | Description |
 | --- | --- | --- | --- | --- | --- | --- |
-| `selection_mode` | `str` | `largest` | - | yes | no | 选择策略: largest (最大S1), nearest (最近), best_score (综合), all (全部) |
-| `close_competitor_threshold` | `float` | `0.1` | - | yes | no | 次优候选接近阈值。delta_score < threshold 时标记 FLAG_CLOSE_COMPETITOR |
+| `selection_mode` | `str` | `largest` | - | yes | no | 选择策略: largest (最大S1), nearest (最近), best_score (综合), all (全部)；可选值：`largest`, `nearest`, `best_score`, `all` |
+| `close_competitor_threshold` | `float` | `0.1` | - | yes | no | 次优候选接近阈值。delta_score < threshold 时标记 FLAG_CLOSE_COMPETITOR；范围：0.0 至 +∞ |
 | `require_s2_larger_than_s1` | `bool` | `True` | - | yes | no | 是否要求 S2_area > S1_area。这是液氙探测器的物理约束。 |
 ## Output
 
@@ -45,49 +74,53 @@ structured_array output with fields: pair_id, s1_peak_id, s2_peak_id, s1_index, 
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
-| `pair_id` | `int64` | - | Unique candidate pair identifier |
-| `s1_peak_id` | `int64` | - | S1 peak identifier |
-| `s2_peak_id` | `int64` | - | S2 peak identifier (anchor) |
-| `s1_index` | `int32` | - | S1 row index in the S1-only sub-array |
-| `s2_index` | `int32` | - | S2 row index in the S2-only sub-array |
-| `s1_time` | `int64` | - | S1 timestamp in picoseconds |
-| `s2_time` | `int64` | - | S2 timestamp in picoseconds |
-| `drift_time` | `int64` | - | Drift time (S2 time minus S1 time) in picoseconds |
-| `drift_time_ns` | `float32` | - | Drift time in nanoseconds |
-| `s1_area` | `float32` | - | S1 signal area |
-| `s2_area` | `float32` | - | S2 signal area |
-| `log10_s2_s1` | `float32` | - | log10 of S2/S1 area ratio |
-| `s1_width` | `float32` | - | S1 width (ns) |
-| `s2_width` | `float32` | - | S2 width (ns) |
-| `s1_n_channels` | `int16` | - | Number of channels for S1 |
-| `s2_n_channels` | `int16` | - | Number of channels for S2 |
-| `score_total` | `float32` | - | Total pairing score |
-| `score_time` | `float32` | - | Time-matching score |
-| `score_s1_quality` | `float32` | - | S1 quality score |
-| `score_s2_quality` | `float32` | - | S2 quality score |
-| `score_ratio` | `float32` | - | S2/S1 ratio score |
-| `score_pattern` | `float32` | - | Pattern-matching score (reserved) |
-| `score_ambiguity` | `float32` | - | Ambiguity penalty (reserved) |
-| `rank_for_s1` | `int32` | - | Rank of this S2 among all S1 candidates (1-based) |
-| `rank_for_s2` | `int32` | - | Rank of this S1 among all S2 candidates (1-based) |
-| `n_s1_candidates_for_s2` | `int32` | - | Number of S1 candidates competing for this S2 |
-| `n_s2_candidates_for_s1` | `int32` | - | Number of S2 candidates competing for this S1 |
-| `delta_score_to_next_best` | `float32` | - | Score difference to next-best candidate |
-| `flags` | `uint32` | - | Bit-field status flags |
-| `selected` | `bool` | - | Whether this pair was selected as final pairing |
+| `pair_id` | `int64` | None | Unique candidate pair identifier |
+| `s1_peak_id` | `int64` | None | S1 peak identifier |
+| `s2_peak_id` | `int64` | None | S2 peak identifier (anchor) |
+| `s1_index` | `int32` | None | S1 row index in the S1-only sub-array |
+| `s2_index` | `int32` | None | S2 row index in the S2-only sub-array |
+| `s1_time` | `int64` | ps | S1 timestamp in picoseconds |
+| `s2_time` | `int64` | ps | S2 timestamp in picoseconds |
+| `drift_time` | `int64` | ps | Drift time (S2 time minus S1 time) in picoseconds |
+| `drift_time_ns` | `float32` | ns | Drift time in nanoseconds |
+| `s1_area` | `float32` | ADC counts | S1 signal area |
+| `s2_area` | `float32` | ADC counts | S2 signal area |
+| `log10_s2_s1` | `float32` | None | log10 of S2/S1 area ratio |
+| `s1_width` | `float32` | ns | S1 width (ns) |
+| `s2_width` | `float32` | ns | S2 width (ns) |
+| `s1_n_channels` | `int16` | None | Number of channels for S1 |
+| `s2_n_channels` | `int16` | None | Number of channels for S2 |
+| `score_total` | `float32` | None | Total pairing score |
+| `score_time` | `float32` | None | Time-matching score |
+| `score_s1_quality` | `float32` | None | S1 quality score |
+| `score_s2_quality` | `float32` | None | S2 quality score |
+| `score_ratio` | `float32` | None | S2/S1 ratio score |
+| `score_pattern` | `float32` | None | Pattern-matching score (reserved) |
+| `score_ambiguity` | `float32` | None | Ambiguity penalty (reserved) |
+| `rank_for_s1` | `int32` | None | Rank of this S2 among all S1 candidates (1-based) |
+| `rank_for_s2` | `int32` | None | Rank of this S1 among all S2 candidates (1-based) |
+| `n_s1_candidates_for_s2` | `int32` | None | Number of S1 candidates competing for this S2 |
+| `n_s2_candidates_for_s1` | `int32` | None | Number of S2 candidates competing for this S1 |
+| `delta_score_to_next_best` | `float32` | None | Score difference to next-best candidate |
+| `flags` | `uint32` | None | Bit-field status flags |
+| `selected` | `bool` | None | Whether this pair was selected as final pairing |
 ## Usage
 
 ### Minimal Example
 
 ```python
-from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import S1S2PairSelectionPlugin
+from waveform_analysis import Context
+from waveform_analysis.plugins import profiles
 
-ctx = Context(config={"data_root": "DAQ"})
-ctx.register(S1S2PairSelectionPlugin())
-data = ctx.get_data("run_001", "s1_s2_pairs")
+ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
+ctx.register(*profiles.cpu_default())
+result = ctx.get_data("run_001", "s1_s2_pairs")
 ```
+
+示例使用 `run_id="run_001"` 和文档默认运行画像；真实数据路径与配置应以当前实验设置为准。
+
 ### Downstream Consumers
 
+- `energy_reconstruction`
 - `events`
 - `position_reconstruction`

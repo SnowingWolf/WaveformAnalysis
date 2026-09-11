@@ -1,4 +1,4 @@
-# DOC: docs/plugins/guides/PLUGIN_SET_PROFILE_GUIDE.md#plugin-sets
+# DOC: docs/plugins/PLUGIN_SYSTEM_OVERVIEW.md#plugin-sets
 """
 Plugin set: Tabular outputs (DataFrame, tables).
 """
@@ -11,11 +11,9 @@ export, __all__ = exporter()
 @export
 def plugins_tabular():
     """Return tabular output plugin instances in dependency order."""
-    from waveform_analysis.core.plugins.builtin.cpu.dataframe import DataFramePlugin
-    from waveform_analysis.core.plugins.builtin.cpu.event_analysis import (
-        GroupedEventsPlugin,
-        PairedEventsPlugin,
-    )
+    from waveform_analysis.core.plugins.builtin.df import DataFramePlugin
+    from waveform_analysis.core.plugins.builtin.df_events import GroupedEventsPlugin
+    from waveform_analysis.core.plugins.builtin.df_paired import PairedEventsPlugin
 
     return [
         DataFramePlugin(),

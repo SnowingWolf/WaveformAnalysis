@@ -6,6 +6,7 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
+from tests.daq_adapter_helpers import make_v1725_single_wave_blob
 from waveform_analysis.core.foundation.utils import Profiler
 from waveform_analysis.core.processing.dtypes import create_record_dtype
 from waveform_analysis.core.processing.records_builder import (
@@ -22,6 +23,9 @@ from waveform_analysis.core.processing.records_builder import (
     build_records_from_v1725_files,
 )
 
+# 本模块默认使用 4 个采样点的 v1725 blob（区别于共享 helper 的默认 2 个采样点）。
+_DEFAULT_V1725_SAMPLES = np.array([11, 12, 13, 14], dtype=np.int16)
+
 
 def _make_st_waveforms() -> np.ndarray:
     dtype = create_record_dtype(4)
@@ -34,35 +38,6 @@ def _make_st_waveforms() -> np.ndarray:
     data["event_length"] = [4, 4, 4, 4, 4, 4]
     data["wave"] = np.arange(4, dtype=np.int16)
     return data
-
-
-def _make_v1725_single_wave_blob(
-    *,
-    channel: int,
-    timestamp: int,
-    baseline: int = 0,
-    trunc: bool = False,
-    samples: np.ndarray | None = None,
-) -> bytes:
-    if samples is None:
-        samples = np.array([11, 12, 13, 14], dtype=np.int16)
-    payload = np.asarray(samples, dtype=np.int16).tobytes()
-
-    event_header = bytearray(16)
-    channel_mask = 1 << int(channel)
-    event_header[4] = channel_mask & 0xFF
-    event_header[11] = (channel_mask >> 8) & 0xFF
-
-    ch_header = bytearray(12)
-    ch_size = 3 + (len(payload) // 4)
-    ch_header[0] = ch_size & 0xFF
-    ch_header[1] = (ch_size >> 8) & 0xFF
-    ch_header[2] = (ch_size >> 16) & 0x3F
-    if trunc:
-        ch_header[3] |= 0x40
-    ch_header[4:10] = int(timestamp).to_bytes(6, byteorder="little", signed=False)
-    ch_header[10:12] = int(baseline).to_bytes(2, byteorder="little", signed=False)
-    return bytes(event_header + ch_header + payload)
 
 
 def _waves_by_timestamp(records: np.ndarray, wave_pool: np.ndarray) -> dict[int, np.ndarray]:
@@ -107,8 +82,16 @@ def test_build_records_from_st_waveforms_sharded_keeps_global_timestamp_order():
 def test_build_records_from_v1725_files_sorts_approximately_ordered_input(tmp_path: Path):
     raw0 = tmp_path / "test_raw_b3_seg0.bin"
     raw1 = tmp_path / "test_raw_b4_seg1.bin"
-    raw0.write_bytes(_make_v1725_single_wave_blob(channel=1, timestamp=30, baseline=100))
-    raw1.write_bytes(_make_v1725_single_wave_blob(channel=0, timestamp=10, baseline=200))
+    raw0.write_bytes(
+        make_v1725_single_wave_blob(
+            channel=1, timestamp=30, baseline=100, samples=_DEFAULT_V1725_SAMPLES
+        )
+    )
+    raw1.write_bytes(
+        make_v1725_single_wave_blob(
+            channel=0, timestamp=10, baseline=200, samples=_DEFAULT_V1725_SAMPLES
+        )
+    )
 
     bundle = build_records_from_v1725_files([str(raw0), str(raw1)], dt_ns=4)
 
@@ -120,12 +103,16 @@ def test_build_records_from_v1725_files_sorts_approximately_ordered_input(tmp_pa
     np.testing.assert_array_equal(bundle.records["record_id"], np.arange(2, dtype=np.int64))
 
 
-def test_build_records_from_v1725_files_keeps_disk_refs_after_tempdir_cleanup(tmp_path: Path):
+@pytest.mark.parametrize("batch_size", [1, 50])
+@pytest.mark.parametrize("executor_type", ["thread", "process"])
+def test_build_records_from_v1725_files_keeps_disk_refs_after_tempdir_cleanup(
+    tmp_path: Path, batch_size: int, executor_type: str
+):
     raws = []
     for idx, timestamp in enumerate([30, 10, 20]):
         raw = tmp_path / f"test_raw_b{idx}_seg0.bin"
         raw.write_bytes(
-            _make_v1725_single_wave_blob(
+            make_v1725_single_wave_blob(
                 channel=idx,
                 timestamp=timestamp,
                 baseline=100 + idx,
@@ -137,7 +124,9 @@ def test_build_records_from_v1725_files_keeps_disk_refs_after_tempdir_cleanup(tm
     bundle_ref = build_records_from_v1725_files(
         raws,
         dt_ns=4,
-        batch_size=1,
+        batch_size=batch_size,
+        executor_type=executor_type,
+        n_jobs=2,
         keep_on_disk=True,
     )
 
@@ -146,6 +135,11 @@ def test_build_records_from_v1725_files_keeps_disk_refs_after_tempdir_cleanup(tm
     assert bundle_ref.temp_dir.exists()
     assert all(part.records_path.exists() for part in bundle_ref.part_refs)
     assert all(part.wave_pool_path.exists() for part in bundle_ref.part_refs)
+    assert set(bundle_ref.temp_dir.rglob("*.dat")) == {
+        bundle_ref.part_refs[0].records_path,
+        bundle_ref.part_refs[0].wave_pool_path,
+    }
+    assert list(bundle_ref.temp_dir.iterdir()) == [bundle_ref.temp_dir / "merged"]
     assert all(part.records_path.parent != Path("/tmp/merged") for part in bundle_ref.part_refs)
 
     loaded = bundle_ref.load_full()
@@ -181,7 +175,7 @@ def test_build_records_from_v1725_files_run_merge_keeps_variable_wave_offsets(tm
                 dtype=np.int16,
             )
             blobs.append(
-                _make_v1725_single_wave_blob(
+                make_v1725_single_wave_blob(
                     channel=board,
                     timestamp=timestamp,
                     baseline=100 + board,
@@ -211,12 +205,105 @@ def test_build_records_from_v1725_files_run_merge_keeps_variable_wave_offsets(tm
     np.testing.assert_array_equal(bundle.wave_pool, expected_pool)
 
 
+@pytest.mark.parametrize("batch_size", [1, 50])
+def test_v1725_reclaim_closes_mappings_and_preserves_variable_waves(
+    tmp_path, monkeypatch, batch_size
+):
+    from waveform_analysis.core.processing import records_builder as builder
+
+    raw = tmp_path / "test_raw_b0_seg0.bin"
+    raw.write_bytes(
+        b"".join(
+            make_v1725_single_wave_blob(
+                channel=0, timestamp=timestamp, samples=np.arange(length, dtype=np.int16)
+            )
+            for timestamp, length in [(30, 6), (10, 2), (20, 4)]
+        )
+    )
+    mappings = []
+    original_memmap = np.memmap
+
+    class TrackedMemmap(original_memmap):
+        def __new__(cls, *args, **kwargs):
+            value = super().__new__(cls, *args, **kwargs)
+            mappings.append(value._mmap)
+            return value
+
+    reclaim = builder._reclaim_v1725_merge_inputs
+    reclaimed = []
+
+    def checked_reclaim(part_dir, parts, result):
+        assert mappings and all(mapping.closed for mapping in mappings)
+        before = sum(path.stat().st_size for path in part_dir.rglob("*.dat"))
+        reclaim(part_dir, parts, result)
+        assert all(mapping.closed for mapping in mappings)
+        after = sum(path.stat().st_size for path in part_dir.rglob("*.dat"))
+        assert after == result.total_records * RECORDS_DTYPE.itemsize + result.total_samples * 2
+        assert before >= 2 * after
+        reclaimed.append(part_dir)
+
+    monkeypatch.setattr(builder.np, "memmap", TrackedMemmap)
+    monkeypatch.setattr(builder, "_reclaim_v1725_merge_inputs", checked_reclaim)
+    result = build_records_from_v1725_files(
+        [str(raw)],
+        dt_ns=4,
+        n_jobs=1,
+        v1725_part_size=1,
+        batch_size=batch_size,
+        keep_on_disk=True,
+    )
+    try:
+        assert reclaimed == [result.temp_dir]
+        loaded = result.load_full()
+        waves = _waves_by_timestamp(loaded.records, loaded.wave_pool)
+        for timestamp, length in [(30, 6), (10, 2), (20, 4)]:
+            np.testing.assert_array_equal(waves[timestamp * 4000], np.arange(length))
+    finally:
+        result.cleanup()
+
+
+@pytest.mark.parametrize("damage", ["size", "offset", "length", "count", "alias"])
+def test_v1725_reclaim_validates_all_output_before_deleting(tmp_path, damage):
+    from waveform_analysis.core.processing.records_builder import _reclaim_v1725_merge_inputs
+
+    source = tmp_path / "file_0"
+    source.mkdir()
+    records = np.zeros(2, dtype=RECORDS_DTYPE)
+    records["timestamp"] = [1, 2]
+    records["event_length"] = 2
+    records["wave_offset"] = [0, 2]
+    part = _write_records_part(RecordsBundle(records, np.arange(4, dtype=np.uint16)), source, 0)
+    result = _merge_records_part_refs(
+        [part],
+        keep_on_disk=True,
+        output_dir=tmp_path,
+        transfer_temp_dir_ownership=True,
+    )
+    # The shared merger must leave caller-owned inputs available for reuse.
+    originals = {path: path.read_bytes() for path in (part.records_path, part.wave_pool_path)}
+    final = result.part_refs[0]
+    if damage == "size":
+        final.wave_pool_path.write_bytes(b"\0")
+    elif damage in {"offset", "length"}:
+        mapped = np.memmap(final.records_path, dtype=RECORDS_DTYPE, mode="r+")
+        mapped["wave_offset" if damage == "offset" else "event_length"][0] = 100
+        mapped.flush()
+        mapped._mmap.close()
+    elif damage == "count":
+        result.total_records += 1
+    else:
+        final.wave_pool_path = part.wave_pool_path
+    with pytest.raises(RuntimeError, match="V1725"):
+        _reclaim_v1725_merge_inputs(tmp_path, [part], result)
+    assert all(path.read_bytes() == data for path, data in originals.items())
+
+
 def test_build_records_from_v1725_files_disk_batch_merge_uses_disk_parts(tmp_path: Path):
     raws = []
     for board, timestamp in enumerate([10, 20, 30, 40]):
         raw = tmp_path / f"test_raw_b{board}_seg0.bin"
         raw.write_bytes(
-            _make_v1725_single_wave_blob(
+            make_v1725_single_wave_blob(
                 channel=board,
                 timestamp=timestamp,
                 baseline=board,
@@ -235,7 +322,7 @@ def test_build_records_from_v1725_files_disk_batch_merge_uses_disk_parts(tmp_pat
     assert isinstance(bundle_ref, RecordsBundleRef)
     assert bundle_ref.temp_dir is not None
     assert bundle_ref.part_refs[0].records_path.parent.name == "merged"
-    assert (bundle_ref.temp_dir / "merged" / "records_only_batches").exists()
+    assert not (bundle_ref.temp_dir / "merged" / "records_only_batches").exists()
 
     loaded = bundle_ref.load_full()
     np.testing.assert_array_equal(
@@ -279,7 +366,7 @@ def test_build_records_from_v1725_files_shows_disk_batch_merge_progress(
     for board, timestamp in enumerate([10, 20, 30, 40]):
         raw = tmp_path / f"test_raw_b{board}_seg0.bin"
         raw.write_bytes(
-            _make_v1725_single_wave_blob(
+            make_v1725_single_wave_blob(
                 channel=board,
                 timestamp=timestamp,
                 baseline=board,
@@ -309,7 +396,7 @@ def test_build_records_from_v1725_files_disk_concat_fast_path(tmp_path: Path):
     for board, timestamp in enumerate([10, 20, 30]):
         raw = tmp_path / f"test_raw_b{board}_seg0.bin"
         raw.write_bytes(
-            _make_v1725_single_wave_blob(
+            make_v1725_single_wave_blob(
                 channel=board,
                 timestamp=timestamp,
                 baseline=board,
@@ -470,7 +557,11 @@ def test_resolve_v1725_file_workers_uses_io_friendly_auto_default():
 
 def test_build_records_from_v1725_files_rejects_implicit_over_budget_disk_ref(tmp_path: Path):
     raw = tmp_path / "test_raw_b0_seg0.bin"
-    raw.write_bytes(_make_v1725_single_wave_blob(channel=0, timestamp=10, baseline=100))
+    raw.write_bytes(
+        make_v1725_single_wave_blob(
+            channel=0, timestamp=10, baseline=100, samples=_DEFAULT_V1725_SAMPLES
+        )
+    )
 
     with pytest.raises(MemoryError, match="keep_on_disk=True"):
         build_records_from_v1725_files(

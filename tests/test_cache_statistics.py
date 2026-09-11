@@ -4,12 +4,12 @@ CacheStatsCollector 测试模块
 
 import json
 import os
-import tempfile
 import time
 
 import numpy as np
 import pytest
 
+from tests.cache_test_helpers import build_cache_context
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.storage.cache_analyzer import CacheAnalyzer
 from waveform_analysis.core.storage.cache_statistics import (
@@ -19,19 +19,8 @@ from waveform_analysis.core.storage.cache_statistics import (
 
 
 @pytest.fixture
-def temp_storage_dir():
-    """创建临时存储目录"""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        yield tmpdir
-
-
-@pytest.fixture
 def context_with_cache(temp_storage_dir):
     """创建带有缓存数据的 Context"""
-    ctx = Context(storage_dir=temp_storage_dir)
-    storage = ctx.storage
-
-    # 创建测试缓存数据
     test_data = [
         ("run_001", "peaks", 100),
         ("run_001", "waveforms", 500),
@@ -39,20 +28,13 @@ def context_with_cache(temp_storage_dir):
         ("run_002", "waveforms", 1000),
         ("run_003", "hits", 300),
     ]
-
-    for run_id, data_name, size in test_data:
-        key = f"{run_id}-{data_name}-abc123"
-        data = np.zeros(size, dtype=[("time", "<f8"), ("value", "<f4")])
-        storage.save_memmap(key, data, run_id=run_id)
-
-        # 更新元数据
-        meta = storage.get_metadata(key, run_id)
-        if meta:
-            meta["plugin_version"] = "1.0.0"
-            meta["timestamp"] = time.time() - np.random.randint(0, 7 * 24 * 3600)
-            storage.save_metadata(key, meta, run_id)
-
-    return ctx
+    return build_cache_context(
+        temp_storage_dir,
+        [
+            (run_id, data_name, size, time.time() - np.random.randint(0, 7 * 24 * 3600))
+            for run_id, data_name, size in test_data
+        ],
+    )
 
 
 class TestCacheStatistics:

@@ -38,20 +38,15 @@ DIR_NAMES = {
 
 # 文件名到标题的映射（可选，如果不在这里会从文件内容提取）
 FILE_TITLES = {
-    "PREVIEW_EXECUTION.md": "预览执行计划",
     "DEPENDENCY_ANALYSIS_GUIDE.md": "依赖分析",
     "LINEAGE_VISUALIZATION.md": "血缘图预览",
-    "SIGNAL_PROCESSING_PLUGINS.md": "信号处理插件",
     "STREAMING_PLUGINS_GUIDE.md": "流式处理插件",
     "STRAX_PLUGINS_ADAPTER.md": "Strax 适配器",
     "CACHE.md": "缓存系统",
-    "EXECUTOR_MANAGER_GUIDE.md": "执行器管理",
     "PROGRESS_TRACKING_GUIDE.md": "进度追踪",
     "IO_CSV_HEADER_HANDLING.md": "CSV 处理",
     "ARCHITECTURE.md": "系统架构",
-    "CONTEXT_PROCESSOR_WORKFLOW.md": "工作流程",
     "PROJECT_STRUCTURE.md": "项目结构",
-    "SIMPLE_PLUGIN_GUIDE.md": "最简单的插件教程",
     "plugin_guide.md": "插件开发完整指南",
     "api_reference.md": "API 参考文档",
     "config_reference.md": "配置参考",

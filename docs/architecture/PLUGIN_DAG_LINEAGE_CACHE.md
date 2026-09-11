@@ -6,6 +6,9 @@
 依赖组成当前 DAG，lineage 在该 DAG 上递归建立结果身份，缓存用 `(run_id, provides, lineage)`
 判断结果能否复用。
 
+Context 负责统一协调插件注册、依赖解析、lineage 与缓存复用；具体产物仍由单一 Plugin 发布，
+组合查询由 Accessor 完成。
+
 ```mermaid
 flowchart LR
     CONTRACT[Plugin 契约] --> DAG[本次 Plugin DAG]
@@ -150,13 +153,18 @@ Context 先解析目标的依赖顺序，再计算各节点当前缓存键。执
 
 ## 5. Lineage
 
+Context 按需从 `waveform_analysis.visualization` 加载 lineage renderer，避免普通数据处理
+提前导入 Matplotlib 或 Plotly；`waveform_analysis.utils.visualization` 保持为同一模块对象的兼容入口。
+
 ### Lineage 与缓存身份
 
 #### 5.1 结果身份的组成
 
 默认 lineage 是可序列化配方，包含 Plugin 类、version、描述、受跟踪配置和递归上游 lineage；
-存在时还会加入规范化 dtype、`output_schema`、已验证 spec hash 和顶层 adapter 信息。Plugin 可用
-`get_lineage(context)` 补充自身构建语义。
+存在时还会加入规范化 dtype、`output_schema`、已验证 spec hash 和顶层 adapter 信息。Context 递归缓存
+不含 adapter 信息的基础 lineage，并只在顶层补充一次，所以首次查询、缓存后查询及不同遍历顺序具有
+相同身份。Plugin 可用 `get_lineage(context, *, dependency_resolver=None)` 补充自身构建语义，并应使用
+传入的 resolver 构造上游；旧的单参数 hook 仍兼容。
 
 ```mermaid
 flowchart TD
@@ -175,6 +183,11 @@ flowchart TD
 
 lineage 不包含数组内容，也不表示缓存一定存在。它回答“这份结果应该由什么产生”；Storage 再根据
 该身份检查是否存在可读取结果。
+
+历史版本若仅因 `adapter_info` 附着层级不同生成了另一个 key，磁盘读取器可以只读复用，但必须有
+lineage 元数据作为证明：递归移除 `adapter_info` 后其余 JSON 完全一致，且已声明的 adapter 信息没有
+冲突。规范 key 始终优先，新计算也只写规范 key；任何 version、配置、dtype/schema/spec 或依赖差异
+仍会触发重算。
 
 ### 5.2 传播规则
 
@@ -209,6 +222,13 @@ flowchart TD
 
 当前缓存键包含 `run_id`、产物名称和 lineage 摘要。同名产物在不同 run 中不会共享键；同一 run
 中配置、version、输出契约或上游身份变化也会产生不同键。
+
+### 6.1.1 大型波形池的持久化
+
+`peaklet_waveform_pool` 一类的大型连续数组仍须完整写入磁盘，才能在新 Context 中命中缓存；这段
+I/O 不能视为 waveform 的重复计算。memmap 存储直接写入连续 ndarray 的 buffer，避免先用
+`tobytes()` 创建同等大小的 Python 临时副本。性能诊断应分别记录 Plugin compute 与 cache-save
+时间，避免把存储带宽、压缩或 checksum 成本误判为算法回归。
 
 ### 6.2 失效矩阵
 

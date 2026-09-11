@@ -1,0 +1,10 @@
+provides: position_reconstruction
+plugin_class: PositionReconstructionPlugin
+version: 0.4.0
+depends_on:
+  - s1_s2_pairs
+  - peaklet_channels
+third_party_dependencies:
+  - numpy
+plugin_dependencies: []
+category: event_reconstruction

@@ -6,7 +6,7 @@ from typing import Any
 
 import numpy as np
 
-from waveform_analysis.core.plugins.core.base import Plugin
+from waveform_analysis.plugins import Plugin
 
 EMPTY_DTYPE = np.dtype([])
 

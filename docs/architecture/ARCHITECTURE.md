@@ -3,7 +3,7 @@
 **导航**: [文档中心](../README.md) > [系统架构与数据模型](README.md) > 系统架构与数据流
 
 本文定义运行时组件、配置作用域和一次数据请求的完整路径。算法细节属于 Plugin 文档；本页固定
-Context、DAQ adapter、Plugin、Storage、Accessor 与批量执行器之间的所有权边界。
+Context、DAQ adapter、Plugin、Storage、Accessor、BatchProcessor 与全局 ExecutorManager 之间的所有权边界。
 
 ## 1. 系统边界
 
@@ -19,6 +19,8 @@ flowchart LR
     STORAGE[Storage<br/>按 lineage 持久化]
     ACCESSOR[Accessor / RecordsView<br/>查询 关联 展示]
     BATCH[BatchProcessor<br/>多 run 编排]
+    EXECUTOR[ExecutorManager<br/>线程池 / 进程池 / 资源复用]
+    STREAM[StreamingPlugin<br/>chunk 执行]
 
     USER --> CTX
     BATCH -->|逐个 run 请求| CTX
@@ -28,6 +30,7 @@ flowchart LR
     STORAGE --> CTX
     CTX --> ACCESSOR
     ACCESSOR --> USER
+    STREAM --> EXECUTOR
 ```
 
 这张图中的箭头表示调用或数据所有权，不表示所有对象都进入 Plugin DAG。只有正式 Plugin 产物是
@@ -44,6 +47,7 @@ Context 调用之外安排多个任务。
 | Storage | 缓存键、数组、元数据 | 保存、加载、校验正式结果 | 决定结果的物理语义 |
 | Accessor / View | Context、`run_id`、正式产物和 ID | 加载、连接、筛选、波形访问和展示 | 声明新 DAG 节点或正式缓存身份 |
 | `BatchProcessor` | run 列表、目标或回调、调度选项 | 并发、重试、取消、错误和结果汇总 | 改变单 run 的 DAG 与 lineage 语义 |
+| `ExecutorManager` | 执行器名称、类型、worker 数与任务 | 统一复用、引用计数、关闭、统计和可选负载均衡 | 决定 Plugin 结果、跨 run 数据或缓存 lineage |
 
 ### 1.2 稳定边界
 
@@ -205,6 +209,35 @@ sequenceDiagram
 输出形态改变调用端如何消费结果，不改变 Plugin 的 `provides` 名称。是否产生新缓存身份仍由 Plugin
 契约和 lineage 决定。
 
+### 执行器管理框架
+
+`ExecutorManager` 是并行资源的统一入口，位于数据语义之外。它以全局单例保存按
+`(name, executor_type, max_workers)` 区分的执行器，支持 `thread` 与 `process` 两类池；
+`get_executor()` 以上下文管理器形式取得并在退出时释放引用，`parallel_map()` 和
+`parallel_apply()` 在此基础上提供保持输入顺序的批量结果、进度回调和可选负载均衡。
+
+```python
+from waveform_analysis.core.execution import get_config, get_executor
+
+config = get_config("waveform_loading")
+with get_executor("waveform-loading", **config) as executor:
+    futures = [executor.submit(load_file, path) for path in paths]
+    results = [future.result() for future in futures]
+```
+
+资源层与数据层必须分开检查：
+
+| 场景 | 推荐入口 | 需要保持的边界 |
+| --- | --- | --- |
+| 单 run 的 Plugin DAG 分层并行 | `Context` 的 `enable_plugin_parallelism` 与 `max_parallel_workers` | 依赖层完成后才进入下一层；缓存和 lineage 仍由 Context 控制 |
+| 多 run 并行、重试与取消 | `BatchProcessor.process_runs()` / `process_func()` | 每个任务使用 `ctx.clone()` 或 `ctx.create_context_factory()`，不共享可变 Context |
+| 通用文件/数组任务 | `ExecutorManager` 的 `get_executor()`、`parallel_map()`、`parallel_apply()` | 选择与任务匹配的 thread/process；使用 `with` 释放资源 |
+| 流式 chunk 任务 | Streaming Plugin 的 `executor_config` | worker 数是资源配置；改变结果语义的 option 仍要进入 Plugin lineage |
+
+因此，worker 数、进度显示和负载均衡不会单独创建新的数据产物身份。排查并行问题时依次检查
+`preview_execution()`、resolved config、执行器状态（`list_executors()` / `get_stats()`）和
+缓存 lineage；不要通过改变 `run_id`、共享 Context 或直接操作 `_executor_refs` 来规避错误。
+
 ## 4. 数据流与访问层
 
 ```mermaid
@@ -237,6 +270,7 @@ peaklet_waveform_pool` 是另一实例。不同实体必须使用对应的索引
 | 已有产物的筛选、连接和绘图 | Accessor | 不创造新的处理语义 |
 | 索引产物对应的波形切片 | 对应 View / Accessor | 统一校验 ID、offset 和 length |
 | 多个 run 的同一操作 | `BatchProcessor` 或显式循环 | 单 run 结果身份保持隔离 |
+| 可复用的并行资源 | `ExecutorManager` | 统一 thread/process 生命周期，不承载数据语义 |
 | 新硬件或文件格式 | DAQ adapter | 输入差异不扩散到分析 Plugin |
 
 ## 6. 不变量与故障原因

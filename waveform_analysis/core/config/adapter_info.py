@@ -59,7 +59,10 @@ class AdapterInfo:
             500000000.0
         """
         try:
-            from waveform_analysis.utils.formats import get_adapter, is_adapter_registered
+            from waveform_analysis.acquisition.formats import (
+                get_adapter,
+                is_adapter_registered,
+            )
 
             if not is_adapter_registered(adapter_name):
                 return None

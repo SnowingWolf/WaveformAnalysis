@@ -1,4 +1,5 @@
 from scripts import check_agent_handoff
+from scripts.change_scope import classify_status_lines
 
 
 def test_summarize_status_counts_categories():
@@ -53,3 +54,36 @@ def test_evaluate_final_note_fails_when_commit_state_missing():
     )
     assert code == 1
     assert "已提交/未提交状态" in message
+
+
+def test_task_scope_only_blocks_in_scope_status_lines():
+    in_scope, out_of_scope = classify_status_lines(
+        [
+            " M scripts/check_agent_handoff.py",
+            " M waveform_analysis/analysis/accessors/peak.py",
+            "?? docs/notes.txt",
+        ],
+        ["scripts/check_agent_handoff.py"],
+    )
+
+    assert in_scope == [" M scripts/check_agent_handoff.py"]
+    assert out_of_scope == [
+        " M waveform_analysis/analysis/accessors/peak.py",
+        "?? docs/notes.txt",
+    ]
+    code, message = check_agent_handoff.evaluate_handoff(in_scope)
+    assert code == 1
+    assert "FAIL" in message
+
+
+def test_task_scope_allows_only_unrelated_dirty_status_lines():
+    in_scope, out_of_scope = classify_status_lines(
+        [" M waveform_analysis/analysis/accessors/peak.py"],
+        ["scripts/"],
+    )
+
+    assert in_scope == []
+    assert out_of_scope == [" M waveform_analysis/analysis/accessors/peak.py"]
+    code, message = check_agent_handoff.evaluate_handoff(in_scope)
+    assert code == 0
+    assert "PASS" in message

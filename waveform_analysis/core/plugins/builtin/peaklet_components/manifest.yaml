@@ -1,0 +1,9 @@
+provides: peaklet_components
+plugin_class: PeakletComponentsPlugin
+version: 1.4.0
+depends_on:
+  - hit_merged
+third_party_dependencies:
+  - numpy
+plugin_dependencies:
+  - peaklets

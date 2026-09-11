@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 74 40" role="img" aria-labelledby="title desc">
+  <title id="title">WaveformAnalysis mark</title>
+  <desc id="desc">A teal waveform pulse mark</desc>
+  <path d="M2 23h10l5-16 7 29 7-30 6 20h8l4-9 5 9h17" fill="none" stroke="#0c8b9a" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M3 23h68" fill="none" stroke="#b8dfe3" stroke-width="1" opacity=".45"/>
+</svg>

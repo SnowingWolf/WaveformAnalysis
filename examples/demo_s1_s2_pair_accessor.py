@@ -21,7 +21,7 @@ import numpy as np
 
 def example_basic_usage(context, run_id):
     """基础用法示例"""
-    from waveform_analysis.utils import S1S2PairAccessor
+    from waveform_analysis.analysis import S1S2PairAccessor
 
     print("=" * 60)
     print("示例 1: 基础查询")
@@ -51,7 +51,7 @@ def example_basic_usage(context, run_id):
 
 def example_filtering(context, run_id):
     """过滤示例"""
-    from waveform_analysis.utils import S1S2PairAccessor
+    from waveform_analysis.analysis import S1S2PairAccessor
 
     print("\n" + "=" * 60)
     print("示例 2: 过滤配对")
@@ -78,7 +78,7 @@ def example_filtering(context, run_id):
 
 def example_waveform_extraction(context, run_id):
     """波形提取示例"""
-    from waveform_analysis.utils import S1S2PairAccessor
+    from waveform_analysis.analysis import S1S2PairAccessor
 
     print("\n" + "=" * 60)
     print("示例 3: 波形提取")
@@ -110,7 +110,7 @@ def example_waveform_extraction(context, run_id):
 
 def example_visualization(context, run_id):
     """可视化示例"""
-    from waveform_analysis.utils import S1S2PairAccessor
+    from waveform_analysis.analysis import S1S2PairAccessor
 
     print("\n" + "=" * 60)
     print("示例 4: 可视化配对")
@@ -137,7 +137,7 @@ def example_visualization(context, run_id):
 
 def example_pandas_integration(context, run_id):
     """与 pandas 集成示例"""
-    from waveform_analysis.utils import S1S2PairAccessor
+    from waveform_analysis.analysis import S1S2PairAccessor
 
     print("\n" + "=" * 60)
     print("示例 5: 与 pandas 集成")
@@ -173,7 +173,7 @@ def main():
     print("\n注意：这个示例需要实际的 context 和 run_id")
     print("请在你的分析脚本中按照以下方式使用：\n")
 
-    print("from waveform_analysis.utils import S1S2PairAccessor")
+    print("from waveform_analysis.analysis import S1S2PairAccessor")
     print("accessor = S1S2PairAccessor(context, run_id='your_run_id')")
     print("\n# 查询配对")
     print("pair = accessor.pair(pair_id=42)")

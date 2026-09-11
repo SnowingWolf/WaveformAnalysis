@@ -1,5 +1,7 @@
 """Shared pytest fixtures and configuration for all tests."""
 
+import tempfile
+
 import numpy as np
 import pytest
 
@@ -15,6 +17,18 @@ from waveform_analysis.core.context import Context
 def make_csv_fn():
     """Fixture that returns the make_csv helper function."""
     return make_csv
+
+
+# =============================================================================
+# Temporary Storage Fixtures
+# =============================================================================
+
+
+@pytest.fixture
+def temp_storage_dir():
+    """创建临时存储目录（str 路径）。"""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        yield tmpdir
 
 
 # =============================================================================

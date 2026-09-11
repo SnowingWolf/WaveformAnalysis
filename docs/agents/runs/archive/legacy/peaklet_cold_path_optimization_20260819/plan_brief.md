@@ -1,0 +1,57 @@
+# plan_brief
+
+- `task_id`: `peaklet_cold_path_optimization_20260819`
+- `route`: `modify_plugin`
+- `workflow_cost`: `strict`
+- `workflow_shape`: `staged`
+- `lifecycle_profile`: `reviewed_change`
+- `risk_level`: `high`
+- `scope_in`:
+  - 在 records-backed formal ndarray 路径中为不需要 `RecordsView` 的插件增加直接 `records`/`wave_pool` 视图加载。
+  - 让 `hit_threshold` 的 mask 路径按字段选择器提取 metadata，避免复制完整 structured records。
+  - 评估并在不改变 canonical 冲突检测语义的前提下收紧 peaklet 长窗口临时物化。
+  - 修复 `scripts/check_doc_sync.sh` 对过旧 `python` 命令的解释器选择。
+  - 同步受影响插件版本、插件参考文档、测试和本任务 artifacts。
+- `scope_out`:
+  - 不新增公开配置，不改变 `provides`、`depends_on`、输出 dtype、字段顺序或错误文本。
+  - 不改变 signed/clipped、同通道去重、跨通道累加、canonical materialize 串行冲突检测。
+  - 不擅自设置全局 Numba 线程数，不修改缓存产品格式或运行数据。
+  - 不把旧版 2.0.2 的 OOM 基线伪装成通过；完整旧新三次对照若仍被系统终止则保留为明确阻断。
+- `required_gates`:
+  - `targeted_tests`
+  - `assess_change_impact`
+  - `schema_compat_check --run-smoke`
+  - `doc_sync`
+  - `doc_anchors`
+  - `ruff`
+  - `black_check`
+  - `compileall`
+  - `performance_regression_check`
+  - `release_artifact_sync`
+  - `00196 direct-cache hash and RSS comparison`
+- `executor_role`: `executor.plugin`
+- `agent_profile`: `none`
+- `profile_plan`:
+  - 以 Numba/NumPy 内存分配与单层并行规则复核所有热点路径，优先视图和预分配。
+  - 对优化前后逐字段 hash、dtype、异常语义和下游链路做回归。
+- `blocking_assumptions`:
+  - 稳定的 00196 records、wave_pool、mask 和下游 cache artifact 可只读映射。
+  - 工作区已有 dirty 文件与本任务无关，提交时必须按路径 scoped stage。
+  - 旧版 2.0.2 全量基线可能继续因 global matching/lexsort 被系统终止，不能作为本次优化的唯一完成条件。
+
+## Optional Notes
+
+- `change_level`: `L1`（内部执行路径和缓存 lineage 变化，插件版本按 patch 升级）
+- `execution_backend_decision`:
+  - `backend`: `numpy|numba_serial|thread_pool`
+  - `backend_reason`: `memory-bound|startup-cost-sensitive|GIL-released`
+  - `parallel_scope`: `chunk|record`
+  - `worker_option`: `保持现有插件选项和全局线程设置不变`
+  - `fallback_path`: `保留现有 RecordsView 与 Python canonical fallback`
+  - `benchmark_required`: `true`
+- `must_run_commands`:
+  - `./scripts/check_doc_sync.sh`
+  - `python scripts/assess_change_impact.py --base HEAD`
+  - `python scripts/schema_compat_check.py --base HEAD --run-smoke`
+  - `python scripts/performance_regression_check.py --base HEAD`
+  - `python scripts/release_artifact_sync.py --base HEAD`

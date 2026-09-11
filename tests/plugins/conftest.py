@@ -2,45 +2,15 @@
 
 Note: previously defined plugin fixtures here were dead code - tests in
 tests/plugins/ instantiate these classes directly (e.g. ``SlowPlugin()``).
+``SlowPlugin`` / ``FailingPlugin`` are canonicalized in
+``tests.batch_processor_helpers`` and re-exported here for import compatibility.
 """
 
 import numpy as np
 
+from tests.batch_processor_helpers import FailingPlugin, SlowPlugin
 from tests.utils import SimplePlugin
 from waveform_analysis.core.plugins.core.base import Plugin
-
-
-class SlowPlugin(Plugin):
-    """A plugin that simulates slow computation for timeout tests."""
-
-    provides = "slow_data"
-    depends_on = []
-    output_dtype = np.dtype([("value", np.int32)])
-
-    def __init__(self, delay: float = 0.1):
-        super().__init__()
-        self.delay = delay
-
-    def compute(self, context, run_id, **kwargs):
-        import time
-
-        time.sleep(self.delay)
-        return np.array([(1,), (2,), (3,)], dtype=self.output_dtype)
-
-
-class FailingPlugin(Plugin):
-    """A plugin that always raises an error for error handling tests."""
-
-    provides = "failing_data"
-    depends_on = []
-    output_dtype = np.dtype([("value", np.int32)])
-
-    def __init__(self, error_message: str = "Intentional failure"):
-        super().__init__()
-        self.error_message = error_message
-
-    def compute(self, context, run_id, **kwargs):
-        raise ValueError(self.error_message)
 
 
 class CountingPlugin(Plugin):

@@ -1,14 +1,23 @@
 ---
-schema_version: 1
+schema_version: 2
 document_type: "plugin_reference"
 profile: "auto"
 provides: "st_waveforms"
 plugin_class: "WaveformsPlugin"
-module: "waveform_analysis.core.plugins.builtin.cpu.waveforms"
+module: "waveform_analysis.core.plugins.builtin.st_waveforms.plugin"
 version: "0.10.0"
 summary: "Extract waveforms from raw CSV files and structure them into NumPy structured arrays."
 depends_on: []
+declared_depends_on: []
+resolved_depends_on: ["raw_files"]
+dependency_profile: "documentation-default-v1"
+dependency_profile_values: {"daq_adapter": "vx2730", "use_filtered": false, "wave_source": "records"}
+dependency_config_keys: ["daq_adapter", "use_upstream_baseline"]
 output_kind: "structured_array"
+execution_kind: "static"
+narrative_source: "source"
+narrative_source_reason: null
+source_fingerprint: "8da6036282bdf2e7af7ac059dc7afe7883d597904e75df0a13790ce1d3556c0d"
 generated: true
 ---
 # st_waveforms
@@ -16,21 +25,39 @@ generated: true
 ## Overview
 
 Extract waveforms from raw CSV files and structure them into NumPy structured arrays.
+Plugin to extract and structure waveforms from raw files.
+
+合并了原来的 WaveformsPlugin 和 StWaveformsPlugin 功能： 1. 从原始 CSV 文件中提取波形数据 2. 将波形数据结构化为 NumPy 结构化数组（ST_WAVEFORM_DTYPE）
+
 | Item | Value |
 | --- | --- |
 | Provides | `st_waveforms` |
 | Plugin Class | `WaveformsPlugin` |
-| Module | `waveform_analysis.core.plugins.builtin.cpu.waveforms` |
+| Module | `waveform_analysis.core.plugins.builtin.st_waveforms.plugin` |
 | Version | `0.10.0` |
 | Category | 波形处理 |
-| Accelerator | CPU (NumPy/SciPy) |
-| Output Kind | `structured_array` |
+| Output Container | `structured_array` |
+| Execution Mode | `static` |
+| Save Policy | `always` |
+| Uses Run Config | yes |
+| Timeout | `none` |
+| Side Effect | no |
+| Narrative Source | `source` |
+| Source Fingerprint | `8da6036282bdf2e7af7ac059dc7afe7883d597904e75df0a13790ce1d3556c0d` |
+
+### Dependencies
+
+默认文档画像：`documentation-default-v1`（{"daq_adapter": "vx2730", "use_filtered": false, "wave_source": "records"}）。
+该插件通过 `resolve_depends_on(context, run_id)` 动态解析依赖；可能影响解析的配置键：`daq_adapter`, `use_upstream_baseline`。
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
-| - | - | - | - | No declared inputs. |
+| `raw_files` | - | dynamic-default | - | Scan the data directory and group raw CSV files by channel number. |
 ### How It Works
 
+1. 从原始 CSV 文件中提取波形数据并结构化为 NumPy 结构化数组
+2. 合并了原来的 WaveformsPlugin 和 StWaveformsPlugin 功能： 1. 读取并解析原始 CSV 文件，提取每个通道的波形数据 2. 将波形数据结构化为包含时间戳、基线、通道号和波形数据的结构化数组
+3. 使用文件级扁平化并行处理： - 所有文件统一进入并行池解析（通过 n_jobs 控制） - 解析完成后按通道聚合
 
 ## Configuration
 
@@ -54,26 +81,30 @@ structured_array output with fields: baseline, baseline_upstream, polarity, time
 | --- | --- | --- | --- |
 | `baseline` | `float64` | ADC counts | Computed global waveform baseline for this record |
 | `baseline_upstream` | `float64` | ADC counts | Upstream baseline value from preceding processing, optional |
-| `polarity` | `<U8` | - | Hardware-truth signal polarity: positive \| negative \| unknown |
+| `polarity` | `<U8` | None | Hardware-truth signal polarity: positive \| negative \| unknown |
 | `timestamp` | `int64` | ps | ADC raw timestamp in picoseconds |
-| `record_id` | `int64` | - | Sequential record identifier within the structured waveform array |
+| `record_id` | `int64` | None | Sequential record identifier within the structured waveform array |
 | `dt` | `int32` | ns | Sample interval in nanoseconds, aligned to time |
 | `event_length` | `int32` | samples | Waveform length in samples |
-| `board` | `int16` | - | Hardware board index |
-| `channel` | `int16` | - | Physical channel number |
+| `board` | `int16` | None | Hardware board index |
+| `channel` | `int16` | None | Physical channel number |
 | `wave` | `('<i2', (1500,))` | ADC counts | ADC sample data as 1-D int16 array |
 ## Usage
 
 ### Minimal Example
 
 ```python
-from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import WaveformsPlugin
+from waveform_analysis import Context
+from waveform_analysis.plugins import profiles
 
-ctx = Context(config={"data_root": "DAQ"})
-ctx.register(WaveformsPlugin())
-data = ctx.get_data("run_001", "st_waveforms")
+ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
+ctx.register(*profiles.cpu_default())
+result = ctx.get_data("run_001", "st_waveforms")
 ```
+
+示例使用 `run_id="run_001"` 和文档默认运行画像；真实数据路径与配置应以当前实验设置为准。
+
 ### Downstream Consumers
 
 - `filtered_waveforms`
+- `waveform_width`

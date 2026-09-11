@@ -1,0 +1,9 @@
+provides: records_detector_mask
+plugin_class: RecordsDetectorMaskPlugin
+version: 0.1.0
+depends_on:
+  - records
+  - records_asymmetry_mask
+third_party_dependencies:
+  - numpy
+plugin_dependencies:

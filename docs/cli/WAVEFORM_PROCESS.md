@@ -4,6 +4,9 @@
 
 `waveform-process` 是 WaveformAnalysis 的主要命令行工具，用于处理波形数据和扫描 DAQ 目录。[^source]
 
+CLI 的 DAQ 扫描实现由 `waveform_analysis.acquisition.daq.DAQAnalyzer` 提供；
+`waveform_analysis.utils.daq` 仅作为不发出弃用警告的兼容入口继续可用。
+
 ---
 
 ## 命令概述
@@ -23,6 +26,12 @@
 waveform-process [选项]
 ```
 
+## 运行标识与兼容参数
+
+`run_name` 是 DAQ/CLI 侧的数据集名称，通常对应 DAQ 根目录下的运行目录名；`run_id` 是 Context/API 侧每次数据访问必须显式传入的运行标识。在常见目录布局中二者可以使用同一个字符串，但不要把 Context 的当前运行状态当作隐式全局值。
+
+本命令使用 `--run-name` 指定 `run_name`。`--char` 是保留给旧脚本的兼容别名，不再作为新文档或新脚本的推荐写法。
+
 ---
 
 ## 参数说明
@@ -31,7 +40,7 @@ waveform-process [选项]
 
 | 参数 | 简写 | 类型 | 默认值 | 说明 |
 |------|------|------|--------|------|
-| `--run-name` | `--char` | str | - | 数据集标识符（目录名）。当使用 `--show-daq` 时可省略 |
+| `--run-name` | `--char`（兼容） | str | - | 数据集标识符（`run_name`，通常为目录名）。当使用 `--show-daq` 时可省略 |
 | `--n-channels` | - | int | 2 | 处理的通道数 |
 | `--start-channel` | - | int | 6 | 起始通道索引 |
 | `--time-window` | - | float | 100 | 事件配对时间窗口（ns） |
@@ -196,8 +205,8 @@ waveform-process --run-name run_001 --verbose
 CLI 与 `Context` 的执行路径一致，下面是对应的最简代码：
 
 ```python
-from waveform_analysis.core import Context
-from waveform_analysis.core.plugins import profiles
+from waveform_analysis import Context
+from waveform_analysis.plugins import profiles
 
 ctx = Context()
 ctx.register(*profiles.cpu_default())
@@ -205,13 +214,9 @@ ctx.set_config({'data_root': 'DAQ', 'daq_adapter': 'vx2730'})
 basic_features = ctx.get_data('run_001', 'basic_features')
 ```
 
-更多信息请参考 [用户指南](../user-guide/README.md)。
-
 ---
 
 **相关文档**:
-[CLI 工具总览](README.md) |
-[用户指南](../user-guide/README.md) |
-[快速开始](../user-guide/QUICKSTART_GUIDE.md)
+[CLI 工具总览](README.md)
 
 [^source]: 来源：`waveform_analysis/cli.py`。

@@ -1,0 +1,83 @@
+name: PR Commit Description Check
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, edited]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  commit-description:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify complete commit descriptions
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = context.payload.pull_request.body || "";
+            const heading = "## 提交清单与逐项说明";
+            const sectionStart = body.indexOf(heading);
+
+            if (sectionStart === -1) {
+              core.setFailed(`PR 描述必须包含 \`${heading}\`，并逐项说明全部 commit。`);
+              return;
+            }
+
+            const nextHeading = body.indexOf("\n## ", sectionStart + heading.length);
+            const section = body.slice(
+              sectionStart + heading.length,
+              nextHeading === -1 ? body.length : nextHeading,
+            );
+            const rows = [
+              ...section.matchAll(
+                /^\|\s*`([0-9a-f]{40})`\s*\|\s*(.*?)\s*\|\s*(.*?)\s*\|\s*$/gim,
+              ),
+            ];
+            const placeholder = /^(?:<.*>|待补充|todo|tbd|n\/?a|none|无|同上)$/i;
+            const describedCommits = new Map();
+            const errors = [];
+
+            for (const [, sha, summary, evidence] of rows) {
+              const normalizedSha = sha.toLowerCase();
+              if (describedCommits.has(normalizedSha)) {
+                errors.push(`commit ${sha} 在 PR 描述中重复出现。`);
+                continue;
+              }
+              describedCommits.set(normalizedSha, { summary: summary.trim(), evidence: evidence.trim() });
+              if (!summary.trim() || placeholder.test(summary.trim())) {
+                errors.push(`commit ${sha} 缺少有效的“变更目的和影响”。`);
+              }
+              if (!evidence.trim() || placeholder.test(evidence.trim())) {
+                errors.push(`commit ${sha} 缺少有效的“验证证据”。`);
+              }
+            }
+
+            const commits = await github.paginate(github.rest.pulls.listCommits, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number,
+              per_page: 100,
+            });
+            const expectedShas = new Set(commits.map((commit) => commit.sha.toLowerCase()));
+
+            for (const sha of expectedShas) {
+              if (!describedCommits.has(sha)) {
+                errors.push(`PR 描述遗漏 commit ${sha}。`);
+              }
+            }
+            for (const sha of describedCommits.keys()) {
+              if (!expectedShas.has(sha)) {
+                errors.push(`PR 描述包含不属于当前 PR 的 commit ${sha}。`);
+              }
+            }
+
+            if (errors.length > 0) {
+              core.setFailed(
+                [
+                  "PR 的 commit 清单必须与 GitHub 返回的 commit 集合一一对应，且每项都要有变更说明和验证证据：",
+                  ...errors.map((error) => `- ${error}`),
+                ].join("\n"),
+              );
+            }

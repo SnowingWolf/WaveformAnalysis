@@ -1,0 +1,98 @@
+# WaveformAnalysis 内置插件参考
+
+> 本页与各插件页面均由当前 `PluginSpec` 和源码事实生成。Auto 画像强调可查阅性；Agent 画像强调执行契约。依赖表中的动态插件使用文档默认画像，不代表所有运行配置下的唯一结果。
+
+## 快速开始
+
+```python
+from waveform_analysis import Context
+from waveform_analysis.plugins import profiles
+
+ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
+ctx.register(*profiles.cpu_default())
+
+# run_id 必须显式传入；目标产物会按 DAG 自动解析依赖并复用 lineage 缓存。
+peaks = ctx.get_data("run_001", "peaks")
+events = ctx.get_data("run_001", "events")
+```
+
+### 执行前预览
+
+```python
+preview = ctx.preview_execution("run_001", "events")
+print(preview)
+```
+
+### 文档默认依赖画像
+
+- Profile：`{{ default_profile_name }}`
+- 值：`{{ default_profile_values|tojson }}`
+- 动态依赖页面同时列出 `resolve_depends_on(context, run_id)` 可能读取的配置键；需要真实运行时配置时，应再次预览执行计划。
+
+## 插件总览
+
+| Provides | 插件类 | 类别 | 解析后依赖 | 输出容器 | 执行模式 | 版本 |
+| --- | --- | --- | --- | --- | --- | --- |
+{% for plugin in plugins|sort(attribute='provides') %}
+| [`{{ plugin.provides }}`]({{ plugin.provides }}.md) | `{{ plugin.name }}` | {{ plugin.category_display }} | {% if plugin.resolved_depends_on %}`{{ plugin.resolved_depends_on|join("`, `") }}`{% else %}-{% endif %} | `{{ plugin.output_kind }}` | `{{ plugin.execution_kind }}` | `{{ plugin.version }}` |
+{% endfor %}
+
+## 按类别浏览
+
+{% for category, category_plugins in by_category %}
+### {{ category_names.get(category, category) }}
+
+{% if category == "data_loading" %}扫描并组织原始 DAQ 文件，为后续 records 构建提供入口。{% elif category == "waveform_processing" %}构建、筛选或度量波形，并保留 records-backed 的输入关系。{% elif category == "peaks" %}从 peaklet、通道聚合到 peak 分类，形成峰级分析产物。{% elif category == "feature_extraction" %}从 hit、peak 或波形计算结构化特征。{% elif category == "signal_processing" %}执行滤波、流式信号处理或其他波形变换。{% elif category == "event_analysis" %}将峰或 hit 组织为事件、配对结果或位置重建结果。{% elif category == "data_export" %}把插件产物整理为分析侧表格或批量输出。{% elif category == "cache_analysis" %}提供缓存结构与 lineage 的只读诊断信息。{% elif category == "records" %}构建 records 及其关联的屏蔽、波形访问输入。{% else %}该类别中的插件按各自页面声明的输入、配置和输出契约运行。{% endif %}
+
+| Provides | 插件类 | 解析后依赖 | 页面来源 |
+| --- | --- | --- | --- |
+{% for plugin in category_plugins|sort(attribute='provides') %}
+| [`{{ plugin.provides }}`]({{ plugin.provides }}.md) | `{{ plugin.name }}` | {% if plugin.resolved_depends_on %}`{{ plugin.resolved_depends_on|join("`, `") }}`{% else %}-{% endif %} | `{{ plugin.documentation_status.source if plugin.documentation_status else "unknown" }}` |
+{% endfor %}
+
+{% endfor %}
+
+## 常见目标
+
+### 读取峰级结果
+
+```python
+peaks = ctx.get_data("run_001", "peaks")
+print(peaks.dtype.names)
+```
+
+### 读取事件级结果
+
+```python
+events = ctx.get_data("run_001", "events")
+print(events.dtype.names)
+```
+
+### 诊断缓存
+
+```python
+cache = ctx.get_data("run_001", "cache_analysis")
+```
+
+每个目标的精确依赖、配置键、保存策略和输出字段，以对应插件页为准。
+
+## 自定义插件的最小契约
+
+```python
+import numpy as np
+
+from waveform_analysis.plugins import Plugin
+
+
+class MyPlugin(Plugin):
+    provides = "my_output"
+    depends_on = ["records"]
+    version = "1.0.0"
+    output_dtype = np.dtype([("value", "f4")])
+
+    def compute(self, context, run_id, **kwargs):
+        records = context.get_data(run_id, "records")
+        return np.zeros(len(records), dtype=self.output_dtype)
+```
+
+新增或修改插件时，同时检查 `provides`、`depends_on`/`resolve_depends_on`、输出 dtype、配置说明、版本和两套生成文档；发布前运行仓库 `AGENTS.md` 中列出的文档与 schema 闸门。

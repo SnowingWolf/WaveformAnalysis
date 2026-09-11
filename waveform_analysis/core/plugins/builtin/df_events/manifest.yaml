@@ -1,0 +1,9 @@
+provides: df_events
+plugin_class: GroupedEventsPlugin
+version: 0.0.1
+depends_on:
+  - df
+third_party_dependencies:
+  - numpy
+  - pandas
+plugin_dependencies:

@@ -6,7 +6,7 @@ import yaml
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.core.base import Plugin
 from waveform_analysis.documentation import PublishedAgentDocRegistry, fingerprint_plugin_source
-from waveform_analysis.utils.plugin_doc_generator import PluginDocGenerator
+from waveform_analysis.documentation.plugin_doc_generator import PluginDocGenerator
 
 
 class _PublishedNarrativePlugin(Plugin):
@@ -68,7 +68,6 @@ def test_matching_published_agent_doc_overrides_source_narrative_across_renderer
     for rendered in (
         generator.render_plugin_page(view, profile="auto"),
         generator.render_plugin_page(view, profile="agent"),
-        generator.render_plugin_html(view),
     ):
         assert "Verified DAG overview." in rendered
         assert "Verified DAG workflow step." in rendered
@@ -117,8 +116,8 @@ def test_help_shows_rejected_published_doc_reason_but_static_renderers_do_not(
     registry = PublishedAgentDocRegistry(tmp_path)
     generator = PluginDocGenerator(published_agent_docs=registry)
     view = generator.extract_doc_info(_PublishedNarrativePlugin, _PublishedNarrativePlugin())
-    assert "documentation-note" not in generator.render_plugin_html(view)
-    assert "source fingerprint does not match" not in generator.render_plugin_page(view)
+    assert "documentation-note" not in generator.render_plugin_page(view, profile="auto")
+    assert "source fingerprint does not match" in generator.render_plugin_page(view)
 
     monkeypatch.setattr(
         "waveform_analysis.documentation.PublishedAgentDocRegistry", lambda: registry

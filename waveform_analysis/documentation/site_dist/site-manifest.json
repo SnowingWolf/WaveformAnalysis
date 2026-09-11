@@ -1,0 +1,914 @@
+{
+  "content_bytes": 13818910,
+  "file_count": 181,
+  "files": [
+    {
+      "path": "404/index.html",
+      "sha256": "ade1a87ff3140d74166122d3c8909b6da947d0fa4195c5e1c2fd203a8b46d9ef",
+      "size": 19917
+    },
+    {
+      "path": "404.html",
+      "sha256": "ade1a87ff3140d74166122d3c8909b6da947d0fa4195c5e1c2fd203a8b46d9ef",
+      "size": 19917
+    },
+    {
+      "path": "_next/static/chunks/01i1f4h64iez1.js",
+      "sha256": "c75e695bb09a7991b80749cc465c16c5d109b3ceedbbc0ef46b5be3cfcc58fe2",
+      "size": 1636571
+    },
+    {
+      "path": "_next/static/chunks/07nldpx3i6mc_.js",
+      "sha256": "8ba434a2d9965027d9b38c11c4a1835026635ea9eb0b9ce5ae43f66b60fb6970",
+      "size": 5893
+    },
+    {
+      "path": "_next/static/chunks/083k0_cs-6r0e.js",
+      "sha256": "49f2ca2e55b24c2f7ff583f01bb15d5c1a11241cd7057b6bd2c9d7e87ff08a4d",
+      "size": 21123
+    },
+    {
+      "path": "_next/static/chunks/0cz1d0mv5g_q7.js",
+      "sha256": "0973c1d64c88adc8e3c950410cb58b288f72118d5965b78049438deb8f2f9683",
+      "size": 112594
+    },
+    {
+      "path": "_next/static/chunks/11jq0c2_zavac.js",
+      "sha256": "7b7f42400a0ef965ceb04f7c526267166cfed98ceffd9864b34e2f5b27f8e335",
+      "size": 31918
+    },
+    {
+      "path": "_next/static/chunks/1hax-r4j1tvwy.js",
+      "sha256": "4bcc753ee614153d3465f311fdf51a6e999cc34307fbdee3b3fed61b8a635cfd",
+      "size": 161691
+    },
+    {
+      "path": "_next/static/chunks/1ix59xuhq-q14.css",
+      "sha256": "b0cb7bd6fec5951c9c8f5808821438206604b1629a912c96009ac427f38e7d69",
+      "size": 15413
+    },
+    {
+      "path": "_next/static/chunks/2bfcrb8_2wdv1.js",
+      "sha256": "e55921b513d6784032817badcf2b0fa99ec6ec076ad96faedfee2dfbbdd19ed9",
+      "size": 25102
+    },
+    {
+      "path": "_next/static/chunks/38rjny6tpd_0e.css",
+      "sha256": "c9c9eb7b3ede49dcb73b61e3e6a6600beb57d0925e62e3d9521845fdc3b4433d",
+      "size": 51948
+    },
+    {
+      "path": "_next/static/chunks/3byuobrkyz9bj.js",
+      "sha256": "63480d4a28e42d159286f3026f7389dc0adc267090356ef9059eb72fc24b473d",
+      "size": 229157
+    },
+    {
+      "path": "_next/static/chunks/3ecl4495d-vi1.js",
+      "sha256": "02db7e6bf7254105fe01045b91496ee1b4ee31055b21ba1c8e3b7fbd6cfa81b3",
+      "size": 20595
+    },
+    {
+      "path": "_next/static/chunks/3fntmmi971322.js",
+      "sha256": "5315e3d8d58dd80cb59e1c5a80e821e88a13cfa0de1bfe88d2aed5b08a315b7d",
+      "size": 14378
+    },
+    {
+      "path": "_next/static/chunks/3p9r15zp-4vrf.js",
+      "sha256": "c3808d7b9282fb79e08f986bf364b17b61b09d98ccd7c25a1cbf2b0608e35685",
+      "size": 23170
+    },
+    {
+      "path": "_next/static/chunks/turbopack-05d6-jwdrysv7.js",
+      "sha256": "60b84117341bda68f4e5a127630d24e22e244fa7e3a0448322e62b7103bf0d2c",
+      "size": 9722
+    },
+    {
+      "path": "_next/static/media/ibm-plex-mono-cyrillic-400-normal.2fw_31komldk7.woff",
+      "sha256": "ccc671c891334f7477f9d2999858ac03af56aca36db9a98975dd69818e2af86d",
+      "size": 7176
+    },
+    {
+      "path": "_next/static/media/ibm-plex-mono-cyrillic-400-normal.3exnfol_7pymn.woff2",
+      "sha256": "8bc4f83933a03c2059827a0228c3147ec4bee885c4ea0c363255dac2a782bac4",
+      "size": 8328
+    },
+    {
+      "path": "_next/static/media/ibm-plex-mono-cyrillic-500-normal.0va--opt8u1_t.woff",
+      "sha256": "63c0ac6ec36d7ea00919c618252c8461e5a432e2c4f8d8b8195a358e3b72d328",
+      "size": 7176
+    },
+    {
+      "path": "_next/static/media/ibm-plex-mono-cyrillic-500-normal.0xsu366y2c5ne.woff2",
+      "sha256": "ff9257f12cc3f321f9f50fc51283d5cd68c545e8781d4123dcb88e5954136b80",
+      "size": 8440
+    },
+    {
+      "path": "_next/static/media/ibm-plex-mono-cyrillic-ext-400-normal.0d_ov9k-9hcpk.woff2",
+      "sha256": "dec44d96de70c3a067ccf37cdf517bc760572a4c68b3905bd16858be7e7ea851",
+      "size": 6916
+    },
+    {
+      "path": "_next/static/media/ibm-plex-mono-cyrillic-ext-400-normal.0pohy58phd29a.woff",
+      "sha256": "5eafb38ef016507a80768b7ab3cf0e73df3a90906dc2c358c616692293dd75f8",
+      "size": 5752
+    },
+    {
+      "path": "_next/static/media/ibm-plex-mono-cyrillic-ext-500-normal.0y5i9jbjfvz60.woff",
+      "sha256": "c8d314b5ca83f6b96f2bb42bc24da070263613231d34478b2a3442a891a8b4e6",
+      "size": 5712
+    },
+    {
+      "path": "_next/static/media/ibm-plex-mono-cyrillic-ext-500-normal.1u-b6h8z98cid.woff2",
+      "sha256": "1467a3f89b67c6d18734f9cca98fcb23b3634183650120126540877ec0f5b59c",
+      "size": 6892
+    },
+    {
+      "path": "_next/static/media/ibm-plex-mono-latin-400-normal.2my42kvf64onn.woff",
+      "sha256": "d3d6fff8a9eaa4bfbe3dc61f9b442ec9f1ebc6b9f8e4ea55a3b942c33f54548d",
+      "size": 13196
+    },
+    {
+      "path": "_next/static/media/ibm-plex-mono-latin-400-normal.3z-45c147qudr.woff2",
+      "sha256": "3c5a451f9ec27a354b0c2bcca636c6ec17a651281aabf29f8427e210a1d31e85",
+      "size": 14812
+    },
+    {
+      "path": "_next/static/media/ibm-plex-mono-latin-500-normal.2aowb655hzo9u.woff2",
+      "sha256": "756026ff72eb76fd971ac4b7504cec55eef62109d2684c2cad8da32170b80b37",
+      "size": 14988
+    },
+    {
+      "path": "_next/static/media/ibm-plex-mono-latin-500-normal.2smzimhelwkys.woff",
+      "sha256": "58dbd3853a49adb7dcb441c4b8f5550deea3db10da11f6be92808f84a196c4b4",
+      "size": 13204
+    },
+    {
+      "path": "_next/static/media/ibm-plex-mono-latin-ext-400-normal.0vcwqxpnqytcy.woff",
+      "sha256": "88c904ee66c6afdaee3e00bfe157f5cf07e711424e97b0a0d86ba45357bcc129",
+      "size": 11724
+    },
+    {
+      "path": "_next/static/media/ibm-plex-mono-latin-ext-400-normal.2knz_q__2v-m4.woff2",
+      "sha256": "91e8ae155e1cd949e9b03f82cfa0bfb04ce6bbcf149e807de9385d58c5dfc6ce",
+      "size": 13272
+    },
+    {
+      "path": "_next/static/media/ibm-plex-mono-latin-ext-500-normal.0_nuuf6gsmp30.woff2",
+      "sha256": "c8bfbf1336ac25c5bc4fdc21baeae8c3e7be14b27cc53c796ccd3009bd9b2c20",
+      "size": 13416
+    },
+    {
+      "path": "_next/static/media/ibm-plex-mono-latin-ext-500-normal.3h20p-f9-6za0.woff",
+      "sha256": "899ee7f4b93779da94b6acbd685ab5416a6b90f0123b2c33d80d1f7288b46128",
+      "size": 11728
+    },
+    {
+      "path": "_next/static/media/ibm-plex-mono-vietnamese-400-normal.0l3ce-xh8yjk7.woff",
+      "sha256": "37de478cbdf926203f5642686e4757e3b52c1d8d58b8bf4e192cc2685af94b34",
+      "size": 5592
+    },
+    {
+      "path": "_next/static/media/ibm-plex-mono-vietnamese-400-normal.2etg1o7drmda7.woff2",
+      "sha256": "e71e12f43660badb5a56f4b8e36448df5ca275bc068228c64b9386ccab01d19d",
+      "size": 5816
+    },
+    {
+      "path": "_next/static/media/ibm-plex-mono-vietnamese-500-normal.17_doq7dp2vuy.woff",
+      "sha256": "8181507114b6cc4025ceab380f54e8087fdc34ffb04d53d0b65a3c13b9552812",
+      "size": 5584
+    },
+    {
+      "path": "_next/static/media/ibm-plex-mono-vietnamese-500-normal.2dba3xi8ldvft.woff2",
+      "sha256": "302d9f9ecf61df6917af469dee7f1e57e5833f0cf8802bcd506731d5abf5a1ca",
+      "size": 6004
+    },
+    {
+      "path": "_next/static/media/ibm-plex-sans-cyrillic-400-normal.05vex3dz8lus4.woff",
+      "sha256": "447ae04918fe41defa349338c572c9fd2adb682274c43834e48f4c795a703546",
+      "size": 9616
+    },
+    {
+      "path": "_next/static/media/ibm-plex-sans-cyrillic-400-normal.2yjbwmcn8_q7_.woff2",
+      "sha256": "516187957199a04a83a1d14ab8d13022409956cd5142ad5e66cdf983e9f1e98e",
+      "size": 10444
+    },
+    {
+      "path": "_next/static/media/ibm-plex-sans-cyrillic-500-normal.3by6nc_yr9oid.woff",
+      "sha256": "beeb452317f508d199bc99b2f94c69e4dcb2129b32892b17ba723ad96168215a",
+      "size": 9708
+    },
+    {
+      "path": "_next/static/media/ibm-plex-sans-cyrillic-500-normal.3sd-5tzm3_4ek.woff2",
+      "sha256": "54584bd8f91d89569bb433a2a16eed7b3b440a94bd880d0a5a59915b0015295d",
+      "size": 10736
+    },
+    {
+      "path": "_next/static/media/ibm-plex-sans-cyrillic-600-normal.1zhoeaqxg99rp.woff2",
+      "sha256": "d696be63fc19d8bd8e6f5be70416501b2098a5c067676544b8527eeea541c1fc",
+      "size": 10792
+    },
+    {
+      "path": "_next/static/media/ibm-plex-sans-cyrillic-600-normal.2c5tpa61w00x2.woff",
+      "sha256": "648c1d09741a180ee0ff10bccf8fb3769f547ffd74a2477f3157edf1a1732820",
+      "size": 9740
+    },
+    {
+      "path": "_next/static/media/ibm-plex-sans-cyrillic-700-normal.34pqrqyf3c0sy.woff2",
+      "sha256": "da96885fe5688230f9d0d45604639f756615579d781eec0386a67cd907e01236",
+      "size": 10440
+    },
+    {
+      "path": "_next/static/media/ibm-plex-sans-cyrillic-700-normal.3gmit0a3a3rh9.woff",
+      "sha256": "683cecaa06759b500c3e17b9d650cafc3bbb8aeaf6c8daec41dae99b701ea91a",
+      "size": 9352
+    },
+    {
+      "path": "_next/static/media/ibm-plex-sans-cyrillic-ext-400-normal.0bmbzisj-xacs.woff2",
+      "sha256": "5cc4dcc161aeef49f19fda153f4057ca402ef3f5a505255541b1357821fa4eb9",
+      "size": 7848
+    },
+    {
+      "path": "_next/static/media/ibm-plex-sans-cyrillic-ext-400-normal.0yimj2ejcd_v-.woff",
+      "sha256": "3fc4572fd90dc8de3679e8be93e644fe18a9ae1e88784ba98f95c516d2c3acc1",
+      "size": 6880
+    },
+    {
+      "path": "_next/static/media/ibm-plex-sans-cyrillic-ext-500-normal.30qlo36-5-3ff.woff",
+      "sha256": "a8d6d8fed2631b161c1558bfe22c37680b78817075a96a60ed6f5fcfa6577a1e",
+      "size": 6868
+    },
+    {
+      "path": "_next/static/media/ibm-plex-sans-cyrillic-ext-500-normal.350q79983599b.woff2",
+      "sha256": "7861d6e748e8099624f53353195e060127f93b578616871d638b5f2e44dcebdd",
+      "size": 8080
+    },
+    {
+      "path": "_next/static/media/ibm-plex-sans-cyrillic-ext-600-normal.2-ujs2_iegce3.woff",
+      "sha256": "88737e8aa21729946e72f6c42e70710b897bc4a55d75d1b30cfd6224279c99e3",
+      "size": 6884
+    },
+    {
+      "path": "_next/static/media/ibm-plex-sans-cyrillic-ext-600-normal.20kig831c98qz.woff2",
+      "sha256": "1b6ffd034b3883267b016b556a847bed69ff0647aba3626cee076d9d05f2d041",
+      "size": 8092
+    },
+    {
+      "path": "_next/static/media/ibm-plex-sans-cyrillic-ext-700-normal.1wdzaz08i-fgm.woff2",
+      "sha256": "c9888ad1ee0b0bcbc675b2e438ac478d1da14ea8fc7f4c5689656d4081168d80",
+      "size": 8076
+    },
+    {
+      "path": "_next/static/media/ibm-plex-sans-cyrillic-ext-700-normal.27gnbbmaqtise.woff",
+      "sha256": "fc9274cc021ea38fbf5fbbea8446a31d208b43734f081135c8cfcceb0eb656cd",
+      "size": 6696
+    },
+    {
+      "path": "_next/static/media/ibm-plex-sans-greek-400-normal.0xw4xvukrf0kb.woff2",
+      "sha256": "575e5b3bee09ad6f0b37d770b7003f473810524603b06904f36590760cdd2497",
+      "size": 7860
+    },
+    {
+      "path": "_next/static/media/ibm-plex-sans-greek-400-normal.3u15486ge_ij8.woff",
+      "sha256": "b89353f24289c5d890be26906934a46ba31c590fd800c35c8ef1ca635031e66b",
+      "size": 7276
+    },
+    {
+      "path": "_next/static/media/ibm-plex-sans-greek-500-normal.1ouz3oqyagpqb.woff2",
+      "sha256": "77b6e2e3a9afdab0e556f8e23ac2998ec2a2c929933be378d630366176624f64",
+      "size": 8104
+    },
+    {
+      "path": "_next/static/media/ibm-plex-sans-greek-500-normal.32vbojuu34gse.woff",
+      "sha256": "28b6f8242ef5088e7b4d9e569f27bf0b0b2913fa838584efcdecc95e8bef0dcb",
+      "size": 7608
+    },
+    {
+      "path": "_next/static/media/ibm-plex-sans-greek-600-normal.1cld-36dc8nyj.woff2",
+      "sha256": "127101009ab3192954335021e9a5ac27466a69f0a2a3b9d9f3b40602d7dd2922",
+      "size": 8168
+    },
+    {
+      "path": "_next/static/media/ibm-plex-sans-greek-600-normal.2wnk6ilardcba.woff",
+      "sha256": "075bcf5e0c13252be7eb9c331a5bc5d26675834c131bf6241ccdc8bc4b844587",
+      "size": 7600
+    },
+    {
+      "path": "_next/static/media/ibm-plex-sans-greek-700-normal.1bjhvvqhofcxf.woff2",
+      "sha256": "36f140bde3c4b32b6cdf1cfa6981156e303e2305e038b9897a59c8302f5cf43a",
+      "size": 7756
+    },
+    {
+      "path": "_next/static/media/ibm-plex-sans-greek-700-normal.2tggh96b2yjnp.woff",
+      "sha256": "13c258783e27bc255e2bab97eada1900a31199baca5a52335a01c7db946b18c1",
+      "size": 7176
+    },
+    {
+      "path": "_next/static/media/ibm-plex-sans-latin-400-normal.0c_u524x_edqt.woff2",
+      "sha256": "db71f8a28ad8501544fb4e7668e3c6d0b731760b6f20de3525ebaeba597f1922",
+      "size": 19156
+    },
+    {
+      "path": "_next/static/media/ibm-plex-sans-latin-400-normal.3o6byqs-e1pm7.woff",
+      "sha256": "1270d2dfbf11b26fd49000441f871d18f7ad14d03130a994296081cbecc7f4c4",
+      "size": 17864
+    },
+    {
+      "path": "_next/static/media/ibm-plex-sans-latin-500-normal.09hoxsii3f0h-.woff2",
+      "sha256": "5ef914e59b0047a261844d96acabb60c34d3acab6b85ea24198726ce4781fd37",
+      "size": 20064
+    },
+    {
+      "path": "_next/static/media/ibm-plex-sans-latin-500-normal.1adt4tr8qqsra.woff",
+      "sha256": "fb0e865d42789b3f645d220e9df5e3021892b64b1d101d76c47158294790d326",
+      "size": 18948
+    },
+    {
+      "path": "_next/static/media/ibm-plex-sans-latin-600-normal.2ow68i6tlq0ib.woff2",
+      "sha256": "31535a91ce3f6b8ed3ddedadab1e49957e2220263a640df1a3f14f6fdfe15eb6",
+      "size": 20356
+    },
+    {
+      "path": "_next/static/media/ibm-plex-sans-latin-600-normal.3is5k8zwa_p-u.woff",
+      "sha256": "9423466357dbc644d28a9b972998e23ed8e52e6c20138264f0eabac95a66cb62",
+      "size": 19128
+    },
+    {
+      "path": "_next/static/media/ibm-plex-sans-latin-700-normal.3bukydvwqy8it.woff",
+      "sha256": "76907478f052216790ce91252a5ff583fda6869c7aadff1e155f31a13f4ffe6c",
+      "size": 18056
+    },
+    {
+      "path": "_next/static/media/ibm-plex-sans-latin-700-normal.3tqkbb-e4s3ab.woff2",
+      "sha256": "fff71a83690454ee6ea9014780a6797408918cb90cde1f0f3be65ea28a03c678",
+      "size": 19440
+    },
+    {
+      "path": "_next/static/media/ibm-plex-sans-latin-ext-400-normal.1d_gc_hsvgu9-.woff2",
+      "sha256": "9a4ad5a9fd17ad03f878c0f1b126f460c4f409f29c633d5fc7c20276a7060914",
+      "size": 15724
+    },
+    {
+      "path": "_next/static/media/ibm-plex-sans-latin-ext-400-normal.40b65k0m6d4ms.woff",
+      "sha256": "ec4b4572b00bbb26ab67bfe0b7d7cce2156dc0804458c51a7e1be8ffa4fafcc0",
+      "size": 13888
+    },
+    {
+      "path": "_next/static/media/ibm-plex-sans-latin-ext-500-normal.0_emjodbovtqd.woff2",
+      "sha256": "b45dda4ca1e499e1e46b0fab82dbb94e06634fbc7de370b2a542049ec749c5dd",
+      "size": 15996
+    },
+    {
+      "path": "_next/static/media/ibm-plex-sans-latin-ext-500-normal.20ky8mp5pzzjv.woff",
+      "sha256": "7e13c53c9b5a113bab927df9e5540f943545c04fd7fbd73bebc815221dfb093c",
+      "size": 14180
+    },
+    {
+      "path": "_next/static/media/ibm-plex-sans-latin-ext-600-normal.1gk0bnn-fkxgr.woff2",
+      "sha256": "19d8e8252c984a204ba97d48d9abfe56a1ab5caa0b3468495d8db57dd144a780",
+      "size": 16264
+    },
+    {
+      "path": "_next/static/media/ibm-plex-sans-latin-ext-600-normal.1is9lzw7e-kg9.woff",
+      "sha256": "63e138d95638aad1c51f874a23b6dca6ee0bcf19fd273564b96f22da5e68fa39",
+      "size": 14188
+    },
+    {
+      "path": "_next/static/media/ibm-plex-sans-latin-ext-700-normal.05dxs4bxb2cld.woff",
+      "sha256": "58d70be273980affc6c2108690ff9b50e1580db075201d40e91e058d3021954c",
+      "size": 13916
+    },
+    {
+      "path": "_next/static/media/ibm-plex-sans-latin-ext-700-normal.29q3o2qolcmbi.woff2",
+      "sha256": "4064fb191238671603c1fcf604554950ee4800051a681f1e29d215a6c0e111a7",
+      "size": 15872
+    },
+    {
+      "path": "_next/static/media/ibm-plex-sans-vietnamese-400-normal.2dnmwjb6qtv4r.woff2",
+      "sha256": "fce7953865edcf67a6585a11ffb083a2a0a1762cd666b13a57868082b57fa455",
+      "size": 6624
+    },
+    {
+      "path": "_next/static/media/ibm-plex-sans-vietnamese-400-normal.2uyg6d8t4ozv4.woff",
+      "sha256": "e8958276a9d50cfac484b92790bb2dd87e1555beeae06acfe1f86369131d8385",
+      "size": 6156
+    },
+    {
+      "path": "_next/static/media/ibm-plex-sans-vietnamese-500-normal.0knnhi39ih4nn.woff2",
+      "sha256": "bef2bc8cb5821ef653824726179e0a17df9cf9c778dd21a5237c32a00940494a",
+      "size": 6772
+    },
+    {
+      "path": "_next/static/media/ibm-plex-sans-vietnamese-500-normal.3k6p3n_pr77o8.woff",
+      "sha256": "bccc82f9d65d62af803e2dfb9fefb6e2360dcc8d8f614e7b8e0a2c0d24f646b1",
+      "size": 6284
+    },
+    {
+      "path": "_next/static/media/ibm-plex-sans-vietnamese-600-normal.1tmid128qkbfp.woff2",
+      "sha256": "65d10cc19ed01d22c22fc4dc31f0bc2db723ce7cfb5e5f5c178573e0ade6ce73",
+      "size": 6888
+    },
+    {
+      "path": "_next/static/media/ibm-plex-sans-vietnamese-600-normal.3cdpesu70dx8w.woff",
+      "sha256": "46fda586ecdde1fddfe4524dfea00d6aca778dba496d9fc957c60d4958849033",
+      "size": 6312
+    },
+    {
+      "path": "_next/static/media/ibm-plex-sans-vietnamese-700-normal.0ozv9m4jwjtk3.woff2",
+      "sha256": "636e8eb2e3bcd5579481b62fddf6d2f834d96fa60d5ffd369e3bb123b314523c",
+      "size": 6676
+    },
+    {
+      "path": "_next/static/media/ibm-plex-sans-vietnamese-700-normal.3vjtyzgsmdhg8.woff",
+      "sha256": "adb75623385fb5beec90485ae49e4e72102ba9fa1e2e8d33a40347839f080aa3",
+      "size": 6132
+    },
+    {
+      "path": "_next/static/waveform-docs-v1/_buildManifest.js",
+      "sha256": "78ee245371e2c607d61e378ab19cd38eea2003cc0d2c5d5a4abde19adae899d5",
+      "size": 220
+    },
+    {
+      "path": "_next/static/waveform-docs-v1/_clientMiddlewareManifest.js",
+      "sha256": "3f75ae4b588179f5577c138d7b9100ced8b77cab6251f926f1092bdf8df9eb6a",
+      "size": 97
+    },
+    {
+      "path": "_next/static/waveform-docs-v1/_ssgManifest.js",
+      "sha256": "5ef13187a02b579941d14e7a505e6db5514273b38b09a96cd78a45bc1c82f7f7",
+      "size": 253
+    },
+    {
+      "path": "_not-found/index.html",
+      "sha256": "ade1a87ff3140d74166122d3c8909b6da947d0fa4195c5e1c2fd203a8b46d9ef",
+      "size": 19917
+    },
+    {
+      "path": "accessors/index.html",
+      "sha256": "43fa6fe3f6ede49bd03dd51d73fcd1b3e6b62e6e2f2239491be93b16c2e7ceac",
+      "size": 28338
+    },
+    {
+      "path": "accessors/peak-channel-accessor/index.html",
+      "sha256": "a483f8c3c57bdc29f20bf945fc515ff0182cbb1f6548f8d3d93439077cf1eacb",
+      "size": 102256
+    },
+    {
+      "path": "accessors/records-view/index.html",
+      "sha256": "241d2722bd7f815ff136901812e9c3f1dd28dcbe098ff4a043cfd72d5b162091",
+      "size": 99314
+    },
+    {
+      "path": "accessors/s1-s2-pair-accessor/index.html",
+      "sha256": "b1c8e390251a43769f945bbc14cf8fcb8825d6067921041e71c2190ba25e8343",
+      "size": 113198
+    },
+    {
+      "path": "adapters/adapter/index.html",
+      "sha256": "eea3e351c0bd8c04070418734173d4336512d30b4cff9288c28fb1326634e5fb",
+      "size": 112585
+    },
+    {
+      "path": "adapters/index.html",
+      "sha256": "86833c3ece42a13fcc9198db92f94dd0dbc180c75abd077cec8d6a0318484a16",
+      "size": 23349
+    },
+    {
+      "path": "architecture/PROJECT_STRUCTURE/index.html",
+      "sha256": "f21040863cb5b08b252aacc2e4e4cdc672432466bd0e7674b4d10e9a3e113185",
+      "size": 39853
+    },
+    {
+      "path": "architecture/accessor-analysis/index.html",
+      "sha256": "93c04ea1ce2bf30eafc7e5cf2fdd0268b0741303e2fe5943e35ae1b35f96a735",
+      "size": 167958
+    },
+    {
+      "path": "architecture/data-products/index.html",
+      "sha256": "fc98e11083852f195defac23a8a4713bbbd55666fbf08730cea6f9c2bc19fffe",
+      "size": 179091
+    },
+    {
+      "path": "architecture/index.html",
+      "sha256": "034c3110cce7c420b44303a9eb71b0b39191a2fd128e45fabb01268144543fcd",
+      "size": 37613
+    },
+    {
+      "path": "architecture/plugin-cache-architecture/index.html",
+      "sha256": "c0a1593c47c7bc5c472b1d4c181992f39799f7daf01eb7a204636de128480f55",
+      "size": 99316
+    },
+    {
+      "path": "architecture/plugin-dag-lineage-cache/index.html",
+      "sha256": "c0d2da0c947b5706898d900f1629e0240749a6b3ed78e03b3ea6af613edc7d70",
+      "size": 107655
+    },
+    {
+      "path": "architecture/system/index.html",
+      "sha256": "ddb685ed03bf9617e870cbc825adc8783651bcf146274096167e43d404a6fe20",
+      "size": 119958
+    },
+    {
+      "path": "assets/waveform-mark.svg",
+      "sha256": "6e057626125c6fd11e7ef6a082c803d861ae18a17afb6f4623f346fd741b965d",
+      "size": 444
+    },
+    {
+      "path": "cli/WAVEFORM_CACHE/index.html",
+      "sha256": "c4207304c84c7265fb352d073935d97e3b071c1b9c5a6f22274c55ccdd6743e5",
+      "size": 106452
+    },
+    {
+      "path": "cli/WAVEFORM_DOCS/index.html",
+      "sha256": "0bf5758abc1acd756250cffd9484fff213de1f215129019ad629843b64c32d77",
+      "size": 120180
+    },
+    {
+      "path": "cli/WAVEFORM_PROCESS/index.html",
+      "sha256": "e51f3dac7c0fcdf0fd8e7b13b99b9bab757298293a0e19defc400fe81879a982",
+      "size": 90367
+    },
+    {
+      "path": "cli/index.html",
+      "sha256": "3efb52213d12a68a6ea9279311fe975a223f6a8cfb7b0ad389450d38a6eb2886",
+      "size": 42716
+    },
+    {
+      "path": "contexts/context/index.html",
+      "sha256": "26f3e090d01e69f565fd31b9978b6dbd5c6cb8521e6ca2a43ad6ccb90ff7c42c",
+      "size": 240460
+    },
+    {
+      "path": "contexts/index.html",
+      "sha256": "a231ce0bd4066e6da363ab1fe5e9723046e929b4cb06331b782831cc6a3882de",
+      "size": 23234
+    },
+    {
+      "path": "development/CONTRACT_TESTS/index.html",
+      "sha256": "7d54e0cd599c797b40f71f129afb53363ab4294b18c4aa1090b8d13fef8f0dc4",
+      "size": 70686
+    },
+    {
+      "path": "development/contributing/COMMIT_CONVENTION/index.html",
+      "sha256": "d845b2365d62b049cb835ce0558db61094fb57e94bc2ca29cb12b5743c0194c6",
+      "size": 48942
+    },
+    {
+      "path": "development/contributing/DOC_ANCHOR_GUIDE/index.html",
+      "sha256": "8a2c50e068a5db5b560ce0f6006087677090d439633f4ec3af4777705930a46b",
+      "size": 79814
+    },
+    {
+      "path": "development/contributing/IMPORT_STYLE_GUIDE/index.html",
+      "sha256": "18d6bfcd46507ee0aa30d0016d19a1fbc5d735913eeb804395854072037f41ab",
+      "size": 89018
+    },
+    {
+      "path": "development/index.html",
+      "sha256": "8123f27db736e2f4e6b70becef79c3045a97508e66bb514255da06dcbd9f3eff",
+      "size": 56237
+    },
+    {
+      "path": "development/plugin-development/PLUGIN_SCAFFOLD/index.html",
+      "sha256": "d248393f7ad6c1d780a8b4063ed6aecd3e8e6dfec810a34288a9b969f6198d16",
+      "size": 40289
+    },
+    {
+      "path": "development/plugin-development/PLUGIN_SPEC_GUIDE/index.html",
+      "sha256": "66b346cf1b2b5f99c423161043166f0f988b47e99ec947ad45144d8a4bfac535",
+      "size": 136135
+    },
+    {
+      "path": "development/plugin-development/plugin_guide/index.html",
+      "sha256": "74f47eab70db2ca93ffe320742887591f1be234e3ac0648bc6208223f8973dde",
+      "size": 99945
+    },
+    {
+      "path": "development/worktrees/index.html",
+      "sha256": "78fcd66e719c2e52668e3a5ace3f696367e4ecf46ff4afda138cd4cda44fe36b",
+      "size": 59745
+    },
+    {
+      "path": "features/advanced/PROGRESS_TRACKING_GUIDE/index.html",
+      "sha256": "b4d930be00920f13a3eace69f97237a1b437f047e5d08c9f39e42a33601d0178",
+      "size": 116077
+    },
+    {
+      "path": "features/context/ABSOLUTE_TIME_GUIDE/index.html",
+      "sha256": "d2699b203bf8e12c5a4e6ef2a340a359c915bc491628e85f7f5764ac20854ca2",
+      "size": 95888
+    },
+    {
+      "path": "features/context/BATCH_PROCESSOR/index.html",
+      "sha256": "d0a91fe4185e47e0e95857130e31f0a4354cd3aaa6577a78a7406fe61ac29d83",
+      "size": 107864
+    },
+    {
+      "path": "features/context/CONFIGURATION/index.html",
+      "sha256": "2517a8a38a14f2ee5a129b4290105fb00449664721b48dc09e30ac14d58d900f",
+      "size": 69913
+    },
+    {
+      "path": "features/context/DEPENDENCY_ANALYSIS_GUIDE/index.html",
+      "sha256": "64d8bf5837d7ecdd42b856fa7fe5c5dbb3f29605ff5ae0449497c786028fffdb",
+      "size": 91700
+    },
+    {
+      "path": "features/context/LINEAGE_VISUALIZATION_GUIDE/index.html",
+      "sha256": "5ed22bf2ce94d08daa3f57a6c223a78935fef474bf280941743ad9c489f2ea44",
+      "size": 101113
+    },
+    {
+      "path": "features/index.html",
+      "sha256": "bd18dc6bd424ae05a18c7aba305a984b1d85f8c96847d2bcf32836e0421e479f",
+      "size": 96697
+    },
+    {
+      "path": "features/utils/ADAPTIVE_2D_SAMPLING_GUIDE/index.html",
+      "sha256": "06cb6622e8b419dda89a666cb757a34d32d97370b4f3ba1d659950a8cb1b47e7",
+      "size": 57642
+    },
+    {
+      "path": "features/utils/DAQ_ANALYZER_GUIDE/index.html",
+      "sha256": "3292e174ebd0ff006974874cde1c261cbe34e079cdb34ad3915e1d63730ccb66",
+      "size": 57290
+    },
+    {
+      "path": "features/utils/PDF_EXPORT_GUIDE/index.html",
+      "sha256": "9c2a75bd92b99251406c9716668552421230a78b559605bf499ade6ca9e4fbca",
+      "size": 33996
+    },
+    {
+      "path": "features/visualizations/POSITION_DASHBOARD_GUIDE/index.html",
+      "sha256": "e048ed926bda592389be41c12ea8539587fb33c2e8534801f2417747b4663888",
+      "size": 49103
+    },
+    {
+      "path": "index.html",
+      "sha256": "9e5448b6f509c881e1d775a59521469625e9d196af72ff5e402cbf0c7f73da32",
+      "size": 52920
+    },
+    {
+      "path": "lineage/index.html",
+      "sha256": "9b8a99c6e0294b62e81947320c1fbe7c86b909d40abc10de421d4052b2eb9a20",
+      "size": 102776
+    },
+    {
+      "path": "plugins/basic_features/index.html",
+      "sha256": "15e92b407c374c47a5e3ccb5299950b92a74ad30382e66a4c42fab9fd1fffd89",
+      "size": 58446
+    },
+    {
+      "path": "plugins/cache_analysis/index.html",
+      "sha256": "492af7a49f016c7d257f58d8de4982d5dba551f7f5cdc1825783d05fadc1af37",
+      "size": 54798
+    },
+    {
+      "path": "plugins/df/index.html",
+      "sha256": "1520b1016a7439691165f15573e01870bd47fd32fc40182c3875f94b6ff5cc2a",
+      "size": 47510
+    },
+    {
+      "path": "plugins/df_events/index.html",
+      "sha256": "7c664b3798df6bfc1f57f6b33d71231b0664841553d73fea0441c7cee7a67dd0",
+      "size": 43670
+    },
+    {
+      "path": "plugins/df_paired/index.html",
+      "sha256": "bf23088e890c39b909b31460b03e558ca8fcc48e09b8dc3443a0340c775fc7e0",
+      "size": 41048
+    },
+    {
+      "path": "plugins/energy_reconstruction/index.html",
+      "sha256": "c5009bf69e27d31ab6253eba9316f0769aca1fae5b1fd125934b5fecd6957b27",
+      "size": 61106
+    },
+    {
+      "path": "plugins/events/index.html",
+      "sha256": "9d53547dfaeb44546d067f73f3ee227afd83ae3a1d23d38fe8bf795a7e635919",
+      "size": 65575
+    },
+    {
+      "path": "plugins/filtered_waveforms/index.html",
+      "sha256": "2e0980eaff4d92f85fdc6e5b57dbbee0a81b0b82fdc8121669502dc158c8d6af",
+      "size": 77126
+    },
+    {
+      "path": "plugins/guides/STREAMING_PLUGINS_GUIDE/index.html",
+      "sha256": "89a9085d38599aee0dde8b7955b69626eda2f61c1ccbaf251f9bf9bac27aa662",
+      "size": 77800
+    },
+    {
+      "path": "plugins/hit/index.html",
+      "sha256": "718f8ae01e29380eec599ba99e1e5f3865df7575ff2bd95ff3f35b7d81010bbb",
+      "size": 78344
+    },
+    {
+      "path": "plugins/hit_grouped/index.html",
+      "sha256": "e2f1383f8335953c5f286c0294bf70ae673a5d5bc7af60660401367844ba73d1",
+      "size": 46824
+    },
+    {
+      "path": "plugins/hit_merge_clusters/index.html",
+      "sha256": "5e861d9d8b050cf2d5310fbbbe5f0502122714e746c82ed97dec59d8182df009",
+      "size": 43108
+    },
+    {
+      "path": "plugins/hit_merged/index.html",
+      "sha256": "b24e098c151f635053d6f785635d9014688e5d3ee202566a84608f9272016de5",
+      "size": 75480
+    },
+    {
+      "path": "plugins/hit_merged_components/index.html",
+      "sha256": "f800a59057d0c10eeb2328a9e4ffbace1b43803a64e2756f026cebd9da9ea0d3",
+      "size": 46262
+    },
+    {
+      "path": "plugins/hit_merged_features/index.html",
+      "sha256": "143422f2f33262f96bb582ec8955809dc9dec8649be1f2d9e314ae24ada7ccf3",
+      "size": 69782
+    },
+    {
+      "path": "plugins/hit_threshold/index.html",
+      "sha256": "b6b5dbe70ad39aba2e1a792de73d552f5aabb28210f380f109a321cf210d33cd",
+      "size": 71500
+    },
+    {
+      "path": "plugins/index.html",
+      "sha256": "29a918455132202643df4003011af6ac266ea32da7131b498050408a614519ce",
+      "size": 679574
+    },
+    {
+      "path": "plugins/overview/index.html",
+      "sha256": "863f7bc931268b7ca621aa7ec90b5c8fc547114ca6ef642434511ba0c9fe3b7a",
+      "size": 276089
+    },
+    {
+      "path": "plugins/peak_classification/index.html",
+      "sha256": "266a64037c4d6cc3c56d00986a9e8883c3a31e0e68b4c610cdf336d3017f9b41",
+      "size": 60348
+    },
+    {
+      "path": "plugins/peaklet_channels/index.html",
+      "sha256": "62637013a00d5d71d5e2106f981b5b6e68d552fa7afaa2ea9c1c2a6c56be6115",
+      "size": 57366
+    },
+    {
+      "path": "plugins/peaklet_components/index.html",
+      "sha256": "4b2cea4a23af7bfcfdd23670574c68c2966b616a3aed9ebb5af69a2b7fa293d0",
+      "size": 46676
+    },
+    {
+      "path": "plugins/peaklet_features/index.html",
+      "sha256": "285ae9583c41b84a2d9fd3dbc75acf92ae596636d24aeaa712d67607e323151b",
+      "size": 51724
+    },
+    {
+      "path": "plugins/peaklet_waveform_pool/index.html",
+      "sha256": "a65fd46d92b36ded43a2a32c228db7db0f8359fe19ccd9bd6166110d28c5df68",
+      "size": 44594
+    },
+    {
+      "path": "plugins/peaklet_waveforms/index.html",
+      "sha256": "ef63886c68ec2dbc19eb9904ab543074dac6bdd0eb53c90be2d3bb8d17b3efda",
+      "size": 69237
+    },
+    {
+      "path": "plugins/peaklets/index.html",
+      "sha256": "f922c2e7873d645bc1aa88e3d933663ff33533b78fa42f6e95fda12f037c7ea1",
+      "size": 68996
+    },
+    {
+      "path": "plugins/peaks/index.html",
+      "sha256": "506b4485d033ab18bc9918b708ab9c3a2e805f34ab346ad3ce1bdbee09a6e519",
+      "size": 65533
+    },
+    {
+      "path": "plugins/position_reconstruction/index.html",
+      "sha256": "767d048eb6f019845c3a0ecf6ac7c1933b95172acc285e1b308cb4079449add0",
+      "size": 65338
+    },
+    {
+      "path": "plugins/raw_files/index.html",
+      "sha256": "6a92cdbee64fcda02a3728d453176b195958a29dfc9948e32e317e105b971e8c",
+      "size": 42362
+    },
+    {
+      "path": "plugins/records/index.html",
+      "sha256": "e4c3e4c14a1db1899797b40171d6e83f578d2e6b107871ffa63851890f42c523",
+      "size": 80419
+    },
+    {
+      "path": "plugins/records_asymmetry_mask/index.html",
+      "sha256": "54f2c1c9a48c920c7a2a7eb0c1194b7a99b7df6aedfa6129b4274b3e9d413599",
+      "size": 49452
+    },
+    {
+      "path": "plugins/records_detector_mask/index.html",
+      "sha256": "b35f52b8536fff7d91f6536cac82a87de2e56c7be12137df840fc73202242089",
+      "size": 45028
+    },
+    {
+      "path": "plugins/records_veto_mask/index.html",
+      "sha256": "32c48ab770c3a1cb02acb91f04384add3516fd1b60f2fa095b4ac0c58c3d8e4f",
+      "size": 58356
+    },
+    {
+      "path": "plugins/reference/ADAPTER_PLUGIN_BEHAVIOR/index.html",
+      "sha256": "a043f8d7feeffcff9b39d9b03a2d51c0f254391fe59c11ddf724192423878c04",
+      "size": 135122
+    },
+    {
+      "path": "plugins/reference/ADAPTER_SYSTEM_GUIDE/index.html",
+      "sha256": "f8e4c871e7a696d58114e5efeaa9282ad661552591c996a9278922d8eba3c697",
+      "size": 217911
+    },
+    {
+      "path": "plugins/s1_s2_pair_candidates/index.html",
+      "sha256": "18fe2bc9f5dc0ea1e15adee2d923be25edebf6c332ecb8e55705adfe4641a918",
+      "size": 73835
+    },
+    {
+      "path": "plugins/s1_s2_pairs/index.html",
+      "sha256": "e2f94f5f69ea94d99406ab22f815f8539025451c5ce1b9810f9c3854bf9deca9",
+      "size": 68408
+    },
+    {
+      "path": "plugins/st_waveforms/index.html",
+      "sha256": "6d35cb2da9e42e6b00af5776216d5b1130ef49d5b5330226c023134f6d6fbf1f",
+      "size": 63776
+    },
+    {
+      "path": "plugins/wave_pool/index.html",
+      "sha256": "5d1bdb13a13944a8f8ebdbfa5e7bedae75a269ce9ad11c8e492fb931d5c727c6",
+      "size": 69049
+    },
+    {
+      "path": "plugins/wave_pool_filtered/index.html",
+      "sha256": "a90373dfa4c751faf1b62af313c330d28319ad60c1a9ca2ad6051676ac1bc9f8",
+      "size": 53382
+    },
+    {
+      "path": "plugins/waveform_width/index.html",
+      "sha256": "44d8e9146cc6e126b7a65f70047637e7edc0bcfec7d32e4dc2c7c8838bf29af8",
+      "size": 61385
+    },
+    {
+      "path": "plugins/waveform_width_integral/index.html",
+      "sha256": "f4e731826fe5b6d4fd29ec6d57e1082e08b64644453198a018cb8f4e77454d04",
+      "size": 58641
+    },
+    {
+      "path": "search-index.v1.json",
+      "sha256": "faebab54ec91ac3701968bf731c9f9a6e9e69cee2286d11ef891b9a4c687abf6",
+      "size": 918261
+    },
+    {
+      "path": "site-model.v1.json",
+      "sha256": "a10f5a31d59500020f2def686e88df18459779256bd29626dcd77f1c56ba81b0",
+      "size": 2188039
+    },
+    {
+      "path": "user-guide/EXAMPLES_GUIDE/index.html",
+      "sha256": "5b29336deda2614e955bd6c125015138e1154e66c28bb763af88e6857a9df3f9",
+      "size": 85866
+    },
+    {
+      "path": "user-guide/QUICKSTART_GUIDE/index.html",
+      "sha256": "b470b71cfd23edc816914286055567d4e9f5240bbe5089eb8eb9a27fb964f08b",
+      "size": 132385
+    },
+    {
+      "path": "user-guide/docs-build/index.html",
+      "sha256": "62268a4cf111dcd331bb38d66f6e2c998d4eeb2605e5f7159c60d82170c6ee0c",
+      "size": 31914
+    },
+    {
+      "path": "user-guide/index.html",
+      "sha256": "7874f6c99abc0f4fc82a3f328db8e89b69c598eeccc65525171cf5f38aa42037",
+      "size": 46540
+    },
+    {
+      "path": "visualizations/index.html",
+      "sha256": "32257c02741054c3b597c93d76555fb281656b1141e10b1ffeefa07e68133e06",
+      "size": 27058
+    },
+    {
+      "path": "visualizations/position-dashboard/index.html",
+      "sha256": "b4ebe6a84d410777faf2a4a0214af2021f2a967c6d754aedbec9b7a441decda0",
+      "size": 63619
+    },
+    {
+      "path": "visualizations/statistical-plots/index.html",
+      "sha256": "d178b23436996c071702633485e424de808cedf3dd6b3d35aa6849b7511b26db",
+      "size": 60725
+    },
+    {
+      "path": "visualizations/waveform-plots/index.html",
+      "sha256": "b5f512823e12ff67f99656c38a99ab5156fb4cefce189c42be360ce0d67a0fb0",
+      "size": 43388
+    }
+  ],
+  "fingerprint": "7daecfffd8f134134b945bd99f24b497a4c6833a03f2f449d48e981038db86d6",
+  "hash_algorithm": "sha256",
+  "schema": "site-web/v1"
+}

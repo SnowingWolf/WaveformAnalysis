@@ -13,7 +13,7 @@ records -> hit -> hit_merged -> peaks -> s1_s2
 ## 使用
 
 ```python
-from waveform_analysis.core.context import Context
+from waveform_analysis import Context
 
 from examples.ppt_fake_plugins import PPT_FAKE_PLUGINS
 

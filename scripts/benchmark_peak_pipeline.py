@@ -10,6 +10,7 @@ import json
 import math
 import os
 from pathlib import Path
+import platform
 import statistics
 import subprocess
 import sys
@@ -31,12 +32,24 @@ PIPELINE_TARGETS = (
     "peaklet_channels",
     "peaks",
 )
+PEAKLET_WAVEFORM_TARGET = "peaklet_waveforms"
+PEAKLET_WAVEFORM_POOL = "peaklet_waveform_pool"
 DIRECT_PIPELINE_TARGETS = (
     "peaklet_components",
     "peaklets",
     "peaklet_waveforms",
     "peaklet_features",
 )
+DIRECT_PEAKLET_WAVEFORM_DEPENDENCIES = (
+    "peaklets",
+    "peaklet_components",
+    "hit_merged",
+    "hit_merged_components",
+    "hit_threshold",
+    "records",
+    "wave_pool",
+)
+DIRECT_PEAKLET_WAVEFORM_FILTERED_DEPENDENCY = "wave_pool_filtered"
 COMPUTE_IMPROVEMENT_THRESHOLDS = {
     "peaklet_components": 0.20,
     "peaklets": 0.40,
@@ -92,12 +105,129 @@ def _dtype_from_json(value: Any) -> np.dtype:
     return np.dtype(value)
 
 
-def load_direct_manifest(path: str | Path) -> tuple[dict[str, np.ndarray], dict[str, Any]]:
-    """Load fixed upstream arrays as read-only memmaps from a manifest."""
+def _read_direct_manifest(path: str | Path) -> tuple[Path, dict[str, Any]]:
     manifest_path = Path(path).resolve()
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except FileNotFoundError as exc:
+        raise ValueError(f"direct manifest does not exist: {manifest_path}") from exc
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"direct manifest is not valid JSON: {manifest_path}") from exc
     if not isinstance(manifest, dict):
         raise ValueError("direct manifest must contain a JSON object")
+    return manifest_path, manifest
+
+
+def _manifest_stem_spec(stems: dict[str, Any], name: str) -> dict[str, Any]:
+    if name not in stems:
+        raise ValueError(f"direct manifest is missing required stem {name!r}")
+    raw_spec = stems[name]
+    if isinstance(raw_spec, str):
+        return {"stem": raw_spec}
+    if not isinstance(raw_spec, dict):
+        raise ValueError(f"direct manifest stem {name!r} must be a string or object")
+    return dict(raw_spec)
+
+
+def _shape_from_metadata(metadata: dict[str, Any], spec: dict[str, Any]) -> tuple[int, ...] | None:
+    shape = spec.get("shape", metadata.get("shape"))
+    if shape is None and "count" in metadata:
+        shape = [metadata["count"]]
+    if shape is None:
+        return None
+    if isinstance(shape, int):
+        shape = [shape]
+    if not isinstance(shape, list | tuple) or any(
+        not isinstance(item, int) or item < 0 for item in shape
+    ):
+        raise ValueError("direct manifest shape must be a non-negative integer sequence")
+    return tuple(int(item) for item in shape)
+
+
+def _canonical_sha256(value: Any) -> str:
+    encoded = json.dumps(_json_safe(value), sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _merge_config(manifest_config: dict[str, Any], overrides: dict[str, Any]) -> dict[str, Any]:
+    """Merge benchmark overrides without discarding nested manifest settings."""
+    merged = dict(manifest_config)
+    for key, value in overrides.items():
+        existing = merged.get(key)
+        if isinstance(existing, dict) and isinstance(value, dict):
+            nested = dict(existing)
+            nested.update(value)
+            merged[key] = nested
+        else:
+            merged[key] = value
+    return merged
+
+
+def _wave_pool_dependency_name(config: dict[str, Any]) -> str:
+    nested = config.get(PEAKLET_WAVEFORM_TARGET)
+    if isinstance(nested, dict) and "use_filtered" in nested:
+        use_filtered = nested["use_filtered"]
+    else:
+        use_filtered = config.get(f"{PEAKLET_WAVEFORM_TARGET}.use_filtered", False)
+    return DIRECT_PEAKLET_WAVEFORM_FILTERED_DEPENDENCY if bool(use_filtered) else "wave_pool"
+
+
+def _direct_required_dependencies(target: str, config: dict[str, Any]) -> tuple[str, ...]:
+    if target == PEAKLET_WAVEFORM_TARGET:
+        dependencies = list(DIRECT_PEAKLET_WAVEFORM_DEPENDENCIES)
+        pool_name = _wave_pool_dependency_name(config)
+        if pool_name != "wave_pool":
+            dependencies[-1] = pool_name
+        return tuple(dependencies)
+    if target == "peaklet_features":
+        return ("peaklets", "peaklet_components", PEAKLET_WAVEFORM_TARGET, PEAKLET_WAVEFORM_POOL)
+    if target == "peaklets":
+        return ("peaklet_components", "hit_merged")
+    if target == "peaklet_components":
+        return ("hit_merged",)
+    raise ValueError(f"unsupported direct benchmark target: {target!r}")
+
+
+def _validate_manifest_lineage(
+    manifest: dict[str, Any],
+    stems: dict[str, Any],
+    required: tuple[str, ...],
+    loaded_lineage: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Return a deterministic lineage mapping and reject incomplete manifests."""
+    raw_lineage = manifest.get("lineage")
+    if raw_lineage is None:
+        raw_lineage = {
+            name: stems[name].get("lineage")
+            for name in required
+            if isinstance(stems.get(name), dict) and "lineage" in stems[name]
+        }
+    if not isinstance(raw_lineage, dict):
+        raise ValueError("direct manifest requires a lineage object for the selected target")
+    if isinstance(raw_lineage, dict) and isinstance(raw_lineage.get("dependencies"), dict):
+        raw_lineage = raw_lineage["dependencies"]
+    merged_lineage = dict(loaded_lineage or {})
+    merged_lineage.update(raw_lineage)
+    raw_lineage = merged_lineage
+    missing = [name for name in required if name not in raw_lineage]
+    if missing:
+        raise ValueError("direct manifest lineage is missing required stems: " + ", ".join(missing))
+    expected_hash = manifest.get("lineage_sha256")
+    if expected_hash is not None:
+        actual_hash = _canonical_sha256(raw_lineage)
+        if str(expected_hash) != actual_hash:
+            raise ValueError("direct manifest lineage_sha256 does not match the manifest lineage")
+    return _json_safe(raw_lineage)
+
+
+def _load_direct_manifest_with_metadata(
+    path: str | Path,
+    *,
+    target: str | None = None,
+    config: dict[str, Any] | None = None,
+) -> tuple[dict[str, np.ndarray], dict[str, Any], dict[str, Any]]:
+    """Load read-only direct arrays and validate a selected target manifest."""
+    manifest_path, manifest = _read_direct_manifest(path)
     cache_root_value = manifest.get("cache_root")
     stems = manifest.get("stems")
     if not cache_root_value or not isinstance(stems, dict) or not stems:
@@ -106,37 +236,175 @@ def load_direct_manifest(path: str | Path) -> tuple[dict[str, np.ndarray], dict[
     cache_root = Path(cache_root_value)
     if not cache_root.is_absolute():
         cache_root = manifest_path.parent / cache_root
+    manifest_config = manifest.get("config", {})
+    if not isinstance(manifest_config, dict):
+        raise ValueError("direct manifest config must be an object")
+    effective_config = _merge_config(manifest_config, config or {})
+    if target is not None and "config" not in manifest:
+        raise ValueError("direct manifest requires a config object for the selected target")
+    manifest_target = manifest.get("target")
+    if manifest_target is not None and target is not None and manifest_target != target:
+        raise ValueError(
+            f"direct manifest target={manifest_target!r} does not match requested target={target!r}"
+        )
+    if target == PEAKLET_WAVEFORM_TARGET:
+        manifest_pool = _wave_pool_dependency_name(manifest_config)
+        manifest_waveform_config = manifest_config.get(PEAKLET_WAVEFORM_TARGET)
+        has_manifest_filter = isinstance(manifest_waveform_config, dict) and (
+            "use_filtered" in manifest_waveform_config
+        )
+        has_manifest_filter = has_manifest_filter or (
+            f"{PEAKLET_WAVEFORM_TARGET}.use_filtered" in manifest_config
+        )
+        explicit_waveform_config = (config or {}).get(PEAKLET_WAVEFORM_TARGET)
+        has_explicit_filter = isinstance(explicit_waveform_config, dict) and (
+            "use_filtered" in explicit_waveform_config
+        )
+        has_explicit_filter = has_explicit_filter or (
+            f"{PEAKLET_WAVEFORM_TARGET}.use_filtered" in (config or {})
+        )
+        explicit_pool = (
+            _wave_pool_dependency_name(config or {}) if has_explicit_filter else manifest_pool
+        )
+        if has_explicit_filter and has_manifest_filter and manifest_pool != explicit_pool:
+            raise ValueError("direct manifest peaklet_waveforms.use_filtered conflicts with config")
+    required: tuple[str, ...] = ()
+    if target is not None:
+        required = _direct_required_dependencies(target, effective_config)
     arrays: dict[str, np.ndarray] = {}
-    for name, raw_spec in stems.items():
-        spec = {"stem": raw_spec} if isinstance(raw_spec, str) else dict(raw_spec)
+    loaded_metadata: dict[str, dict[str, Any]] = {}
+    loaded_lineage: dict[str, Any] = {}
+    for name in stems:
+        spec = _manifest_stem_spec(stems, name)
         stem = spec.get("stem", name)
         default_path = stem if Path(stem).suffix else f"{stem}.bin"
         data_path = Path(spec.get("path", default_path))
         if not data_path.is_absolute():
             data_path = cache_root / data_path
-        if data_path.suffix == ".npy":
-            arrays[name] = np.load(data_path, mmap_mode="r", allow_pickle=False)
-            continue
+        data_path = data_path.resolve()
+        if not data_path.is_file():
+            raise ValueError(f"direct manifest stem {name!r} path does not exist: {data_path}")
 
-        metadata_path = Path(spec.get("metadata", f"{stem}.json"))
-        if not metadata_path.is_absolute():
-            metadata_path = cache_root / metadata_path
-        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+        metadata: dict[str, Any] = {}
+        metadata_value = spec.get("metadata")
+        if metadata_value is not None:
+            metadata_path = Path(metadata_value)
+            if not metadata_path.is_absolute():
+                metadata_path = cache_root / metadata_path
+            metadata_path = metadata_path.resolve()
+            if not metadata_path.is_file():
+                raise ValueError(
+                    f"direct manifest stem {name!r} metadata does not exist: {metadata_path}"
+                )
+            try:
+                metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError) as exc:
+                raise ValueError(
+                    f"direct manifest stem {name!r} metadata is not valid JSON"
+                ) from exc
+            if not isinstance(metadata, dict):
+                raise ValueError(f"direct manifest stem {name!r} metadata must be an object")
+
+        if data_path.suffix == ".npy":
+            try:
+                arrays[name] = np.load(data_path, mmap_mode="r", allow_pickle=False)
+            except (OSError, ValueError) as exc:
+                raise ValueError(f"could not load direct manifest stem {name!r}") from exc
+        else:
+            if not metadata:
+                metadata_path = Path(spec.get("metadata", f"{stem}.json"))
+                if not metadata_path.is_absolute():
+                    metadata_path = cache_root / metadata_path
+                metadata_path = metadata_path.resolve()
+                if not metadata_path.is_file():
+                    raise ValueError(
+                        f"direct manifest stem {name!r} metadata does not exist: {metadata_path}"
+                    )
+                try:
+                    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+                except (OSError, json.JSONDecodeError) as exc:
+                    raise ValueError(
+                        f"direct manifest stem {name!r} metadata is not valid JSON"
+                    ) from exc
+                if not isinstance(metadata, dict):
+                    raise ValueError(f"direct manifest stem {name!r} metadata must be an object")
+
         dtype_value = spec.get("dtype_descr", spec.get("dtype"))
         if dtype_value is None:
             dtype_value = metadata.get("dtype_descr", metadata.get("dtype"))
-        if dtype_value is None:
+        if target is not None and name in required and dtype_value is None:
             raise ValueError(f"direct manifest stem {name!r} is missing dtype metadata")
-        shape = spec.get("shape", metadata.get("shape"))
-        if shape is None:
-            shape = [metadata["count"]]
-        arrays[name] = np.memmap(
-            data_path,
-            dtype=_dtype_from_json(dtype_value),
-            mode="r",
-            shape=tuple(shape),
-        )
-    return arrays, manifest.get("config", {})
+        if data_path.suffix != ".npy" and dtype_value is None:
+            raise ValueError(f"direct manifest stem {name!r} is missing dtype metadata")
+        shape = _shape_from_metadata(metadata, spec)
+        if target is not None and name in required and shape is None:
+            raise ValueError(f"direct manifest stem {name!r} is missing shape metadata")
+        if data_path.suffix != ".npy":
+            if shape is None:
+                raise ValueError(f"direct manifest stem {name!r} is missing shape metadata")
+            arrays[name] = np.memmap(
+                data_path,
+                dtype=_dtype_from_json(dtype_value),
+                mode="r",
+                shape=shape,
+            )
+        if not isinstance(arrays[name], np.ndarray):
+            raise ValueError(f"direct manifest stem {name!r} did not load as an ndarray")
+        if arrays[name].flags.writeable:
+            raise ValueError(f"direct manifest stem {name!r} must be opened read-only")
+
+        if dtype_value is not None and arrays[name].dtype != _dtype_from_json(dtype_value):
+            raise ValueError(
+                f"direct manifest stem {name!r} dtype does not match its metadata: "
+                f"{arrays[name].dtype} != {_dtype_from_json(dtype_value)}"
+            )
+        if shape is not None and tuple(arrays[name].shape) != shape:
+            raise ValueError(
+                f"direct manifest stem {name!r} shape does not match its metadata: "
+                f"{tuple(arrays[name].shape)} != {shape}"
+            )
+        loaded_metadata[name] = {
+            "path": str(data_path),
+            "dtype": (
+                arrays[name].dtype.descr if arrays[name].dtype.names else arrays[name].dtype.str
+            ),
+            "shape": list(arrays[name].shape),
+            "nbytes": int(arrays[name].nbytes),
+        }
+        if "lineage" in metadata:
+            loaded_lineage[name] = metadata["lineage"]
+
+    lineage: dict[str, Any] = {}
+    if target is not None:
+        required = _direct_required_dependencies(target, effective_config)
+        missing = [name for name in required if name not in arrays]
+        if missing:
+            raise ValueError(
+                "direct manifest is missing required dependencies for "
+                f"{target!r}: {', '.join(missing)}"
+            )
+        lineage = _validate_manifest_lineage(manifest, stems, required, loaded_lineage)
+    config_hash = manifest.get("config_sha256")
+    if config_hash is not None and str(config_hash) != _canonical_sha256(manifest_config):
+        raise ValueError("direct manifest config_sha256 does not match the manifest config")
+
+    metadata = {
+        "manifest_path": str(manifest_path),
+        "cache_root": str(cache_root.resolve()),
+        "target": target,
+        "required_dependencies": list(required),
+        "lineage": lineage,
+        "lineage_sha256": _canonical_sha256(lineage) if lineage else None,
+        "config_sha256": _canonical_sha256(effective_config),
+        "stems": loaded_metadata,
+    }
+    return arrays, manifest_config, metadata
+
+
+def load_direct_manifest(path: str | Path) -> tuple[dict[str, np.ndarray], dict[str, Any]]:
+    """Load direct arrays as read-only memmaps (legacy two-value API)."""
+    arrays, config, _metadata = _load_direct_manifest_with_metadata(path)
+    return arrays, config
 
 
 class DirectCacheContext:
@@ -348,9 +616,125 @@ def array_summary(value: Any, *, include_hash: bool = True) -> dict[str, Any]:
     return result
 
 
-def _resolved_config_summary(ctx: Any) -> dict[str, Any]:
+def validate_offset_pool_contract(waveforms: np.ndarray, pool: np.ndarray) -> dict[str, Any]:
+    """Validate the ragged index/pool relationship without copying the pool."""
+    if not isinstance(waveforms, np.ndarray):
+        raise TypeError("waveform index must be a numpy array")
+    if not isinstance(pool, np.ndarray):
+        raise TypeError("waveform pool must be a numpy array")
+    names = waveforms.dtype.names or ()
+    missing = [name for name in ("wave_offset", "wave_length") if name not in names]
+    if missing:
+        raise ValueError("waveform index is missing contract fields: " + ", ".join(missing))
+    if pool.ndim != 1:
+        raise ValueError(f"waveform pool must be one-dimensional, got shape={pool.shape}")
+
+    offsets = np.asarray(waveforms["wave_offset"], dtype=np.int64)
+    lengths = np.asarray(waveforms["wave_length"], dtype=np.int64)
+    invalid_negative = np.flatnonzero((offsets < 0) | (lengths < 0))
+    ends = offsets + lengths
+    invalid_bounds = np.flatnonzero(ends > len(pool))
+    if len(invalid_negative) or len(invalid_bounds):
+        examples = np.unique(np.concatenate((invalid_negative[:5], invalid_bounds[:5])))
+        raise ValueError(
+            "waveform index references samples outside its pool: "
+            + ", ".join(str(int(item)) for item in examples)
+        )
+
+    # Offsets are allowed to repeat for empty rows, but a valid builder must
+    # never move backwards through the flattened pool.
+    non_monotonic = np.flatnonzero(offsets[1:] < offsets[:-1])
+    if len(non_monotonic):
+        raise ValueError(f"waveform offsets are not monotonic at row={int(non_monotonic[0]) + 1}")
+    return {
+        "valid": True,
+        "rows_checked": int(len(waveforms)),
+        "pool_length": int(len(pool)),
+        "max_referenced_end": int(ends.max()) if len(ends) else 0,
+        "offset_field": "wave_offset",
+        "length_field": "wave_length",
+        "pool_ndim": int(pool.ndim),
+    }
+
+
+def paired_output_summary(waveforms: Any, pool: Any) -> dict[str, Any]:
+    """Return paired index/pool hashes and the offset contract."""
+    contract = validate_offset_pool_contract(waveforms, pool)
+    return {
+        "paired_output": array_summary(pool),
+        "offset_pool_contract": contract,
+    }
+
+
+def _selected_targets(available: tuple[str, ...], target: str | None) -> tuple[str, ...]:
+    if target is None:
+        return available
+    if target not in available:
+        raise ValueError(
+            f"unsupported benchmark target {target!r}; choose one of {', '.join(available)}"
+        )
+    return (target,)
+
+
+def _runtime_environment() -> dict[str, Any]:
+    """Capture reproducibility metadata without importing optional thread tools."""
+    repository = Path(__file__).resolve().parent.parent
+
+    def git(*arguments: str) -> str | None:
+        try:
+            completed = subprocess.run(
+                ["git", *arguments],
+                cwd=repository,
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+        except (OSError, subprocess.CalledProcessError):
+            return None
+        return completed.stdout.strip()
+
+    try:
+        git_diff = subprocess.run(
+            ["git", "diff", "--binary", "HEAD"],
+            cwd=repository,
+            capture_output=True,
+            check=True,
+        ).stdout
+    except (OSError, subprocess.CalledProcessError):
+        git_diff_sha256 = None
+    else:
+        git_diff_sha256 = hashlib.sha256(git_diff).hexdigest()
+
+    thread_env = {
+        key: value
+        for key, value in sorted(os.environ.items())
+        if key.startswith(("OMP_", "MKL_", "OPENBLAS_", "NUMBA_", "VECLIB_", "BLAS_"))
+    }
+    try:
+        import numba
+
+        numba_version = numba.__version__
+    except ImportError:
+        numba_version = None
+    return {
+        "git_sha": git("rev-parse", "HEAD"),
+        "git_dirty": git("status", "--porcelain") not in (None, ""),
+        "git_diff_sha256": git_diff_sha256,
+        "python_version": platform.python_version(),
+        "python_implementation": platform.python_implementation(),
+        "python_executable": sys.executable,
+        "numpy_version": np.__version__,
+        "numba_version": numba_version,
+        "thread_environment": thread_env,
+    }
+
+
+WARMUP_TYPE = "warm_jit_warm_page_cache"
+
+
+def _resolved_config_summary(ctx: Any, targets: tuple[str, ...] | None = None) -> dict[str, Any]:
     summary: dict[str, Any] = {}
-    for target in PIPELINE_TARGETS:
+    for target in targets or PIPELINE_TARGETS:
         resolved = ctx.get_resolved_config(target)
         summary[target] = {
             "adapter_name": resolved.adapter_name,
@@ -372,8 +756,11 @@ def _lineage_node_summary(lineage: dict[str, Any]) -> dict[str, Any]:
     return payload
 
 
-def _lineage_summary(ctx: Any) -> dict[str, Any]:
-    return {target: _lineage_node_summary(ctx.get_lineage(target)) for target in PIPELINE_TARGETS}
+def _lineage_summary(ctx: Any, targets: tuple[str, ...] | None = None) -> dict[str, Any]:
+    return {
+        target: _lineage_node_summary(ctx.get_lineage(target))
+        for target in (targets or PIPELINE_TARGETS)
+    }
 
 
 def _plugin_dependencies(plugin: Any, ctx: Any, run_id: str) -> list[str]:
@@ -384,23 +771,32 @@ def _plugin_dependencies(plugin: Any, ctx: Any, run_id: str) -> list[str]:
 
 
 def run_compute_only(
-    *, run_id: str, storage_dir: str | Path, config: dict[str, Any]
+    *,
+    run_id: str,
+    storage_dir: str | Path,
+    config: dict[str, Any],
+    target: str | None = None,
 ) -> dict[str, Any]:
     targets: dict[str, Any] = {}
     resolved_config: dict[str, Any] | None = None
     lineage: dict[str, Any] | None = None
+    selected_targets = _selected_targets(PIPELINE_TARGETS, target)
+    warmup_elapsed_total = 0.0
 
-    for target in PIPELINE_TARGETS:
+    for target_name in selected_targets:
+        warmup_started = time.perf_counter()
         warmup_ctx = build_context(storage_dir, config)
-        warmup_plugin = warmup_ctx.get_plugin(target)
+        warmup_plugin = warmup_ctx.get_plugin(target_name)
         for dependency in _plugin_dependencies(warmup_plugin, warmup_ctx, run_id):
             warmup_ctx.get_data(run_id, dependency)
         warmup_plugin.compute(warmup_ctx, run_id)
         del warmup_plugin, warmup_ctx
         gc.collect()
+        warmup_elapsed = time.perf_counter() - warmup_started
+        warmup_elapsed_total += warmup_elapsed
 
         ctx = build_context(storage_dir, config)
-        plugin = ctx.get_plugin(target)
+        plugin = ctx.get_plugin(target_name)
         dependencies = _plugin_dependencies(plugin, ctx, run_id)
 
         preload_started = time.perf_counter()
@@ -408,21 +804,33 @@ def run_compute_only(
             ctx.get_data(run_id, dependency)
         preload_elapsed = time.perf_counter() - preload_started
         if resolved_config is None:
-            resolved_config = _resolved_config_summary(ctx)
-            lineage = _lineage_summary(ctx)
+            if target is None:
+                # Keep the historical full-pipeline call shape for callers that
+                # monkeypatch these reporting helpers.
+                resolved_config = _resolved_config_summary(ctx)
+                lineage = _lineage_summary(ctx)
+            else:
+                resolved_config = _resolved_config_summary(ctx, selected_targets)
+                lineage = _lineage_summary(ctx, selected_targets)
 
         with PeakRssSampler() as rss:
             started = time.perf_counter()
             result = plugin.compute(ctx, run_id)
             elapsed = time.perf_counter() - started
 
-        targets[target] = {
+        target_result: dict[str, Any] = {
             "elapsed_sec": elapsed,
             "preload_elapsed_sec": preload_elapsed,
             "dependencies": dependencies,
+            "warmup_elapsed_sec": warmup_elapsed,
+            "warmup_type": WARMUP_TYPE,
             "rss": rss.to_dict(),
             "output": array_summary(result),
         }
+        if target_name == PEAKLET_WAVEFORM_TARGET:
+            pool = ctx.get_data(run_id, PEAKLET_WAVEFORM_POOL)
+            target_result.update(paired_output_summary(result, pool))
+        targets[target_name] = target_result
         del result, plugin, ctx
         gc.collect()
 
@@ -430,13 +838,19 @@ def run_compute_only(
         "mode": "compute",
         "targets": targets,
         "total_compute_sec": sum(item["elapsed_sec"] for item in targets.values()),
+        "warmup_type": WARMUP_TYPE,
+        "warmup_elapsed_sec": warmup_elapsed_total,
         "resolved_config": resolved_config or {},
         "lineage": lineage or {},
     }
 
 
 def run_end_to_end(
-    *, run_id: str, storage_dir: str | Path, config: dict[str, Any]
+    *,
+    run_id: str,
+    storage_dir: str | Path,
+    config: dict[str, Any],
+    target: str | None = None,
 ) -> dict[str, Any]:
     effective_config = config.copy()
     effective_config.setdefault("data_root", str(storage_dir))
@@ -447,16 +861,32 @@ def run_end_to_end(
         prefix=".wa-peak-benchmark-cache-", dir=str(cache_parent)
     ) as cache_dir:
         ctx = build_context(cache_dir, effective_config)
+        selected_targets = _selected_targets(PIPELINE_TARGETS, target)
         with PeakRssSampler() as rss:
             started = time.perf_counter()
-            ctx.get_data(run_id, "peaks")
+            if target is None:
+                # Preserve the historical end-to-end entry point: the final
+                # ``peaks`` request drives the complete dependency graph.
+                ctx.get_data(run_id, "peaks")
+            else:
+                ctx.get_data(run_id, target)
             elapsed = time.perf_counter() - started
 
-        resolved_config = _resolved_config_summary(ctx)
-        lineage = _lineage_summary(ctx)
-        targets = {
-            target: array_summary(ctx.get_data(run_id, target)) for target in PIPELINE_TARGETS
-        }
+        if target is None:
+            resolved_config = _resolved_config_summary(ctx)
+            lineage = _lineage_summary(ctx)
+        else:
+            resolved_config = _resolved_config_summary(ctx, selected_targets)
+            lineage = _lineage_summary(ctx, selected_targets)
+        targets: dict[str, Any] = {}
+        for target_name in selected_targets:
+            result = ctx.get_data(run_id, target_name)
+            target_summary = array_summary(result)
+            if target_name == PEAKLET_WAVEFORM_TARGET:
+                target_summary.update(
+                    paired_output_summary(result, ctx.get_data(run_id, PEAKLET_WAVEFORM_POOL))
+                )
+            targets[target_name] = target_summary
         profiler = {
             key: {"total_sec": float(value), "calls": int(ctx.profiler.counts.get(key, 0))}
             for key, value in sorted(ctx.profiler.durations.items())
@@ -471,6 +901,9 @@ def run_end_to_end(
             "resolved_config": resolved_config,
             "lineage": lineage,
             "fresh_cache": True,
+            "target": target,
+            "warmup_type": "none_cold_end_to_end",
+            "warmup_elapsed_sec": 0.0,
         }
 
 
@@ -500,30 +933,69 @@ def _direct_end_to_end_data(data: dict[str, np.ndarray]) -> dict[str, np.ndarray
 
 
 def run_direct_compute(
-    *, run_id: str, manifest_path: str | Path, config: dict[str, Any]
+    *,
+    run_id: str,
+    manifest_path: str | Path,
+    config: dict[str, Any],
+    target: str | None = None,
 ) -> dict[str, Any]:
-    data, manifest_config = load_direct_manifest(manifest_path)
-    effective_config = {**manifest_config, **config}
-    targets = {}
-    for target in DIRECT_PIPELINE_TARGETS:
-        stage_data = _direct_stage_data(data, target)
+    data, manifest_config, manifest_metadata = _load_direct_manifest_with_metadata(
+        manifest_path,
+        target=target,
+        config=config,
+    )
+    effective_config = _merge_config(manifest_config, config)
+    targets: dict[str, Any] = {}
+    selected_targets = _selected_targets(DIRECT_PIPELINE_TARGETS, target)
+    warmup_elapsed_total = 0.0
+    for target_name in selected_targets:
+        stage_data = _direct_stage_data(data, target_name)
+        warmup_started = time.perf_counter()
         warmup = DirectCacheContext(stage_data, effective_config)
-        warmup.get_data(run_id, target)
+        for dependency in _direct_required_dependencies(target_name, effective_config):
+            warmup.get_data(run_id, dependency)
+        warmup.get_data(run_id, target_name)
         del warmup
         gc.collect()
+        warmup_elapsed = time.perf_counter() - warmup_started
+        warmup_elapsed_total += warmup_elapsed
 
         context = DirectCacheContext(stage_data, effective_config)
-        for prerequisite in _direct_prerequisites(target):
-            context.get_data(run_id, prerequisite)
+        dependencies = _direct_required_dependencies(target_name, effective_config)
+        preload_started = time.perf_counter()
+        for dependency in dependencies:
+            context.get_data(run_id, dependency)
+        preload_elapsed = time.perf_counter() - preload_started
         with PeakRssSampler() as rss:
             started = time.perf_counter()
-            result = context.get_data(run_id, target)
+            result = context.get_data(run_id, target_name)
             elapsed = time.perf_counter() - started
-        targets[target] = {
+        target_result: dict[str, Any] = {
             "elapsed_sec": elapsed,
+            "preload_elapsed_sec": preload_elapsed,
+            "dependencies": list(dependencies),
+            "warmup_elapsed_sec": warmup_elapsed,
+            "warmup_type": WARMUP_TYPE,
             "rss": rss.to_dict(),
             "output": array_summary(result),
         }
+        if target_name == PEAKLET_WAVEFORM_TARGET:
+            pool = context.get_data(run_id, PEAKLET_WAVEFORM_POOL)
+            target_result.update(paired_output_summary(result, pool))
+            plugins = getattr(context, "_plugins", {})
+            plugin = plugins.get(target_name) if isinstance(plugins, dict) else None
+            diagnostics = getattr(plugin, "_last_waveform_diagnostics", None)
+            if isinstance(diagnostics, dict):
+                diagnostics = _json_safe(diagnostics)
+                phase_timings = dict(diagnostics.get("phase_timings", {}))
+                # Direct compute deliberately does not persist a cache.  Keep
+                # the fifth phase explicit so reports cannot confuse an
+                # unmeasured disk write with plugin compute time.
+                phase_timings["save_cache"] = 0.0
+                diagnostics["phase_timings"] = phase_timings
+                diagnostics["save_cache_applicable"] = False
+                target_result["diagnostics"] = diagnostics
+        targets[target_name] = target_result
         del result, context
         gc.collect()
     return {
@@ -531,34 +1003,55 @@ def run_direct_compute(
         "source": "direct-cache",
         "targets": targets,
         "total_compute_sec": sum(entry["elapsed_sec"] for entry in targets.values()),
+        "warmup_type": WARMUP_TYPE,
+        "warmup_elapsed_sec": warmup_elapsed_total,
+        "manifest": manifest_metadata,
+        "resolved_config": _json_safe(effective_config),
+        "lineage": manifest_metadata.get("lineage", {}),
     }
 
 
 def run_direct_end_to_end(
-    *, run_id: str, manifest_path: str | Path, config: dict[str, Any]
+    *,
+    run_id: str,
+    manifest_path: str | Path,
+    config: dict[str, Any],
+    target: str | None = None,
 ) -> dict[str, Any]:
-    data, manifest_config = load_direct_manifest(manifest_path)
-    effective_config = {**manifest_config, **config}
+    data, manifest_config, manifest_metadata = _load_direct_manifest_with_metadata(
+        manifest_path,
+        target=target,
+        config=config,
+    )
+    effective_config = _merge_config(manifest_config, config)
     stage_data = _direct_end_to_end_data(data)
+    selected_targets = _selected_targets(DIRECT_PIPELINE_TARGETS, target)
+    warmup_started = time.perf_counter()
     warmup = DirectCacheContext(stage_data, effective_config)
-    for target in DIRECT_PIPELINE_TARGETS:
-        warmup.get_data(run_id, target)
+    for target_name in selected_targets:
+        warmup.get_data(run_id, target_name)
     del warmup
     gc.collect()
+    warmup_elapsed = time.perf_counter() - warmup_started
     with tempfile.TemporaryDirectory(prefix="wa-peak-direct-cache-") as cache_dir:
         context = DirectCacheContext(stage_data, effective_config, output_dir=cache_dir)
         stage_elapsed = {}
         with PeakRssSampler() as rss:
             total_started = time.perf_counter()
-            for target in DIRECT_PIPELINE_TARGETS:
+            for target_name in selected_targets:
                 started = time.perf_counter()
-                context.get_data(run_id, target)
-                stage_elapsed[target] = time.perf_counter() - started
+                context.get_data(run_id, target_name)
+                stage_elapsed[target_name] = time.perf_counter() - started
             elapsed = time.perf_counter() - total_started
-        targets = {
-            target: array_summary(context.get_data(run_id, target))
-            for target in DIRECT_PIPELINE_TARGETS
-        }
+        targets: dict[str, Any] = {}
+        for target_name in selected_targets:
+            result = context.get_data(run_id, target_name)
+            target_summary = array_summary(result)
+            if target_name == PEAKLET_WAVEFORM_TARGET:
+                target_summary.update(
+                    paired_output_summary(result, context.get_data(run_id, PEAKLET_WAVEFORM_POOL))
+                )
+            targets[target_name] = target_summary
         return {
             "mode": "end-to-end",
             "source": "direct-cache",
@@ -567,37 +1060,50 @@ def run_direct_end_to_end(
             "rss": rss.to_dict(),
             "targets": targets,
             "fresh_cache": True,
+            "warmup_type": WARMUP_TYPE,
+            "warmup_elapsed_sec": warmup_elapsed,
+            "manifest": manifest_metadata,
+            "resolved_config": _json_safe(effective_config),
+            "lineage": manifest_metadata.get("lineage", {}),
         }
 
 
 def run_worker(args: argparse.Namespace) -> dict[str, Any]:
     config = load_config(args.config_json)
+    target = getattr(args, "target", None)
     if args.direct_manifest and args.worker_mode == "compute":
         result = run_direct_compute(
             run_id=args.run_id,
             manifest_path=args.direct_manifest,
             config=config,
+            target=target,
         )
     elif args.direct_manifest:
         result = run_direct_end_to_end(
             run_id=args.run_id,
             manifest_path=args.direct_manifest,
             config=config,
+            target=target,
         )
     elif args.worker_mode == "compute":
         result = run_compute_only(
             run_id=args.run_id,
             storage_dir=args.storage_dir,
             config=config,
+            target=target,
         )
     else:
         result = run_end_to_end(
             run_id=args.run_id,
             storage_dir=args.storage_dir,
             config=config,
+            target=target,
         )
     result["repeat"] = args.repeat_index
     result["pid"] = os.getpid()
+    result["target"] = target
+    result["runtime_environment"] = _runtime_environment()
+    result["environment"] = result["runtime_environment"]
     return result
 
 
@@ -619,52 +1125,154 @@ def aggregate_samples(samples: list[dict[str, Any]]) -> dict[str, Any]:
     if not samples:
         return {}
     mode = samples[0]["mode"]
+    if any(sample.get("mode") != mode for sample in samples[1:]):
+        raise ValueError("benchmark samples do not have the same mode")
 
     def output_for(sample: dict[str, Any], target: str) -> dict[str, Any]:
         target_result = sample["targets"][target]
         return target_result["output"] if mode == "compute" else target_result
+
+    def output_identity(output: dict[str, Any]) -> tuple[Any, ...]:
+        golden = output.get("golden", {})
+        return (
+            output.get("row_count"),
+            output.get("nbytes"),
+            repr(output.get("dtype")),
+            repr(output.get("shape")),
+            golden.get("golden_sha256"),
+        )
+
+    def output_aggregate(outputs: list[dict[str, Any]]) -> dict[str, Any]:
+        first = outputs[0]
+        golden = first.get("golden", {})
+        result = {
+            "row_count": first.get("row_count"),
+            "nbytes": first.get("nbytes"),
+            "dtype": first.get("dtype"),
+            "shape": first.get("shape"),
+            "golden_consistent": len({output_identity(item) for item in outputs}) == 1,
+            "golden_sha256": golden.get("golden_sha256"),
+        }
+        # Keep the raw-data digest available for a paired-output audit while
+        # retaining golden_sha256 as the comparison identity.
+        if "golden" in first and "data_sha256" in golden:
+            result["data_sha256"] = golden["data_sha256"]
+        return result
+
+    def paired_for(sample: dict[str, Any], target: str) -> dict[str, Any] | None:
+        target_result = sample["targets"][target]
+        if mode == "compute":
+            return target_result.get("paired_output")
+        return target_result.get("paired_output")
+
+    def contract_for(sample: dict[str, Any], target: str) -> dict[str, Any] | None:
+        return sample["targets"][target].get("offset_pool_contract")
 
     target_names = list(samples[0]["targets"])
     if any(set(sample["targets"]) != set(target_names) for sample in samples[1:]):
         raise ValueError("benchmark samples do not contain the same targets")
     golden_consistent = {}
     golden_sha256 = {}
+    output_summaries: dict[str, dict[str, Any]] = {}
+    paired_summaries: dict[str, dict[str, Any] | None] = {}
+    contract_summaries: dict[str, dict[str, Any] | None] = {}
     for target in target_names:
         outputs = [output_for(sample, target) for sample in samples]
-        identities = {
-            (
-                output["row_count"],
-                output["nbytes"],
-                output["golden"]["golden_sha256"],
+        output_summaries[target] = output_aggregate(outputs)
+        golden_consistent[target] = output_summaries[target]["golden_consistent"]
+        golden_sha256[target] = output_summaries[target]["golden_sha256"]
+
+        paired_outputs = [paired_for(sample, target) for sample in samples]
+        if any(item is not None for item in paired_outputs):
+            if not all(item is not None for item in paired_outputs):
+                raise ValueError(f"paired output is missing from some {target!r} samples")
+            paired_summaries[target] = output_aggregate(
+                [item for item in paired_outputs if item is not None]
             )
-            for output in outputs
-        }
-        golden_consistent[target] = len(identities) == 1
-        golden_sha256[target] = outputs[0]["golden"]["golden_sha256"]
+        else:
+            paired_summaries[target] = None
+
+        contracts = [contract_for(sample, target) for sample in samples]
+        if any(item is not None for item in contracts):
+            if not all(item is not None for item in contracts):
+                raise ValueError(f"offset/pool contract is missing from some {target!r} samples")
+            first_contract = contracts[0]
+            assert first_contract is not None
+            contract_summaries[target] = {
+                **first_contract,
+                "valid": all(bool(item.get("valid")) for item in contracts if item is not None),
+            }
+        else:
+            contract_summaries[target] = None
 
     if mode == "compute":
         targets = {}
         for target in target_names:
             entries = [sample["targets"][target] for sample in samples]
-            targets[target] = {
+            target_summary = {
                 "elapsed_sec": _metric_summary([entry["elapsed_sec"] for entry in entries]),
                 "incremental_peak_rss_bytes": _metric_summary(
                     [entry["rss"]["incremental_peak_bytes"] for entry in entries]
                 ),
-                "row_count": entries[0]["output"]["row_count"],
-                "nbytes": entries[0]["output"]["nbytes"],
+                **output_summaries[target],
                 "golden_consistent": golden_consistent[target],
                 "golden_sha256": golden_sha256[target],
             }
+            if paired_summaries[target] is not None:
+                target_summary["paired_output"] = paired_summaries[target]
+                target_summary["offset_pool_contract"] = contract_summaries[target]
+            diagnostics = [entry.get("diagnostics") for entry in entries]
+            if any(item is not None for item in diagnostics):
+                if not all(isinstance(item, dict) for item in diagnostics):
+                    raise ValueError(f"diagnostics are missing from some {target!r} samples")
+                phase_names = sorted(
+                    {phase for item in diagnostics for phase in item.get("phase_timings", {})}
+                )
+                target_summary["diagnostics"] = {
+                    "phase_timings": {
+                        phase: _metric_summary(
+                            [float(item["phase_timings"].get(phase, 0.0)) for item in diagnostics]
+                        )
+                        for phase in phase_names
+                    },
+                    "fallback_peaklets": [
+                        int(item.get("fallback_peaklets", 0)) for item in diagnostics
+                    ],
+                    "used_compact_hmc": [
+                        bool(item.get("used_compact_hmc", False)) for item in diagnostics
+                    ],
+                    "save_cache_applicable": all(
+                        bool(item.get("save_cache_applicable", False)) for item in diagnostics
+                    ),
+                }
+            targets[target] = target_summary
+        sample_rss = []
+        for sample in samples:
+            selected_target = sample.get("target")
+            if selected_target in sample["targets"]:
+                selected_entry = sample["targets"][selected_target]
+                sample_rss.append(selected_entry["rss"]["incremental_peak_bytes"])
+            else:
+                sample_rss.append(
+                    max(
+                        entry["rss"]["incremental_peak_bytes"]
+                        for entry in sample["targets"].values()
+                    )
+                )
         return {
             "mode": mode,
             "targets": targets,
+            "incremental_peak_rss_bytes": _metric_summary(sample_rss),
             "total_compute_sec": _metric_summary(
                 [sample["total_compute_sec"] for sample in samples]
             ),
+            "warmup_type": samples[0].get("warmup_type"),
+            "warmup_elapsed_sec": _metric_summary(
+                [float(sample.get("warmup_elapsed_sec", 0.0)) for sample in samples]
+            ),
         }
 
-    return {
+    result = {
         "mode": mode,
         "elapsed_sec": _metric_summary([sample["elapsed_sec"] for sample in samples]),
         "incremental_peak_rss_bytes": _metric_summary(
@@ -672,14 +1280,26 @@ def aggregate_samples(samples: list[dict[str, Any]]) -> dict[str, Any]:
         ),
         "targets": {
             target: {
-                "row_count": samples[0]["targets"][target]["row_count"],
-                "nbytes": samples[0]["targets"][target]["nbytes"],
+                **output_summaries[target],
                 "golden_consistent": golden_consistent[target],
                 "golden_sha256": golden_sha256[target],
+                **(
+                    {
+                        "paired_output": paired_summaries[target],
+                        "offset_pool_contract": contract_summaries[target],
+                    }
+                    if paired_summaries[target] is not None
+                    else {}
+                ),
             }
             for target in target_names
         },
     }
+    result["warmup_type"] = samples[0].get("warmup_type")
+    result["warmup_elapsed_sec"] = _metric_summary(
+        [float(sample.get("warmup_elapsed_sec", 0.0)) for sample in samples]
+    )
+    return result
 
 
 def _comparison_check(
@@ -703,27 +1323,108 @@ def compare_reports(current: dict[str, Any], baseline: dict[str, Any]) -> dict[s
     current_targets = current_compute.get("targets", {})
     baseline_targets = baseline_compute.get("targets", {})
 
-    for target in sorted(set(current_targets) | set(baseline_targets)):
-        current_target = current_targets.get(target)
-        baseline_target = baseline_targets.get(target)
-        current_hash = current_target.get("golden_sha256") if current_target else None
-        baseline_hash = baseline_target.get("golden_sha256") if baseline_target else None
-        consistent = bool(
-            current_target
-            and baseline_target
-            and current_target.get("golden_consistent")
-            and baseline_target.get("golden_consistent")
-        )
-        _comparison_check(
-            checks,
-            name="golden_hash",
-            target=target,
-            passed=bool(current_hash and current_hash == baseline_hash and consistent),
-            current=current_hash,
-            baseline=baseline_hash,
-        )
+    def target_scope(report: dict[str, Any]) -> tuple[str | None, set[str]]:
+        summary = report.get("summary", {})
+        compute_targets = summary.get("compute", {}).get("targets", {})
+        end_to_end_targets = summary.get("end-to-end", {}).get("targets", {})
+        declared_targets = report.get("targets")
+        if declared_targets is None:
+            target_set = set(compute_targets) | set(end_to_end_targets)
+        else:
+            target_set = {str(item) for item in declared_targets}
+        declared_target = report.get("target")
+        return (str(declared_target) if declared_target is not None else None, target_set)
 
-    for target, threshold in COMPUTE_IMPROVEMENT_THRESHOLDS.items():
+    current_scope, current_target_set = target_scope(current)
+    baseline_scope, baseline_target_set = target_scope(baseline)
+    scope_matches = current_scope == baseline_scope and current_target_set == baseline_target_set
+    _comparison_check(
+        checks,
+        name="target_scope",
+        passed=scope_matches,
+        current_target=current_scope,
+        baseline_target=baseline_scope,
+        current_targets=sorted(current_target_set),
+        baseline_targets=sorted(baseline_target_set),
+    )
+    if not scope_matches:
+        return {"passed": False, "checks": checks}
+
+    target_names = [current_scope] if current_scope is not None else sorted(current_targets)
+
+    def compare_target_outputs(
+        current_mode_targets: dict[str, Any],
+        baseline_mode_targets: dict[str, Any],
+        targets: list[str],
+    ) -> None:
+        for target in targets:
+            current_target = current_mode_targets.get(target)
+            baseline_target = baseline_mode_targets.get(target)
+            if current_target is None:
+                # The selected target is the source of truth for a scoped
+                # report; a missing current entry is always a failed check.
+                current_hash = None
+                baseline_hash = baseline_target.get("golden_sha256") if baseline_target else None
+                consistent = False
+            else:
+                current_hash = current_target.get("golden_sha256")
+                baseline_hash = baseline_target.get("golden_sha256") if baseline_target else None
+                consistent = bool(
+                    baseline_target
+                    and current_target.get("golden_consistent")
+                    and baseline_target.get("golden_consistent")
+                )
+            _comparison_check(
+                checks,
+                name="golden_hash",
+                target=target,
+                passed=bool(current_hash and current_hash == baseline_hash and consistent),
+                current=current_hash,
+                baseline=baseline_hash,
+            )
+
+            if not current_target or not baseline_target:
+                continue
+            current_pair = current_target.get("paired_output")
+            baseline_pair = baseline_target.get("paired_output")
+            if current_pair is not None or baseline_pair is not None:
+                current_pair_hash = current_pair.get("golden_sha256") if current_pair else None
+                baseline_pair_hash = baseline_pair.get("golden_sha256") if baseline_pair else None
+                pair_consistent = bool(
+                    current_pair
+                    and baseline_pair
+                    and current_pair.get("golden_consistent")
+                    and baseline_pair.get("golden_consistent")
+                )
+                _comparison_check(
+                    checks,
+                    name="paired_golden_hash",
+                    target=target,
+                    passed=bool(
+                        current_pair_hash
+                        and current_pair_hash == baseline_pair_hash
+                        and pair_consistent
+                    ),
+                    current=current_pair_hash,
+                    baseline=baseline_pair_hash,
+                )
+
+            contract = current_target.get("offset_pool_contract")
+            if contract is not None:
+                _comparison_check(
+                    checks,
+                    name="offset_pool_contract",
+                    target=target,
+                    passed=bool(contract.get("valid")),
+                    current=contract,
+                )
+
+    if current_targets:
+        compare_target_outputs(current_targets, baseline_targets, target_names)
+    elif current_scope is not None:
+        compare_target_outputs({}, baseline_targets, target_names)
+
+    for target in target_names:
         current_target = current_targets.get(target)
         baseline_target = baseline_targets.get(target)
         current_median = (
@@ -737,6 +1438,9 @@ def compare_reports(current: dict[str, Any], baseline: dict[str, Any]) -> dict[s
             if baseline_median and current_median is not None
             else None
         )
+        threshold = COMPUTE_IMPROVEMENT_THRESHOLDS.get(target)
+        if threshold is None:
+            continue
         _comparison_check(
             checks,
             name="compute_improvement",
@@ -760,46 +1464,90 @@ def compare_reports(current: dict[str, Any], baseline: dict[str, Any]) -> dict[s
             range_over_median=variance,
             maximum=MAX_RANGE_OVER_MEDIAN,
         )
+        diagnostics = current_target.get("diagnostics", {}) if current_target else {}
+        fallback_peaklets = diagnostics.get("fallback_peaklets")
+        if fallback_peaklets is not None:
+            _comparison_check(
+                checks,
+                name="fallback_peaklets",
+                target=target,
+                passed=bool(fallback_peaklets)
+                and all(int(value) == 0 for value in fallback_peaklets),
+                values=fallback_peaklets,
+            )
 
-    total_variance = current_compute.get("total_compute_sec", {}).get("range_over_median")
-    _comparison_check(
-        checks,
-        name="variance",
-        target="total_compute",
-        passed=total_variance is not None and total_variance <= MAX_RANGE_OVER_MEDIAN,
-        range_over_median=total_variance,
-        maximum=MAX_RANGE_OVER_MEDIAN,
-    )
+    if current_compute and baseline_compute:
+        total_variance = current_compute.get("total_compute_sec", {}).get("range_over_median")
+        _comparison_check(
+            checks,
+            name="variance",
+            target="total_compute",
+            passed=total_variance is not None and total_variance <= MAX_RANGE_OVER_MEDIAN,
+            range_over_median=total_variance,
+            maximum=MAX_RANGE_OVER_MEDIAN,
+        )
+
+        if current_scope is not None:
+            current_rss = (
+                current_targets.get(current_scope, {})
+                .get("incremental_peak_rss_bytes", {})
+                .get("median")
+            )
+            baseline_rss = (
+                baseline_targets.get(baseline_scope, {})
+                .get("incremental_peak_rss_bytes", {})
+                .get("median")
+            )
+        else:
+            current_rss = current_compute.get("incremental_peak_rss_bytes", {}).get("median")
+            baseline_rss = baseline_compute.get("incremental_peak_rss_bytes", {}).get("median")
+        _comparison_check(
+            checks,
+            name="rss_regression",
+            passed=(
+                current_rss is not None
+                and baseline_rss is not None
+                and current_rss <= baseline_rss * 1.05
+            ),
+            current_median_bytes=current_rss,
+            baseline_median_bytes=baseline_rss,
+            maximum_ratio=1.05,
+        )
 
     current_e2e = current_summary.get("end-to-end", {})
     baseline_e2e = baseline_summary.get("end-to-end", {})
-    current_e2e_median = current_e2e.get("elapsed_sec", {}).get("median")
-    baseline_e2e_median = baseline_e2e.get("elapsed_sec", {}).get("median")
-    e2e_improvement = (
-        (baseline_e2e_median - current_e2e_median) / baseline_e2e_median
-        if baseline_e2e_median and current_e2e_median is not None
-        else None
-    )
-    _comparison_check(
-        checks,
-        name="end_to_end_improvement",
-        passed=(
-            e2e_improvement is not None and e2e_improvement >= END_TO_END_IMPROVEMENT_THRESHOLD
-        ),
-        current_median_sec=current_e2e_median,
-        baseline_median_sec=baseline_e2e_median,
-        improvement=e2e_improvement,
-        required_improvement=END_TO_END_IMPROVEMENT_THRESHOLD,
-    )
-    e2e_variance = current_e2e.get("elapsed_sec", {}).get("range_over_median")
-    _comparison_check(
-        checks,
-        name="variance",
-        target="end-to-end",
-        passed=e2e_variance is not None and e2e_variance <= MAX_RANGE_OVER_MEDIAN,
-        range_over_median=e2e_variance,
-        maximum=MAX_RANGE_OVER_MEDIAN,
-    )
+    if current_e2e and baseline_e2e:
+        current_e2e_targets = current_e2e.get("targets", {})
+        baseline_e2e_targets = baseline_e2e.get("targets", {})
+        if current_e2e_targets:
+            compare_target_outputs(current_e2e_targets, baseline_e2e_targets, target_names)
+        current_e2e_median = current_e2e.get("elapsed_sec", {}).get("median")
+        baseline_e2e_median = baseline_e2e.get("elapsed_sec", {}).get("median")
+        e2e_improvement = (
+            (baseline_e2e_median - current_e2e_median) / baseline_e2e_median
+            if baseline_e2e_median and current_e2e_median is not None
+            else None
+        )
+        _comparison_check(
+            checks,
+            name="end_to_end_improvement",
+            passed=(
+                e2e_improvement is not None and e2e_improvement >= END_TO_END_IMPROVEMENT_THRESHOLD
+            ),
+            current_median_sec=current_e2e_median,
+            baseline_median_sec=baseline_e2e_median,
+            improvement=e2e_improvement,
+            required_improvement=END_TO_END_IMPROVEMENT_THRESHOLD,
+        )
+        e2e_variance = current_e2e.get("elapsed_sec", {}).get("range_over_median")
+        _comparison_check(
+            checks,
+            name="variance",
+            target="end-to-end",
+            passed=e2e_variance is not None and e2e_variance <= MAX_RANGE_OVER_MEDIAN,
+            range_over_median=e2e_variance,
+            maximum=MAX_RANGE_OVER_MEDIAN,
+        )
     return {"passed": all(check["passed"] for check in checks), "checks": checks}
 
 
@@ -822,6 +1570,8 @@ def _run_worker_subprocess(
         "--worker-output",
         str(output_path),
     ]
+    if getattr(args, "target", None):
+        command.extend(["--target", str(args.target)])
     if args.direct_manifest:
         command.extend(["--direct-manifest", str(args.direct_manifest)])
     completed = subprocess.run(command, capture_output=True, text=True)
@@ -839,6 +1589,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--storage-dir")
     parser.add_argument("--config-json")
     parser.add_argument("--direct-manifest")
+    parser.add_argument(
+        "--target",
+        help=(
+            "benchmark only one target; omit to preserve the historical full-pipeline run "
+            "(peaklet_waveforms also reports its paired waveform pool)"
+        ),
+    )
     parser.add_argument("--baseline-report")
     parser.add_argument("--current-report")
     parser.add_argument("--comparison-json-out")
@@ -849,6 +1606,29 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--repeat-index", type=int, default=0, help=argparse.SUPPRESS)
     parser.add_argument("--worker-output", help=argparse.SUPPRESS)
     return parser
+
+
+def _samples_need_extension(samples: dict[str, list[dict[str, Any]]]) -> bool:
+    """Return whether any measured mode exceeds the repeat-stability gate."""
+    for mode_samples in samples.values():
+        if not mode_samples:
+            continue
+        summary = aggregate_samples(mode_samples)
+        if mode_samples[0].get("mode") == "compute":
+            target_summaries = summary.get("targets", {}).values()
+            if any(
+                item.get("elapsed_sec", {}).get("range_over_median", 0.0) > MAX_RANGE_OVER_MEDIAN
+                for item in target_summaries
+            ):
+                return True
+            if (
+                summary.get("total_compute_sec", {}).get("range_over_median", 0.0)
+                > MAX_RANGE_OVER_MEDIAN
+            ):
+                return True
+        elif summary.get("elapsed_sec", {}).get("range_over_median", 0.0) > MAX_RANGE_OVER_MEDIAN:
+            return True
+    return False
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -877,6 +1657,25 @@ def main(argv: list[str] | None = None) -> int:
     if args.direct_manifest and not Path(args.direct_manifest).is_file():
         raise SystemExit(f"--direct-manifest does not exist: {args.direct_manifest}")
 
+    available_targets = DIRECT_PIPELINE_TARGETS if args.direct_manifest else PIPELINE_TARGETS
+    if args.target is not None and args.target not in available_targets:
+        raise SystemExit(
+            f"unsupported benchmark target {args.target!r}; choose one of "
+            + ", ".join(available_targets)
+        )
+    if args.direct_manifest and args.target is not None:
+        # Validate all paths, dtype/shape declarations, the selected dynamic
+        # wave-pool dependency, config hash and lineage before starting any
+        # worker. The actual benchmark workers repeat this validation too.
+        try:
+            _load_direct_manifest_with_metadata(
+                args.direct_manifest,
+                target=args.target,
+                config=load_config(args.config_json),
+            )
+        except ValueError as exc:
+            raise SystemExit(str(exc)) from exc
+
     if args.worker_mode:
         if not args.worker_output:
             raise SystemExit("worker mode requires --worker-output")
@@ -888,6 +1687,9 @@ def main(argv: list[str] | None = None) -> int:
 
     modes = ("compute", "end-to-end") if args.mode == "both" else (args.mode,)
     samples: dict[str, list[dict[str, Any]]] = {mode: [] for mode in modes}
+    initial_repeats = args.repeats
+    auto_extended = False
+    extension_reason = None
     with tempfile.TemporaryDirectory(prefix="wa-peak-benchmark-workers-") as tmpdir:
         for mode in modes:
             for repeat_index in range(args.repeats):
@@ -900,6 +1702,25 @@ def main(argv: list[str] | None = None) -> int:
                         output_path=output_path,
                     )
                 )
+        if args.repeats < 5 and _samples_need_extension(samples):
+            auto_extended = True
+            extension_reason = f"range_over_median>{MAX_RANGE_OVER_MEDIAN:.0%}"
+            for mode in modes:
+                for repeat_index in range(args.repeats, 5):
+                    output_path = Path(tmpdir) / f"{mode}-{repeat_index}.json"
+                    samples[mode].append(
+                        _run_worker_subprocess(
+                            args=args,
+                            mode=mode,
+                            repeat_index=repeat_index,
+                            output_path=output_path,
+                        )
+                    )
+
+    actual_repeats = max((len(mode_samples) for mode_samples in samples.values()), default=0)
+    first_sample = next(
+        (sample for mode_samples in samples.values() for sample in mode_samples), {}
+    )
 
     payload = {
         "schema_version": 1,
@@ -909,10 +1730,26 @@ def main(argv: list[str] | None = None) -> int:
             str(Path(args.direct_manifest).resolve()) if args.direct_manifest else None
         ),
         "config_json": str(Path(args.config_json).resolve()),
-        "repeats": args.repeats,
+        "repeats": actual_repeats,
+        "requested_repeats": initial_repeats,
+        "repeat_policy": {
+            "initial_repeats": initial_repeats,
+            "max_repeats": 5,
+            "auto_extended": auto_extended,
+            "extension_reason": extension_reason,
+            "stability_threshold_range_over_median": MAX_RANGE_OVER_MEDIAN,
+            "extension_owner": "main_process",
+        },
         "mode": args.mode,
+        "target": args.target,
+        "target_scope": "single" if args.target else "full_pipeline",
         "rss_sample_interval_sec": RSS_SAMPLE_INTERVAL_SEC,
-        "targets": list(DIRECT_PIPELINE_TARGETS if args.direct_manifest else PIPELINE_TARGETS),
+        "targets": [args.target] if args.target else list(available_targets),
+        "runtime_environment": first_sample.get("runtime_environment"),
+        "warmup": {
+            "type": first_sample.get("warmup_type"),
+            "elapsed_sec": first_sample.get("warmup_elapsed_sec"),
+        },
         "samples": samples,
         "summary": {
             mode: aggregate_samples(mode_samples) for mode, mode_samples in samples.items()

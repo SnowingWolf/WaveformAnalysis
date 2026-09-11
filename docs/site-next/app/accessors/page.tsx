@@ -1,0 +1,13 @@
+import { SectionHeading } from "@/components/DocPage";
+import { SiteShell } from "@/components/ServerSiteShell";
+import { StaticLink as Link } from "@/components/StaticLink";
+import { Icon } from "@/components/icons";
+import { loadSiteModel } from "@/lib/model";
+
+export const metadata: Metadata = { title: "Accessor", description: "WaveformAnalysis 只读查询、关联、筛选和 records-backed 波形访问接口。" };
+
+export default function AccessorsPage() {
+  const siteModel = loadSiteModel();
+  return <SiteShell model={siteModel} title="Accessor" toc={[{ id: "overview", label: "Accessor 接口" }, { id: "selection", label: "如何选择" }, { id: "conventions", label: "共同约定" }]}><article className="doc-article"><div className="breadcrumbs"><span aria-current="page">Accessor</span></div><header className="page-intro"><h1>Accessor 接口</h1><p className="page-intro__subtitle">从稳定数据产物中进行可审计的查询、筛选与波形访问。</p></header><section id="overview" className="doc-section"><SectionHeading>Accessor 接口</SectionHeading><p>Accessor 是只读查询与组合层：它消费正式插件产物，回答跨产物关联、筛选、追溯和波形访问问题，但不重新执行算法，也不创建新的缓存契约。</p></section><section id="selection" className="doc-section"><SectionHeading>按问题选择入口</SectionHeading><div className="accessor-card-grid">{siteModel.accessors.map((accessor) => <Link className="accessor-card" href={accessor.route} key={accessor.route}><span className="accessor-card__kind">{accessor.pageKind === "class" ? "Query Accessor" : "Records-backed Accessor"}</span><h3>{accessor.name}</h3><code>{accessor.selection.entry}</code><p>{accessor.selection.question}</p><small>{accessor.selection.scenario}</small><span className="accessor-card__link">查看完整接口 <Icon name="arrow" size={16} /></span></Link>)}</div></section><section id="conventions" className="doc-section"><SectionHeading>共同约定</SectionHeading><div className="contract-grid"><div><span className="contract-number">01</span><strong>显式 run_id</strong><p>数据访问始终绑定运行标识，不依赖隐式当前运行。</p></div><div><span className="contract-number">02</span><strong>只读与按需加载</strong><p>复用正式产物，仅在查询需要时读取较大的波形层。</p></div><div><span className="contract-number">03</span><strong>稳定标识</strong><p>record 使用 record_id；硬件通道使用 (board, channel)。</p></div></div></section></article></SiteShell>;
+}
+import type { Metadata } from "next";

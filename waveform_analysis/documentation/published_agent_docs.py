@@ -33,6 +33,7 @@ class NarrativeDoc:
     downstream_consumers: tuple[str, ...] = ()
     downstream_notes: tuple[str, ...] = ()
     agent_change_notes: tuple[str, ...] = ()
+    workflow_diagram: str = ""  # mermaid flowchart 源码（插件内部处理流程）
 
     @classmethod
     def from_source(cls, value: Any) -> NarrativeDoc:
@@ -51,6 +52,7 @@ class NarrativeDoc:
             downstream_consumers=_strings(raw.get("downstream_consumers")),
             downstream_notes=_strings(raw.get("downstream_notes")),
             agent_change_notes=_strings(raw.get("agent_change_notes")),
+            workflow_diagram=_string(raw.get("workflow_diagram")),
         )
 
     def overlay(self, content: dict[str, Any]) -> NarrativeDoc:
@@ -85,6 +87,7 @@ class NarrativeDoc:
             "downstream_consumers": list(self.downstream_consumers),
             "downstream_notes": list(self.downstream_notes),
             "agent_change_notes": list(self.agent_change_notes),
+            "workflow_diagram": self.workflow_diagram,
         }
 
 

@@ -23,44 +23,51 @@ Storage 子模块 - 存储层统一接口
     from waveform_analysis.core import MemmapStorage  # 通过 core.__init__.py 兼容
 """
 
-# Memmap 存储
-# 存储后端
-from .backends import (
-    SQLiteBackend,
-    StorageBackend,
-    create_storage_backend,
-    validate_storage_backend,
+from waveform_analysis._lazy_exports import LazyExport as _LazyExport
+from waveform_analysis._lazy_exports import lazy_dir as _lazy_dir
+from waveform_analysis._lazy_exports import (
+    resolve_lazy_attribute as _resolve_lazy_attribute,
 )
 
-# 缓存管理
-from .cache import CacheManager
-
-# 缓存管理工具
-from .cache_analyzer import CacheAnalyzer, CacheEntry
-from .cache_cleaner import CacheCleaner, CleanupPlan, CleanupStrategy
-from .cache_diagnostics import CacheDiagnostics, DiagnosticIssue, DiagnosticIssueType
-from .cache_manager import RuntimeCacheManager
-from .cache_statistics import CacheStatistics, CacheStatsCollector
-from .cache_utils import CacheEntryFilter, format_age, format_size
-
-# 压缩管理
-from .compression import (
-    Blosc2Compression,
-    CompressionManager,
-    GzipCompression,
-    LZ4Compression,
-    ZstdCompression,
-    get_compression_manager,
-)
-
-# 完整性检查
-from .integrity import (
-    IntegrityChecker,
-    compute_file_checksum,
-    get_integrity_checker,
-    verify_file_checksum,
-)
-from .memmap import BufferedStreamWriter, MemmapStorage
+_LAZY_EXPORTS: dict[str, _LazyExport] = {
+    # Memmap 存储
+    "MemmapStorage": (".memmap", "MemmapStorage"),
+    "BufferedStreamWriter": (".memmap", "BufferedStreamWriter"),
+    # 存储后端
+    "StorageBackend": (".backends", "StorageBackend"),
+    "SQLiteBackend": (".backends", "SQLiteBackend"),
+    "create_storage_backend": (".backends", "create_storage_backend"),
+    "validate_storage_backend": (".backends", "validate_storage_backend"),
+    # 缓存管理
+    "CacheManager": (".cache", "CacheManager"),
+    "RuntimeCacheManager": (".cache_manager", "RuntimeCacheManager"),
+    # 压缩管理
+    "Blosc2Compression": (".compression", "Blosc2Compression"),
+    "LZ4Compression": (".compression", "LZ4Compression"),
+    "ZstdCompression": (".compression", "ZstdCompression"),
+    "GzipCompression": (".compression", "GzipCompression"),
+    "CompressionManager": (".compression", "CompressionManager"),
+    "get_compression_manager": (".compression", "get_compression_manager"),
+    # 完整性检查
+    "IntegrityChecker": (".integrity", "IntegrityChecker"),
+    "get_integrity_checker": (".integrity", "get_integrity_checker"),
+    "compute_file_checksum": (".integrity", "compute_file_checksum"),
+    "verify_file_checksum": (".integrity", "verify_file_checksum"),
+    # 缓存管理工具
+    "CacheAnalyzer": (".cache_analyzer", "CacheAnalyzer"),
+    "CacheEntry": (".cache_analyzer", "CacheEntry"),
+    "CacheDiagnostics": (".cache_diagnostics", "CacheDiagnostics"),
+    "DiagnosticIssue": (".cache_diagnostics", "DiagnosticIssue"),
+    "DiagnosticIssueType": (".cache_diagnostics", "DiagnosticIssueType"),
+    "CacheCleaner": (".cache_cleaner", "CacheCleaner"),
+    "CleanupPlan": (".cache_cleaner", "CleanupPlan"),
+    "CleanupStrategy": (".cache_cleaner", "CleanupStrategy"),
+    "CacheStatsCollector": (".cache_statistics", "CacheStatsCollector"),
+    "CacheStatistics": (".cache_statistics", "CacheStatistics"),
+    "format_size": (".cache_utils", "format_size"),
+    "format_age": (".cache_utils", "format_age"),
+    "CacheEntryFilter": (".cache_utils", "CacheEntryFilter"),
+}
 
 __all__ = [
     # Memmap 存储
@@ -101,3 +108,11 @@ __all__ = [
     "format_age",
     "CacheEntryFilter",
 ]
+
+
+def __getattr__(name: str) -> object:
+    return _resolve_lazy_attribute(name, _LAZY_EXPORTS, globals())
+
+
+def __dir__() -> list[str]:
+    return _lazy_dir(globals(), _LAZY_EXPORTS, __all__)

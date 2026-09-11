@@ -1,0 +1,10 @@
+provides: events
+plugin_class: EventPlugin
+version: 0.0.3
+depends_on:
+  - s1_s2_pairs
+  - position_reconstruction
+third_party_dependencies:
+  - numpy
+plugin_dependencies: []
+category: event_reconstruction

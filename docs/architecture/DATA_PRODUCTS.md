@@ -365,6 +365,12 @@ flowchart TD
 当 `records` 与 `wave_pool` 同时注册时，共享构建配置由 `records` 命名空间持有。V1725 使用专用
 二进制读取路径，不支持 `input_source="st_waveforms"`。
 
+V1725 磁盘模式合并成功后，会核对最终记录数、样本数、文件尺寸及波形索引边界，关闭中间
+memmap，再回收本次构建的原始分片与 `records_only_batches` 排序中间文件。临时目录只保留
+最终 `records` 和 `wave_pool` 文件，供返回的 `RecordsBundleRef` 继续读取；这些最终文件仍由
+bundle 的 `cleanup()` 或对应 Context 缓存清理入口释放。通用合并函数不删除调用方的输入文件。
+此回收降低合并完成后的驻留占用，不消除合并期间的峰值空间需求，也不清理历史任务目录。
+
 ## 12. RecordsView 访问契约
 
 ### 12.1 构造与校验

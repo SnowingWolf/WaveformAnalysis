@@ -1,0 +1,159 @@
+api_version: waveform-analysis/agent-task/v1
+kind: AgentTask
+metadata:
+  id: waveform-doc-lineage-density-20260901
+  generation: 1
+  created_at: '2026-09-01'
+  updated_at: '2026-09-01'
+spec:
+  goal: >-
+    收紧 Next.js lineage 节点中的 dtype 展示，消除超长结构化 dtype
+    引发的节点溢出、重叠与视觉混乱，同时保留完整契约的可访问入口。
+  route: modify_code
+  workflow_cost: standard
+  workflow_shape: staged
+  risk_level: low
+  scope:
+    base_sha: bef3c6ad438ba6b3262adfb7b89d443453dc987e
+    allowed_paths:
+      - .gitattributes
+      - .gitignore
+      - docs/site-next/components/LineageCanvas.tsx
+      - docs/site-next/app/globals.css
+      - docs/site-next/lib/lineage.ts
+      - docs/site-next/lib/lineage.test.ts
+      - docs/site-next/lib/model.ts
+      - docs/site-next/lib/search.ts
+      - docs/site-next/lib/site-model.ts
+      - docs/site-next/lib/site-model.test.ts
+      - docs/site-next/next.config.ts
+      - waveform_analysis/documentation/site_dist
+      - docs/agents/runs/current/waveform-doc-lineage-density-20260901/task.yaml
+  scope_in:
+    - 修正根目录 lib/ 忽略规则对 docs/site-next/lib 的误伤，确保 Next 源码可追踪、可复现。
+    - 固定离线静态导出的 build ID，避免无关路由因随机 ID 产生噪声 diff。
+    - 将 Next 压缩 chunk 标记为 generated binary diff，避免手工改写可复现构建产物。
+    - 画布节点中的 dtype 使用紧凑摘要，并通过 title 与右侧检查器保留完整值。
+    - 收紧节点 header、port、footer 与 inspector 的溢出约束。
+    - 浏览器验证 Overview、Full、虚拟节点开关、节点选择与响应式布局。
+  scope_out:
+    - 插件 DAG、边、端口、dtype、schema、site model 与 Python 运行时契约。
+    - 插件目录卡片恢复；该反馈单独处理。
+  acceptance_criteria:
+    - 长结构化 dtype 不再溢出节点、换行覆盖标题或端口。
+    - 节点宽度和 DAG 拓扑不变，完整 dtype 可在 title 与检查器读取。
+    - Next typecheck、单元测试和静态导出通过。
+    - 1440x1100 与 390x844 浏览器检查无相关 console/page error。
+  required_gates:
+    - next_typecheck
+    - next_unit_tests
+    - next_static_export
+    - browser_review
+    - responsive_review
+    - diff_scope_check
+    - handoff_check
+  assignment:
+    planner_role: planner
+    executor_role: executor.code
+    reviewer_role: reviewer
+    controller: /root
+    planner: /root/docs_next_backend
+    reviewer: /root/docs_next_final_reviewer
+status:
+  state: completed
+  condition: AllBlockingGatesPass
+  plan_sha256: 085d4bee7bd106487f89244ae79b207912e8d9ca9e4170abf216148e9cb155a7
+  conditions: []
+  transitions:
+    - from: null
+      to: planning
+      at: '2026-09-01'
+      actor: /root
+      condition: task_initialized
+    - from: planning
+      to: ready_for_execution
+      at: '2026-09-01'
+      actor: /root/docs_next_backend
+      condition: plan_brief_ready
+    - from: ready_for_execution
+      to: executing
+      at: '2026-09-01'
+      actor: /root
+      condition: executor_assigned
+    - from: executing
+      to: reviewing
+      at: '2026-09-01'
+      actor: /root
+      condition: execution_report_ready
+    - from: reviewing
+      to: completed
+      at: '2026-09-01'
+      actor: reviewer
+      condition: all_blocking_gates_pass
+  execution:
+    owner: /root
+    actions_taken:
+      - 将画布 port 中的完整 dtype 移出可见节点，footer 与侧栏改为短摘要，完整值保留在 title 和右侧检查器。
+      - 对节点 header、footer、port 和 inspector 增加确定的单行截断与边界约束。
+      - 修复根目录 lib/ 忽略规则误伤 docs/site-next/lib，纳入全部 Next 数据模型、搜索和 lineage 源码及测试。
+      - 为离线静态导出设置稳定 build ID，并连续两次生成验证产物字节级可复现。
+      - 重新生成 629 个 tracked site_dist 文件并替换临时预览。
+      - 为仓库内预构建站点恢复并校验 site-manifest.json，保留无 Node wheel 复用契约。
+      - 接受 pre-commit 对生成 HTML/JS 的 trailing-whitespace 与 EOF 确定性规范化，并重新计算 manifest。
+    commands_run:
+      - npm run check
+      - npm run test
+      - CIRCLE_NODE_TOTAL=1 WAVEFORM_DOCS_SITE_MODEL=waveform_analysis/documentation/site_dist/site-model.v1.json npm run build
+      - CIRCLE_NODE_TOTAL=1 python -m waveform_analysis.documentation.cli generate site-web -o waveform_analysis/documentation/site_dist
+      - python /tmp/waveform-playwright/lineage_density_qa.py
+      - tar normalized site_dist and sha256sum twice
+      - python -c write_prebuilt_manifest(site_dist)
+      - python -m pytest -q tests/test_cli_docs_site_publish.py -k prebuilt_manifest
+      - curl --noproxy '*' http://10.18.154.11:8767/lineage/
+    results:
+      next_typecheck: PASS
+      next_unit_tests: PASS (2 files, 7 tests)
+      next_static_export: PASS (91 routes, 629 files)
+      browser_desktop: PASS (1440x1100, 36 nodes, 0 boundary violations)
+      browser_mobile: PASS (390x844, no document overflow)
+      console_health: PASS (0 relevant console/page errors)
+      reproducible_export: PASS (two normalized hashes ff42bf1704953241cf7c19206970e9c3eb27a0ce4e27c665a8836bc9c0024ad4)
+      preview_http: PASS (HTTP 200)
+      prebuilt_manifest_tests: PASS (2 passed)
+      precommit_text_normalization: PASS after deterministic hook rewrite
+    open_risks:
+      - 静态预览请求可选 /api/lineage 时返回 404，并按既有设计使用 static fallback；不影响图谱内容。
+      - Browser 插件不可用，本轮按前端调试 skill 使用本地 Playwright Firefox 验证。
+      - check-added-large-files 仅对已批准跟踪的 1598 KB 内容哈希 chunk scoped skip；其余 hooks 必须通过。
+  review:
+    reviewer_actor: /root/docs_next_final_reviewer
+    decision: approved
+    plan_sha256: 085d4bee7bd106487f89244ae79b207912e8d9ca9e4170abf216148e9cb155a7
+    gate_results:
+      next_typecheck: PASS
+      next_unit_tests: PASS
+      next_static_export: PASS
+      browser_review: PASS
+      responsive_review: PASS
+      diff_scope_check: PASS
+      handoff_check: PASS
+    blocking_findings: []
+    residual_risks:
+      - 选择节点仍会触发 ELK relayout，36 节点规模下未形成阻断，可后续独立优化。
+      - 纯静态站点的 /api/lineage 返回 404 并按设计使用 static fallback。
+      - 固定 build ID 要求发布时同步替换完整静态产物，chunk 内容哈希继续承担缓存身份。
+  approval: {}
+  handoff:
+    implementation_commit: f8ed453
+    commit_status: committed
+    git_status_checked: true
+    git_diff_stat_checked: true
+    cached_diff_check: PASS
+    scope_check: PASS
+    precommit_check: PASS; check-added-large-files scoped skip only for approved tracked 1598 KB generated chunk
+    preview_url: http://10.18.154.11:8767/lineage/
+    verification:
+      next: typecheck PASS; 7 tests PASS; 91 static routes PASS
+      browser: 1440x1100 and 390x844 PASS; 36 nodes; 0 overflow violations; 0 console/page errors
+      reproducibility: two identical normalized site hashes before hook normalization; stable build ID committed
+      prebuilt_manifest: 2 tests PASS and reviewer verified all 629 entries

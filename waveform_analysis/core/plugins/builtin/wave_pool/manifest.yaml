@@ -1,0 +1,8 @@
+provides: wave_pool
+plugin_class: WavePoolPlugin
+version: 0.14.2
+depends_on:
+third_party_dependencies:
+  - numpy
+plugin_dependencies:
+  - records

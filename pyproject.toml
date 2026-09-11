@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "waveform-analysis"
-version = "1.5.0"
+version = "2.0.0"
 description = "波形数据分析工具包 - 用于处理DAQ系统采集的波形数据"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -43,9 +43,9 @@ dev = [
     "pytest>=7.0.0",
     "pytest-cov>=3.0.0",
     "PyYAML>=6.0.0",
-    "black>=22.0.0",
+    "black==25.1.0",
     "mypy>=0.950",
-    "ruff>=0.1.0",
+    "ruff==0.6.4",
     "ipython>=8.0.0",
     "jupyter>=1.0.0",
     "nbformat>=4.2.0",
@@ -57,8 +57,6 @@ docs = [
 ]
 docgen = [
     "jinja2>=3.0.0",
-    "mistune>=3.0.0,<4.0.0",
-    "pygments>=2.0.0",
 ]
 scientific = [
     "iminuit>=2.0.0",
@@ -76,25 +74,26 @@ Repository = "https://github.com/SnowingWolf/WaveformAnalysis.git"
 
 [project.scripts]
 waveform-process = "waveform_analysis.cli:main"
-waveform-docs = "waveform_analysis.utils.cli_docs:main"
+waveform-docs = "waveform_analysis.documentation.cli:main"
 waveform-cache = "waveform_analysis.cli_cache:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["waveform_analysis*"]
-exclude = ["tests*", "docs*", "examples*"]
+exclude = ["tests*", "docs*", "examples*", "*.tests", "*.tests.*"]
 
 [tool.setuptools.package-data]
 waveform_analysis = [
+    "core/plugins/builtin/*/manifest.yaml",
+    "core/plugins/builtin/*/SKILL.md",
+    "core/plugins/builtin/*/requirements.txt",
     "documentation/dags/*.yaml",
     "documentation/agent_docs/*.yaml",
     "documentation/dtype_field_notes.yaml",
     "documentation/prompts/*.md",
     "documentation/schemas/*.json",
-    "utils/templates/*.j2",
-    "utils/templates/web/*.j2",
-    "utils/templates/web/assets/*",
-    "utils/templates/web/assets/react/*",
+    "documentation/templates/*.j2",
+    "documentation/site_dist/**/*",
 ]
 
 [tool.black]
@@ -103,10 +102,11 @@ target-version = ['py310', 'py311', 'py312']
 include = '\.pyi?$'
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "waveform_analysis/core/plugins/builtin"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+pythonpath = ["."]
 # 默认只跑快速层；慢测试用 `pytest -m slow` 单独运行（CI 分层见 .github/workflows/python-tests.yml）
 addopts = "-v --cov=waveform_analysis --cov-report=html --cov-report=term -m 'not slow'"
 markers = [

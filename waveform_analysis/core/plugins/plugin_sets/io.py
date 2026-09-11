@@ -1,4 +1,4 @@
-# DOC: docs/plugins/guides/PLUGIN_SET_PROFILE_GUIDE.md#plugin-sets
+# DOC: docs/plugins/PLUGIN_SYSTEM_OVERVIEW.md#plugin-sets
 """
 Plugin set: IO.
 
@@ -13,7 +13,7 @@ export, __all__ = exporter()
 @export
 def plugins_io():
     """Return IO plugin instances in dependency order."""
-    from waveform_analysis.core.plugins.builtin.cpu.raw_files import RawFileNamesPlugin
+    from waveform_analysis.core.plugins.builtin.raw_files import RawFileNamesPlugin
 
     return [
         RawFileNamesPlugin(),

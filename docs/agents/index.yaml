@@ -1,4 +1,4 @@
-version: 5
+version: 6
 source_of_truth: AGENTS.md
 workflow_source_of_truth: docs/agents/workflows.md
 machine_route_source_of_truth: docs/agents/index.yaml
@@ -32,6 +32,15 @@ agent_roles:
 
   - id: executor.plugin
     purpose: 插件与契约相关实现
+    mutation_policy: write_scoped
+    owns_states:
+      - executing
+      - blocked
+      - failed
+    required_artifact: execution_report
+
+  - id: executor.code
+    purpose: 普通核心、accessor、visualization 与 refactor 代码实现
     mutation_policy: write_scoped
     owns_states:
       - executing
@@ -411,6 +420,92 @@ task_routes:
       - version_unchanged_after_contract_change -> rework_required
       - missing_approval_for_destructive_or_network_action -> awaiting_approval
 
+  - task: modify_code
+    summary: 普通核心、accessor、visualization 与 refactor 代码改动
+    workflow_mode: shape_driven
+    workflow_cost: standard
+    lifecycle_profile: reviewed_change
+    entry_state: created
+    completion_state: completed
+    rework_owner_default: executor.code
+    entry_doc: AGENTS.md
+    primary_doc: docs/agents/workflows.md
+    profile_doc: docs/agents/protocol/route-profiles/modify_code.md
+    aliases:
+      - modify_context
+      - refactor
+    secondary_docs:
+      - docs/agents/lifecycle.md
+      - docs/agents/workflows.md
+    read_order:
+      - AGENTS.md
+      - docs/agents/lifecycle.md
+      - docs/agents/workflows.md
+      - docs/agents/protocol/route-profiles/modify_code.md
+    required_inputs:
+      - target component or feature keyword
+      - affected files or public surface
+      - change intent and expected compatibility impact
+    handoff_sequence:
+      - planner
+      - executor.code
+      - reviewer
+    required_artifacts:
+      - plan_brief
+      - execution_report
+      - review_report
+    substates:
+      - impact_assessed
+      - scope_checked
+      - tests_selected
+      - docs_sync_required
+    allowed_tools:
+      planner:
+        - repo_read
+        - git_diff
+        - static_analysis
+      executor:
+        - repo_read
+        - apply_patch
+        - targeted_tests
+        - doc_generation
+      reviewer:
+        - repo_read
+        - gate_execution
+        - diff_review
+    commands:
+      - python scripts/assess_change_impact.py --base HEAD
+      - python scripts/schema_compat_check.py --base HEAD --run-smoke
+      - ./scripts/run_tests.sh -v -k <component_or_feature_keyword>
+      - scripts/check_doc_sync.sh
+      - python scripts/check_doc_anchors.py --check-sync --base HEAD
+    blocking_gates:
+      - assess_change_impact
+      - schema_compat_check
+      - doc_sync
+      - doc_anchors
+    gate_trigger_policy:
+      - ordinary internal code changes use standard staged workflow with targeted tests
+      - public surface, dtype/field, dependency, cache-lineage, or compatibility changes escalate to strict workflow
+      - docs coupled to a code contract change inherit the source route cost
+    completion_contract:
+      - scope stays within the authorized allowed_paths
+      - required tests and blocking gates pass
+      - public or contract changes include compatibility and documentation review
+      - review_report records residual risks
+    escalation_rules:
+      - scope_expansion -> rework_required
+      - contract_or_dtype_change -> strict_workflow
+      - missing_approval_for_destructive_or_network_action -> awaiting_approval
+
+  - task: modify_context
+    alias_of: modify_code
+    aliases: []
+
+  - task: refactor
+    alias_of: modify_code
+    aliases: []
+
   - task: retire_compat
     summary: 兼容冗余识别、分级与删除
     workflow_mode: shape_driven
@@ -508,13 +603,11 @@ task_routes:
     secondary_docs:
       - docs/agents/lifecycle.md
       - docs/architecture/PLUGIN_DAG_LINEAGE_CACHE.md
-      - docs/features/context/PREVIEW_EXECUTION.md
     read_order:
       - AGENTS.md
       - docs/agents/lifecycle.md
       - docs/agents/workflows.md
       - docs/agents/protocol/route-profiles/debug_cache.md
-      - docs/features/context/PREVIEW_EXECUTION.md
       - docs/architecture/PLUGIN_DAG_LINEAGE_CACHE.md
     required_inputs:
       - run_id
@@ -603,6 +696,8 @@ task_routes:
     commands:
       - waveform-docs generate plugins-auto -o docs/plugins/reference/builtin/auto/
       - waveform-docs generate plugins-agent -o docs/plugins/reference/agent/
+      - waveform-docs check links --docs-dir docs
+      - waveform-docs check coverage --strict --fail-on-warning
       - scripts/check_doc_sync.sh
       - python scripts/check_doc_anchors.py --check-sync --base HEAD
     blocking_gates:
@@ -802,13 +897,13 @@ task_routes:
     aliases: []
     secondary_docs:
       - docs/agents/lifecycle.md
-      - docs/features/advanced/EXECUTOR_MANAGER_GUIDE.md
+      - docs/architecture/ARCHITECTURE.md
     read_order:
       - AGENTS.md
       - docs/agents/lifecycle.md
       - docs/agents/workflows.md
       - docs/agents/protocol/route-profiles/performance_regression_check.md
-      - docs/features/advanced/EXECUTOR_MANAGER_GUIDE.md
+      - docs/architecture/ARCHITECTURE.md
     required_inputs:
       - baseline reference
     handoff_sequence:

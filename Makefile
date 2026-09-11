@@ -1,5 +1,10 @@
 # Add project-level Makefile commands here
-.PHONY: dev test lint fmt clean test-core test-records test-stw test-plugins bench check-docs check-docs-sync
+.PHONY: dev test lint fmt clean test-core test-records test-stw test-plugins bench check-docs check-docs-sync \
+	check-doc-links check-plugin-deps test-bundles docs-bundles
+
+# The project baseline is Python 3.10+. Override this explicitly when several
+# interpreters are installed, e.g. ``make WAVEFORM_PYTHON=/path/to/python``.
+WAVEFORM_PYTHON ?= python3
 
 dev:
 	pip install -e ".[dev]"
@@ -34,7 +39,22 @@ bench:
 	python scripts/benchmark_io.py --n-files 50 --n-channels 2 --n-samples 200 --reps 2
 
 check-docs:
-	@python scripts/check_doc_anchors.py || [ $$? -eq 2 ]
+	@$(WAVEFORM_PYTHON) scripts/check_doc_anchors.py
 
 check-docs-sync:
-	@python scripts/check_doc_anchors.py --check-sync --base origin/main || [ $$? -eq 2 ]
+	@$(WAVEFORM_PYTHON) scripts/check_doc_anchors.py --check-sync --base origin/main
+
+check-doc-links:
+	@$(WAVEFORM_PYTHON) -m waveform_analysis.documentation.cli check links --docs-dir docs
+
+check-plugin-deps:
+	python scripts/check_plugin_deps.py
+
+test-bundles:
+	pytest -q waveform_analysis/core/plugins/builtin
+
+docs-bundles:
+	$(WAVEFORM_PYTHON) -m waveform_analysis.documentation.cli generate plugins-agent -o docs/plugins/reference/agent/
+
+docs-site-dist:
+	$(WAVEFORM_PYTHON) scripts/build_docs_site_dist.py

@@ -1,0 +1,51 @@
+# plan_brief
+
+- `task_id`: `corner-hist-symlog-performance`
+- `route`: `modify_plugin`（实际对象为公开 visualization utility）
+- `workflow_cost`: `strict`
+- `workflow_shape`: `staged`
+- `lifecycle_profile`: `reviewed_change`
+- `risk_level`: `high`
+- `scope_in`:
+  - 让 `corner_hist.scales` 支持标量或逐变量的 `symlog`。
+  - 在旧参数末尾追加 `symlog_linthresh` 和 `tight_layout`。
+  - symlog 自动 bins 在 Matplotlib 对称对数变换空间等距，并与坐标轴共享 `linthresh`。
+  - 新建图允许跳过 `tight_layout`；复用 figure/axes 叠加时不重复自动布局。
+  - 更新定向测试和站点文档生成源。
+- `scope_out`:
+  - 不修改 `hist2d_norm` 语义、Numba histogram 核心或 NumPy fallback。
+  - 不新增线程、进程或 Numba parallel。
+  - 不修改插件 DAG、dtype、缓存 lineage 或包版本。
+- `required_gates`:
+  - `tests/test_corner_hist_performance.py`
+  - statistical-plots 文档生成测试
+  - `assess_change_impact`
+  - `schema_compat_check --run-smoke`
+  - `doc_sync`
+  - `doc_anchors`
+  - Ruff 与前后性能基准
+- `executor_role`: `executor.plugin`
+- `agent_profile`: `none`
+- `blocking_assumptions`: 无。
+
+## modify_plugin Notes
+
+- `change_level`: `L2`
+- `provides_impact`: none
+- `depends_on_impact`: none
+- `output_contract_impact`: 返回值不变；扩展 scale 值并追加两个可选参数。
+- `version_action`: 目标不是插件，无插件 `version` 可升级；不在本任务单独修改包版本。
+- `docs_sync_required`: true
+- `execution_backend_decision`:
+  - `backend`: `numba_serial`（保留现有核心）加 Python/NumPy/Matplotlib orchestration
+  - `backend_reason`: profile 显示首要热点为 Matplotlib `tight_layout`，不是 histogram。
+  - `parallel_scope`: none
+  - `worker_option`: none
+  - `fallback_path`: 现有 NumPy fallback 不变；`tight_layout=False` 时由调用方按需布局。
+  - `benchmark_required`: true
+- `performance_baseline`:
+  - warm 100k 点、5 变量、lower triangle 最快约 `0.61 s`。
+  - profile 中 `tight_layout` 约占 `0.96 / 1.34 s`；100 万点单 pair Numba histogram 约 `0.061 s`，NumPy 约 `0.075 s`。
+- `performance_target`:
+  - fresh 默认路径不得明显回退（median 不超过基线 15%）。
+  - overlay 不重复调用 `tight_layout`，时钟基准目标至少改善 20%。

@@ -1,0 +1,115 @@
+# plan_brief
+
+- `task_id`: `peak_waveform_dedup_and_area_conservation`
+- `route`: `modify_plugin`
+- `workflow_cost`: `strict`
+- `workflow_shape`: `staged`
+- `lifecycle_profile`: `reviewed_change`
+- `risk_level`: `high`
+- `scope_in`:
+  - Replace concatenate/accumulate behavior with one absolute-time waveform merger shared by the Accessor and all Python, NumPy, Numba, hybrid, and process-worker peaklet waveform paths.
+  - Reconstruct every merged component on a `(board, channel, abs_time_ps)` grid; retain one bitwise-identical duplicate sample and raise `WaveformOverlapConflictError` for conflicting values or invalid timing.
+  - Preserve signed baseline-subtracted samples by default. `clip_negative_signal=True` clips samples before merging and integration; in either mode `area` is the sum of the waveform that is actually returned/stored.
+  - Recompute per-channel area/height from the deduplicated channel waveform, enforce peak/channel area conservation, repair signed cumulative-area quantiles, and add Accessor `waveform_area` metadata.
+  - Declare the channel-area dependency used by `position_reconstruction`, update cache-lineage versions/manifests, downstream documentation, and regression tests.
+- `scope_out`:
+  - Do not add a public equal-charge slicing API or change existing structured dtype field sets/types.
+  - Do not remove diagnostic `segments`; they remain raw provenance and are explicitly not safe to concatenate or integrate.
+  - Do not silently average, sum, or select among unequal samples at the same channel/time coordinate.
+  - Do not include or clean the pre-existing unrelated documentation/site-generator worktree changes.
+- `required_gates`:
+  - targeted_waveform_dedup_tests
+  - python_numba_process_parity
+  - downstream_peak_position_regression
+  - plugin_docs_auto_generation
+  - plugin_docs_agent_generation
+  - assess_change_impact
+  - schema_compat_check_smoke
+  - performance_regression_check
+  - render_agent_docs_check
+  - doc_sync
+  - doc_anchors
+  - agent_handoff
+- `executor_role`: `executor.plugin`
+- `agent_profile`: `graph_engineer`
+- `profile_plan`:
+  - `graph_scope`: `hit_merged_components/hit_threshold/records/wave_pool -> hit_merged_features and peaklet_channels -> peaks -> position_reconstruction`, plus the canonical `peaklet_waveforms -> peaklet_waveform_pool -> peaklet_features -> peaklet_channels` lineage.
+  - `dependency_impact`: make `peaklet_channels` depend on the raw records-backed reconstruction inputs needed for per-channel deduplication; add `peaklet_channels` to `position_reconstruction.depends_on`; keep manifests, dynamic `resolve_depends_on()`, generated references, and plugin-set DAG expectations synchronized.
+  - `runtime_vs_display_boundary`: deduplication, conflict validation, clipping, integration, and conservation are runtime semantics; Accessor plotting and `segments` are display/diagnostic consumers only.
+  - `gate_recommendations`: require DAG/schema smoke checks and downstream peaks/position tests in addition to waveform parity tests, because dependency and cached numeric semantics both change.
+- `blocking_assumptions`:
+  - None. The reported `run_id=00200, peak_id=98216` dataset is optional evidence; deterministic synthetic overlap fixtures are the blocking acceptance source when that external dataset is unavailable.
+
+## modify_plugin Notes
+
+- `change_level`: `L3`
+- `provides_impact`: no `provides` names change; cached values and downstream peak numerics change.
+- `depends_on_impact`:
+  - `peaklet_channels` gains the records-backed waveform reconstruction dependencies (including the selected wave pool) while retaining feature inputs needed for component metadata/counts.
+  - `position_reconstruction` changes from `depends_on=["s1_s2_pairs"]` to include `peaklet_channels`, matching its existing runtime use through `PeakChannelAccessor`.
+  - If `use_filtered` selects `wave_pool_filtered`, dependency resolution and manifest/documentation must reflect the same choice as `peaklet_waveforms`; Context access remains explicit in `run_id`.
+- `options_impact`:
+  - Keep `clip_negative_signal=False` as the default and use the same option name/meaning in hit, channel, and peak waveform computation.
+  - Do not introduce another clipping or charge-weight option. The stored/returned waveform itself is the integration source.
+- `output_contract_impact`:
+  - Structured dtypes are unchanged, but `hit_merged_features.area/height`, `peaklet_channels.area/height/area_fraction`, `peaklet_features.area` and downstream `peaks` values acquire corrected signed-or-clipped waveform semantics.
+  - Accessor channel dictionaries gain `waveform_area`; for `pad=0`, it must equal channel `area` within the conservation tolerance. For `pad>0`, it includes padding and need not equal the unpadded channel feature.
+  - Accessor top-level `abs_time_ps` is unique and strictly increasing. Raw `segments` may overlap and remain diagnostic only.
+- `overlap_contract`:
+  - Validate finite sample values, one positive `dt`, exact alignment to the common picosecond grid, and matching waveform/time lengths before merging.
+  - For each `(board, channel, abs_time_ps)`, accept the first sample; later bitwise-equal `float32` values are duplicates and are ignored.
+  - Unequal values raise `WaveformOverlapConflictError` containing peak/merged identifiers when available, board, channel, absolute time, record identifiers, and both values. No tolerance-based merge is allowed.
+  - Gaps remain zero only in dense summed peak waveforms; channel Accessor arrays contain observed unique samples rather than synthesizing gap samples.
+- `area_contract`:
+  - Compute channel waveform and channel area only after merging every `merged_index` belonging to the same `(peak_id, board, channel)`.
+  - Sum deduplicated channel waveforms on the common absolute grid to build the peak waveform; do not deduplicate across different channels.
+  - Enforce `sum(channel.area) == peaklet_features.area` with `rtol=1e-5, atol=1e-3`. Nonzero peaks must also have `sum(area_fraction) == 1` with the same tolerance; zero-area peaks have all fractions set to zero.
+  - Preserve actual signed area even when `area <= 0`; in that case all cumulative-area quantile times fall back to `time_start`. Otherwise locate each quantile at the first cumulative threshold crossing, with interpolation only across the positive crossing step; Python and Numba must match.
+- `version_action`:
+  - `hit_merged_features`: `0.5.1 -> 1.0.0` (area/height physical semantics change).
+  - `peaklet_waveforms`: `1.4.0 -> 2.0.0` (overlap accumulation becomes validated deduplication).
+  - `peaklet_waveform_pool`: `2.0.0 -> 3.0.0` (cached pool numeric semantics change).
+  - `peaklet_features`: `4.1.0 -> 5.0.0` (signed area and quantile semantics change).
+  - `peaklet_channels`: `1.0.1 -> 2.0.0` (area/height/fraction semantics and dependency chain change).
+  - `peaks`: `4.0.1 -> 5.0.0` (copied feature values change).
+  - `position_reconstruction`: `0.2.1 -> 0.3.0` (dependency/lineage correction without dtype removal).
+  - Update each plugin class, `manifest.yaml`, generated agent reference, version assertions, and any version-constrained dependency in one scoped change.
+- `docs_sync_required`: `true`
+- `execution_backend_decision`:
+  - `backend`: `numpy` reference implementation plus `numba_serial` hot kernels; preserve existing process-pool batching only for the cross-record Python path.
+  - `backend_reason`: reconstruction is memory-bound and requires deterministic occupancy/conflict checks; serial JIT avoids per-sample Python overhead without adding an unsupported parallel reduction.
+  - `parallel_scope`: `chunk` via the existing process-worker batches only; Numba dedup kernels remain serial and are never nested under a second in-process threading layer.
+  - `worker_option`: retain existing `n_workers` for compatibility; do not add a new worker option in this fix.
+  - `fallback_path`: NumPy/Python is canonical for missing Numba, empty/non-contiguous inputs, hybrid cross-record processing, and process workers; it must raise the same validation exceptions and produce bitwise-equivalent float32 pools where operation order is identical.
+  - `benchmark_required`: `true`; compare the current and corrected synthetic long-S2 workloads and record time/memory results. A correctness fix may regress modestly, but a material regression must be reviewed rather than hidden with `numba_parallel`.
+- `implementation_sequence`:
+  - Add an internal records-backed segment/grid merger with a NumPy reference path, Numba-compatible occupancy/value buffers, structured conflict context, and focused unit tests.
+  - Route Accessor merged/channel reconstruction and every peaklet waveform builder (`_build_numba`, cross-record Numba fill, Python fallback, hybrid, multiprocessing worker) through identical merge semantics.
+  - Route hit/channel/peak integrations through the merged waveform contract, update signed quantiles, conservation validation, dependency declarations, versions, and generated docs.
+  - Run focused tests first; then all strict gates. Any contract, backend, or dependency expansion discovered in execution sets `scope_changed=true` and returns to planning.
+- `must_run_commands`:
+  - `pytest -v tests/test_peak_channel_accessor.py waveform_analysis/core/plugins/builtin/peaklet_waveforms/tests waveform_analysis/core/plugins/builtin/hit_merged_features/tests waveform_analysis/core/plugins/builtin/peaklet_channels/tests waveform_analysis/core/plugins/builtin/peaklet_features/tests waveform_analysis/core/plugins/builtin/position_reconstruction/tests`
+  - `pytest -v tests/plugins/test_peaks_plugin.py tests/plugins/test_plugin_set_peaks_compat.py tests/contracts/test_cache_consistency.py`
+  - `waveform-docs generate plugins-auto -o docs/plugins/reference/builtin/auto/`
+  - `waveform-docs generate plugins-agent -o docs/plugins/reference/agent/`
+  - `python scripts/assess_change_impact.py --base HEAD`
+  - `python scripts/schema_compat_check.py --base HEAD --run-smoke`
+  - `python scripts/performance_regression_check.py --base HEAD`
+  - `python scripts/render_agent_docs.py --check`
+  - `scripts/check_doc_sync.sh`
+  - `python scripts/check_doc_anchors.py --check-sync --base HEAD`
+  - `git status --short`
+  - `git diff --stat`
+  - `python scripts/check_agent_handoff.py`
+- `targeted_acceptance_tests`:
+  - Reproduce identical overlap within one cross-record merged component and across multiple merged components of one channel; assert unique/increasing channel times and no duplicated integral.
+  - Assert unequal overlap, non-finite values, mixed `dt`, off-grid starts, malformed lengths, empty inputs, unordered segments, time gaps, and multiple boards/channels have deterministic outcomes.
+  - Verify signed default and clipped compatibility modes satisfy `area == waveform.sum()`, with Python/NumPy/Numba/hybrid/process-worker parity.
+  - Verify channels are deduplicated independently before peak summation, `sum(channel.area) == peak.area`, fractions sum to one for nonzero peaks, and zero/negative-area fallbacks are defined.
+  - Verify cumulative quantile first-crossing behavior on signed waveforms and equality between Python and Numba feature paths.
+  - Verify `position_reconstruction` lineage includes channel areas and recomputes after the `peaklet_channels` version/config changes.
+- `dirty_worktree_isolation`:
+  - Capture `git status --short` before execution and maintain an explicit task-owned path list.
+  - Never stage with `git add -A`; stage only files created/modified for this task, inspect `git diff --cached --stat` and `git diff --cached`, and leave all pre-existing dirty/deleted/untracked paths untouched.
+  - Generated documentation may be staged only when its diff is attributable to these plugin changes; unrelated generator output must be excluded and reported.
+  - Commit only after all blocking gates pass, using a scoped `fix:` commit; otherwise run the allowed-uncommitted handoff command with the exact failure/isolation reason.

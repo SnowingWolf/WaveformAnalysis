@@ -7,7 +7,7 @@
 
 import numpy as np
 
-from waveform_analysis.core.processing.waveform_struct import WaveformStruct
+from waveform_analysis import WaveformStruct
 
 
 def example_1_without_upstream():

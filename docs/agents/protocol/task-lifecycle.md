@@ -1,69 +1,29 @@
 # Task Lifecycle Summary
 
-`staged` 主状态：
-`created -> planning -> ready_for_execution -> executing -> reviewing -> completed`
+活动任务的唯一记录是
+`docs/agents/runs/current/<task-id>/task.yaml`；本页只提供兼容摘要。状态、迁移条件和 route 默认值从 `docs/agents/index.yaml` 读取，字段由 `docs/agents/schema/agent-task.schema.json` 校验。
 
-快速路径：
-- `direct`: `created -> completed`，仅只读任务，最终回复记录验证结果
-- `compact`: `created -> executing -> completed`，完成前必须产出 `task_report`
+## Shape 与迁移
 
-可选分支：
-- `planning -> awaiting_user_input`
-- `planning -> awaiting_approval`
-- `executing -> blocked | failed`
-- `reviewing -> rework_required | blocked | failed`
+- `staged`：`created -> planning -> ready_for_execution -> executing -> reviewing -> completed`，必须保留 Planner、Executor、Reviewer 边界。
+- `compact`：轻量低风险任务可使用内联检查；完成前仍须在 `task.yaml.status.execution` 记录验证结果。
+- `direct`：仅只读简单任务，可直接在最终交接中报告验证结果，不创建仓库任务记录。
+- `awaiting_user_input`、`awaiting_approval`、`blocked`、`rework_required`、`failed`、`cancelled` 是正式状态，不能用普通进度文字替代。
+- 默认返工为 `reviewing -> rework_required -> executing`；只有 `scope_changed=true` 才能回到 `planning`。
 
-返工规则：
-- 默认：`rework_required -> executing`
-- 仅在 `scope_changed=true` 时允许：`rework_required -> planning`
+## Task record 对照
 
-强制要求：
-- `planning -> ready_for_execution` 前必须有 `plan_brief`
-- `retire_compat` 在 `planning` 阶段还必须先有 `compat_inventory`
-- `executing -> reviewing` 前必须有 `execution_report`
-- `reviewing -> completed` 前必须有 `review_report`
-- `plan_brief`、`execution_report`、`review_report` 都必须记录 `workflow_cost`
-- `compact` 的 `task_report` 必须记录 `workflow_cost=light` 和 `workflow_shape=compact`
-- 命中 public surface、插件契约、dtype/字段、cache lineage、compat、release、审批、破坏性动作、scope 扩大或 gate 失败时必须升级到 `staged`
+`task.yaml` 的 `spec` 保存 `goal`、`route`、`workflow_cost`、`workflow_shape`、`risk_level`、`scope`、`acceptance_criteria`、`required_gates` 和 `assignment`；`status` 保存当前 state、transition history、`plan_sha256`、execution/review/approval/handoff 证据。
 
-阻断式审查：
-- `staged` 未经 `Reviewer` 明确放行不能进入 `completed`
-- `direct`/`compact` 使用内联验证，但不能绕过升级条件
-- 审查发现可修复问题时必须进入 `rework_required`
+scope 或验收条件发生变化时，必须递增 `metadata.generation`，重新进入 `planning`，并清除旧的执行、审查与批准结论。审批只能绑定当前 spec digest；CLI 不替 agent 执行 gate，也不替用户批准。
 
-## Artifact 对照
-- `planning -> planning`（仅 `retire_compat`）
-  必须先产出 `compat_inventory`
-- `planning -> ready_for_execution`
-  必须存在 `plan_brief`
-- `executing -> reviewing`
-  必须存在 `execution_report`
-- `reviewing -> completed`
-  必须存在 `review_report`
-- `executing -> completed`（仅 `compact`）
-  必须存在 `task_report`
+## Deprecated artifacts
 
-## 决策值
-- `workflow_cost`
-  - `light`
-  - `standard`
-  - `strict`
-- `risk_level`
-  - `low`
-  - `medium`
-  - `high`
-- `workflow_shape`
-  - `direct`
-  - `compact`
-  - `staged`
-- `review_report.decision`
-  - `completed`
-  - `rework_required`
-  - `blocked`
-  - `failed`
+旧的 `plan_brief`、`compat_inventory`、`execution_report`、`review_report` 和 `task_report` 路径只作兼容链接，不能作为活动状态。历史副本位于 `docs/agents/runs/archive/legacy/`，由 manifest 校验后只读保存。
 
-## 返工差异
-- `rework_required -> executing`
-  用于范围不变，只需修正实现、补 gate、补文档、补测试。
-- `rework_required -> planning`
-  仅在 `scope_changed=true` 时使用，表示任务范围、route 或 gate 选择需要重做。
+## 决策与证据
+
+- `workflow_cost` 只能是 `light`、`standard` 或 `strict`；route 默认值与允许 shape 由 manifest 生成。
+- `risk_level` 只能是 `low`、`medium` 或 `high`。
+- `workflow_shape` 只能是 `direct`、`compact` 或 `staged`。
+- 阻断 gate 的结果、未执行原因、review decision 和后续动作必须写入 `task.yaml.status`，不能只写在聊天消息中。

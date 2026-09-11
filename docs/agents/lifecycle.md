@@ -9,20 +9,24 @@
 
 ## 主状态
 
-| 状态 | 所有者 | 含义 | 允许退出 |
-| --- | --- | --- | --- |
-| `created` | system | 任务已创建，尚未选择 workflow shape | `planning` / `executing` / `completed` |
-| `planning` | planner | 任务拆解、风险识别、route 选择、gate 选择 | `awaiting_user_input` / `awaiting_approval` / `ready_for_execution` / `blocked` / `cancelled` |
-| `awaiting_user_input` | planner | 缺少用户决策或关键信息 | `planning` |
-| `awaiting_approval` | planner | 需要权限提升或危险动作批准 | `ready_for_execution` / `blocked` / `cancelled` |
-| `ready_for_execution` | planner | `plan_brief` 已完备，可交给执行者 | `executing` |
-| `executing` | executor | 在授权范围内执行实现、检查或文档同步 | `reviewing` / `completed` / `blocked` / `failed` / `cancelled` |
-| `reviewing` | reviewer | 统一检查 gate、契约、一致性与残余风险 | `completed` / `rework_required` / `blocked` / `failed` / `cancelled` |
-| `rework_required` | reviewer | 审查发现可修复问题，需要返工 | `executing` / `planning` |
-| `blocked` | current owner | 被外部依赖、权限、环境或缺失输入阻塞 | `planning` / `executing` / `cancelled` |
-| `completed` | reviewer/inline actor | 当前 shape 的阻断检查通过，所需记录齐全 | 终态 |
-| `failed` | executor/reviewer | 出现不可继续的失败 | 终态 |
-| `cancelled` | any | 任务被取消 | 终态 |
+状态名称和允许退出统一从 `docs/agents/index.yaml` 生成，避免在本页维护第二份状态表。
+
+<!-- BEGIN GENERATED: lifecycle_state_catalog -->
+| state | allowed exits |
+| --- | --- |
+| `created` | `planning` (task_initialized) / `completed` (direct_task_verified) / `executing` (compact_task_authorized) |
+| `planning` | `awaiting_user_input` (missing_user_decision) / `awaiting_approval` (approval_required) / `ready_for_execution` (plan_brief_ready) / `blocked` (external_dependency_missing) / `cancelled` (task_cancelled) |
+| `awaiting_user_input` | `planning` (user_input_received) |
+| `awaiting_approval` | `ready_for_execution` (approval_granted) / `blocked` (approval_denied) / `cancelled` (task_cancelled) |
+| `ready_for_execution` | `executing` (executor_assigned) |
+| `executing` | `reviewing` (execution_report_ready) / `completed` (compact_task_report_ready) / `blocked` (environment_or_permission_blocker) / `failed` (unrecoverable_execution_failure) / `cancelled` (task_cancelled) |
+| `reviewing` | `completed` (all_blocking_gates_pass) / `rework_required` (fixable_gate_failure) / `blocked` (review_blocked_by_external_dependency) / `failed` (unrecoverable_review_failure) / `cancelled` (task_cancelled) |
+| `rework_required` | `executing` (scope_unchanged) / `planning` (scope_changed) |
+| `blocked` | `planning` (planning_blocker_removed) / `executing` (execution_blocker_removed) / `cancelled` (task_cancelled) |
+| `completed` | 终态 |
+| `failed` | 终态 |
+| `cancelled` | 终态 |
+<!-- END GENERATED: lifecycle_state_catalog -->
 
 ## 标准迁移
 ```text

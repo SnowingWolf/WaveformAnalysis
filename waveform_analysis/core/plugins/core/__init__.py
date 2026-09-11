@@ -18,63 +18,10 @@ Plugins Core 子模块 - 插件系统核心基础设施
     from waveform_analysis.core import Plugin  # 通过 core.__init__.py 兼容
 """
 
-# 插件基类和配置
-# Strax 适配器
-from .adapters import (
-    StraxContextAdapter,
-    StraxPluginAdapter,
-    create_strax_context,
-    numpy_dtype_to_strax,
-    strax_dtype_to_numpy,
-    wrap_strax_plugin,
-)
-from .base import (
-    Option,
-    Plugin,
-    option,
-    takes_config,
-)
-
-# 批量流处理插件
-from .batch_processing import (
-    BatchProcessingPlugin,
-)
-
-# 插件热重载
-from .hot_reload import (
-    PluginHotReloader,
-    enable_hot_reload,
-)
-
-# 插件加载器
-from .loader import (
-    PluginLoader,
-    load_plugins_from_directory,
-    load_plugins_from_entry_points,
-)
-
-# 插件契约规范
-from .spec import (
-    Capabilities,
-    ConfigField,
-    FieldSpec,
-    InputRequirement,
-    OutputSchema,
-    PluginSpec,
-)
-
-# 插件统计
-from .stats import (
-    PluginExecutionRecord,
-    PluginStatistics,
-    PluginStatsCollector,
-    get_stats_collector,
-)
-
-# 流式插件
-from .streaming import (
-    StreamingContext,
-    StreamingPlugin,
+from waveform_analysis._lazy_exports import LazyExport as _LazyExport
+from waveform_analysis._lazy_exports import lazy_dir as _lazy_dir
+from waveform_analysis._lazy_exports import (
+    resolve_lazy_attribute as _resolve_lazy_attribute,
 )
 
 __all__ = [
@@ -115,3 +62,60 @@ __all__ = [
     "strax_dtype_to_numpy",
     "numpy_dtype_to_strax",
 ]
+
+
+_LAZY_EXPORTS: dict[str, _LazyExport] = {
+    # Plugin base classes and options.
+    "Plugin": (".base", "Plugin"),
+    "Option": (".base", "Option"),
+    "option": (".base", "option"),
+    "takes_config": (".base", "takes_config"),
+    # Plugin contract specifications.
+    "PluginSpec": (".spec", "PluginSpec"),
+    "OutputSchema": (".spec", "OutputSchema"),
+    "FieldSpec": (".spec", "FieldSpec"),
+    "InputRequirement": (".spec", "InputRequirement"),
+    "Capabilities": (".spec", "Capabilities"),
+    "ConfigField": (".spec", "ConfigField"),
+    # Streaming and batch processing.
+    "StreamingPlugin": (".streaming", "StreamingPlugin"),
+    "StreamingContext": (".streaming", "StreamingContext"),
+    "BatchProcessingPlugin": (".batch_processing", "BatchProcessingPlugin"),
+    # Plugin loading and statistics.
+    "PluginLoader": (".loader", "PluginLoader"),
+    "load_plugins_from_entry_points": (".loader", "load_plugins_from_entry_points"),
+    "load_plugins_from_directory": (".loader", "load_plugins_from_directory"),
+    "PluginExecutionRecord": (".stats", "PluginExecutionRecord"),
+    "PluginStatistics": (".stats", "PluginStatistics"),
+    "PluginStatsCollector": (".stats", "PluginStatsCollector"),
+    "get_stats_collector": (".stats", "get_stats_collector"),
+    # Hot reload support.
+    "PluginHotReloader": (".hot_reload", "PluginHotReloader"),
+    "enable_hot_reload": (".hot_reload", "enable_hot_reload"),
+    # Strax adapters.
+    "StraxPluginAdapter": (".adapters", "StraxPluginAdapter"),
+    "StraxContextAdapter": (".adapters", "StraxContextAdapter"),
+    "wrap_strax_plugin": (".adapters", "wrap_strax_plugin"),
+    "create_strax_context": (".adapters", "create_strax_context"),
+    "strax_dtype_to_numpy": (".adapters", "strax_dtype_to_numpy"),
+    "numpy_dtype_to_strax": (".adapters", "numpy_dtype_to_strax"),
+    # Preserve direct access to the historical child modules in dir()/getattr().
+    "adapters": (".adapters", None),
+    "base": (".base", None),
+    "batch_processing": (".batch_processing", None),
+    "hot_reload": (".hot_reload", None),
+    "loader": (".loader", None),
+    "spec": (".spec", None),
+    "stats": (".stats", None),
+    "streaming": (".streaming", None),
+}
+
+_LAZY_ATTRS = _LAZY_EXPORTS
+
+
+def __getattr__(name: str):
+    return _resolve_lazy_attribute(name, _LAZY_EXPORTS, globals())
+
+
+def __dir__():
+    return _lazy_dir(globals(), _LAZY_EXPORTS, __all__)

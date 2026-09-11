@@ -1,14 +1,23 @@
 ---
-schema_version: 1
+schema_version: 2
 document_type: "plugin_reference"
 profile: "auto"
 provides: "hit_merge_clusters"
 plugin_class: "HitMergeClustersPlugin"
-module: "waveform_analysis.core.plugins.builtin.hit.hit_merge"
+module: "waveform_analysis.core.plugins.builtin.hit_merge_clusters.plugin"
 version: "1.1.0"
 summary: "Export cluster membership rows using the authoritative hit_merged configuration."
 depends_on: ["hit_merged", "hit_threshold"]
+declared_depends_on: ["hit_merged", "hit_threshold"]
+resolved_depends_on: ["hit_merged", "hit_threshold"]
+dependency_profile: "declared"
+dependency_profile_values: {}
+dependency_config_keys: []
 output_kind: "structured_array"
+execution_kind: "static"
+narrative_source: "source"
+narrative_source_reason: null
+source_fingerprint: "d1fae75c79a4fa137eedc0e65d087fe8039eef2093cd0ccfca4c700a6f161925"
 generated: true
 ---
 # hit_merge_clusters
@@ -16,15 +25,27 @@ generated: true
 ## Overview
 
 Export cluster membership rows using the authoritative hit_merged configuration.
+Internal flat cluster membership for hit merge outputs.
+
 | Item | Value |
 | --- | --- |
 | Provides | `hit_merge_clusters` |
 | Plugin Class | `HitMergeClustersPlugin` |
-| Module | `waveform_analysis.core.plugins.builtin.hit.hit_merge` |
+| Module | `waveform_analysis.core.plugins.builtin.hit_merge_clusters.plugin` |
 | Version | `1.1.0` |
 | Category | 特征提取 |
-| Accelerator | CPU (NumPy/SciPy) |
-| Output Kind | `structured_array` |
+| Output Container | `structured_array` |
+| Execution Mode | `static` |
+| Save Policy | `always` |
+| Uses Run Config | no |
+| Timeout | `none` |
+| Side Effect | no |
+| Narrative Source | `source` |
+| Source Fingerprint | `d1fae75c79a4fa137eedc0e65d087fe8039eef2093cd0ccfca4c700a6f161925` |
+
+### Dependencies
+
+默认文档画像：`declared`。
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
@@ -32,32 +53,36 @@ Export cluster membership rows using the authoritative hit_merged configuration.
 | `hit_threshold` | - | declared | - | Threshold-only hit detector with THRESHOLD_HIT_DTYPE output. |
 ### How It Works
 
+1. Internal flat cluster membership for hit merge outputs.
 
 ## Configuration
 
 | Name | Type | Default | Unit | Tracked | Deprecated | Description |
 | --- | --- | --- | --- | --- | --- | --- |
-| - | - | - | - | - | - | - |
+| - | - | - | - | - | - | 此插件没有插件级配置。 |
 ## Output
 
 structured_array output with fields: cluster_index, hit_index.
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
-| `cluster_index` | `int64` | - | Index of the merged cluster, matching merged_id |
-| `hit_index` | `int64` | - | Row index in the source hit_threshold array |
+| `cluster_index` | `int64` | None | Index of the merged cluster, matching merged_id |
+| `hit_index` | `int64` | None | Row index in the source hit_threshold array |
 ## Usage
 
 ### Minimal Example
 
 ```python
-from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import HitMergeClustersPlugin
+from waveform_analysis import Context
+from waveform_analysis.plugins import profiles
 
-ctx = Context(config={"data_root": "DAQ"})
-ctx.register(HitMergeClustersPlugin())
-data = ctx.get_data("run_001", "hit_merge_clusters")
+ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
+ctx.register(*profiles.cpu_default())
+result = ctx.get_data("run_001", "hit_merge_clusters")
 ```
+
+示例使用 `run_id="run_001"` 和文档默认运行画像；真实数据路径与配置应以当前实验设置为准。
+
 ### Downstream Consumers
 
-- Terminal output; no direct builtin consumer is declared.
+- 没有声明直接的内置消费者。

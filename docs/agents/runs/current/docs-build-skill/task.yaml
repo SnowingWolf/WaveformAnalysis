@@ -1,0 +1,290 @@
+api_version: waveform-analysis/agent-task/v1
+kind: AgentTask
+metadata:
+  id: docs-build-skill
+  generation: 2
+  created_at: '2026-09-08'
+  updated_at: '2026-09-08'
+spec:
+  goal: 'Implement the approved docs-build Skill plan in this managed worktree. You
+    are the sole Executor, parent owns planning and Runner owns commits, Reviewer
+    and integration. User has approved implementation; do not ask for design approval
+    or spawn agents. Do not merge/push/commit or access DAQ data. Never install/upgrade
+    shared Python environment. Use /home/wxy/anaconda3/envs/pyroot-kernel/bin/python
+    and PYTHONPATH=current worktree to ensure local imports.
+
+
+    Add .agents/skills/docs-build/SKILL.md and scripts/docs_build.py. Read skill-creator
+    instructions /home/wxy/.codex/skills/.system/skill-creator/SKILL.md and update-docs
+    skill as needed. .agents is gitignored: add narrowly scoped .gitignore exceptions
+    to track ONLY this skill folder (not all other .agents content), so Runner git
+    add includes it. Do not install a global skill. Preserve documentation source
+    and existing commands. Add docs/agents/docs-build.md and an INDEX link. Reuse
+    NextSiteBuilder(project_root=current worktree, app_root=external copied app),
+    static validation, and existing package normalization/manifest helpers instead
+    of duplicating HTML generation.
+
+
+    CLI: python scripts/docs_build.py build --workspace WORKTREE --run-id ID [--build-root
+    DIR] [--stage-output]. Default root tempfile.gettempdir()/waveform-doc-build.
+    Unique runs/ID directory, reject existing ID without overwriting evidence. Reject
+    roots inside workspace and unsafe IDs/symlink output paths. Copy docs/site-next
+    source from current worktree excluding node_modules/.next/out/dist/export/tsbuildinfo
+    and transient files. Build app and dependencies independently under runs/ID/app,
+    share only npm download cache under root/npm-cache. npm ci --ignore-scripts followed
+    by check/build via current builder. All writes outside workspace except explicit
+    --stage-output. Import current workspace code even if shared environment has an
+    editable install pointing elsewhere.
+
+
+    Output external site/, site-model.json, build.log and report.json. Report status,
+    source HEAD, dirty path summary, input fingerprint based on actual input bytes
+    (exclude old site_dist/generated reports and Git metadata), command exit statuses
+    and artifact paths. Failure exit nonzero and persist error report. Default never
+    modifies site_dist; --stage-output after successful validation replaces current
+    worktree site_dist with rollback on replacement error, normalizes generated text
+    and writes valid package manifest. Do not git add within script.
+
+
+    Tests tests/test_docs_build.py cover isolation, duplicate ID, default/no stage
+    writes, stage success and failure old-output preservation, actual-input fingerprint
+    changes, failure exit and report. Prefer controlled fake command runner for focused
+    tests. Use real build for acceptance: new usage guide should contain marker ''docs-build
+    external workspace'' and generated site/model must include it; run default build
+    and stage-output build in external root, record reports under /tmp/waveform-docs-skill-task/real-build-evidence.json
+    with keys default_report and staged_report absolute paths for parent gates. Ensure
+    tests can validate both reports, marker, original site_dist hash unchanged after
+    default, staged manifest valid. Restore no source doc marker; use marker as meaningful
+    guide text.
+
+
+    Record canonical task docs/agents/runs/current/docs-build-skill/task.yaml using
+    approved spec copied from /tmp/waveform-docs-skill-task/task.yaml; update execution
+    evidence and lifecycle at least through reviewing, leave terminal review to actual
+    Reviewer parent evidence. Generated task navigation must be refreshed using render_agent_docs.py
+    --write. Source task external is immutable run input; no independent planning
+    expansion. Parent will register final review evidence separately without modifying
+    reviewed code.
+
+
+    Run required tests/skill validation/doc sync/anchors/impact/schema smoke. If waveform_analysis
+    files change, run both plugins-auto and plugins-agent doc generation commands
+    during execution and preserve no unrelated diffs. Run existing static export validation
+    on staged result; don''t claim builds from unit tests alone. Preformat changed
+    Python with shared ruff and black --workers 1 as available. Runtime budget max
+    30min per invocation. Final report summarize exact tests/build evidence and any
+    blockers. If network/sandbox blocks dependency install, report concrete error;
+    do not disable sandbox or alter provider. Scope minimal; no preview server, cleanup
+    command, DevSpace UI, new repo, or global environment changes.
+
+
+    PLANNER REPLAN generation 2: Independent Reviewer found the new public guide requires
+    tests/test_site_model.py, docs/site-content-baseline.json and docs/site-route-migration.yaml
+    to be updated. These three files are now explicitly authorized by parent within
+    user-approved implementation scope. Fix the three failed tests preserving independent
+    baseline checks; do not remove or weaken coverage. First rework was interrupted
+    before edits to expand scope; retained log attempt-2-interrupted is historical.
+    Existing CLI/Skill and prior parent real builds already pass. Do not recreate
+    implementation or repeat blocked sandbox builds. After finishing source/baseline/route
+    changes and targeted tests, create /tmp/waveform-docs-skill-task/rework-ready.json
+    identifying current fingerprint and what changed; then wait with bounded 20-second
+    sleeps (up to 15min) for /tmp/waveform-docs-skill-task/rework-build-done.json.
+    Parent will run fresh real default and staged builds with permission, updating
+    real-build-evidence.json and final fixture while you hold source files stable.
+    Read done report, validate, update task execution evidence, regenerate task nav
+    and finish. Do not modify source after parent successful build unless required;
+    if changed, explicitly report need for revalidation. Preserve canonical generation
+    2 scope and append lifecycle evidence. Parent supplied .agents skill already exists
+    and passed validation.
+
+    '
+  route: modify_code
+  workflow_cost: strict
+  workflow_shape: staged
+  risk_level: medium
+  scope:
+    base_sha: e2c6c5b97d73763fc141b33f90f2453ace77c2be
+    allowed_paths:
+    - .gitignore
+    - .agents/skills/docs-build
+    - scripts/docs_build.py
+    - tests/test_docs_build.py
+    - docs/agents
+    - docs/site-guides.yaml
+    - docs/site-next/fixture/site-model.v1.json
+    - waveform_analysis/documentation/site_dist
+    - tests/test_site_model.py
+    - docs/site-content-baseline.json
+    - docs/site-route-migration.yaml
+  acceptance_criteria:
+  - Build uses current worktree inputs and keeps dependencies/output external by default.
+  - Validated stage-output changes only managed worktree site_dist; failure preserves
+    previous export.
+  - Actual external build includes updated documentation and both reports are inspectable.
+  - Skill, focused tests and repository gates pass; original develop unchanged.
+  required_gates:
+  - targeted_tests
+  - skill
+  - doc_sync
+  - doc_anchors
+  - assess_change_impact
+  - schema_compat_check
+  - real_build
+  assignment:
+    planner_role: planner
+    executor_role: executor.code
+    reviewer_role: reviewer
+status:
+  state: reviewing
+  transitions:
+  - from: created
+    to: executing
+    at: '2026-09-08T08:42:00Z'
+    actor: executor
+    condition: Imported the parent-approved ready_for_execution snapshot; external
+      input contains no transition history. No new planning performed.
+  - from: executing
+    to: reviewing
+    at: '2026-09-08T08:53:32.326294+00:00'
+    actor: executor
+    condition: Implementation and validation evidence ready for actual parent Reviewer.
+  - from: reviewing
+    to: rework_required
+    at: '2026-09-08T09:00:34.052979+00:00'
+    actor: reviewer
+    condition: fixable_gate_failure
+  - from: rework_required
+    to: planning
+    at: '2026-09-08T09:00:34.052979+00:00'
+    actor: planner
+    scope_changed: true
+    condition: scope_changed
+  - to: ready_for_execution
+    at: '2026-09-08T09:01:41.093168+00:00'
+    actor: executor
+    condition: Parent-approved generation 2 rework; no independent planning
+    from: planning
+  - to: executing
+    at: '2026-09-08T09:01:41.093168+00:00'
+    actor: executor
+    condition: Parent-approved generation 2 rework; no independent planning
+    from: ready_for_execution
+  - from: executing
+    to: reviewing
+    at: '2026-09-08T09:06:21.345910+00:00'
+    actor: executor
+    condition: Generation 2 fixes and required gates passed; fresh parent real builds
+      received; actual Reviewer owns terminal review.
+  - from: reviewing
+    to: rework_required
+    actor: reviewer
+    at: '2026-09-08T09:12:17.935192+00:00'
+    condition: fixable_gate_failure
+    evidence: 'User-supplied independent review: Numba import writes in-tree cache.'
+  - from: rework_required
+    to: executing
+    actor: executor
+    at: '2026-09-08T09:12:17.935192+00:00'
+    condition: scope_unchanged
+  - from: executing
+    to: reviewing
+    at: '2026-09-08T09:15:44.395399+00:00'
+    actor: executor
+    condition: execution_report_ready
+    evidence: Numba isolation fix, focused regression, all required gates and new
+      parent real builds verified; actual Reviewer retains terminal decision.
+  plan_sha256: null
+  execution:
+    generation: 2
+    summary: 'Generation 2 rework complete: external Numba cache configured before
+      cold imports; full-workspace fresh-process isolation regression passed. Parent
+      fresh real builds verified against unchanged source fingerprint.'
+    actions_taken:
+    - Updated three stale guide count assertions to 34 without weakening independent
+      checks.
+    - Appended only docs-build guide baseline and historical route spelling.
+    - Preserved approved generation 2 scope and appended lifecycle evidence.
+    commands_run:
+      skill:
+        command:
+        - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python
+        - /home/wxy/.codex/skills/.system/skill-creator/scripts/quick_validate.py
+        - .agents/skills/docs-build
+        exit_status: 0
+        log: /tmp/waveform-docs-skill-task/rework-skill.log
+      doc_sync:
+        command:
+        - bash
+        - scripts/check_doc_sync.sh
+        - --base
+        - e2c6c5b97d73763fc141b33f90f2453ace77c2be
+        exit_status: 0
+        log: /tmp/waveform-docs-skill-task/rework-doc_sync.log
+      doc_anchors:
+        command:
+        - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python
+        - scripts/check_doc_anchors.py
+        - --check-sync
+        - --base
+        - e2c6c5b97d73763fc141b33f90f2453ace77c2be
+        exit_status: 0
+        log: /tmp/waveform-docs-skill-task/rework-doc_anchors.log
+      assess_change_impact:
+        command:
+        - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python
+        - scripts/assess_change_impact.py
+        - --base
+        - e2c6c5b97d73763fc141b33f90f2453ace77c2be
+        exit_status: 0
+        log: /tmp/waveform-docs-skill-task/rework-assess_change_impact.log
+      schema_compat_check:
+        command:
+        - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python
+        - scripts/schema_compat_check.py
+        - --base
+        - e2c6c5b97d73763fc141b33f90f2453ace77c2be
+        - --run-smoke
+        exit_status: 0
+        log: /tmp/waveform-docs-skill-task/rework-schema_compat_check.log
+    targeted_tests:
+      command: PYTHONPATH=current-worktree /home/wxy/anaconda3/envs/pyroot-kernel/bin/python
+        -m pytest tests/test_docs_build.py tests/test_cli_docs_site_publish.py tests/test_site_model.py
+        -q --no-cov -o addopts=
+      result: '50 passed, 1 skipped before new real evidence; skipped real-build test
+        rerun afterward: 1 passed'
+      log: /tmp/waveform-docs-skill-task/numba-targeted.log
+    real_build:
+      default_before_hash: 297d346edaa6b8887749e0d56bd34d2b404b6da082113626a0be6c27d45ff6ba
+      default_report: /tmp/waveform-docs-skill-task/builds/runs/rework-default-02/report.json
+      default_after_hash: 297d346edaa6b8887749e0d56bd34d2b404b6da082113626a0be6c27d45ff6ba
+      staged_report: /tmp/waveform-docs-skill-task/builds/runs/rework-staged-02/report.json
+      execution_note: Generation 2 real default and staged builds run by parent outside
+        sandbox, using the held Executor worktree inputs and isolated dependencies.
+      status: success
+    formatting: ruff check PASS; black --workers 1 PASS (files checked individually
+      with external cache).
+    open_risks: []
+    real_build_validation:
+      result: Both external exports and staged site_dist validated; marker, command
+        statuses, input fingerprints and package manifest passed.
+      evidence: /tmp/waveform-docs-skill-task/numba-real-validation.json
+      acceptance_log: /tmp/waveform-docs-skill-task/numba-real-test.log
+      input_verification:
+        final_input_fingerprint: fb5dc32ee3480e04aaf3162ab726685b51f76340b68d1c5a56cb0dd79deebd61
+        build_input_fingerprint: fb5dc32ee3480e04aaf3162ab726685b51f76340b68d1c5a56cb0dd79deebd61
+        requires_revalidation: false
+    original_develop_verification:
+      head: e2c6c5b97d73763fc141b33f90f2453ace77c2be
+      git_status_short: ''
+      read_only: true
+    numba_rework:
+      summary: Redirect Numba cache before documentation imports and in child command
+        environment. Fresh-process test snapshots all workspace file bytes and file/directory
+        modification times, overriding inherited in-tree NUMBA_CACHE_DIR.
+      targeted_log: /tmp/waveform-docs-skill-task/numba-targeted.log
+      real_build: Fresh parent default and staged reports validated; see real_build.
+  review: {}
+  approval: {}
+  handoff:
+    commit_status: uncommitted
+    reason: Runner owns commits; executor instructed not to modify Git metadata.

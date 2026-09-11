@@ -1,4 +1,4 @@
-# DOC: docs/features/advanced/EXECUTOR_MANAGER_GUIDE.md
+# DOC: docs/architecture/ARCHITECTURE.md
 """
 Storage Backends 模块 - 可插拔存储后端抽象层
 

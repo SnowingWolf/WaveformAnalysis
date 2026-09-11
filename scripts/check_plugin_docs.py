@@ -17,6 +17,14 @@ from pathlib import Path
 import subprocess
 import sys
 
+try:
+    from scripts._python_compat import require_supported_python
+except ImportError:  # direct ``python scripts/check_plugin_docs.py`` execution
+    from _python_compat import require_supported_python
+
+if not require_supported_python("check_plugin_docs.py"):
+    raise SystemExit(1)
+
 
 def main():
     parser = argparse.ArgumentParser(description="检查插件文档覆盖率")
@@ -37,7 +45,7 @@ def main():
             [
                 sys.executable,
                 "-m",
-                "waveform_analysis.utils.cli_docs",
+                "waveform_analysis.documentation.cli",
                 "generate",
                 "plugins-auto",
                 "-o",
@@ -55,7 +63,7 @@ def main():
     cmd = [
         sys.executable,
         "-m",
-        "waveform_analysis.utils.cli_docs",
+        "waveform_analysis.documentation.cli",
         "check",
         "coverage",
         "-d",

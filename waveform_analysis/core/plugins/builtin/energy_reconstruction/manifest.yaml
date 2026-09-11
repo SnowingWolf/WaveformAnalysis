@@ -1,0 +1,9 @@
+provides: energy_reconstruction
+plugin_class: EnergyReconstructionPlugin
+version: 0.1.0
+depends_on:
+  - s1_s2_pairs
+third_party_dependencies:
+  - numpy
+plugin_dependencies: []
+category: event_reconstruction

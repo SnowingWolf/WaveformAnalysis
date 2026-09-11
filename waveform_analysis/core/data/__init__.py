@@ -14,16 +14,29 @@ Data 子模块 - 数据查询和导出
     from waveform_analysis.core import TimeRangeQueryEngine  # 通过 core.__init__.py 兼容
 """
 
-# 时间查询
-# 批量处理和导出
-from .batch_processor import BatchProcessor
-from .export import DataExporter, batch_export
-from .query import (
-    TimeIndex,
-    TimeRangeCache,
-    TimeRangeQueryEngine,
+from waveform_analysis._lazy_exports import LazyExport as _LazyExport
+from waveform_analysis._lazy_exports import (
+    _install_lazy_export_module as _install_lazy_export_module,
 )
-from .records_view import RecordsView, records_view
+from waveform_analysis._lazy_exports import lazy_dir as _lazy_dir
+from waveform_analysis._lazy_exports import (
+    resolve_lazy_attribute as _resolve_lazy_attribute,
+)
+
+_LAZY_EXPORTS: dict[str, _LazyExport] = {
+    # 时间查询
+    "TimeIndex": (".query", "TimeIndex"),
+    "TimeRangeQueryEngine": (".query", "TimeRangeQueryEngine"),
+    "TimeRangeCache": (".query", "TimeRangeCache"),
+    "RecordsView": (".records_view", "RecordsView"),
+    "records_view": (".records_view", "records_view"),
+    # 批量处理和导出
+    "BatchProcessor": (".batch_processor", "BatchProcessor"),
+    "DataExporter": (".export", "DataExporter"),
+    "batch_export": (".export", "batch_export"),
+}
+
+_install_lazy_export_module(globals())
 
 __all__ = [
     # 时间查询
@@ -37,3 +50,11 @@ __all__ = [
     "DataExporter",
     "batch_export",
 ]
+
+
+def __getattr__(name: str) -> object:
+    return _resolve_lazy_attribute(name, _LAZY_EXPORTS, globals())
+
+
+def __dir__() -> list[str]:
+    return _lazy_dir(globals(), _LAZY_EXPORTS, __all__)

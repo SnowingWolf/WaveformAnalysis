@@ -1,0 +1,13 @@
+[
+  "tests/test_cli_docs_site_publish.py::test_next_build_requires_explicitly_installed_dependencies",
+  "tests/test_docs_build.py::test_failure_report_and_exit",
+  "tests/test_docs_build.py::test_fresh_process_leaves_entire_workspace_unchanged",
+  "tests/test_site_model.py::test_site_model_v1_uses_real_plugin_and_guide_facts_without_html",
+  "tests/test_site_model.py::test_site_model_rejects_navigation_children_with_unknown_routes",
+  "tests/test_site_model.py::test_site_model_builder_has_no_markdown_html_renderer",
+  "tests/test_site_model.py::test_site_model_preserves_rich_reference_content_and_accessor_classification",
+  "tests/test_site_model.py::test_site_model_meets_pre_next_rich_content_coverage_baseline",
+  "tests/test_site_model.py::test_public_guide_baseline_tracks_source_and_typed_content_independently",
+  "tests/test_site_model.py::test_markdown_blocks_preserve_ordered_lists_links_multiple_code_and_tables",
+  "tests/test_site_model.py::test_route_migration_map_covers_all_routes_without_emitting_aliases"
+]

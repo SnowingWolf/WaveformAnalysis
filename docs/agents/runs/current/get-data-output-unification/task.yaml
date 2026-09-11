@@ -1,0 +1,55 @@
+api_version: waveform-analysis/agent-task/v1
+kind: AgentTask
+metadata:
+  id: get-data-output-unification
+  generation: 1
+  created_at: '2026-08-31'
+  updated_at: '2026-08-31'
+spec:
+  goal: >-
+    Unify ctx.get_data(..., output=...) behavior across direct execution,
+    memory cache, disk cache, and stream or chunk paths.
+  route: modify_code
+  workflow_cost: standard
+  workflow_shape: staged
+  risk_level: medium
+  scope:
+    base_sha: 6f90f8ab56a96205639bdcab13478ca7aeae315b
+    allowed_paths:
+      - waveform_analysis/core/context.py
+      - tests
+      - docs
+  acceptance_criteria:
+    - Native, array, and chunk_stream output modes have consistent behavior across all get_data return paths.
+    - Unsafe output conversion fails explicitly instead of returning the wrong type.
+    - Existing plugin compute behavior and physical analysis logic remain unchanged.
+    - Relevant context and output tests pass.
+  required_gates:
+    - targeted_context_tests
+    - doc_sync
+    - doc_anchors
+    - diff_scope_check
+  assignment:
+    planner_role: planner
+    executor_role: executor.code
+    reviewer_role: reviewer
+    source_route: modify_context
+status:
+  state: planning
+  condition: NeedsRevalidation
+  conditions:
+    - type: NeedsRevalidation
+      status: 'True'
+      reason: legacy_plan_migrated
+      message: The legacy plan predates the v6 route and task contract; review scope and acceptance criteria before execution.
+  transitions:
+    - from: null
+      to: planning
+      at: '2026-08-31'
+      actor: migration
+      condition: legacy_plan_migrated
+  plan_sha256: null
+  execution: {}
+  review: {}
+  approval: {}
+  handoff: {}

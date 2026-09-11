@@ -15,41 +15,38 @@ Foundation 子模块 - 框架基础设施
     from waveform_analysis.core import PluginError  # 通过 core.__init__.py 兼容
 """
 
-# 异常处理
-from .exceptions import (
-    ErrorContext,
-    ErrorSeverity,
-    PluginError,
-    PluginTimeoutError,
+from waveform_analysis._lazy_exports import LazyExport as _LazyExport
+from waveform_analysis._lazy_exports import lazy_dir as _lazy_dir
+from waveform_analysis._lazy_exports import (
+    resolve_lazy_attribute as _resolve_lazy_attribute,
 )
 
-# 模型
-from .model import (
-    EdgeModel,
-    LineageGraphModel,
-    NodeModel,
-    PortModel,
-)
-
-# 进度追踪
-from .progress import (
-    ProgressTracker,
-    format_throughput,
-    format_time,
-    get_global_tracker,
-    progress_iter,
-    progress_map,
-    reset_global_tracker,
-    with_progress,
-)
-
-# 工具函数
-from .utils import (
-    LineageStyle,
-    OneTimeGenerator,
-    Profiler,
-    exporter,
-)
+_LAZY_EXPORTS: dict[str, _LazyExport] = {
+    # 异常处理
+    "ErrorSeverity": (".exceptions", "ErrorSeverity"),
+    "PluginError": (".exceptions", "PluginError"),
+    "ErrorContext": (".exceptions", "ErrorContext"),
+    "PluginTimeoutError": (".exceptions", "PluginTimeoutError"),
+    # 模型
+    "PortModel": (".model", "PortModel"),
+    "NodeModel": (".model", "NodeModel"),
+    "EdgeModel": (".model", "EdgeModel"),
+    "LineageGraphModel": (".model", "LineageGraphModel"),
+    # 工具函数
+    "exporter": (".utils", "exporter"),
+    "Profiler": (".utils", "Profiler"),
+    "LineageStyle": (".utils", "LineageStyle"),
+    "OneTimeGenerator": (".utils", "OneTimeGenerator"),
+    # 进度追踪
+    "ProgressTracker": (".progress", "ProgressTracker"),
+    "with_progress": (".progress", "with_progress"),
+    "progress_iter": (".progress", "progress_iter"),
+    "progress_map": (".progress", "progress_map"),
+    "get_global_tracker": (".progress", "get_global_tracker"),
+    "reset_global_tracker": (".progress", "reset_global_tracker"),
+    "format_time": (".progress", "format_time"),
+    "format_throughput": (".progress", "format_throughput"),
+}
 
 __all__ = [
     # 异常处理
@@ -77,3 +74,11 @@ __all__ = [
     "format_time",
     "format_throughput",
 ]
+
+
+def __getattr__(name: str) -> object:
+    return _resolve_lazy_attribute(name, _LAZY_EXPORTS, globals())
+
+
+def __dir__() -> list[str]:
+    return _lazy_dir(globals(), _LAZY_EXPORTS, __all__)

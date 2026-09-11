@@ -1,0 +1,9 @@
+provides: wave_pool_filtered
+plugin_class: WavePoolFilteredPlugin
+version: 3.0.0
+depends_on:
+  - records
+  - wave_pool
+third_party_dependencies:
+  - numpy
+plugin_dependencies:

@@ -1,6 +1,6 @@
 # DOC: docs/architecture/PLUGIN_DAG_LINEAGE_CACHE.md
 # DOC: docs/features/context/CONFIGURATION.md
-# DOC: docs/features/context/PLUGIN_MANAGEMENT.md
+# DOC: docs/plugins/PLUGIN_SYSTEM_OVERVIEW.md
 """
 Context 模块 - 插件系统的核心调度器。
 
@@ -31,10 +31,6 @@ import warnings
 import numpy as np
 
 # 3. Local imports (使用相对导入)
-from ..utils.visualization.lineage_visualizer import (
-    plot_lineage_labview,
-    plot_lineage_plotly,
-)
 from .config import (
     AdapterInfo,
     CompatManager,
@@ -57,7 +53,7 @@ from .storage.cache_manager import RuntimeCacheManager
 from .storage.memmap import MemmapStorage
 
 if TYPE_CHECKING:
-    from ..utils.context_help import HelpDocument
+    from ..documentation.context_help import HelpDocument
 
 
 def _safe_copy_config(config: dict[str, Any]) -> dict[str, Any]:
@@ -145,7 +141,6 @@ class Context:
             "clear_cache_for",
             "clear_config_cache",
             "clear_performance_caches",
-            "clear_time_index",
             "config",
             "get_data",
             "get_config",
@@ -153,7 +148,6 @@ class Context:
             "get_performance_report",
             "get_run_config",
             "get_run_hardware_channels",
-            "get_time_index_stats",
             "help",
             "key_for",
             "list_plugin_configs",
@@ -380,10 +374,22 @@ class Context:
         self._resolved_config_cache: dict[tuple, dict[str, Any]] = {}
 
         # Performance optimization caches
-        self._execution_plan_cache: dict[str, list[str]] = {}  # data_name -> execution plan
+        self._execution_plan_cache: dict[tuple, list[str]] = (
+            {}
+        )  # (run_id, data_name) -> execution plan
         self._lineage_cache: dict[str, dict[str, Any]] = {}  # data_name -> lineage dict
         self._lineage_hash_cache: dict[str, str] = {}  # data_name -> lineage hash
         self._key_cache: dict[tuple, str] = {}  # (run_id, data_name) -> key
+        self._key_prefix_cache: dict[str, str] = (
+            {}
+        )  # data_name -> "<data_name>-<lineage_hash>" suffix
+        self._run_key_list_cache: dict[tuple, list[str]] = (
+            {}
+        )  # (id(storage), run_id) -> list_keys result
+        self._reverse_deps_cache: dict[tuple, dict[str, list[str]]] = (
+            {}
+        )  # (run_id, registry_version) -> reverse deps
+        self._registry_version: int = 0  # bumped on register/override to invalidate reverse deps
         # Per-run config cache (loaded from run_config.json) and hash tracking.
         self._run_config_cache: dict[str, dict[str, Any]] = {}
         self._run_config_hash_cache: dict[str, str] = {}
@@ -915,7 +921,10 @@ class Context:
         if not plan:
             val = self._get_data_from_memory(run_id, data_name)
             return self._coerce_get_data_output(run_id, data_name, val, output)
-        needed_set = self._execution_domain.compute_needed_set(run_id, data_name, plan)
+        # 目标已在第 2 步确认非内存/磁盘命中，避免在 needed_set 中重复检查。
+        needed_set = self._execution_domain.compute_needed_set(
+            run_id, data_name, plan, target_is_missing=True
+        )
 
         # 4. Execute plan
         result = self._execution_domain.run_plugin(
@@ -1044,11 +1053,15 @@ class Context:
         self, data_name: str, run_id: str | None = None
     ) -> list[str]:
         """Collect all downstream data names that depend on a given data_name."""
-        reverse_deps: dict[str, list[str]] = {}
-        for name, plugin in self._plugins.items():
-            deps = self._plugin_domain.get_dependency_names(plugin, run_id=run_id)
-            for dep in deps:
-                reverse_deps.setdefault(dep, []).append(name)
+        cache_key = (run_id, self._registry_version)
+        reverse_deps = self._reverse_deps_cache.get(cache_key)
+        if reverse_deps is None:
+            reverse_deps = {}
+            for name, plugin in self._plugins.items():
+                deps = self._plugin_domain.get_dependency_names(plugin, run_id=run_id)
+                for dep in deps:
+                    reverse_deps.setdefault(dep, []).append(name)
+            self._reverse_deps_cache[cache_key] = reverse_deps
 
         seen: set = set()
         queue = deque(reverse_deps.get(data_name, []))
@@ -1132,19 +1145,32 @@ class Context:
 
     def _storage_list_keys(self, storage: Any, run_id: str | None) -> list[str]:
         """List keys from storage, filtering by run_id when needed."""
+        cache_key = (id(storage), run_id)
+        cached = self._run_key_list_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
         method = getattr(storage, "list_keys", None)
         if method is None:
             return []
         try:
             if run_id is not None and self._storage_supports_run_id(storage, "list_keys"):
-                return method(run_id=run_id)
-            keys = method()
+                keys = method(run_id=run_id)
+            else:
+                keys = method()
         except Exception:
             return []
         if run_id is None:
-            return keys
-        prefix = f"{run_id}-"
-        return [k for k in keys if k.startswith(prefix)]
+            result = keys
+        else:
+            prefix = f"{run_id}-"
+            result = [k for k in keys if k.startswith(prefix)]
+        self._run_key_list_cache[cache_key] = result
+        return result
+
+    def _invalidate_storage_key_list_cache(self, storage: Any, run_id: str | None) -> None:
+        """Invalidate the cached key list for a storage/run after a disk write or delete."""
+        self._run_key_list_cache.pop((id(storage), run_id), None)
 
     def _list_channel_keys(self, storage: Any, run_id: str | None, key: str) -> list[str]:
         """List multi-channel cache keys (key_ch*) for a base key."""
@@ -1186,28 +1212,27 @@ class Context:
                 key = self.key_for(run_id, name)  # Contains lineage hash
                 self._results_lineage[(run_id, name)] = key
 
-            is_generator = isinstance(value, Iterator | OneTimeGenerator) or hasattr(
-                value, "__next__"
+        # Attribute assignment / warning logic doesn't touch shared dicts; keep it
+        # out of the lock to shorten hold time (key_for stays locked for cache dicts).
+        is_generator = isinstance(value, Iterator | OneTimeGenerator) or hasattr(value, "__next__")
+        if not re.match(r"^[a-zA-Z_]\w*$", name):
+            return
+
+        # Check if it's a property on the class
+        cls_attr = getattr(self.__class__, name, None)
+        is_prop = isinstance(cls_attr, property)
+
+        if name in self._RESERVED_NAMES or (hasattr(self.__class__, name) and not is_prop):
+            warnings.warn(
+                f"Data name '{name}' conflicts with a Context method or reserved attribute. "
+                f"Access it via context.get_data(run_id, '{name}') or context._results[(run_id, '{name}')].",
+                UserWarning,
             )
-
-            # Safe attribute access: whitelist and conflict check
-            # Whitelist: valid python identifier
-            if re.match(r"^[a-zA-Z_]\w*$", name):
-                # Check if it's a property on the class
-                cls_attr = getattr(self.__class__, name, None)
-                is_prop = isinstance(cls_attr, property)
-
-                if name in self._RESERVED_NAMES or (hasattr(self.__class__, name) and not is_prop):
-                    warnings.warn(
-                        f"Data name '{name}' conflicts with a Context method or reserved attribute. "
-                        f"Access it via context.get_data(run_id, '{name}') or context._results[(run_id, '{name}')].",
-                        UserWarning,
-                    )
-                elif not is_prop and not is_generator:
-                    # Note: This overwrites the attribute for different runs.
-                    # It's kept for convenience in interactive use.
-                    # We don't set it if it's a property, as the property handles access.
-                    setattr(self, name, value)
+        elif not is_prop and not is_generator:
+            # Note: This overwrites the attribute for different runs.
+            # It's kept for convenience in interactive use.
+            # We don't set it if it's a property, as the property handles access.
+            setattr(self, name, value)
 
     def _get_data_from_memory(self, run_id: str, name: str) -> Any:
         """Internal helper to get data from _results or attributes."""
@@ -1322,6 +1347,11 @@ class Context:
 
         if not show_virtual_plugins:
             model = model.without_lineage_virtual_nodes(data_name)
+
+        from ..visualization.lineage_visualizer import (
+            plot_lineage_labview,
+            plot_lineage_plotly,
+        )
 
         if kind == "labview":
             return plot_lineage_labview(model, data_name, context=self, **kwargs)
@@ -1443,14 +1473,27 @@ class Context:
             A dictionary representing the lineage of the specified data type.
 
         """
-        # Check cache (only for non-recursive calls)
-        if _visited is None and data_name in self._lineage_cache:
+        top_level = _visited is None
+        visited = set() if _visited is None else _visited
+        lineage = self._get_base_lineage(data_name, visited)
+        if top_level:
+            return self._augment_adapter_info(lineage)
+        return lineage
+
+    def _get_base_lineage(self, data_name: str, visited: set[str]) -> dict[str, Any]:
+        """Build lineage without top-level adapter metadata.
+
+        Keeping recursion in this helper makes a cold lookup identical to a
+        lookup served from ``_lineage_cache``.  ``adapter_info`` is a Context
+        concern and is added exactly once by :meth:`get_lineage`.
+        """
+        # Cache holds base lineage (without adapter_info) for every node so that
+        # cascade invalidation re-checks downstream lineages in O(N) instead of
+        # re-recursing each chain.
+        if data_name in self._lineage_cache:
             return self._lineage_cache[data_name]
 
-        if _visited is None:
-            _visited = set()
-
-        if data_name in _visited:
+        if data_name in visited:
             return {"plugin_class": "CircularDependency", "target": data_name}
 
         if data_name not in self._plugins:
@@ -1463,9 +1506,35 @@ class Context:
 
         # Extensibility: Allow plugin to customize its lineage info
         if hasattr(plugin, "get_lineage"):
-            return plugin.get_lineage(self)
+            get_lineage = plugin.get_lineage
+            provider_visited = visited | {data_name}
 
-        _visited.add(data_name)
+            def dependency_resolver(dep: str) -> dict[str, Any]:
+                return self._get_base_lineage(dep, provider_visited.copy())
+
+            try:
+                resolver_param = inspect.signature(get_lineage).parameters.get(
+                    "dependency_resolver"
+                )
+                accepts_resolver = resolver_param is not None and (
+                    resolver_param.kind
+                    in (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY)
+                    and resolver_param.default is not inspect.Parameter.empty
+                )
+            except (TypeError, ValueError):
+                accepts_resolver = False
+            if accepts_resolver:
+                lineage = get_lineage(self, dependency_resolver=dependency_resolver)
+                self._lineage_cache[data_name] = lineage
+            else:
+                # Third-party hooks using the historical ``get_lineage(context)``
+                # signature remain supported. Do not cache these hooks: they may
+                # recursively call the public API and must retain the historical
+                # downstream invalidation behavior.
+                lineage = get_lineage(self)
+            return lineage
+
+        visited.add(data_name)
 
         # Filter config to only include tracked options
         config = {}
@@ -1483,9 +1552,7 @@ class Context:
             "plugin_version": getattr(plugin, "version", "0.0.0"),
             "description": getattr(plugin, "description", ""),
             "config": config,
-            "depends_on": {
-                dep: self.get_lineage(dep, _visited=_visited.copy()) for dep in dep_names
-            },
+            "depends_on": {dep: self._get_base_lineage(dep, visited.copy()) for dep in dep_names},
         }
 
         # Add spec_hash if plugin has validated spec
@@ -1509,19 +1576,22 @@ class Context:
         if output_schema is not None:
             lineage["output_schema"] = output_schema.to_dict()
 
-        # Add adapter_info for top-level calls
-        if len(_visited) == 1:
-            adapter_name = self.config.get("daq_adapter")
-            if adapter_name:
-                adapter_info = get_adapter_info(adapter_name)
-                if adapter_info:
-                    lineage["adapter_info"] = adapter_info.to_dict()
-
-        # Cache the lineage (only for top-level calls)
-        if len(_visited) == 1:  # Top-level call
-            self._lineage_cache[data_name] = lineage
-
+        # Cache base lineage (without adapter_info) at every depth; adapter_info
+        # only applies to the top-level view.
+        self._lineage_cache[data_name] = lineage
         return lineage
+
+    def _augment_adapter_info(self, lineage: dict[str, Any]) -> dict[str, Any]:
+        """Return a top-level lineage view with adapter_info, without mutating cache."""
+        adapter_name = self.config.get("daq_adapter")
+        if not adapter_name:
+            return lineage
+        adapter_info = get_adapter_info(adapter_name)
+        if not adapter_info:
+            return lineage
+        result = dict(lineage)
+        result["adapter_info"] = adapter_info.to_dict()
+        return result
 
     @staticmethod
     def _format_display_value(value: Any, width: int) -> str:
@@ -2025,12 +2095,6 @@ class Context:
             time_domain=time_domain,
         )
 
-    def clear_time_index(self, run_id: str | None = None, data_name: str | None = None):
-        self._time_domain.clear_time_index(run_id, data_name)
-
-    def get_time_index_stats(self) -> dict[str, Any]:
-        return self._time_domain.get_time_index_stats()
-
     def set_epoch(
         self,
         run_id: str,
@@ -2360,7 +2424,10 @@ class Context:
         run_id: str | None = None,
     ) -> HelpDocument:
         """Return terminal text and a rich Jupyter representation for a help topic."""
-        from waveform_analysis.utils.context_help import build_context_help, show_context_help
+        from waveform_analysis.documentation.context_help import (
+            build_context_help,
+            show_context_help,
+        )
 
         return show_context_help(build_context_help(self, topic, run_id=run_id))
 

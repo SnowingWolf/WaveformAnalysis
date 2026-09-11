@@ -1,0 +1,10 @@
+provides: waveform_width
+plugin_class: WaveformWidthPlugin
+version: 3.0.0
+depends_on:
+  - hit
+  - st_waveforms
+third_party_dependencies:
+  - numpy
+plugin_dependencies: []
+category: feature_extraction

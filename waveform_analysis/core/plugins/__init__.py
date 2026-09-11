@@ -29,6 +29,12 @@ Plugins 子模块 - 插件系统统一入口
 
 from importlib import import_module
 
+from waveform_analysis._lazy_exports import LazyExport as _LazyExport
+from waveform_analysis._lazy_exports import lazy_dir as _lazy_dir
+from waveform_analysis._lazy_exports import (
+    resolve_lazy_attribute as _resolve_lazy_attribute,
+)
+
 __all__ = [
     # 插件基类
     "Plugin",
@@ -69,6 +75,10 @@ __all__ = [
     "PairedEventsPlugin",
     "RecordsPlugin",
     "WavePoolPlugin",
+    "WavePoolFilteredPlugin",
+    "RecordsAsymmetryMaskPlugin",
+    "RecordsDetectorMaskPlugin",
+    "RecordsVetoMaskPlugin",
     # 信号处理插件
     "FilteredWaveformsPlugin",
     "WaveformWidthPlugin",
@@ -79,72 +89,92 @@ __all__ = [
 ]
 
 
-_LAZY_ATTRS: dict[str, tuple[str, str | None]] = {
+_LAZY_EXPORTS: dict[str, _LazyExport] = {
+    # Aggregate modules.
     "plugin_sets": (".plugin_sets", None),
     "profiles": (".profiles", None),
-    "BasicFeaturesPlugin": (".builtin.cpu", "BasicFeaturesPlugin"),
-    "DataFramePlugin": (".builtin.cpu", "DataFramePlugin"),
-    "FilteredWaveformsPlugin": (".builtin.cpu", "FilteredWaveformsPlugin"),
-    "GroupedEventsPlugin": (".builtin.cpu", "GroupedEventsPlugin"),
-    "HitFinderPlugin": (".builtin.cpu", "HitFinderPlugin"),
-    "PairedEventsPlugin": (".builtin.cpu", "PairedEventsPlugin"),
-    "RawFileNamesPlugin": (".builtin.cpu", "RawFileNamesPlugin"),
-    "RecordsPlugin": (".builtin.cpu", "RecordsPlugin"),
-    "WavePoolPlugin": (".builtin.cpu", "WavePoolPlugin"),
-    "WaveformsPlugin": (".builtin.cpu", "WaveformsPlugin"),
-    "WaveformStruct": (".builtin.cpu", "WaveformStruct"),
-    "WaveformStructConfig": (".builtin.cpu", "WaveformStructConfig"),
-    "WaveformWidthPlugin": (".builtin.cpu", "WaveformWidthPlugin"),
-    "SignalPeaksStreamPlugin": (".builtin.streaming", "SignalPeaksStreamPlugin"),
-    # Peaklet plugins - new location in peaks/
-    "PeakletPlugin": (".builtin.peaks.peaklets", "PeakletPlugin"),
-    "PeakletComponentsPlugin": (".builtin.peaks.peaklets", "PeakletComponentsPlugin"),
-    "PeakletWaveformPlugin": (".builtin.peaks.peaklets", "PeakletWaveformPlugin"),
-    "PeakletWaveformPoolPlugin": (".builtin.peaks.peaklets", "PeakletWaveformPoolPlugin"),
-    "PeakletFeaturesPlugin": (".builtin.peaks.peaklets", "PeakletFeaturesPlugin"),
-    "PeaksPlugin": (".builtin.peaks.peaklets", "PeaksPlugin"),
-    "PeakletChannelsPlugin": (".builtin.peaks.peaklet_channels", "PeakletChannelsPlugin"),
-    # Hit plugins - new location in hit/
-    "HitGroupedPlugin": (".builtin.hit.hit_grouped", "HitGroupedPlugin"),
-    "ThresholdHitPlugin": (".builtin.hit.hit_finder", "ThresholdHitPlugin"),
-    "HitMergePlugin": (".builtin.hit.hit_merge", "HitMergePlugin"),
-    "HitMergeClustersPlugin": (".builtin.hit.hit_merge", "HitMergeClustersPlugin"),
-    "HitMergedComponentsPlugin": (".builtin.hit.hit_merge", "HitMergedComponentsPlugin"),
-    "HitMergedFeaturesPlugin": (".builtin.hit.hit_merged_features", "HitMergedFeaturesPlugin"),
-    # Core infrastructure
-    "Option": (".core", "Option"),
-    "Plugin": (".core", "Plugin"),
-    "PluginExecutionRecord": (".core", "PluginExecutionRecord"),
-    "PluginHotReloader": (".core", "PluginHotReloader"),
-    "PluginLoader": (".core", "PluginLoader"),
-    "PluginStatistics": (".core", "PluginStatistics"),
-    "PluginStatsCollector": (".core", "PluginStatsCollector"),
-    "StraxContextAdapter": (".core", "StraxContextAdapter"),
-    "StraxPluginAdapter": (".core", "StraxPluginAdapter"),
-    "StreamingContext": (".core", "StreamingContext"),
-    "StreamingPlugin": (".core", "StreamingPlugin"),
-    "create_strax_context": (".core", "create_strax_context"),
-    "enable_hot_reload": (".core", "enable_hot_reload"),
-    "get_stats_collector": (".core", "get_stats_collector"),
-    "load_plugins_from_directory": (".core", "load_plugins_from_directory"),
-    "load_plugins_from_entry_points": (".core", "load_plugins_from_entry_points"),
-    "numpy_dtype_to_strax": (".core", "numpy_dtype_to_strax"),
-    "option": (".core", "option"),
-    "strax_dtype_to_numpy": (".core", "strax_dtype_to_numpy"),
-    "takes_config": (".core", "takes_config"),
-    "wrap_strax_plugin": (".core", "wrap_strax_plugin"),
+    # Builtin plugin bundles.
+    "BasicFeaturesPlugin": (".builtin.basic_features", "BasicFeaturesPlugin"),
+    "DataFramePlugin": (".builtin.df", "DataFramePlugin"),
+    "FilteredWaveformsPlugin": (".builtin.filtered_waveforms", "FilteredWaveformsPlugin"),
+    "GroupedEventsPlugin": (".builtin.df_events", "GroupedEventsPlugin"),
+    "HitFinderPlugin": (".builtin.hit", "HitFinderPlugin"),
+    "PairedEventsPlugin": (".builtin.df_paired", "PairedEventsPlugin"),
+    "RawFileNamesPlugin": (".builtin.raw_files", "RawFileNamesPlugin"),
+    "RecordsPlugin": (".builtin.records", "RecordsPlugin"),
+    "WavePoolPlugin": (".builtin.wave_pool", "WavePoolPlugin"),
+    "WavePoolFilteredPlugin": (".builtin.wave_pool_filtered", "WavePoolFilteredPlugin"),
+    "RecordsAsymmetryMaskPlugin": (
+        ".builtin.records_asymmetry_mask",
+        "RecordsAsymmetryMaskPlugin",
+    ),
+    "RecordsDetectorMaskPlugin": (
+        ".builtin.records_detector_mask",
+        "RecordsDetectorMaskPlugin",
+    ),
+    "RecordsVetoMaskPlugin": (".builtin.records_veto_mask", "RecordsVetoMaskPlugin"),
+    "WaveformsPlugin": (".builtin.st_waveforms", "WaveformsPlugin"),
+    "WaveformStruct": (".builtin.st_waveforms", "WaveformStruct"),
+    "WaveformStructConfig": (".builtin.st_waveforms", "WaveformStructConfig"),
+    "WaveformWidthPlugin": (".builtin.waveform_width", "WaveformWidthPlugin"),
+    "SignalPeaksStreamPlugin": (".builtin.signal_peaks_stream", "SignalPeaksStreamPlugin"),
+    # Peaklet plugins - compatibility exports for the new bundle locations.
+    "PeakletPlugin": (".builtin.peaklets", "PeakletPlugin"),
+    "PeakletComponentsPlugin": (".builtin.peaklet_components", "PeakletComponentsPlugin"),
+    "PeakletWaveformPlugin": (".builtin.peaklet_waveforms", "PeakletWaveformPlugin"),
+    "PeakletWaveformPoolPlugin": (
+        ".builtin.peaklet_waveform_pool",
+        "PeakletWaveformPoolPlugin",
+    ),
+    "PeakletFeaturesPlugin": (".builtin.peaklet_features", "PeakletFeaturesPlugin"),
+    "PeaksPlugin": (".builtin.peaks", "PeaksPlugin"),
+    "PeakletChannelsPlugin": (".builtin.peaklet_channels", "PeakletChannelsPlugin"),
+    # Hit plugins - compatibility exports for the per-provides bundles.
+    "HitGroupedPlugin": (".builtin.hit_grouped", "HitGroupedPlugin"),
+    "ThresholdHitPlugin": (".builtin.hit_threshold", "ThresholdHitPlugin"),
+    "HitMergePlugin": (".builtin.hit_merged", "HitMergePlugin"),
+    "HitMergeClustersPlugin": (".builtin.hit_merge_clusters", "HitMergeClustersPlugin"),
+    "HitMergedComponentsPlugin": (
+        ".builtin.hit_merged_components",
+        "HitMergedComponentsPlugin",
+    ),
+    "HitMergedFeaturesPlugin": (
+        ".builtin.hit_merged_features",
+        "HitMergedFeaturesPlugin",
+    ),
+    # Core infrastructure.
+    "Option": (".core.base", "Option"),
+    "Plugin": (".core.base", "Plugin"),
+    "PluginExecutionRecord": (".core.stats", "PluginExecutionRecord"),
+    "PluginHotReloader": (".core.hot_reload", "PluginHotReloader"),
+    "PluginLoader": (".core.loader", "PluginLoader"),
+    "PluginStatistics": (".core.stats", "PluginStatistics"),
+    "PluginStatsCollector": (".core.stats", "PluginStatsCollector"),
+    "StraxContextAdapter": (".core.adapters", "StraxContextAdapter"),
+    "StraxPluginAdapter": (".core.adapters", "StraxPluginAdapter"),
+    "StreamingContext": (".core.streaming", "StreamingContext"),
+    "StreamingPlugin": (".core.streaming", "StreamingPlugin"),
+    "create_strax_context": (".core.adapters", "create_strax_context"),
+    "enable_hot_reload": (".core.hot_reload", "enable_hot_reload"),
+    "get_stats_collector": (".core.stats", "get_stats_collector"),
+    "load_plugins_from_directory": (".core.loader", "load_plugins_from_directory"),
+    "load_plugins_from_entry_points": (".core.loader", "load_plugins_from_entry_points"),
+    "numpy_dtype_to_strax": (".core.adapters", "numpy_dtype_to_strax"),
+    "option": (".core.base", "option"),
+    "strax_dtype_to_numpy": (".core.adapters", "strax_dtype_to_numpy"),
+    "takes_config": (".core.base", "takes_config"),
+    "wrap_strax_plugin": (".core.adapters", "wrap_strax_plugin"),
 }
+
+# Keep the historical private map name available to callers that inspected it.
+_LAZY_ATTRS = _LAZY_EXPORTS
+
+_PUBLIC_SUBMODULES = ("builtin", "core", "plugin_sets", "profiles")
 
 
 def __getattr__(name: str):
-    if name in _LAZY_ATTRS:
-        module_name, attr_name = _LAZY_ATTRS[name]
-        module = import_module(module_name, __name__)
-        value = getattr(module, attr_name) if attr_name else module
-        globals()[name] = value
-        return value
-    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
+    return _resolve_lazy_attribute(name, _LAZY_EXPORTS, globals())
 
 
 def __dir__():
-    return sorted(set(globals()) | set(__all__) | set(_LAZY_ATTRS))
+    return _lazy_dir(globals(), _LAZY_EXPORTS, (*__all__, *_PUBLIC_SUBMODULES))

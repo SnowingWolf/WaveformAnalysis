@@ -6,7 +6,7 @@
 2. 使用 create_peak_plotter（快）- 只加载一次数据
 """
 
-from waveform_analysis.utils.visualization import create_peak_plotter, plot_peak_channels_with_sum
+from waveform_analysis.visualization import create_peak_plotter, plot_peak_channels_with_sum
 
 
 def example_slow_way(ctx, run_id, peak_ids):
@@ -48,7 +48,7 @@ def example_fast_way(ctx, run_id, peak_ids):
 
 if __name__ == "__main__":
     # 使用示例
-    from waveform_analysis.core.daq_analyzer import DAQAnalyzer
+    from waveform_analysis.acquisition import DAQAnalyzer
 
     # 初始化分析器
     analyzer = DAQAnalyzer()

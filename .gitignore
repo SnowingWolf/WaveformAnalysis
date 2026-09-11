@@ -22,6 +22,8 @@ downloads/
 eggs/
 .eggs/
 lib/
+!docs/site-next/lib/
+!docs/site-next/lib/**
 lib64/
 parts/
 sdist/
@@ -339,6 +341,10 @@ list_all.ipynb
 # Pipfile.lock
 package-lock.json
 package.json
+!docs/site-next/package-lock.json
+!docs/site-next/package.json
+docs/site-next/.next/
+docs/site-next/out/
 
 # Node dependencies
 node_modules/
@@ -372,3 +378,11 @@ docs_todo.md
 
 # Root benchmark files (use benchmarks/ for organized results)
 /benchmark_*.txt
+
+# Only the repository docs-build skill is shared.
+!/.agents/
+/.agents/*
+!/.agents/skills/
+/.agents/skills/*
+!/.agents/skills/docs-build/
+!/.agents/skills/docs-build/**

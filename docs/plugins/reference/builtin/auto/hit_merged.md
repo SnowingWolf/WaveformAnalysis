@@ -1,14 +1,23 @@
 ---
-schema_version: 1
+schema_version: 2
 document_type: "plugin_reference"
 profile: "auto"
 provides: "hit_merged"
 plugin_class: "HitMergePlugin"
-module: "waveform_analysis.core.plugins.builtin.hit.hit_merge"
+module: "waveform_analysis.core.plugins.builtin.hit_merged.plugin"
 version: "2.1.0"
 summary: "Merge nearby threshold hits per channel with time-gap and max-width constraints."
 depends_on: ["hit_threshold"]
+declared_depends_on: ["hit_threshold"]
+resolved_depends_on: ["hit_threshold"]
+dependency_profile: "declared"
+dependency_profile_values: {}
+dependency_config_keys: []
 output_kind: "structured_array"
+execution_kind: "static"
+narrative_source: "published"
+narrative_source_reason: null
+source_fingerprint: "22ed871847fb6de92e3657287d9e7436adbe23d4f1cc5fa3010cabc54dc41678"
 generated: true
 ---
 # hit_merged
@@ -28,11 +37,21 @@ HitMergePlugin 是波形分析中最核心的后处理插件之一，负责将 h
 | --- | --- |
 | Provides | `hit_merged` |
 | Plugin Class | `HitMergePlugin` |
-| Module | `waveform_analysis.core.plugins.builtin.hit.hit_merge` |
+| Module | `waveform_analysis.core.plugins.builtin.hit_merged.plugin` |
 | Version | `2.1.0` |
 | Category | 特征提取 |
-| Accelerator | CPU (NumPy/SciPy) |
-| Output Kind | `structured_array` |
+| Output Container | `structured_array` |
+| Execution Mode | `static` |
+| Save Policy | `always` |
+| Uses Run Config | no |
+| Timeout | `none` |
+| Side Effect | no |
+| Narrative Source | `published` |
+| Source Fingerprint | `22ed871847fb6de92e3657287d9e7436adbe23d4f1cc5fa3010cabc54dc41678` |
+
+### Dependencies
+
+默认文档画像：`declared`。
 
 | Dependency | Version Constraint | Resolution | Required Fields | Description |
 | --- | --- | --- | --- | --- |
@@ -59,38 +78,43 @@ structured_array output with fields: merged_id, position, time_start, time_end, 
 
 | Field | DType | Unit | Meaning |
 | --- | --- | --- | --- |
-| `merged_id` | `int64` | - | Unique identifier for the merged hit record, equal to row index |
-| `position` | `int64` | - | Anchor hit position; for multi-hit clusters, nearest to window midpoint |
-| `time_start` | `int64` | - | Absolute start time in picoseconds of the merged window |
-| `time_end` | `int64` | - | Absolute end time in picoseconds of the merged window |
-| `sample_start` | `int32` | - | Merged sample-window start; -1 when spanning multiple records |
-| `sample_end` | `int32` | - | Merged sample-window end; -1 when spanning multiple records |
-| `width` | `float32` | - | Merged sample-window width; -1.0 when spanning records |
-| `dt` | `int32` | - | Resolved sample interval in nanoseconds |
-| `timestamp` | `int64` | - | Anchor hit timestamp in picoseconds |
-| `board` | `int16` | - | Hardware board from the anchor hit |
-| `channel` | `int16` | - | Hardware channel from the anchor hit |
-| `record_id` | `int64` | - | Anchor hit record identifier |
-| `component_offset` | `int64` | - | Start row in hit_merge_clusters for this cluster |
-| `component_count` | `int32` | - | Number of component rows in hit_merge_clusters for this cluster |
-| `is_single_record` | `bool` | - | True when all component hits belong to the same record |
+| `merged_id` | `int64` | None | Unique identifier for the merged hit record, equal to row index |
+| `position` | `int64` | samples | Anchor hit position; for multi-hit clusters, nearest to window midpoint |
+| `time_start` | `int64` | ps | Absolute start time in picoseconds of the merged window |
+| `time_end` | `int64` | ps | Absolute end time in picoseconds of the merged window |
+| `sample_start` | `int32` | samples | Merged sample-window start; -1 when spanning multiple records |
+| `sample_end` | `int32` | samples | Merged sample-window end; -1 when spanning multiple records |
+| `width` | `float32` | samples | Merged sample-window width; -1.0 when spanning records |
+| `dt` | `int32` | ns | Resolved sample interval in nanoseconds |
+| `timestamp` | `int64` | ps | Anchor hit timestamp in picoseconds |
+| `board` | `int16` | None | Hardware board from the anchor hit |
+| `channel` | `int16` | None | Hardware channel from the anchor hit |
+| `record_id` | `int64` | None | Anchor hit record identifier |
+| `component_offset` | `int64` | None | Start row in hit_merge_clusters for this cluster |
+| `component_count` | `int32` | None | Number of component rows in hit_merge_clusters for this cluster |
+| `is_single_record` | `bool` | None | True when all component hits belong to the same record |
 ## Usage
 
 ### Minimal Example
 
 ```python
-from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import HitMergePlugin
+from waveform_analysis import Context
+from waveform_analysis.plugins import profiles
 
-ctx = Context(config={"data_root": "DAQ"})
-ctx.register(HitMergePlugin())
-data = ctx.get_data("run_001", "hit_merged")
+ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
+ctx.register(*profiles.cpu_default())
+result = ctx.get_data("run_001", "hit_merged")
 ```
+
+示例使用 `run_id="run_001"` 和文档默认运行画像；真实数据路径与配置应以当前实验设置为准。
+
 ### Downstream Consumers
 
 - `hit_grouped`
 - `hit_merge_clusters`
 - `hit_merged_components`
 - `hit_merged_features`
+- `peaklet_channels`
 - `peaklet_components`
+- `peaklet_waveforms`
 - `peaklets`

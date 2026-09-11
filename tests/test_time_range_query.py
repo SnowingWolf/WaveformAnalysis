@@ -116,11 +116,6 @@ def test_time_query_engine():
     indices = engine.query("run_001", "test_data", start_time=100, end_time=300)
     assert len(indices) == 20
 
-    # 检查索引统计
-    stats = engine.get_stats()
-    assert stats["total_indices"] == 1
-    assert "run_001.test_data" in stats["indices"]
-
 
 def test_context_time_range_query():
     """测试Context中的时间范围查询"""
@@ -145,9 +140,6 @@ def test_context_time_range_query():
     filtered_data = ctx.time_range("run_001", "test_data", start_time=50000)
     assert len(filtered_data) > 0
 
-    # 清理
-    ctx.clear_time_index()
-
 
 def test_context_time_range_builds_index():
     """测试 time_range 自动构建时间索引"""
@@ -163,16 +155,9 @@ def test_context_time_range_builds_index():
         endtime_field="computed",
     )
 
-    # 验证索引已创建
-    stats = ctx.get_time_index_stats()
-    assert stats["total_indices"] == 1
-
     # 查询应该使用索引
     filtered_data = ctx.time_range("run_001", "test_data", start_time=1000, end_time=3000)
     assert len(filtered_data) == 20
-
-    # 清理
-    ctx.clear_time_index()
 
 
 def test_time_index_with_endtime():

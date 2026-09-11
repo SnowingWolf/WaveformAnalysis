@@ -1,0 +1,73 @@
+# plan_brief
+
+- `task_id`: `utils_subsystem_convergence`
+- `route`: `modify_plugin`
+- `workflow_cost`: `strict`
+- `workflow_shape`: `staged`
+- `lifecycle_profile`: `reviewed_change`
+- `risk_level`: `high`
+- `scope_in`:
+  - Freeze the current remaining `waveform_analysis.utils` public and monkeypatch surface.
+  - Move visualization, analysis, and acquisition implementations to canonical packages while retaining identity-preserving legacy modules.
+  - Split oversized visualization, Accessor, parsing, and DAQ implementations without structural-output drift.
+  - Replace position reconstruction's per-event Accessor loop with a NumPy batch path over `peaklet_channels` and bump version `0.3.0 -> 0.4.0`.
+  - Reduce `waveform_analysis.utils` to lazy exports and compatibility aliases.
+- `scope_out`:
+  - Removing or warning on legacy imports.
+  - Changing package-root public exports, plugin dtype/options/depends_on/provides, dashboard design, file-format semantics, sampling algorithms, or `docs/_site`.
+  - Rewriting historical protocol artifacts.
+- `required_gates`:
+  - `frozen_utils_contract`
+  - `legacy_canonical_identity`
+  - `focused_visualization_tests`
+  - `focused_analysis_tests`
+  - `position_reconstruction_synthetic_equivalence`
+  - `position_reconstruction_run00196_equivalence_and_benchmark`
+  - `focused_acquisition_tests`
+  - `generated_artifact_comparison`
+  - `clean_wheel_import`
+  - `ruff`
+  - `black_check`
+  - `assess_change_impact`
+  - `schema_compat_check`
+  - `performance_regression_check`
+  - `release_artifact_sync`
+  - `doc_sync`
+  - `doc_anchors`
+  - `doc_links`
+  - `strict_doc_coverage`
+  - `handoff_check`
+- `executor_role`: `executor.plugin`
+- `agent_profile`: `none`
+- `profile_plan`:
+  - Not applicable.
+- `blocking_assumptions`:
+  - Each move commit includes the canonical facade, all required legacy child aliases, and its compatibility tests; no commit leaves a half-migrated package.
+  - Legacy and canonical submodules must be the same `sys.modules` object, especially registry-bearing formats modules and monkeypatched visualization facades.
+  - Run 00196 cache inputs are read-only and independently inspected before benchmarking; no official cache is regenerated or overwritten.
+  - Structural commits require byte-identical generated outputs. The position performance commit may change only pre-audited `position_reconstruction` version/source prose; every other generated file remains byte-identical.
+
+## modify_plugin Notes
+
+- `change_level`: `L1` for the plugin algorithm; public-surface migrations are treated as strict compatibility changes.
+- `provides_impact`: none.
+- `depends_on_impact`: none; remains `s1_s2_pairs, peaklet_channels`.
+- `output_contract_impact`: none; dtype, fields, ordering, flags, methods, and configuration semantics remain unchanged.
+- `version_action`: bump `PositionReconstructionPlugin.version` from `0.3.0` to `0.4.0` because the algorithm path changes from per-event Accessor traversal to batch NumPy aggregation.
+- `docs_sync_required`: true for canonical active references and regenerated position reconstruction plugin pages.
+- `execution_backend_decision`:
+  - `backend`: `numpy`
+  - `backend_reason`: `memory-bound`
+  - `parallel_scope`: `none`
+  - `worker_option`: none
+  - `fallback_path`: stable sort/group fallback for unsorted `peaklet_channels`; empty/missing matches retain NaN/zero outputs.
+  - `benchmark_required`: true
+- `generated_output_policy`:
+  - Before the plugin performance commit, plugins-auto, plugins-agent, plugins-web, and site-web must be byte-equal to the frozen baseline.
+  - For the plugin performance commit, only `position_reconstruction` version and implementation-description deltas are allowed; all other files must remain byte-equal.
+  - Active site examples remain legacy-compatible where changing them would create unrelated HTML drift; only executable/internal imports switch canonical.
+- `performance_blockers`:
+  - Any Run 00196 dependency miss or write attempt.
+  - Old baseline OOM or inability to complete five isolated measurements.
+  - Non-float output mismatch or float mismatch beyond `rtol=1e-6, atol=1e-5, equal_nan=True`.
+  - New median runtime greater than 80% of old or peak RSS greater than 120% of old.

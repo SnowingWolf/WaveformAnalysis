@@ -4,6 +4,8 @@
 
 # 流式处理框架指南
 
+> ⚠️ **状态：开发中（WIP）** —— 本指南对应功能尚未完全发布，接口可能变化。
+
 本文档介绍如何使用流式处理框架，将 Chunk、Plugin 和 ExecutorManager 结合起来，实现类似 strax 的流式数据处理。
 
 ## 概述
@@ -222,7 +224,8 @@ stream_ctx = get_streaming_context(
 
 ## 相关文档
 
-- [信号处理插件](../tutorials/SIGNAL_PROCESSING_PLUGINS.md)
+- [FilteredWaveformsPlugin](../reference/agent/filtered_waveforms.md)
+- [HitFinderPlugin](../reference/agent/hit.md)
 - [插件开发指南](../../development/plugin-development/README.md)
-- [ExecutorManager 指南](../../features/advanced/EXECUTOR_MANAGER_GUIDE.md)
+- [系统架构：执行器管理框架](../../architecture/ARCHITECTURE.md#执行器管理框架)
 - [架构文档](../../architecture/ARCHITECTURE.md)
