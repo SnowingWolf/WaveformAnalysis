@@ -50,6 +50,14 @@ active_plans:
   condition: —
   task_file: docs/agents/runs/current/managed-workflow-mvp/task.yaml
   legacy_plan: docs/agents/runs/current/managed-workflow-mvp/legacy-plan.md
+- task_id: run00601-full-chain-performance
+  state: executing
+  route: modify_plugin
+  workflow_cost: strict
+  workflow_shape: staged
+  condition: —
+  task_file: docs/agents/runs/current/run00601-full-chain-performance/task.yaml
+  legacy_plan: docs/agents/runs/current/run00601-full-chain-performance/legacy-plan.md
 - task_id: v1725-merged-parts-cleanup
   state: completed
   route: modify_code
