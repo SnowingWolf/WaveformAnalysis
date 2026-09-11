@@ -744,9 +744,13 @@ export function parseSiteModel(value: unknown): SiteModel {
     source_indexes: validateCollection(value.source_indexes, "source_indexes", validateSourceIndex),
     lineage: validateLineage(value.lineage),
   };
-  const records = model.plugins.find((plugin) => plugin.provides === "records");
-  if (!records || records.version !== "0.14.2" || records.dependsOn[0] !== "raw_files") {
-    throw new SiteModelValidationError("records fixture must be v0.14.2 with raw_files as its first dependency");
+  const records = model.plugins.filter((plugin) => plugin.provides === "records");
+  if (records.length !== 1) {
+    throw new SiteModelValidationError("records plugin must be v0.14.3 with raw_files as its first dependency");
+  }
+  const record = records[0];
+  if (!record || record.version !== "0.14.3" || record.dependsOn.length === 0 || record.dependsOn[0] !== "raw_files") {
+    throw new SiteModelValidationError("records plugin must be v0.14.3 with raw_files as its first dependency");
   }
   if (!model.routes.some((route) => route.path === "/plugins/records/" && route.kind === "plugin")) {
     throw new SiteModelValidationError("records plugin route is missing");

@@ -2499,8 +2499,8 @@
       "route": "/architecture/data-products/",
       "title": "数据产物与波形访问",
       "source": "docs/architecture/DATA_PRODUCTS.md",
-      "source_sha256": "f91e12d2ac6b863694eeaca1151c3009cf3413eef6de643adb547ea78babbb66",
-      "model_fingerprint": "2fffbe952daa27e79661a986b2a335c193ebf09bd270266819f1b45712b35613",
+      "source_sha256": "de7d9d50514cef70b4de2c268bbbdbf0c93a5055b66b026a80e438527b119f4b",
+      "model_fingerprint": "22c6b469dfd037b5b187d10aad68110fe5196e59cbf7d50866b6c7f0b63b931d",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -2580,6 +2580,7 @@
         "code",
         "table",
         "paragraph",
+        "paragraph",
         "heading",
         "heading",
         "code",
@@ -2610,7 +2611,7 @@
         "paragraph"
       ],
       "content_counts": {
-        "paragraph": 40,
+        "paragraph": 41,
         "link": 4,
         "code": 17,
         "table": 10,

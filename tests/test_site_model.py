@@ -104,7 +104,7 @@ def test_site_model_v1_uses_real_plugin_and_guide_facts_without_html():
     assert all(guide["summary"] != "---" for guide in model["guides"])
 
     records = next(plugin for plugin in model["plugins"] if plugin["provides"] == "records")
-    assert records["version"] == "0.14.2"
+    assert records["version"] == "0.14.3"
     assert records["dependsOn"][0] == "raw_files"
     assert records["fields"]
     assert json.dumps(model, ensure_ascii=False).find("<html") < 0
@@ -121,6 +121,28 @@ def test_site_model_v1_uses_real_plugin_and_guide_facts_without_html():
     assert not next(item for item in reference["items"] if item["href"] == "/plugins/").get(
         "children"
     )
+
+
+@pytest.mark.parametrize("mutation", ["missing", "stale-version", "wrong-dependency"])
+def test_site_model_rejects_invalid_records_contract(mutation):
+    model = build_site_model(Path(__file__).parents[1])
+
+    if mutation == "missing":
+        model["plugins"] = [
+            plugin for plugin in model["plugins"] if plugin["provides"] != "records"
+        ]
+    else:
+        records = next(plugin for plugin in model["plugins"] if plugin["provides"] == "records")
+        if mutation == "stale-version":
+            records["version"] = "0.14.2"
+        else:
+            records["dependsOn"] = ["st_waveforms", "raw_files"]
+
+    with pytest.raises(
+        SiteModelError,
+        match="records plugin must be v0.14.3 with raw_files as its first dependency",
+    ):
+        validate_site_model(model)
 
 
 def test_site_model_rejects_navigation_children_with_unknown_routes():

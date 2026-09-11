@@ -1,0 +1,41 @@
+{
+  "baseline": "v1.5.0",
+  "baseline_commit": "715c8ce35a93d04f7641b4b149e56b7be6ea01e4",
+  "source_head": "84bd5a85378e4181544ae81111395cb8efc5c0f8",
+  "commit_count": 126,
+  "release_worktree": "/mnt/data/Run3/WaveformAnalysis-release",
+  "working_tree_status": " M CHANGELOG.md\n M docs/agents/plans/INDEX.md\n M docs/agents/plans/active.yaml\n M pyproject.toml\n M tests/test_site_model.py\n?? docs/agents/runs/current/release-v2.0.0/\n?? docs/releases/\n",
+  "test_log": "/tmp/wa-release-200-pytest.log",
+  "build_report": "/tmp/wa-release-v200-docs/runs/release-v200-20260911/report.json",
+  "agents": [
+    "luna_release_compat",
+    "luna_release_docs",
+    "luna_release_gates"
+  ],
+  "requested_model": "gpt-5.6-luna",
+  "requested_reasoning_effort": "max",
+  "agent_results": {
+    "luna_release_compat": {
+      "status": "failed_before_report",
+      "reason": "usage limit exceeded; provider suggested retry Sep 15, 2026 09:24 AM"
+    },
+    "luna_release_docs": {
+      "status": "failed_before_report",
+      "reason": "usage limit exceeded; provider suggested retry Sep 15, 2026 09:24 AM"
+    },
+    "luna_release_gates": {
+      "status": "failed_before_report",
+      "reason": "usage limit exceeded; provider suggested retry Sep 15, 2026 09:24 AM"
+    }
+  },
+  "pytest_final": {
+    "passed": 1442,
+    "failed": 11,
+    "skipped": 2,
+    "deselected": 15,
+    "warnings": 38,
+    "seconds": 651.95
+  },
+  "release_status": "blocked",
+  "publication_performed": false
+}

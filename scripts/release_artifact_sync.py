@@ -201,7 +201,6 @@ def _run_key_tests(base: str) -> tuple[bool, dict[str, object]]:
         sys.executable,
         "-m",
         "pytest",
-        "tests/",
     ]
     rc, out, err = _run(full_pytest_cmd)
     detail["full_pytest_rc"] = rc

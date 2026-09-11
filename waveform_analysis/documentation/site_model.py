@@ -2079,16 +2079,19 @@ def validate_site_model(model: Mapping[str, Any]) -> None:
         for item in model["plugins"]
         if isinstance(item, Mapping) and item.get("provides") == "records"
     ]
-    if records:
-        record = records[0]
-        if (
-            record.get("version") != "0.14.2"
-            or not record.get("dependsOn")
-            or record["dependsOn"][0] != "raw_files"
-        ):
-            raise SiteModelError(
-                "records plugin must be v0.14.2 with raw_files as its first dependency"
-            )
+    if len(records) != 1:
+        raise SiteModelError(
+            "records plugin must be v0.14.3 with raw_files as its first dependency"
+        )
+    record = records[0]
+    if (
+        record.get("version") != "0.14.3"
+        or not record.get("dependsOn")
+        or record["dependsOn"][0] != "raw_files"
+    ):
+        raise SiteModelError(
+            "records plugin must be v0.14.3 with raw_files as its first dependency"
+        )
     if not any(
         route.get("path") == "/plugins/records/" and route.get("kind") == "plugin"
         for route in routes

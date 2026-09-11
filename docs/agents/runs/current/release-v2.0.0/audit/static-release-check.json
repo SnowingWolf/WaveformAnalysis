@@ -1,0 +1,57 @@
+{
+  "base": "v1.5.0",
+  "overall_ok": true,
+  "checks": [
+    {
+      "name": "version_changelog",
+      "ok": true,
+      "issues": [],
+      "detail": {
+        "version": "2.0.0",
+        "changed_code_files": 610,
+        "changelog_touched": true
+      }
+    },
+    {
+      "name": "generated_docs_sync",
+      "ok": true,
+      "issues": [],
+      "detail": {
+        "auto_generation_ok": true,
+        "agent_generation_ok": true,
+        "auto_mismatches": [],
+        "agent_mismatches": [],
+        "errors": []
+      }
+    },
+    {
+      "name": "doc_sync_anchors",
+      "ok": true,
+      "issues": [],
+      "detail": {
+        "doc_sync_rc": 0,
+        "doc_sync_out": "s/reference/builtin/auto/records_asymmetry_mask.md\n  M\tdocs/plugins/reference/builtin/auto/records_detector_mask.md\n  M\tdocs/plugins/reference/builtin/auto/records_veto_mask.md\n  A\tdocs/plugins/reference/builtin/auto/s1_s2.md\n  M\tdocs/plugins/reference/builtin/auto/s1_s2_pair_candidates.md\n  M\tdocs/plugins/reference/builtin/auto/s1_s2_pairs.md\n  M\tdocs/plugins/reference/builtin/auto/st_waveforms.md\n  M\tdocs/plugins/reference/builtin/auto/wave_pool.md\n  M\tdocs/plugins/reference/builtin/auto/wave_pool_filtered.md\n  M\tdocs/plugins/reference/builtin/auto/waveform_width.md\n  M\tdocs/plugins/reference/builtin/auto/waveform_width_integral.md\n  D\tdocs/plugins/tutorials/PLUGIN_FEATURE.md\n  D\tdocs/plugins/tutorials/SIGNAL_PROCESSING_PLUGINS.md\n  D\tdocs/plugins/tutorials/SIMPLE_PLUGIN_GUIDE.md\n  D\tdocs/pre_trigger_configuration.md\n  D\tdocs/query_helpers_guide.md\n  D\tdocs/query_helpers_implementation_summary.md\n  D\tdocs/s1_s2_pairing_final_summary.md\n  D\tdocs/s1_s2_pairing_implementation_summary.md\n  A\tdocs/site-content-baseline.json\n  M\tdocs/site-guides.yaml\n  A\tdocs/site-next/AGENTS.md\n  A\tdocs/site-next/app/[...slug]/page.tsx\n  A\tdocs/site-next/app/accessors/[slug]/page.tsx\n  A\tdocs/site-next/app/accessors/page.tsx\n  A\tdocs/site-next/app/adapters/[slug]/page.tsx\n  A\tdocs/site-next/app/adapters/page.tsx\n  A\tdocs/site-next/app/contexts/[slug]/page.tsx\n  A\tdocs/site-next/app/contexts/page.tsx\n  A\tdocs/site-next/app/globals.css\n  A\tdocs/site-next/app/layout.tsx\n  A\tdocs/site-next/app/lineage/page.tsx\n  A\tdocs/site-next/app/not-found.tsx\n  A\tdocs/site-next/app/page.tsx\n  A\tdocs/site-next/app/plugins/[provides]/page.tsx\n  A\tdocs/site-next/app/plugins/page.tsx\n  A\tdocs/site-next/app/search-index.v1.json/route.ts\n  A\tdocs/site-next/app/visualizations/[slug]/page.tsx\n  A\tdocs/site-next/app/visualizations/page.tsx\n  A\tdocs/site-next/components/CopyButton.tsx\n  A\tdocs/site-next/components/DocPage.tsx\n  A\tdocs/site-next/components/GuideList.tsx\n  A\tdocs/site-next/components/LineageCanvas.tsx\n  A\tdocs/site-next/components/LineageLoader.tsx\n  A\tdocs/site-next/components/PluginDirectory.tsx\n  A\tdocs/site-next/components/ReferenceDirectory.tsx\n  A\tdocs/site-next/components/SearchDialog.tsx\n  A\tdocs/site-next/components/ServerSiteShell.tsx\n  A\tdocs/site-next/components/SiteShell.tsx\n  A\tdocs/site-next/components/StaticLink.tsx\n  A\tdocs/site-next/components/icons.tsx\n  A\tdocs/site-next/fixture/site-model.v1.json\n  A\tdocs/site-next/lib/doc-page.test.ts\n  A\tdocs/site-next/lib/lineage.test.ts\n  A\tdocs/site-next/lib/lineage.ts\n  A\tdocs/site-next/lib/model.ts\n  A\tdocs/site-next/lib/search-index.test.ts\n  A\tdocs/site-next/lib/search-index.ts\n  A\tdocs/site-next/lib/search.ts\n  A\tdocs/site-next/lib/site-model.test.ts\n  A\tdocs/site-next/lib/site-model.ts\n  A\tdocs/site-next/next-env.d.ts\n  A\tdocs/site-next/next.config.ts\n  A\tdocs/site-next/package-lock.json\n  A\tdocs/site-next/package.json\n  A\tdocs/site-next/public/assets/waveform-mark.svg\n  A\tdocs/site-next/tsconfig.json\n  A\tdocs/site-next/vitest.config.ts\n  D\tdocs/site-react/src/lineage.test.ts\n  D\tdocs/site-react/src/lineage.ts\n  D\tdocs/site-react/src/main.tsx\n  D\tdocs/site-react/src/node-shims.d.ts\n  D\tdocs/site-react/src/site.css\n  D\tdocs/site-react/tsconfig.json\n  D\tdocs/site-react/tsconfig.test.json\n  D\tdocs/site-react/vite.config.ts\n  A\tdocs/site-route-migration.yaml\n  D\tdocs/sum_waveform_fix.md\n  M\tdocs/user-guide/EXAMPLES_GUIDE.md\n  M\tdocs/user-guide/QUICKSTART_GUIDE.md\n  M\tdocs/user-guide/README.md\n  D\tdocs/visualization/plot_peak_channels_with_sum.md\n\nTip: compare code vs doc lists and update missing items.\n\nRunning Agent Doc manifest validation...\n\n\nRunning repository-wide Doc Anchor validation...\n\nDoc Anchor 检查\n==================================================\n\n检查代码与文档同步 (base: 715c8ce35a93d04f7641b4b149e56b7be6ea01e4)...\n\n==================================================\nDoc Anchor 检查摘要\n==================================================\n  扫描到的 DOC 注释: 29\n  ❌ 错误: 0\n  ⚠️  警告: 0\n\n✓ 所有 Doc Anchor 检查通过\n",
+        "doc_sync_err": "",
+        "anchors_rc": 0,
+        "anchors_out": "Doc Anchor 检查\n==================================================\n\n检查代码与文档同步 (base: 715c8ce35a93d04f7641b4b149e56b7be6ea01e4)...\n\n==================================================\nDoc Anchor 检查摘要\n==================================================\n  扫描到的 DOC 注释: 29\n  ❌ 错误: 0\n  ⚠️  警告: 0\n\n✓ 所有 Doc Anchor 检查通过\n",
+        "anchors_err": ""
+      }
+    },
+    {
+      "name": "key_tests",
+      "ok": true,
+      "issues": [
+        "skipped by flag"
+      ],
+      "detail": {}
+    },
+    {
+      "name": "performance_regression",
+      "ok": true,
+      "issues": [
+        "skipped by flag"
+      ],
+      "detail": {}
+    }
+  ]
+}

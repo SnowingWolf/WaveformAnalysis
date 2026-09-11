@@ -9,7 +9,7 @@ describe("site-model/v1", () => {
     const records = model.plugins.find((plugin) => plugin.provides === "records");
 
     expect(model.schema).toBe("site-model/v1");
-    expect(records?.version).toBe("0.14.2");
+    expect(records?.version).toBe("0.14.3");
     expect(records?.dependsOn[0]).toBe("raw_files");
     expect(records?.route).toBe("/plugins/records/");
     expect(model.routes.some((route) => route.path === "/plugins/records/" && route.kind === "plugin")).toBe(true);
@@ -39,6 +39,32 @@ describe("site-model/v1", () => {
     expect(model.plugins.every((plugin) => plugin.sections.length === 4)).toBe(true);
     expect(model.routes.every((route) => !route.path.endsWith(".html"))).toBe(true);
   });
+
+  it.each(["missing", "duplicate", "stale-version", "wrong-dependency"])(
+    "rejects an invalid records contract: %s",
+    (mutation) => {
+      const model = structuredClone(rawModel) as unknown as {
+        plugins: Array<{ provides: string; version: string | null; dependsOn: string[] }>;
+      };
+      const records = model.plugins.find((plugin) => plugin.provides === "records");
+
+      if (mutation === "missing") {
+        model.plugins = model.plugins.filter((plugin) => plugin.provides !== "records");
+      } else if (!records) {
+        throw new Error("fixture records plugin is missing");
+      } else if (mutation === "duplicate") {
+        model.plugins.push({ ...records, dependsOn: [...records.dependsOn] });
+      } else if (mutation === "stale-version") {
+        records.version = "0.14.2";
+      } else {
+        records.dependsOn = ["st_waveforms", "raw_files"];
+      }
+
+      expect(() => parseSiteModel(model)).toThrow(
+        "records plugin must be v0.14.3 with raw_files as its first dependency",
+      );
+    },
+  );
 
   it("preserves ordered guide blocks and source-index bodies", () => {
     const model = parseSiteModel(rawModel);

@@ -1,0 +1,127 @@
+commit	date	subject
+1ba275c2b7dc978b7f3cc7e013ef52e388051acb	2026-08-03	test(contracts): 清理引用不存在特性/夹具不匹配的失效测试
+bfab8ebcae56ffe8e5aa31bf8e234cefda4eaa7b	2026-08-03	refactor(tests): 合并重复测试 helper 到 tests/utils.py 共享工具
+81fd9849c317493023c161df10abcb381e7bfd37	2026-08-03	test(cache): 新增共享 build_cache_context helper
+c1ffc039a81308faec76b9998a2a724bdb6bb7c5	2026-08-03	docs(plugins): add rich agent_doc narratives to peaks/records/filtering core plugins
+bfa3bbe5fdff6d6e4370df74ca5fdcf5391455ea	2026-08-03	feat(docs): auto-derive plugin overview/workflow and tiered doc badges
+7c7306ddc46d46fbfa72f47d784450fcc11ff6fa	2026-08-03	docs: fill real physical units for plugin output dtype fields in dtype_field_notes.yaml
+07431cd75f6b49aa1aba4f383d28f833f977fa91	2026-08-03	fix(events): keep s1_time/s2_time in ps; fill real field units
+25eff896de523a95522a46b785659c669be0d2e9	2026-08-03	docs(hit_merged): refine workflow_steps with bold titles
+4bc234155ae83ba9205b3a4d8e866b578d297b04	2026-08-03	feat(docs): plugin internal-process mermaid flowchart
+4fe52e5fbfeb007fc30225ed277278f20d54eeb5	2026-08-03	style(docs): naturalize hit_merged flowchart wording + polish mermaid display
+abd126e1d81581f75c1d4d6d5882ad41b5eb8851	2026-08-03	fix(docs): make lineage wire stroke width scale with zoom
+cb3623919c3d4c598b1d8c4f6d290f145252c10b	2026-08-04	chore: enforce PR commit descriptions
+04001a87f373431899419f6ed328b036634824d8	2026-08-04	style(docs): unify local lineage graph colors to site green theme
+5113edc0f18db528182b29d06c2e249101445382	2026-08-04	fix(docs): use orthogonal polyline edges in local lineage graphs
+2fc4d7bd11be558c513ff7708589bda494680040	2026-08-04	fix(docs): quote hit_merged flowchart decision node label
+92f3365ff106e3bc7966f9bafe76749575172810	2026-08-04	refactor(docs): dedupe plugin search index entries
+a0b1fa58b5c71fffda992d936a32594ec244548a	2026-08-04	feat: add PDF figure export utility
+253d1c6a700cc970bc10d1e3fa78e63b054f706c	2026-08-04	feat: add energy_reconstruction plugin (structure placeholder)
+98c5df71e8b4bb186b5331fad5dea91c0177c3b8	2026-08-04	fix(execution): cascade-invalidate downstream lineage caches on recompute
+bf6b0eeaeca75554febbba3fd6dceaa8bb6de41f	2026-08-04	feat(docs): add plugin kind labels and click/hover previews to lineage graph
+b9fcfb2e118cf03db28999dcd9b105e66706698a	2026-08-04	docs(plugins): regenerate auto plugin reference pages
+036b6c671d1c6bfd81e6142a2b884fab934c6cc4	2026-08-04	perf(context): reuse thread pool across layers and shorten _data_lock
+abeb321bcbe0ce07345c74f0075b68544c8fd43d	2026-08-04	docs(architecture): add plugin cache architecture document
+6eed9c87883fec2ffe7e71bda464dcd1c58906af	2026-08-04	docs(site): add plugin cache architecture page to HTML site
+f2ca9e725b2f87388ec9a89f0a45fff251363f39	2026-08-04	refactor(plugins): 插件 skill 化重构 Phase 0-3 — shared 库、registry、hit/peaklet 家族迁移 bundle
+427c9c973f69caefe93aaa79f45a5df0f9e35a92	2026-08-04	refactor(plugins): Phase 4a hit 家族迁移 bundle（hit/hit_threshold/hit_grouped/hit_merged_features）
+7cdd3721b25ea8a23cd3624e786dde392e9b63d1	2026-08-04	refactor(plugins): Phase 4b records/masks/events 迁移 bundle
+79591b00273805bd8feb4c2cd59b451d4a043ada	2026-08-04	refactor(plugins): Phase 4c 单插件模块迁移 bundle + RawFileNamesPlugin 双副本合并
+35422c8031b12fc8e07e2e5d0af116ee870cf2a6	2026-08-04	Merge branch 'worktree-agent-ae99a144' into develop
+859c543186bd08ed60e80a456c2f36598d42a460	2026-08-04	Merge branch 'worktree-agent-acc93a09' into develop
+3e27dfc5c1e860b3b85bc62fb6925240f98ee4f4	2026-08-04	fix(plugins): test_records_veto_mask 引用 4a 迁移后的 test_hit_threshold 模块
+a91c191d0208a76ecc79c0fca4599f7d800cd650	2026-08-04	docs(plugins): 重新生成插件文档（per-plugin bundle module 路径）+ CI/Makefile/package-data 适配
+2c239ebd0f5802ffbbd5aa4c9ec6abe065b6d37c	2026-08-04	docs(preview): 更新插件重构 HTML 预览反映完成状态
+958409c64d11aa5c65c352b30a2dede4cdb72398	2026-08-05	refactor(context): 移除时间域索引管理公开 API 并清理引擎死代码
+04cc0e2537175a5e31c2b184cd74142528f8b07a	2026-08-05	docs: add plugin bundle guide to site
+27620b9728e77dc8ca7ea1967c413bdbf7253483	2026-08-05	docs: refine documentation unification preview
+41475d7c3b3103f8532f280bcbdaca1ab58c0d7e	2026-08-06	docs: 内容迁移执行——正式文档归并到对应栏目、过程性总结删除、插件文档去重
+cd96f7b6aa5f659449f4bbd24805fee7c6949edd	2026-08-13	fix(peaks): fall_time 改为 50%-90% 累计面积分位数定义
+e013baeba30a19839f0ef6c3403a96c0cba0d15a	2026-08-17	fix: deduplicate peak channel waveforms
+87cc00966a746f097864235a04be385dcfa29d17	2026-08-17	perf: route peaklet waveforms through numba canonical path
+804cd5c89ba6f947f642e7fcbaf862642769cc2c	2026-08-18	docs: document peaklet waveform numba routing
+a19eb5091e214c8396f0f617c6ad5df39942aa2d	2026-08-18	perf: route hit merged fallback through numba
+7bc757744d7d0e1fca1597557975b627ba6dd5ca	2026-08-18	perf: optimize merged feature channel hot paths
+8809771355914e9517da708298a5d435956e6641	2026-08-18	perf: streamline peaklet channel aggregation
+66159be6c8c51a3ca2897206493d21ce157910db	2026-08-18	perf: optimize peaklet channel CSR path
+b6f4cfc84ae5fe6912ffa15a103336bef856404e	2026-08-19	perf: bound peaklet pipeline memory
+2394893a5599e6b6ba7f28e56a48b9e8277f585f	2026-08-19	perf: optimize records-backed peaklet cold paths
+efb643b8b3d275ef220654987a16b228a3b7a66a	2026-08-19	docs: complete site documentation migration
+0bc56668c0d2ebf81fc391287fb0097cd94b49f7	2026-08-19	perf: finalize quality gates
+08b0f06bc0b99e3f023c2b22a3ebe53a7e4272f1	2026-08-19	docs: strengthen documentation quality gates
+b7a24b243145c813467b7f0f1f2526dd0b64bb6a	2026-08-26	chore(migration): move graph workflow to standalone repository
+b19df8b3e2a1931856280b2e7b9349f7bbf04f23	2026-08-26	refactor: unify 2d position dashboard
+91aba88f32514939d65b301a2178eeb94fa33544	2026-08-26	docs: improve plugin reference quality
+dd1665679f32aef2a092e931ace06e265071dafe	2026-08-26	feat: expose hit queries through peak accessor
+797eb33a0311f803d2c9eee1ec1be158ab6fc603	2026-08-26	docs: update peak channel API guides
+132bf8c22ed36fe0d1b4f29371aae083f1661931	2026-08-26	docs: remove redundant peak plotting guide
+714bb2ec4883a01e39b4b27891b69ee34a057ecc	2026-08-26	docs: fold peak classification config into plugin reference
+9ea47430db490b3181fce1ba1a252eea0b271eb6	2026-08-26	docs: remove redundant hit threshold guide
+a58c6944c927b84fff669464b0f68000384e370a	2026-08-26	docs: consolidate plugin and accessor references
+d75907baaf402b8e1a521a623c16e6d28f9859d1	2026-08-26	docs: remove obsolete CSV header guide
+8a616630ef6f942de76dabc06e3552dbffe0df42	2026-08-26	docs: consolidate context execution architecture
+3b182a6555b75255310fddab49f0bcf236d470de	2026-08-26	docs: integrate dashboard and plugin references
+35d832a35e873dce4fffa406284b35138ffbea4a	2026-08-27	fix: stabilize lineage cache keys
+0bde2c70062908fdfd31498ff01d128837d00ff0	2026-08-27	refactor(plugins): vectorize S1-S2 orphan generation
+59470d032c4f07704105f3e2636bf9e20e280703	2026-08-27	fix(plugins): preserve pair score bounds when filtering orphans
+568d642a767d36097473f3fe1ee50f46997eda59	2026-08-27	docs(agents): record orphan hotpath rework evidence
+41ef3059ce6e2106cd5f2b6e7066c97560781eb7	2026-08-27	docs(agents): approve orphan hotpath review
+1ac75bebc948b40e2437950e1fb3568cbd4a40ac	2026-08-27	feat: add adaptive 2d stratified sampling
+572d9ebfaece2793fd1bde5704fd02affbfa3cbd	2026-08-27	docs: explain historical cache reuse logs
+220361a92429bec6462cc3b3bc51efb804e93025	2026-08-27	feat: add S2 candidate waveform plotting
+a2b0943c86b883ba4828aa78fb175e081ca72421	2026-08-28	refactor: optimize peaklet waveform preparation
+2b5f8643927d21bbebd0ce4ef83b0d1b16f6ca88	2026-08-28	fix: improve documentation sidebar wrapping
+99d757dc6ee48c44490f932581a5f3a729106675	2026-08-28	feat: add symlog support to corner hist
+2015f532319b9357f0e503b63e3430ca35521cf6	2026-08-28	fix: repair Python CI failures
+c8ff4a6c4c839daa3a753bf4a4c3bb2e9599dfae	2026-08-28	fix: pin CI Ruff baseline
+c61d4256da31e1f63fccd1951f83ec1c6422f687	2026-08-28	style: satisfy repository Black check
+dae0171e7ffaca7c3c46290323478bc1cadb5d76	2026-08-28	fix: restore Python 3.10 test compatibility
+f289db1a90eaa55eb8c40115f5aee4e24db9dcf2	2026-08-30	refactor: move documentation tooling out of utils
+68f89af0dc75771f68aa035de6a464b88477b374	2026-08-30	refactor: split plugin documentation generator
+8ad76f9f8e2261fc9d3858615a53e280545dc6e9	2026-08-30	refactor: split documentation site generator
+97ebbf3fb30a02e3446da233da1ad848b8d4f5b8	2026-08-31	test: freeze remaining utils compatibility contracts
+fb5bb8243d4d51ad8ea46e87d97c140624d9d93c	2026-08-31	refactor: move visualization tooling out of utils
+261e977bbd36b6dc7fe8f8a194d0828917749123	2026-08-31	refactor: split visualization implementations
+9f92b73f86fd9f12487acbc897ea4b9a42f3f3bc	2026-08-31	refactor: move analysis helpers out of utils
+6f90f8ab56a96205639bdcab13478ca7aeae315b	2026-08-31	refactor: split analysis accessors
+e6d8f18d00998b9c7c4658e2bc10ddf53b378fbf	2026-08-31	perf: batch position reconstruction channel access
+f8dc910bbc3e8f72a1aa558bfe8d3d57a71b95cc	2026-08-31	refactor: move acquisition tooling out of utils
+a656a3fe2cd385fe73ccb93169cfe1e7b06803d8	2026-08-31	refactor: split acquisition readers and services
+8267fc251a15022711d6845f349f9a8fdef668f0	2026-08-31	refactor: reduce utils to compatibility facade
+7790e3a561cbf0cd330eff2a5ea0984bb27cd8dd	2026-08-31	feat: add agent workflow v6
+f0de482d0eb37f369785b4c2a4b55a959ff955ae	2026-08-31	fix: preserve utils visualization facade identity
+5cba0e71d7ebd524812bec0d804076fdd7e5c2a5	2026-08-31	refactor: complete visualization implementation split
+b6396fcdc2de18b7cf05f23ac8636f22d939c82a	2026-08-31	refactor: complete analysis accessor split
+851458ede1c09d633147ce7626c9eb25446e0f34	2026-08-31	refactor: complete acquisition reader and discovery split
+cb8875f62ddfaf44fb16b64f61e65e244004abf0	2026-08-31	fix: preserve duplicate position layout semantics
+a73d2e6d7521c448916227d233fe1aa8138c60ee	2026-08-31	docs: sync plugin source fingerprints
+5d7dca1debce576aefe299dbc3cb061059b34cbb	2026-08-31	docs: document canonical utils subsystem ownership
+44bff79d63b15b56f76a8e55b058ad51fef813f1	2026-08-31	fix: make split entry points import-order safe
+023d5a1b31484ffd2b06060d0fc2126771276ace	2026-08-31	test: freeze import topology contracts
+accff61533c1e101c1667dec8c51987f18a61050	2026-08-31	feat: add public plugins facade
+b38f3074571a8a97329c5bad42394cfbac9e7877	2026-08-31	refactor: lazy-load core package exports
+11622959af224d1f42084480169efd3a4e010c23	2026-08-31	refactor: lazy-load plugin package exports
+33a9770ba73c6a578baed8834be3bc06030211a4	2026-08-31	refactor: defer cli runtime imports
+13209e5fc6d75cbde2d9b760f4dda3a86bd4630a	2026-08-31	docs: standardize public import paths
+f6cabebc35b5cacdde1b83c1e83324726cb95757	2026-08-31	docs: sync agent task indexes
+72d4da60cc1b11ab13aedee6251edf86eb73ea83	2026-08-31	test: isolate lazy export contracts
+d58b64852ea8230a1eee6cf1785361143a474a1d	2026-08-31	docs: resync agent task indexes after rework
+3a88b032b83d19f24df4dd19bb2a0c9a82091b0e	2026-08-31	docs: record import topology changes
+59438b87c23d48493cbfd6fe71ab3fb91452bc98	2026-08-31	test: stabilize performance regression sampling
+68e731969e9cb594f3311b44883f873dc0138dbe	2026-09-01	feat: migrate documentation site to Next.js
+bef3c6ad438ba6b3262adfb7b89d443453dc987e	2026-09-01	chore: record Next.js documentation migration handoff
+f8ed4533eefc1b6c7d4545b4947d84372291f052	2026-09-01	fix: compact lineage dtype display
+2fe4319151fe34ab33b0e7bb1f88dedeb9617cc0	2026-09-01	chore: record lineage density handoff
+44094a8e32fcf5ff235a03ed1ad7e0d9ace48d2f	2026-09-01	fix: restore rich documentation references
+e5944fa30eae19240c491eaeaaec5415f420c45e	2026-09-01	chore: record rich docs recovery handoff
+7a9514f90de6da3a541ff429112e3f754a379ac3	2026-09-02	refactor: optimize static documentation delivery
+c2dde9b4c23bb9ea970555ee169a35e9a6a5e98c	2026-09-02	chore: record documentation optimization handoff
+1b1a0b8237c5a9c95580c789f77ee973fe6ad73d	2026-09-02	fix: restore lineage sidebar toggle on narrow screens
+55e914ecff40bfdf6d789a09333f1bdd26bc3d1b	2026-09-02	fix: expose CLI pages in docs navigation
+eb1c6bb7772c476ebd24dad2d2c0233f1640c81c	2026-09-04	fix: synchronize 1.5.0 release metadata and docs
+e939550222a871e74aa7e49df1b2afd6b73b72ac	2026-09-07	fix: preserve documentation structure and keyboard behavior
+e2c6c5b97d73763fc141b33f90f2453ace77c2be	2026-09-08	feat: add managed Executor Reviewer workflow MVP
+235da1c2ea9d0871e6b26bb87464eecba6f5a3e0	2026-09-08	chore: managed task d449f269ed32 attempt 1
+8b39b9acc06b4bd4da80d22e1afc8e927ab91267	2026-09-08	chore: managed task d449f269ed32 attempt 2
+0e9a415820ec40abbd558343186bdd1cba9831f3	2026-09-08	chore: managed task d449f269ed32 attempt 3
+84bd5a85378e4181544ae81111395cb8efc5c0f8	2026-09-11	fix: reclaim V1725 intermediate shards after validated merge
