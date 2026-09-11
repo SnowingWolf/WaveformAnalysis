@@ -1,0 +1,271 @@
+api_version: waveform-analysis/agent-task/v1
+kind: AgentTask
+metadata:
+  id: v1725-merged-parts-cleanup
+  generation: 1
+  created_at: '2026-09-11T07:21:34Z'
+  updated_at: '2026-09-11T07:28:49Z'
+spec:
+  goal: After successful V1725 disk merge, validate final files, close intermediate
+    mappings and reclaim only owned source shards and sort intermediates; preserve
+    final disk refs and cleanup ownership. Excludes TMPDIR changes, process lifecycle
+    redesign and historical directory deletion.
+  route: modify_code
+  workflow_cost: strict
+  workflow_shape: staged
+  risk_level: medium
+  scope:
+    base_sha: 0e9a415820ec40abbd558343186bdd1cba9831f3
+    allowed_paths:
+    - waveform_analysis/core/processing/records_builder.py
+    - waveform_analysis/core/plugins/builtin/records/_compute.py
+    - waveform_analysis/core/plugins/builtin/records/plugin.py
+    - tests/test_records_sorting.py
+    - docs/architecture/DATA_PRODUCTS.md
+    - docs/plugins/reference/
+    - docs/agents/runs/current/v1725-merged-parts-cleanup/
+    - docs/agents/plans/
+  acceptance_criteria:
+  - Only final records and wave_pool files remain after owned successful V1725 disk
+    merge; counts and wave slices match baseline.
+  - Invalid final output never triggers selective source pruning; generic merge caller
+    inputs are untouched; all intermediate mappings are closed before pruning.
+  required_gates:
+  - targeted_tests
+  - assess_change_impact
+  - schema_compat_check
+  - doc_sync
+  - doc_anchors
+  - independent_review
+  assignment:
+    planner_role: planner
+    executor_role: executor.code
+    reviewer_role: reviewer
+status:
+  state: completed
+  transitions:
+  - from: created
+    to: planning
+    at: '2026-09-11T07:21:34Z'
+    actor: planner
+  - from: planning
+    to: ready_for_execution
+    at: '2026-09-11T07:21:34Z'
+    actor: planner
+  - from: ready_for_execution
+    to: executing
+    at: '2026-09-11T07:21:34Z'
+    actor: executor
+  - from: executing
+    to: reviewing
+    at: '2026-09-11T07:28:32Z'
+    actor: executor
+  - from: reviewing
+    to: completed
+    at: '2026-09-11T07:28:49Z'
+    actor: reviewer
+  plan_sha256: 30eda315360a98012340345c814cdb1476918247a2d3f4bd7c470578458c1605
+  execution:
+    generation: 1
+    workflow_cost: strict
+    workflow_shape: staged
+    summary: Owned V1725 intermediates reclaimed after validating final files; explicit
+      successful mapping closure; shared records/wave_pool version 0.14.3.
+    changed_paths:
+    - docs/agents/plans/INDEX.md
+    - docs/agents/plans/active.yaml
+    - docs/architecture/DATA_PRODUCTS.md
+    - docs/plugins/reference/agent/INDEX.md
+    - docs/plugins/reference/agent/records.md
+    - docs/plugins/reference/agent/wave_pool.md
+    - docs/plugins/reference/builtin/auto/INDEX.md
+    - docs/plugins/reference/builtin/auto/records.md
+    - docs/plugins/reference/builtin/auto/wave_pool.md
+    - tests/test_records_sorting.py
+    - waveform_analysis/core/plugins/builtin/records/_compute.py
+    - waveform_analysis/core/plugins/builtin/records/plugin.py
+    - waveform_analysis/core/processing/records_builder.py
+    actions_taken:
+    - Validated aggregate counts, exact final sizes, file ownership and per-record
+      wave bounds before any selective unlink.
+    - Deleted only original input refs and known records-only batches; final ref cleanup
+      lifecycle preserved.
+    - Added batch/non-batch and thread/process regressions, intermediate mapping closure
+      and invalid-output refusal; generic merger retains inputs.
+    - Regenerated both plugin documentation profiles using current source CLI.
+    commands_run:
+      format-tests:
+        command:
+        - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python
+        - -m
+        - black
+        - tests/test_records_sorting.py
+        exit_code: 0
+        log: /tmp/v1725-check-format-tests.log
+      format-config:
+        command:
+        - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python
+        - -m
+        - black
+        - waveform_analysis/core/plugins/builtin/records/_compute.py
+        exit_code: 0
+        log: /tmp/v1725-check-format-config.log
+      format-plugin:
+        command:
+        - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python
+        - -m
+        - black
+        - waveform_analysis/core/plugins/builtin/records/plugin.py
+        exit_code: 0
+        log: /tmp/v1725-check-format-plugin.log
+      lint:
+        command:
+        - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python
+        - -m
+        - ruff
+        - check
+        - waveform_analysis/core/processing/records_builder.py
+        - waveform_analysis/core/plugins/builtin/records/_compute.py
+        - waveform_analysis/core/plugins/builtin/records/plugin.py
+        - tests/test_records_sorting.py
+        exit_code: 0
+        log: /tmp/v1725-check-lint.log
+      plugins-auto:
+        command:
+        - /home/wxy/anaconda3/envs/pyroot-kernel/bin/waveform-docs
+        - generate
+        - plugins-auto
+        - -o
+        - docs/plugins/reference/builtin/auto/
+        exit_code: 1
+        log: /tmp/v1725-check-plugins-auto.log
+        initial_failure: Installed console script imports removed waveform_analysis.utils.cli_docs;
+          no environment changes.
+        replacement:
+          command:
+          - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python
+          - -m
+          - waveform_analysis.documentation.cli
+          - generate
+          - plugins-auto
+          - -o
+          - docs/plugins/reference/builtin/auto/
+          exit_code: 0
+          log: /tmp/v1725-docs-auto-current.log
+      plugins-agent:
+        command:
+        - /home/wxy/anaconda3/envs/pyroot-kernel/bin/waveform-docs
+        - generate
+        - plugins-agent
+        - -o
+        - docs/plugins/reference/agent/
+        exit_code: 1
+        log: /tmp/v1725-check-plugins-agent.log
+        initial_failure: Installed console script imports removed waveform_analysis.utils.cli_docs;
+          no environment changes.
+        replacement:
+          command:
+          - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python
+          - -m
+          - waveform_analysis.documentation.cli
+          - generate
+          - plugins-agent
+          - -o
+          - docs/plugins/reference/agent/
+          exit_code: 0
+          log: /tmp/v1725-docs-agent-current.log
+      render-agent:
+        command:
+        - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python
+        - scripts/render_agent_docs.py
+        - --write
+        exit_code: 0
+        log: /tmp/v1725-check-render-agent.log
+      targeted_tests:
+        command:
+        - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python
+        - -m
+        - pytest
+        - tests/test_records_sorting.py
+        - tests/test_records_builder_hardware_channel.py
+        - tests/plugins/test_records_plugin_dependencies.py
+        - tests/test_records_view.py
+        - -q
+        - --no-cov
+        - -o
+        - addopts=
+        exit_code: 0
+        log: /tmp/v1725-check-targeted_tests.log
+      assess_change_impact:
+        command:
+        - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python
+        - scripts/assess_change_impact.py
+        - --base
+        - HEAD
+        exit_code: 0
+        log: /tmp/v1725-check-assess_change_impact.log
+      schema_compat_check:
+        command:
+        - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python
+        - scripts/schema_compat_check.py
+        - --base
+        - HEAD
+        - --run-smoke
+        exit_code: 0
+        log: /tmp/v1725-check-schema_compat_check.log
+      doc_sync:
+        command:
+        - bash
+        - scripts/check_doc_sync.sh
+        - --base
+        - HEAD
+        exit_code: 0
+        log: /tmp/v1725-check-doc_sync.log
+        final_log: /tmp/v1725-doc-sync-final.log
+      doc_anchors:
+        command:
+        - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python
+        - scripts/check_doc_anchors.py
+        - --check-sync
+        - --base
+        - HEAD
+        exit_code: 0
+        log: /tmp/v1725-check-doc_anchors.log
+        final_log: /tmp/v1725-doc-anchors-final.log
+    targeted_tests: 58 passed, 9 warnings; synthetic DAQ blobs and actual thread/process
+      execution; no large production run replay.
+    open_risks:
+    - Does not lower merge peak space or remove historical directories.
+    - Final data persists until existing bundle/context cleanup.
+    - Existing Python fork and plugin declaration warnings remain.
+    requested_review_focus:
+    - Only owned intermediates deleted after successful validation
+    - Final memmaps readable and shared merger inputs retained
+  review:
+    generation: 1
+    plan_sha256: 30eda315360a98012340345c814cdb1476918247a2d3f4bd7c470578458c1605
+    workflow_cost: strict
+    workflow_shape: staged
+    reviewer: /root/audit_cleanup
+    decision: completed
+    gate_results:
+      targeted_tests: PASS
+      assess_change_impact: PASS
+      schema_compat_check: PASS
+      doc_sync: PASS
+      doc_anchors: PASS
+      independent_review: PASS
+      plugins_auto: PASS
+      plugins_agent: PASS
+    blocking_findings: []
+    summary: Independent read-only reviewer approved implementation and regenerated
+      docs; checked 58 passing tests and gate logs without rerunning tests.
+    residual_risks:
+    - Merge peak space and final bundle lifetime unchanged; no historic directory
+      deletion or production-scale replay.
+    follow_up_actions: []
+  approval: {}
+  handoff:
+    commit_status: committed
+    reason: This task record is included in the scoped implementation commit; no remote
+      push.

@@ -5,7 +5,7 @@ profile: "auto"
 provides: "records"
 plugin_class: "RecordsPlugin"
 module: "waveform_analysis.core.plugins.builtin.records.plugin"
-version: "0.14.2"
+version: "0.14.3"
 summary: "Build records (event index table) from the shared internal records bundle."
 depends_on: []
 declared_depends_on: []
@@ -17,7 +17,7 @@ output_kind: "structured_array"
 execution_kind: "static"
 narrative_source: "source"
 narrative_source_reason: null
-source_fingerprint: "a2bb9701b804b34ee1ab45ff1415df6b1e2245ab005b0e29f009a5d8c430aac4"
+source_fingerprint: "9baa6b6bcdc1e993078f9423906c968e64123a86460e00a4f6080e4c21e79ed8"
 generated: true
 ---
 # records
@@ -36,7 +36,7 @@ records 是绝大多数 records-backed 产物的源头：波形池的切片访�
 | Provides | `records` |
 | Plugin Class | `RecordsPlugin` |
 | Module | `waveform_analysis.core.plugins.builtin.records.plugin` |
-| Version | `0.14.2` |
+| Version | `0.14.3` |
 | Category | 记录处理 |
 | Output Container | `structured_array` |
 | Execution Mode | `static` |
@@ -45,7 +45,7 @@ records 是绝大多数 records-backed 产物的源头：波形池的切片访�
 | Timeout | `none` |
 | Side Effect | no |
 | Narrative Source | `source` |
-| Source Fingerprint | `a2bb9701b804b34ee1ab45ff1415df6b1e2245ab005b0e29f009a5d8c430aac4` |
+| Source Fingerprint | `9baa6b6bcdc1e993078f9423906c968e64123a86460e00a4f6080e4c21e79ed8` |
 
 ### Dependencies
 

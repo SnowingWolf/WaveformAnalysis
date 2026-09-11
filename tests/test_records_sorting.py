@@ -103,7 +103,11 @@ def test_build_records_from_v1725_files_sorts_approximately_ordered_input(tmp_pa
     np.testing.assert_array_equal(bundle.records["record_id"], np.arange(2, dtype=np.int64))
 
 
-def test_build_records_from_v1725_files_keeps_disk_refs_after_tempdir_cleanup(tmp_path: Path):
+@pytest.mark.parametrize("batch_size", [1, 50])
+@pytest.mark.parametrize("executor_type", ["thread", "process"])
+def test_build_records_from_v1725_files_keeps_disk_refs_after_tempdir_cleanup(
+    tmp_path: Path, batch_size: int, executor_type: str
+):
     raws = []
     for idx, timestamp in enumerate([30, 10, 20]):
         raw = tmp_path / f"test_raw_b{idx}_seg0.bin"
@@ -120,7 +124,9 @@ def test_build_records_from_v1725_files_keeps_disk_refs_after_tempdir_cleanup(tm
     bundle_ref = build_records_from_v1725_files(
         raws,
         dt_ns=4,
-        batch_size=1,
+        batch_size=batch_size,
+        executor_type=executor_type,
+        n_jobs=2,
         keep_on_disk=True,
     )
 
@@ -129,6 +135,11 @@ def test_build_records_from_v1725_files_keeps_disk_refs_after_tempdir_cleanup(tm
     assert bundle_ref.temp_dir.exists()
     assert all(part.records_path.exists() for part in bundle_ref.part_refs)
     assert all(part.wave_pool_path.exists() for part in bundle_ref.part_refs)
+    assert set(bundle_ref.temp_dir.rglob("*.dat")) == {
+        bundle_ref.part_refs[0].records_path,
+        bundle_ref.part_refs[0].wave_pool_path,
+    }
+    assert list(bundle_ref.temp_dir.iterdir()) == [bundle_ref.temp_dir / "merged"]
     assert all(part.records_path.parent != Path("/tmp/merged") for part in bundle_ref.part_refs)
 
     loaded = bundle_ref.load_full()
@@ -194,6 +205,99 @@ def test_build_records_from_v1725_files_run_merge_keeps_variable_wave_offsets(tm
     np.testing.assert_array_equal(bundle.wave_pool, expected_pool)
 
 
+@pytest.mark.parametrize("batch_size", [1, 50])
+def test_v1725_reclaim_closes_mappings_and_preserves_variable_waves(
+    tmp_path, monkeypatch, batch_size
+):
+    from waveform_analysis.core.processing import records_builder as builder
+
+    raw = tmp_path / "test_raw_b0_seg0.bin"
+    raw.write_bytes(
+        b"".join(
+            make_v1725_single_wave_blob(
+                channel=0, timestamp=timestamp, samples=np.arange(length, dtype=np.int16)
+            )
+            for timestamp, length in [(30, 6), (10, 2), (20, 4)]
+        )
+    )
+    mappings = []
+    original_memmap = np.memmap
+
+    class TrackedMemmap(original_memmap):
+        def __new__(cls, *args, **kwargs):
+            value = super().__new__(cls, *args, **kwargs)
+            mappings.append(value._mmap)
+            return value
+
+    reclaim = builder._reclaim_v1725_merge_inputs
+    reclaimed = []
+
+    def checked_reclaim(part_dir, parts, result):
+        assert mappings and all(mapping.closed for mapping in mappings)
+        before = sum(path.stat().st_size for path in part_dir.rglob("*.dat"))
+        reclaim(part_dir, parts, result)
+        assert all(mapping.closed for mapping in mappings)
+        after = sum(path.stat().st_size for path in part_dir.rglob("*.dat"))
+        assert after == result.total_records * RECORDS_DTYPE.itemsize + result.total_samples * 2
+        assert before >= 2 * after
+        reclaimed.append(part_dir)
+
+    monkeypatch.setattr(builder.np, "memmap", TrackedMemmap)
+    monkeypatch.setattr(builder, "_reclaim_v1725_merge_inputs", checked_reclaim)
+    result = build_records_from_v1725_files(
+        [str(raw)],
+        dt_ns=4,
+        n_jobs=1,
+        v1725_part_size=1,
+        batch_size=batch_size,
+        keep_on_disk=True,
+    )
+    try:
+        assert reclaimed == [result.temp_dir]
+        loaded = result.load_full()
+        waves = _waves_by_timestamp(loaded.records, loaded.wave_pool)
+        for timestamp, length in [(30, 6), (10, 2), (20, 4)]:
+            np.testing.assert_array_equal(waves[timestamp * 4000], np.arange(length))
+    finally:
+        result.cleanup()
+
+
+@pytest.mark.parametrize("damage", ["size", "offset", "length", "count", "alias"])
+def test_v1725_reclaim_validates_all_output_before_deleting(tmp_path, damage):
+    from waveform_analysis.core.processing.records_builder import _reclaim_v1725_merge_inputs
+
+    source = tmp_path / "file_0"
+    source.mkdir()
+    records = np.zeros(2, dtype=RECORDS_DTYPE)
+    records["timestamp"] = [1, 2]
+    records["event_length"] = 2
+    records["wave_offset"] = [0, 2]
+    part = _write_records_part(RecordsBundle(records, np.arange(4, dtype=np.uint16)), source, 0)
+    result = _merge_records_part_refs(
+        [part],
+        keep_on_disk=True,
+        output_dir=tmp_path,
+        transfer_temp_dir_ownership=True,
+    )
+    # The shared merger must leave caller-owned inputs available for reuse.
+    originals = {path: path.read_bytes() for path in (part.records_path, part.wave_pool_path)}
+    final = result.part_refs[0]
+    if damage == "size":
+        final.wave_pool_path.write_bytes(b"\0")
+    elif damage in {"offset", "length"}:
+        mapped = np.memmap(final.records_path, dtype=RECORDS_DTYPE, mode="r+")
+        mapped["wave_offset" if damage == "offset" else "event_length"][0] = 100
+        mapped.flush()
+        mapped._mmap.close()
+    elif damage == "count":
+        result.total_records += 1
+    else:
+        final.wave_pool_path = part.wave_pool_path
+    with pytest.raises(RuntimeError, match="V1725"):
+        _reclaim_v1725_merge_inputs(tmp_path, [part], result)
+    assert all(path.read_bytes() == data for path, data in originals.items())
+
+
 def test_build_records_from_v1725_files_disk_batch_merge_uses_disk_parts(tmp_path: Path):
     raws = []
     for board, timestamp in enumerate([10, 20, 30, 40]):
@@ -218,7 +322,7 @@ def test_build_records_from_v1725_files_disk_batch_merge_uses_disk_parts(tmp_pat
     assert isinstance(bundle_ref, RecordsBundleRef)
     assert bundle_ref.temp_dir is not None
     assert bundle_ref.part_refs[0].records_path.parent.name == "merged"
-    assert (bundle_ref.temp_dir / "merged" / "records_only_batches").exists()
+    assert not (bundle_ref.temp_dir / "merged" / "records_only_batches").exists()
 
     loaded = bundle_ref.load_full()
     np.testing.assert_array_equal(

@@ -40,6 +40,7 @@ class RecordsPlugin(_RecordsBundlePluginBase):
             "返回结果：输出按行对齐的 `RECORDS_DTYPE` 元数据数组，行序即后续 `record_id` 对齐约定。",
         ],
         "behavior_notes": [
+            "V1725 disk builds validate merged counts, file sizes and wave bounds before reclaiming owned input shards and records-only batches; final files remain readable until bundle cleanup.",
             "The plugin never re-parses raw waveforms itself; it only materializes the record metadata view from the shared bundle.",
             "Single-part `RecordsBundleRef` returns a memmap over `records_path` (zero-copy); multi-part falls back to a merged metadata-only view.",
             "`wave_offset` + `event_length` references into the `wave_pool` array (uint16), so `records` and `wave_pool` must stay index-consistent.",

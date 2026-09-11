@@ -50,6 +50,14 @@ active_plans:
   condition: —
   task_file: docs/agents/runs/current/managed-workflow-mvp/task.yaml
   legacy_plan: docs/agents/runs/current/managed-workflow-mvp/legacy-plan.md
+- task_id: v1725-merged-parts-cleanup
+  state: completed
+  route: modify_code
+  workflow_cost: strict
+  workflow_shape: staged
+  condition: —
+  task_file: docs/agents/runs/current/v1725-merged-parts-cleanup/task.yaml
+  legacy_plan: docs/agents/runs/current/v1725-merged-parts-cleanup/legacy-plan.md
 - task_id: waveform-doc-content-recovery-20260901
   state: completed
   route: modify_code
