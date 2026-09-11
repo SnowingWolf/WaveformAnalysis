@@ -9,7 +9,7 @@ from waveform_analysis.core.plugins.builtin.hit_merged._compute import (
     HIT_MERGED_DTYPE,
     _cluster_bounds,
     _cluster_rows_to_components,
-    _compute_canonical_cluster_rows,
+    _compute_canonical_cluster_rows_shared,
     _materialize_array,
 )
 from waveform_analysis.core.plugins.builtin.hit_threshold import THRESHOLD_HIT_DTYPE
@@ -23,7 +23,7 @@ class HitMergedComponentsPlugin(Plugin):
     lineage_virtual = True
     depends_on = ["hit_merged", "hit_threshold"]
     description = "Return per-cluster component hit indices for hit_merged rows."
-    version = "1.1.0"
+    version = "1.2.0"
     save_when = "always"
     output_dtype = HIT_MERGED_COMPONENTS_DTYPE
     options = {
@@ -52,8 +52,8 @@ class HitMergedComponentsPlugin(Plugin):
             THRESHOLD_HIT_DTYPE,
         )
         merge_plugin = context.get_plugin("hit_merged")
-        cluster_rows, _explicit_dt, _merge_disabled = _compute_canonical_cluster_rows(
-            hits, context, merge_plugin, pre_trigger_ps
+        cluster_rows, _explicit_dt, _merge_disabled = _compute_canonical_cluster_rows_shared(
+            hits, context, merge_plugin, pre_trigger_ps, run_id
         )
         if len(cluster_rows) == 0:
             return np.zeros(0, dtype=HIT_MERGED_COMPONENTS_DTYPE)

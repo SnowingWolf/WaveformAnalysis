@@ -5,6 +5,8 @@
 """
 
 from collections.abc import Iterator
+from dataclasses import dataclass
+import hashlib
 from typing import Any, NamedTuple
 
 import numpy as np
@@ -515,6 +517,204 @@ def _compute_canonical_cluster_rows(
         explicit_dt,
         False,
     )
+
+
+_HIT_MERGE_CLUSTER_ROWS_CACHE_PREFIX = "_hit_merge_cluster_rows-"
+
+
+@dataclass(frozen=True)
+class _CanonicalClusterRowsCache:
+    """Context-local canonical membership shared by the hit-merge family.
+
+    The membership array is deliberately kept as an internal Context result rather
+    than registered as a plugin output.  This lets ``hit_merged_components`` and the
+    optional ``hit_merge_clusters`` output reuse the rows built by ``hit_merged``
+    without changing the DAG or forcing a second persisted relation cache.
+    """
+
+    guard: str
+    rows: np.ndarray
+    explicit_dt: int | None
+    merge_disabled: bool
+
+
+def _hit_merge_cluster_rows_guard(
+    context: Any,
+    run_id: str,
+    merge_plugin: Plugin,
+    pre_trigger_ps: int,
+) -> str:
+    """Build a bounded guard for the Context-local membership cache.
+
+    ``Context.key_for`` captures plugin version, tracked configuration and upstream
+    lineage.  The explicit config tuple and pre-trigger offset are included as well
+    because lightweight test contexts and some compatibility adapters do not expose
+    a complete lineage implementation.  The digest keeps the internal result key
+    short and avoids storing user configuration text in the Context namespace.
+    """
+
+    lineage_keys: list[str] = []
+    key_for = getattr(context, "key_for", None)
+    if callable(key_for):
+        for data_name in ("hit_merged", "hit_threshold"):
+            try:
+                lineage_keys.append(f"{data_name}={key_for(run_id, data_name)}")
+            except Exception:
+                lineage_keys.append(f"{data_name}=unavailable")
+    else:
+        lineage_keys.extend(("hit_merged=unavailable", "hit_threshold=unavailable"))
+
+    config_values: list[str] = []
+    get_config = getattr(context, "get_config", None)
+    for name in ("merge_gap_ns", "max_total_width_ns", "dt"):
+        try:
+            value = get_config(merge_plugin, name) if callable(get_config) else None
+        except Exception:
+            value = "unavailable"
+        config_values.append(f"{name}={value!r}")
+
+    payload = "|".join(
+        (
+            f"run_id={run_id}",
+            f"plugin={merge_plugin.__class__.__module__}.{merge_plugin.__class__.__qualname__}",
+            f"version={getattr(merge_plugin, 'version', '0.0.0')}",
+            *lineage_keys,
+            *config_values,
+            f"pre_trigger_ps={int(pre_trigger_ps)}",
+        )
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _hit_merge_cluster_rows_cache_key(guard: str) -> str:
+    """Return the private Context result key for one canonical membership guard."""
+
+    return f"{_HIT_MERGE_CLUSTER_ROWS_CACHE_PREFIX}{guard}"
+
+
+def _context_result_get(context: Any, run_id: str, name: str) -> Any | None:
+    results = getattr(context, "_results", None)
+    if not isinstance(results, dict):
+        return None
+    lock = getattr(context, "_data_lock", None)
+    if lock is None:
+        return results.get((run_id, name))
+    with lock:
+        return results.get((run_id, name))
+
+
+def _context_result_remove(context: Any, run_id: str, name: str) -> None:
+    results = getattr(context, "_results", None)
+    if not isinstance(results, dict):
+        return
+    lock = getattr(context, "_data_lock", None)
+    if lock is None:
+        results.pop((run_id, name), None)
+        return
+    with lock:
+        results.pop((run_id, name), None)
+
+
+def _context_result_store(context: Any, run_id: str, name: str, value: Any) -> None:
+    """Store a private result without exposing it as a Context attribute."""
+
+    results = getattr(context, "_results", None)
+    if not isinstance(results, dict):
+        # Minimal compatibility contexts may only expose the historical helper.
+        set_data = getattr(context, "_set_data", None)
+        if callable(set_data):
+            set_data(run_id, name, value)
+        return
+    lock = getattr(context, "_data_lock", None)
+    if lock is None:
+        results[(run_id, name)] = value
+        return
+    with lock:
+        results[(run_id, name)] = value
+
+
+def _clear_hit_merge_cluster_rows_cache(
+    context: Any,
+    run_id: str | None = None,
+    *,
+    keep: str | None = None,
+) -> int:
+    """Release private membership arrays for one run or the whole Context.
+
+    Context cache/config invalidation calls this helper explicitly.  The cache is
+    owned by the Context (not a module-global registry), so normal Context
+    destruction also releases all rows without requiring weak-reference callbacks.
+    """
+
+    results = getattr(context, "_results", None)
+    if not isinstance(results, dict):
+        return 0
+    lock = getattr(context, "_data_lock", None)
+    removed = 0
+
+    def remove_stale() -> None:
+        nonlocal removed
+        for result_key in list(results):
+            if not isinstance(result_key, tuple) or len(result_key) != 2:
+                continue
+            cached_run_id, cached_name = result_key
+            if (
+                (run_id is None or cached_run_id == run_id)
+                and isinstance(cached_name, str)
+                and cached_name.startswith(_HIT_MERGE_CLUSTER_ROWS_CACHE_PREFIX)
+                and cached_name != keep
+            ):
+                results.pop(result_key, None)
+                removed += 1
+
+    if lock is None:
+        remove_stale()
+    else:
+        with lock:
+            remove_stale()
+    return removed
+
+
+def _compute_canonical_cluster_rows_shared(
+    hits: np.ndarray,
+    context: Any,
+    merge_plugin: Plugin,
+    pre_trigger_ps: int,
+    run_id: str,
+) -> tuple[np.ndarray, int | None, bool]:
+    """Compute or reuse canonical cluster membership for one Context/run/lineage."""
+
+    guard = _hit_merge_cluster_rows_guard(context, run_id, merge_plugin, pre_trigger_ps)
+    cache_key = _hit_merge_cluster_rows_cache_key(guard)
+    cached = _context_result_get(context, run_id, cache_key)
+    if isinstance(cached, _CanonicalClusterRowsCache) and cached.guard == guard:
+        logger = getattr(context, "logger", None)
+        if logger is not None:
+            logger.debug("hit merge cluster rows cache hit: run_id=%s guard=%s", run_id, guard[:12])
+        return cached.rows, cached.explicit_dt, cached.merge_disabled
+
+    if cached is not None:
+        _context_result_remove(context, run_id, cache_key)
+
+    cluster_rows, explicit_dt, merge_disabled = _compute_canonical_cluster_rows(
+        hits, context, merge_plugin, pre_trigger_ps
+    )
+    _clear_hit_merge_cluster_rows_cache(context, run_id, keep=cache_key)
+    _context_result_store(
+        context,
+        run_id,
+        cache_key,
+        _CanonicalClusterRowsCache(
+            guard=guard,
+            rows=cluster_rows,
+            explicit_dt=explicit_dt,
+            merge_disabled=merge_disabled,
+        ),
+    )
+    logger = getattr(context, "logger", None)
+    if logger is not None:
+        logger.debug("hit merge cluster rows cache miss: run_id=%s guard=%s", run_id, guard[:12])
+    return cluster_rows, explicit_dt, merge_disabled
 
 
 def _cluster_rows_to_components(cluster_rows: np.ndarray) -> np.ndarray:

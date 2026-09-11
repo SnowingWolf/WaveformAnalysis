@@ -5,7 +5,7 @@ profile: "agent"
 provides: "hit_merge_clusters"
 plugin_class: "HitMergeClustersPlugin"
 module: "waveform_analysis.core.plugins.builtin.hit_merge_clusters.plugin"
-version: "1.1.0"
+version: "1.2.0"
 summary: "Export cluster membership rows using the authoritative hit_merged configuration."
 depends_on: ["hit_merged", "hit_threshold"]
 declared_depends_on: ["hit_merged", "hit_threshold"]
@@ -17,7 +17,7 @@ output_kind: "structured_array"
 execution_kind: "static"
 narrative_source: "source"
 narrative_source_reason: null
-source_fingerprint: "d1fae75c79a4fa137eedc0e65d087fe8039eef2093cd0ccfca4c700a6f161925"
+source_fingerprint: "508b446f27d4cb65021fad2cf81cda2c7fca5571d9349240e67ff1c0aa028849"
 generated: true
 ---
 # hit_merge_clusters
@@ -32,7 +32,7 @@ Internal flat cluster membership for hit merge outputs.
 | Provides | `hit_merge_clusters` |
 | Plugin Class | `HitMergeClustersPlugin` |
 | Module | `waveform_analysis.core.plugins.builtin.hit_merge_clusters.plugin` |
-| Version | `1.1.0` |
+| Version | `1.2.0` |
 | Category | 特征提取 |
 | Output Container | `structured_array` |
 | Execution Mode | `static` |
@@ -41,7 +41,7 @@ Internal flat cluster membership for hit merge outputs.
 | Timeout | `none` |
 | Side Effect | no |
 | Narrative Source | `source` |
-| Source Fingerprint | `d1fae75c79a4fa137eedc0e65d087fe8039eef2093cd0ccfca4c700a6f161925` |
+| Source Fingerprint | `508b446f27d4cb65021fad2cf81cda2c7fca5571d9349240e67ff1c0aa028849` |
 
 ### Dependencies
 

@@ -1,6 +1,6 @@
 provides: hit_merged
 plugin_class: HitMergePlugin
-version: 2.1.0
+version: 2.2.0
 depends_on:
   - hit_threshold
 third_party_dependencies:

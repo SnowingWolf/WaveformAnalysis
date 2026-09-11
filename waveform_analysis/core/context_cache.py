@@ -224,6 +224,23 @@ class ContextCacheDomain:
             if verbose:
                 print(f"[清理缓存] 运行: {run_id}, 数据类型: {data_name}")
 
+        if clear_memory and (
+            data_name is None
+            or any(
+                name
+                in {"hit_threshold", "hit_merged", "hit_merge_clusters", "hit_merged_components"}
+                for name in data_names
+            )
+        ):
+            try:
+                from waveform_analysis.core.plugins.builtin.hit_merged._compute import (
+                    _clear_hit_merge_cluster_rows_cache,
+                )
+
+                _clear_hit_merge_cluster_rows_cache(self.ctx, run_id)
+            except (ImportError, AttributeError):
+                pass
+
         for name in data_names:
             if clear_memory:
                 key = (run_id, name)
@@ -400,6 +417,20 @@ class ContextCacheDomain:
         self.ctx._key_prefix_cache.clear()
         self.ctx._key_cache.clear()
         self.ctx._run_key_list_cache.clear()
+        # Canonical hit-merge membership is an internal Context-only cache.  It
+        # must follow configuration/lineage invalidation just like the public
+        # result keys, otherwise a long-lived Context can retain old per-run
+        # membership arrays after a config change.
+        try:
+            from waveform_analysis.core.plugins.builtin.hit_merged._compute import (
+                _clear_hit_merge_cluster_rows_cache,
+            )
+
+            _clear_hit_merge_cluster_rows_cache(self.ctx)
+        except (ImportError, AttributeError):
+            # Keep Context initialization/import topology independent of the
+            # optional hit-merge bundle.
+            pass
         self.ctx.logger.debug("Performance caches cleared")
 
     def invalidate_caches_for(self, data_name: str) -> None:

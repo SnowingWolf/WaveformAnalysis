@@ -10,6 +10,7 @@ from waveform_analysis.core.plugins.builtin.hit.hit_merge import (
     HitMergedComponentsPlugin,
     HitMergePlugin,
 )
+from waveform_analysis.core.plugins.builtin.hit_merged import _compute as hit_merge_compute
 from waveform_analysis.core.processing.chunk import Chunk
 
 
@@ -320,6 +321,128 @@ def test_hit_merge_clusters_uses_hit_merged_config_namespace():
 
     np.testing.assert_array_equal(out["cluster_index"], np.array([0, 0], dtype=np.int64))
     np.testing.assert_array_equal(out["hit_index"], np.array([0, 1], dtype=np.int64))
+
+
+def test_hit_merge_family_shares_canonical_rows_within_context(monkeypatch):
+    merge_plugin = HitMergePlugin()
+    components_plugin = HitMergedComponentsPlugin()
+    cluster_plugin = HitMergeClustersPlugin()
+    hits = np.array(
+        [
+            make_hit(
+                position=10,
+                edge_start=8.0,
+                edge_end=12.0,
+                timestamp=100_000,
+                channel=0,
+                record_id=0,
+            ),
+            make_hit(
+                position=14,
+                edge_start=13.0,
+                edge_end=16.0,
+                timestamp=108_000,
+                channel=0,
+                record_id=1,
+            ),
+        ],
+        dtype=THRESHOLD_HIT_DTYPE,
+    )
+    config = {
+        "hit_merged": {"merge_gap_ns": 3.0, "max_total_width_ns": 10000.0, "dt": 2},
+    }
+    ctx = FakeContext(config, {"hit_threshold": hits}, plugins={"hit_merged": merge_plugin})
+
+    calls = []
+    original = hit_merge_compute._compute_canonical_cluster_rows
+
+    def counted(*args, **kwargs):
+        calls.append(True)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(hit_merge_compute, "_compute_canonical_cluster_rows", counted)
+
+    merged = merge_plugin.compute(ctx, "run_001")
+    ctx._set_data("run_001", "hit_merged", merged)
+    components = components_plugin.compute(ctx, "run_001")
+    clusters = cluster_plugin.compute(ctx, "run_001")
+
+    assert len(calls) == 1
+    np.testing.assert_array_equal(components["merged_index"], clusters["cluster_index"])
+    np.testing.assert_array_equal(components["hit_index"], clusters["hit_index"])
+
+
+def test_hit_merge_cluster_rows_guard_invalidates_config_and_run(monkeypatch):
+    merge_plugin = HitMergePlugin()
+    cluster_plugin = HitMergeClustersPlugin()
+    hits = np.array(
+        [
+            make_hit(
+                position=10,
+                edge_start=8.0,
+                edge_end=12.0,
+                timestamp=100_000,
+                channel=0,
+                record_id=0,
+            ),
+            make_hit(
+                position=14,
+                edge_start=13.0,
+                edge_end=16.0,
+                timestamp=108_000,
+                channel=0,
+                record_id=1,
+            ),
+        ],
+        dtype=THRESHOLD_HIT_DTYPE,
+    )
+    ctx = FakeContext(
+        {"hit_merged": {"merge_gap_ns": 3.0, "max_total_width_ns": 10000.0, "dt": 2}},
+        {"hit_threshold": hits},
+        plugins={"hit_merged": merge_plugin},
+    )
+
+    calls = []
+    original = hit_merge_compute._compute_canonical_cluster_rows
+
+    def counted(*args, **kwargs):
+        calls.append(True)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(hit_merge_compute, "_compute_canonical_cluster_rows", counted)
+
+    cluster_plugin.compute(ctx, "run_001")
+    assert len(calls) == 1
+    assert (
+        sum(
+            isinstance(name, str) and name.startswith("_hit_merge_cluster_rows-")
+            for run_id, name in ctx._results
+            if run_id == "run_001"
+        )
+        == 1
+    )
+
+    ctx.config["hit_merged"]["merge_gap_ns"] = 0.0
+    cluster_plugin.compute(ctx, "run_001")
+    assert len(calls) == 2
+    assert (
+        sum(
+            isinstance(name, str) and name.startswith("_hit_merge_cluster_rows-")
+            for run_id, name in ctx._results
+            if run_id == "run_001"
+        )
+        == 1
+    )
+
+    cluster_plugin.compute(ctx, "run_002")
+    assert len(calls) == 3
+    assert (
+        sum(
+            isinstance(name, str) and name.startswith("_hit_merge_cluster_rows-")
+            for run_id, name in ctx._results
+        )
+        == 2
+    )
 
 
 def test_hit_merge_uses_int64_ps_for_large_timestamps_and_small_gaps():

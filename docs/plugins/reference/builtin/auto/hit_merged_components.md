@@ -5,7 +5,7 @@ profile: "auto"
 provides: "hit_merged_components"
 plugin_class: "HitMergedComponentsPlugin"
 module: "waveform_analysis.core.plugins.builtin.hit_merged_components.plugin"
-version: "1.1.0"
+version: "1.2.0"
 summary: "Return per-cluster component hit indices for hit_merged rows."
 depends_on: ["hit_merged", "hit_threshold"]
 declared_depends_on: ["hit_merged", "hit_threshold"]
@@ -17,7 +17,7 @@ output_kind: "structured_array"
 execution_kind: "static"
 narrative_source: "source"
 narrative_source_reason: null
-source_fingerprint: "9ec3069a90ba7e34e486ace53d577caf533f54668423fe3533770552cedd2db7"
+source_fingerprint: "a775001291ab78a4465486b15ba4f148a7f3f0f19f3da352b7164057d95302ba"
 generated: true
 ---
 # hit_merged_components
@@ -32,7 +32,7 @@ Return flat component hit indices for each hit_merged cluster.
 | Provides | `hit_merged_components` |
 | Plugin Class | `HitMergedComponentsPlugin` |
 | Module | `waveform_analysis.core.plugins.builtin.hit_merged_components.plugin` |
-| Version | `1.1.0` |
+| Version | `1.2.0` |
 | Category | 特征提取 |
 | Output Container | `structured_array` |
 | Execution Mode | `static` |
@@ -41,7 +41,7 @@ Return flat component hit indices for each hit_merged cluster.
 | Timeout | `none` |
 | Side Effect | no |
 | Narrative Source | `source` |
-| Source Fingerprint | `9ec3069a90ba7e34e486ace53d577caf533f54668423fe3533770552cedd2db7` |
+| Source Fingerprint | `a775001291ab78a4465486b15ba4f148a7f3f0f19f3da352b7164057d95302ba` |
 
 ### Dependencies
 

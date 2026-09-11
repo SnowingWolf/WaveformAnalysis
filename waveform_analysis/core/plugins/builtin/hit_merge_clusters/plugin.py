@@ -6,7 +6,7 @@ import numpy as np
 
 from waveform_analysis.core.plugins.builtin.hit_merged._compute import (
     HIT_MERGE_CLUSTERS_DTYPE,
-    _compute_canonical_cluster_rows,
+    _compute_canonical_cluster_rows_shared,
     _materialize_array,
 )
 from waveform_analysis.core.plugins.builtin.hit_threshold import THRESHOLD_HIT_DTYPE
@@ -19,7 +19,7 @@ class HitMergeClustersPlugin(Plugin):
     provides = "hit_merge_clusters"
     depends_on = ["hit_merged", "hit_threshold"]
     description = "Export cluster membership rows using the authoritative hit_merged configuration."
-    version = "1.1.0"
+    version = "1.2.0"
     save_when = "always"
     output_dtype = HIT_MERGE_CLUSTERS_DTYPE
 
@@ -36,7 +36,7 @@ class HitMergeClustersPlugin(Plugin):
 
         pre_trigger_ps = get_pre_trigger_offset_ps(context)
         merge_plugin = context.get_plugin("hit_merged")
-        cluster_rows, _explicit_dt, _merge_disabled = _compute_canonical_cluster_rows(
-            hits, context, merge_plugin, pre_trigger_ps
+        cluster_rows, _explicit_dt, _merge_disabled = _compute_canonical_cluster_rows_shared(
+            hits, context, merge_plugin, pre_trigger_ps, run_id
         )
         return cluster_rows
