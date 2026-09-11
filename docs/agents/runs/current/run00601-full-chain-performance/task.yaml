@@ -4,7 +4,7 @@ metadata:
   id: run00601-full-chain-performance
   generation: 1
   created_at: '2026-09-11T12:19:15Z'
-  updated_at: '2026-09-11T16:45:38Z'
+  updated_at: '2026-09-11T18:56:08Z'
 spec:
   goal: Optimize Run 00601 full processing chain with independent worktrees and blocking
     bitwise, RSS, cache-lineage, and per-plugin performance gates.
@@ -70,7 +70,7 @@ spec:
     - peaklet_channels
     - peaks
 status:
-  state: executing
+  state: failed
   transitions:
   - from: created
     to: planning
@@ -99,24 +99,42 @@ status:
     at: '2026-09-11T16:45:38Z'
     actor: planner
     condition: scope_unchanged
+  - from: executing
+    to: reviewing
+    at: '2026-09-11T18:56:08Z'
+    actor: integration-executor
+    condition: execution_report_ready
+  - from: reviewing
+    to: failed
+    at: '2026-09-11T18:56:08Z'
+    actor: luna-max-reviewer
+    condition: unrecoverable_review_failure
   plan_sha256: f75f2f36b20ed92fbc8842ecd84e727d3b08ee56580b48175715bde6eaa0ebd4
   execution:
-    integration_head: a35f61f7e22d088cd4f82cb235a3eda92f023583
+    candidate_head: 7e2c09b54c74968e9ef7c89a8a9e377d18fca105
     integrated_commits:
     - db40822
     - 314434d
     - 0ed10ca
+    - 45442d3f
+    - 7e2c09b5
     records: failed_not_integrated
-    report: /tmp/wa-run00601-performance-g1/integration/report.md
+    full_chain_wall_median_sec: 612.8759721470415
+    full_chain_range_over_median_pct: 5.199620577618038
+    hit_combined_median_sec: 160.73879541398492
+    hit_speedup_pct: 68.58185528194886
+    waveforms_median_sec: 90.45410626102239
+    waveforms_speedup_pct: 35.26193942278287
+    rss_delta_pct: 4.523486574397206
+    persisted_cache_hits: 15/15
+    report: /tmp/wa-run00601-performance-g1/final-qa2/review-report.md
   review:
-    decision: rework_required
-    report: /tmp/wa-run00601-performance-g1/final-qa/review-report.md
-    failures:
-    - records_below_20_percent
-    - peaklet_waveforms_median_below_20_percent
-    - full_chain_stability_above_10_percent
-    - rss_above_5_percent
-    - persisted_cache_not_all_hit
-    - release_artifact_sync_failed
+    decision: failed
+    partial_success: true
+    code_performance_hash_rss_cache: pass
+    records: failed_after_two_reworks
+    release_artifact_sync: formal_fail
+    release_failure_reason: 11 baseline-existing docs/site tests; reproduced on 84bd5a85
+    report: /tmp/wa-run00601-performance-g1/final-qa2/review-report.md
   approval: {}
   handoff: {}
