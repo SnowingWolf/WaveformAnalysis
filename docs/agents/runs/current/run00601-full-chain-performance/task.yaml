@@ -1,0 +1,91 @@
+api_version: waveform-analysis/agent-task/v1
+kind: AgentTask
+metadata:
+  id: run00601-full-chain-performance
+  generation: 1
+  created_at: '2026-09-11T12:19:15Z'
+  updated_at: '2026-09-11T12:21:55Z'
+spec:
+  goal: Optimize Run 00601 full processing chain with independent worktrees and blocking
+    bitwise, RSS, cache-lineage, and per-plugin performance gates.
+  route: modify_plugin
+  workflow_cost: strict
+  workflow_shape: staged
+  risk_level: high
+  scope:
+    base_sha: 84bd5a85378e4181544ae81111395cb8efc5c0f8
+    allowed_paths:
+    - waveform_analysis
+    - tests
+    - docs/plugins
+    - docs/features
+    - docs/agents/runs/current/run00601-full-chain-performance/task.yaml
+    - plans/run00601-full-chain-performance
+    external_evidence_root: /tmp/wa-run00601-performance-g1
+    dataset: /mnt/data/TPC/run7_Xe/00601
+    production_cache_policy: read_only
+    benchmark_concurrency_group: benchmark-run00601
+  acceptance_criteria:
+  - Fresh-baseline median speedup is at least 20% for records, 40% for hit_merged
+    plus hit_merged_components, and 20% for peaklet_waveforms.
+  - All listed formal products retain exact dtype, shape, row order, and SHA-256;
+    peak process-tree RSS does not exceed baseline beyond 5% measurement noise.
+  - Only independently reviewed scoped commits are integrated; failed branches remain
+    unintegrated after at most two rework rounds.
+  required_gates:
+  - targeted_tests
+  - plugin_docs
+  - assess_change_impact
+  - schema_compat_check
+  - doc_sync
+  - doc_anchors
+  - performance_regression_check
+  - release_artifact_sync
+  assignment:
+    planner_role: planner
+    executor_role: executor.plugin
+    reviewer_role: reviewer
+  plan_artifacts:
+    goal: plans/run00601-full-chain-performance/goal.md
+    graphspec: plans/run00601-full-chain-performance/graphspec.yaml
+    agent_registry: plans/run00601-full-chain-performance/agent-registry.yaml
+  implementation_constraints:
+    model: gpt-5.6-luna
+    reasoning_effort: max
+    independent_worktrees: true
+    max_rework_rounds_per_branch: 2
+    exact_products:
+    - records
+    - wave_pool
+    - records_asymmetry_mask
+    - hit_threshold
+    - hit_merged
+    - hit_merge_clusters
+    - hit_merged_components
+    - peaklet_components
+    - peaklets
+    - peaklet_waveforms
+    - peaklet_waveform_pool
+    - peaklet_features
+    - peaklet_channels
+    - peaks
+status:
+  state: executing
+  transitions:
+  - from: created
+    to: planning
+    at: '2026-09-11T12:19:15Z'
+    actor: planner
+  - from: planning
+    to: ready_for_execution
+    at: '2026-09-11T12:21:55Z'
+    actor: planner
+  - from: ready_for_execution
+    to: executing
+    at: '2026-09-11T12:21:55Z'
+    actor: planner
+  plan_sha256: f75f2f36b20ed92fbc8842ecd84e727d3b08ee56580b48175715bde6eaa0ebd4
+  execution: {}
+  review: {}
+  approval: {}
+  handoff: {}

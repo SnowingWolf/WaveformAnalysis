@@ -1,0 +1,104 @@
+api_version: graphflow/v1alpha1
+kind: GraphSpec
+
+metadata:
+  id: run00601-full-chain-performance
+  title: Run 00601 full-chain performance optimization
+  version: 1
+  generation: 1
+  parent_graph: null
+  goal: Meet the records, hit merge, and peaklet waveform speed gates with byte-identical products and no RSS regression.
+
+nodes:
+  - id: baseline
+    title: Fresh full-chain baseline
+    executor: luna-max-executor
+    capabilities: [analysis, code_read, python, testing, benchmarking, documentation]
+    task: Lock environment, config, lineage, cache keys and hashes; run one fresh full chain and direct hotspot baselines using task-local NVMe caches.
+    position: {x: 60, y: 280}
+
+  - id: records_attempt_1
+    title: Records optimization attempt 1
+    executor: luna-max-executor
+    capabilities: [analysis, code_read, python, coding, testing, benchmarking, documentation]
+    task: Instrument records and tune the explicit safe V1725 part-size and executor defaults; preserve records and wave_pool hashes.
+    position: {x: 330, y: 80}
+
+  - id: hit_shared_attempt_1
+    title: Hit shared-builder attempt 1
+    executor: luna-max-executor
+    capabilities: [analysis, code_read, python, coding, testing, benchmarking, documentation]
+    task: Share canonical cluster rows through guarded Context memory so hit membership is built once without adding a formal mandatory relation cache.
+    position: {x: 330, y: 280}
+
+  - id: waveforms_attempt_1
+    title: Peaklet waveforms attempt 1
+    executor: luna-max-executor
+    capabilities: [analysis, code_read, python, coding, testing, benchmarking, documentation]
+    task: Instrument stages and split fast parallel and canonical serial waveform kernels while preserving ordering and exact bytes.
+    position: {x: 330, y: 480}
+
+  - id: records_review
+    title: Records blocking review
+    executor: luna-max-reviewer
+    capabilities: [analysis, code_read, testing, benchmarking, review, documentation]
+    task: Independently verify scope, hashes, RSS, cache lineage, tests, three-run median and stability. Permit at most two rework rounds and pass only at the fixed 20% gate.
+    position: {x: 620, y: 80}
+
+  - id: hit_shared_review
+    title: Hit shared-builder blocking review
+    executor: luna-max-reviewer
+    capabilities: [analysis, code_read, testing, benchmarking, review, documentation]
+    task: Verify membership is built once in one Context, guards prevent stale reuse, contracts remain exact, and the scoped commit is suitable as the Numba base.
+    position: {x: 620, y: 280}
+
+  - id: waveforms_review
+    title: Peaklet waveforms blocking review
+    executor: luna-max-reviewer
+    capabilities: [analysis, code_read, testing, benchmarking, review, documentation]
+    task: Verify disjoint writes, serial canonical fallback, hashes, RSS, tests, median stability and the fixed 20% performance gate with at most two reworks.
+    position: {x: 620, y: 480}
+
+  - id: hit_numba
+    title: Hit serial Numba CSR kernel
+    executor: luna-max-executor
+    capabilities: [analysis, code_read, python, coding, testing, benchmarking, documentation]
+    task: Starting from the reviewed shared-builder commit, replace only multi-hit merged-row Python loops with a serial primitive-view Numba CSR kernel and retain Python oracle fallback.
+    position: {x: 900, y: 280}
+
+  - id: hit_numba_review
+    title: Hit combined blocking review
+    executor: luna-max-reviewer
+    capabilities: [analysis, code_read, testing, benchmarking, review, documentation]
+    task: Independently verify exact semantics and the combined hit_merged plus components three-run median speedup of at least 40%, with no RSS regression.
+    position: {x: 1170, y: 280}
+
+  - id: integrate
+    title: Integrate reviewed commits
+    executor: integration-executor
+    capabilities: [analysis, code_read, coding, testing, integration, documentation]
+    task: Cherry-pick only passing scoped commits in records, hit-shared, hit-numba, waveforms order into an isolated integration worktree; use exact revert for any later rejection.
+    position: {x: 1450, y: 280}
+
+  - id: final_qa
+    title: Final full-chain QA
+    executor: luna-max-reviewer
+    capabilities: [analysis, code_read, testing, benchmarking, review, documentation]
+    task: In a read-only reviewer worktree run the integrated full chain three times serially, verify hashes, RSS, persisted-cache hits and every strict repository gate; do not edit code.
+    position: {x: 1730, y: 280}
+
+edges:
+  - {id: baseline-records, source: baseline, target: records_attempt_1}
+  - {id: baseline-hit, source: baseline, target: hit_shared_attempt_1}
+  - {id: baseline-waveforms, source: baseline, target: waveforms_attempt_1}
+  - {id: records-review, source: records_attempt_1, target: records_review}
+  - {id: hit-shared-review, source: hit_shared_attempt_1, target: hit_shared_review}
+  - {id: waveforms-review, source: waveforms_attempt_1, target: waveforms_review}
+  - {id: hit-shared-numba, source: hit_shared_review, target: hit_numba}
+  - {id: hit-numba-review, source: hit_numba, target: hit_numba_review}
+  - {id: records-integrate, source: records_review, target: integrate}
+  - {id: hit-integrate, source: hit_numba_review, target: integrate}
+  - {id: waveforms-integrate, source: waveforms_review, target: integrate}
+  - {id: integrate-final-qa, source: integrate, target: final_qa}
+
+viewport: {x: 0, y: 0, zoom: 0.75}
