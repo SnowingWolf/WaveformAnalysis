@@ -724,6 +724,309 @@ def _cluster_rows_to_components(cluster_rows: np.ndarray) -> np.ndarray:
     return out
 
 
+def _fill_multi_hit_clusters_python(
+    multi_out: np.ndarray,
+    starts: np.ndarray,
+    ends: np.ndarray,
+    hit_index_all: np.ndarray,
+    abs_start_ps: np.ndarray,
+    abs_end_ps: np.ndarray,
+    positions: np.ndarray,
+    sample_starts: np.ndarray,
+    sample_ends: np.ndarray,
+    record_ids: np.ndarray,
+    dt_values: np.ndarray,
+    timestamps: np.ndarray,
+    channels: np.ndarray,
+    boards: np.ndarray,
+    out_position: np.ndarray,
+    out_time_start: np.ndarray,
+    out_time_end: np.ndarray,
+    out_sample_start: np.ndarray,
+    out_sample_end: np.ndarray,
+    out_width: np.ndarray,
+    out_dt: np.ndarray,
+    out_timestamp: np.ndarray,
+    out_channel: np.ndarray,
+    out_record_id: np.ndarray,
+    out_component_offset: np.ndarray,
+    out_component_count: np.ndarray,
+    out_is_single_record: np.ndarray,
+    out_board: np.ndarray,
+) -> None:
+    """Reference implementation for filling multi-hit merged rows.
+
+    This intentionally mirrors the historical Python loop in
+    ``_build_merged_from_cluster_rows``.  Besides being a fallback when Numba is
+    unavailable, it is the oracle used by the focused exactness tests for the
+    serial kernel below.
+    """
+
+    for out_idx in multi_out:
+        start = int(starts[out_idx])
+        end = int(ends[out_idx])
+        hit_indices = hit_index_all[start:end]
+        cluster_abs_starts = abs_start_ps[hit_indices]
+        cluster_abs_ends = abs_end_ps[hit_indices]
+
+        cluster_start_ps = int(np.min(cluster_abs_starts))
+        cluster_end_ps = int(np.max(cluster_abs_ends))
+        mid2 = cluster_start_ps + cluster_end_ps
+        mids2 = cluster_abs_starts + cluster_abs_ends
+        anchor_local = int(np.argmin(np.abs(mids2 - mid2)))
+        anchor_idx = int(hit_indices[anchor_local])
+
+        record_values = record_ids[hit_indices]
+        if len(record_values) == 0 or not np.all(record_values == record_values[0]):
+            sample_start = -1
+            sample_end = -1
+        else:
+            sample_start = int(np.min(sample_starts[hit_indices]))
+            sample_end = int(np.max(sample_ends[hit_indices]))
+
+        out_position[out_idx] = positions[anchor_idx]
+        out_time_start[out_idx] = cluster_start_ps
+        out_time_end[out_idx] = cluster_end_ps
+        out_sample_start[out_idx] = sample_start
+        out_sample_end[out_idx] = sample_end
+        out_is_single_record[out_idx] = sample_start >= 0 and sample_end >= 0
+        if sample_start < 0 or sample_end < 0:
+            out_width[out_idx] = -1.0
+        else:
+            out_width[out_idx] = float(sample_end - sample_start)
+        out_dt[out_idx] = dt_values[anchor_idx]
+        out_timestamp[out_idx] = timestamps[anchor_idx]
+        out_channel[out_idx] = channels[anchor_idx]
+        out_record_id[out_idx] = record_ids[anchor_idx]
+        out_component_offset[out_idx] = start
+        out_component_count[out_idx] = end - start
+        out_board[out_idx] = boards[anchor_idx]
+
+
+if _NUMBA_AVAILABLE:
+
+    @njit(cache=True, nogil=True)  # type: ignore[misc]
+    def _fill_multi_hit_clusters_numba(
+        multi_out: np.ndarray,
+        starts: np.ndarray,
+        ends: np.ndarray,
+        hit_index_all: np.ndarray,
+        abs_start_ps: np.ndarray,
+        abs_end_ps: np.ndarray,
+        positions: np.ndarray,
+        sample_starts: np.ndarray,
+        sample_ends: np.ndarray,
+        record_ids: np.ndarray,
+        dt_values: np.ndarray,
+        timestamps: np.ndarray,
+        channels: np.ndarray,
+        boards: np.ndarray,
+        out_position: np.ndarray,
+        out_time_start: np.ndarray,
+        out_time_end: np.ndarray,
+        out_sample_start: np.ndarray,
+        out_sample_end: np.ndarray,
+        out_width: np.ndarray,
+        out_dt: np.ndarray,
+        out_timestamp: np.ndarray,
+        out_channel: np.ndarray,
+        out_record_id: np.ndarray,
+        out_component_offset: np.ndarray,
+        out_component_count: np.ndarray,
+        out_is_single_record: np.ndarray,
+        out_board: np.ndarray,
+    ) -> None:
+        """Fill multi-hit rows with a serial Numba CSR-style kernel.
+
+        ``starts``/``ends`` are the CSR row pointers and ``hit_index_all`` is the
+        flat membership index array.  Every argument is a primitive NumPy field
+        view (or a primitive output view); no structured array is passed into the
+        jitted function.  The loop is deliberately serial: the output rows are
+        independent, but preserving the canonical exact path and avoiding nested
+        thread pools is more important than speculative parallelism here.
+        """
+
+        for multi_idx in range(len(multi_out)):
+            out_idx = multi_out[multi_idx]
+            start = starts[out_idx]
+            end = ends[out_idx]
+            first_hit_idx = hit_index_all[start]
+
+            cluster_start_ps = abs_start_ps[first_hit_idx]
+            cluster_end_ps = abs_end_ps[first_hit_idx]
+            first_record_id = record_ids[first_hit_idx]
+            same_record = True
+            sample_start = sample_starts[first_hit_idx]
+            sample_end = sample_ends[first_hit_idx]
+
+            for member_pos in range(start, end):
+                hit_idx = hit_index_all[member_pos]
+                hit_start_ps = abs_start_ps[hit_idx]
+                hit_end_ps = abs_end_ps[hit_idx]
+                if hit_start_ps < cluster_start_ps:
+                    cluster_start_ps = hit_start_ps
+                if hit_end_ps > cluster_end_ps:
+                    cluster_end_ps = hit_end_ps
+                if record_ids[hit_idx] != first_record_id:
+                    same_record = False
+                if sample_starts[hit_idx] < sample_start:
+                    sample_start = sample_starts[hit_idx]
+                if sample_ends[hit_idx] > sample_end:
+                    sample_end = sample_ends[hit_idx]
+
+            # The historical implementation uses np.argmin over the int64
+            # midpoint distances, which chooses the first member on a tie.
+            mid2 = cluster_start_ps + cluster_end_ps
+            best_distance = np.int64(-1)
+            anchor_idx = first_hit_idx
+            for member_pos in range(start, end):
+                hit_idx = hit_index_all[member_pos]
+                hit_start_ps = abs_start_ps[hit_idx]
+                hit_end_ps = abs_end_ps[hit_idx]
+                midpoint2 = hit_start_ps + hit_end_ps
+                distance = midpoint2 - mid2
+                if distance < 0:
+                    distance = -distance
+                if best_distance < 0 or distance < best_distance:
+                    best_distance = distance
+                    anchor_idx = hit_idx
+
+            if not same_record:
+                sample_start = -1
+                sample_end = -1
+
+            out_position[out_idx] = positions[anchor_idx]
+            out_time_start[out_idx] = cluster_start_ps
+            out_time_end[out_idx] = cluster_end_ps
+            out_sample_start[out_idx] = sample_start
+            out_sample_end[out_idx] = sample_end
+            out_is_single_record[out_idx] = sample_start >= 0 and sample_end >= 0
+            if sample_start < 0 or sample_end < 0:
+                out_width[out_idx] = -1.0
+            else:
+                out_width[out_idx] = float(sample_end - sample_start)
+            out_dt[out_idx] = dt_values[anchor_idx]
+            out_timestamp[out_idx] = timestamps[anchor_idx]
+            out_channel[out_idx] = channels[anchor_idx]
+            out_record_id[out_idx] = record_ids[anchor_idx]
+            out_component_offset[out_idx] = start
+            out_component_count[out_idx] = end - start
+            out_board[out_idx] = boards[anchor_idx]
+
+else:
+
+    _fill_multi_hit_clusters_numba = None
+
+
+def _fill_multi_hit_clusters(
+    multi_out: np.ndarray,
+    starts: np.ndarray,
+    ends: np.ndarray,
+    hit_index_all: np.ndarray,
+    abs_start_ps: np.ndarray,
+    abs_end_ps: np.ndarray,
+    positions: np.ndarray,
+    sample_starts: np.ndarray,
+    sample_ends: np.ndarray,
+    record_ids: np.ndarray,
+    dt_values: np.ndarray,
+    timestamps: np.ndarray,
+    channels: np.ndarray,
+    boards: np.ndarray,
+    out_position: np.ndarray,
+    out_time_start: np.ndarray,
+    out_time_end: np.ndarray,
+    out_sample_start: np.ndarray,
+    out_sample_end: np.ndarray,
+    out_width: np.ndarray,
+    out_dt: np.ndarray,
+    out_timestamp: np.ndarray,
+    out_channel: np.ndarray,
+    out_record_id: np.ndarray,
+    out_component_offset: np.ndarray,
+    out_component_count: np.ndarray,
+    out_is_single_record: np.ndarray,
+    out_board: np.ndarray,
+) -> bool:
+    """Use the serial Numba kernel, falling back to the Python oracle.
+
+    Returning whether the accelerated path ran makes the choice observable to
+    direct benchmarks without changing the plugin output contract.
+    """
+
+    if len(multi_out) == 0:
+        return False
+    if _NUMBA_AVAILABLE and _fill_multi_hit_clusters_numba is not None:
+        try:
+            _fill_multi_hit_clusters_numba(
+                multi_out,
+                starts,
+                ends,
+                hit_index_all,
+                abs_start_ps,
+                abs_end_ps,
+                positions,
+                sample_starts,
+                sample_ends,
+                record_ids,
+                dt_values,
+                timestamps,
+                channels,
+                boards,
+                out_position,
+                out_time_start,
+                out_time_end,
+                out_sample_start,
+                out_sample_end,
+                out_width,
+                out_dt,
+                out_timestamp,
+                out_channel,
+                out_record_id,
+                out_component_offset,
+                out_component_count,
+                out_is_single_record,
+                out_board,
+            )
+            return True
+        except Exception:
+            # Keep an exact, dependency-free oracle for unsupported structured
+            # field dtypes or a broken optional Numba installation.
+            pass
+
+    _fill_multi_hit_clusters_python(
+        multi_out,
+        starts,
+        ends,
+        hit_index_all,
+        abs_start_ps,
+        abs_end_ps,
+        positions,
+        sample_starts,
+        sample_ends,
+        record_ids,
+        dt_values,
+        timestamps,
+        channels,
+        boards,
+        out_position,
+        out_time_start,
+        out_time_end,
+        out_sample_start,
+        out_sample_end,
+        out_width,
+        out_dt,
+        out_timestamp,
+        out_channel,
+        out_record_id,
+        out_component_offset,
+        out_component_count,
+        out_is_single_record,
+        out_board,
+    )
+    return False
+
+
 def _build_merged_from_cluster_rows(
     hits: np.ndarray,
     cluster_rows: np.ndarray,
@@ -748,6 +1051,8 @@ def _build_merged_from_cluster_rows(
     merged = np.empty(n_clusters, dtype=HIT_MERGED_DTYPE)
     merged["merged_id"] = np.arange(n_clusters, dtype=np.int64)
     hit_index_all = cluster_rows["hit_index"]
+    if np.any(hit_index_all < 0) or np.any(hit_index_all >= len(hits)):
+        raise ValueError("hit_merge_clusters rows reference an invalid hit index")
 
     single_out = np.flatnonzero(counts == 1)
     if len(single_out) > 0:
@@ -776,43 +1081,46 @@ def _build_merged_from_cluster_rows(
         merged["time_start"][single_out] = enriched.abs_start_ps[single_hit_idx]
         merged["time_end"][single_out] = enriched.abs_end_ps[single_hit_idx]
 
-    for out_idx in np.flatnonzero(counts != 1):
-        start = int(starts[out_idx])
-        end = int(ends[out_idx])
-        hit_indices = hit_index_all[start:end]
-        abs_starts = enriched.abs_start_ps[hit_indices]
-        abs_ends = enriched.abs_end_ps[hit_indices]
-        sample_start, sample_end = _same_record_window(hits, hit_indices, start_name, end_name)
-
-        cluster_start_ps = int(np.min(abs_starts))
-        cluster_end_ps = int(np.max(abs_ends))
-        mid2 = cluster_start_ps + cluster_end_ps
-        mids2 = abs_starts + abs_ends
-        anchor_local = int(np.argmin(np.abs(mids2 - mid2)))
-        anchor_idx = int(hit_indices[anchor_local])
-
-        merged["position"][out_idx] = hits["position"][anchor_idx]
-        merged["time_start"][out_idx] = cluster_start_ps
-        merged["time_end"][out_idx] = cluster_end_ps
-        merged["sample_start"][out_idx] = sample_start
-        merged["sample_end"][out_idx] = sample_end
-        merged["is_single_record"][out_idx] = sample_start >= 0 and sample_end >= 0
-        if sample_start < 0 or sample_end < 0:
-            merged["width"][out_idx] = -1.0
-        else:
-            merged["width"][out_idx] = float(sample_end - sample_start)
+    multi_out = np.flatnonzero(counts != 1).astype(np.int64, copy=False)
+    if len(multi_out) > 0:
         if "dt" in hits.dtype.names:
-            merged["dt"][out_idx] = hits["dt"][anchor_idx]
+            dt_values = hits["dt"]
         else:
-            merged["dt"][out_idx] = enriched.dt_ns[anchor_idx]
-        merged["timestamp"][out_idx] = hits["timestamp"][anchor_idx]
-        merged["channel"][out_idx] = hits["channel"][anchor_idx]
-        merged["record_id"][out_idx] = hits["record_id"][anchor_idx]
-        merged["component_offset"][out_idx] = start
-        merged["component_count"][out_idx] = end - start
+            dt_values = enriched.dt_ns
         if "board" in hits.dtype.names:
-            merged["board"][out_idx] = hits["board"][anchor_idx]
+            boards = hits["board"]
         else:
-            merged["board"][out_idx] = 0
+            boards = np.zeros(len(hits), dtype=np.int16)
+
+        _fill_multi_hit_clusters(
+            multi_out,
+            starts,
+            ends,
+            hit_index_all,
+            enriched.abs_start_ps,
+            enriched.abs_end_ps,
+            hits["position"],
+            hits[start_name],
+            hits[end_name],
+            hits["record_id"],
+            dt_values,
+            hits["timestamp"],
+            hits["channel"],
+            boards,
+            merged["position"],
+            merged["time_start"],
+            merged["time_end"],
+            merged["sample_start"],
+            merged["sample_end"],
+            merged["width"],
+            merged["dt"],
+            merged["timestamp"],
+            merged["channel"],
+            merged["record_id"],
+            merged["component_offset"],
+            merged["component_count"],
+            merged["is_single_record"],
+            merged["board"],
+        )
 
     return merged

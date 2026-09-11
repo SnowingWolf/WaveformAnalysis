@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from tests.utils import DummyContext, FakeContext, make_hit
 from waveform_analysis.core.plugins.builtin.hit.hit_finder import THRESHOLD_HIT_DTYPE
@@ -855,3 +856,70 @@ def test_hit_merged_components_materializes_upstream_array_outputs():
     assert out.dtype == HIT_MERGED_COMPONENTS_DTYPE
     np.testing.assert_array_equal(out["merged_index"], np.array([0, 0, 1], dtype=np.int64))
     np.testing.assert_array_equal(out["hit_index"], np.array([0, 1, 2], dtype=np.int64))
+
+
+def test_hit_merge_multi_hit_numba_matches_python_oracle(monkeypatch):
+    """The CSR kernel preserves every field of the historical Python loop."""
+
+    hits = np.zeros(7, dtype=THRESHOLD_HIT_DTYPE)
+    hits["position"] = np.array([100, 203, 300, 401, 502, 603, 704], dtype=np.int64)
+    hits["edge_start"] = np.array([90, 193, 295, 396, 497, 598, 699], dtype=np.int32)
+    hits["edge_end"] = np.array([110, 213, 305, 406, 507, 608, 709], dtype=np.int32)
+    hits["width"] = hits["edge_end"] - hits["edge_start"]
+    hits["dt"] = np.array([1, 1, 2, 2, 2, 4, 4], dtype=np.int32)
+    hits["timestamp"] = np.array([1000, 1010, 2000, 2030, 2040, 3000, 3010], dtype=np.int64)
+    hits["board"] = np.array([0, 0, 0, 0, 1, 1, 1], dtype=np.int16)
+    hits["channel"] = np.array([0, 0, 1, 1, 1, 2, 2], dtype=np.int16)
+    hits["record_id"] = np.array([7, 7, 8, 9, 9, 10, 10], dtype=np.int64)
+
+    cluster_rows = np.array(
+        [
+            (0, 0),
+            (0, 1),  # same-record, midpoint tie: hit 0 remains the anchor
+            (1, 2),  # single cluster
+            (2, 3),
+            (2, 4),  # same-record, different board in this direct oracle fixture
+            (3, 5),
+            (3, 6),
+        ],
+        dtype=HIT_MERGE_CLUSTERS_DTYPE,
+    )
+    enriched = hit_merge_compute._build_enriched_for_hits(
+        hits,
+        explicit_dt=None,
+        plugin_name="test_hit_merge",
+    )
+
+    accelerated = hit_merge_compute._build_merged_from_cluster_rows(hits, cluster_rows, enriched)
+    monkeypatch.setattr(hit_merge_compute, "_fill_multi_hit_clusters_numba", None)
+    oracle = hit_merge_compute._build_merged_from_cluster_rows(hits, cluster_rows, enriched)
+
+    assert accelerated.tobytes() == oracle.tobytes()
+    assert int(accelerated[0]["position"]) == int(hits[0]["position"])
+    assert bool(accelerated[2]["is_single_record"])
+    assert int(accelerated[2]["component_count"]) == 2
+
+
+def test_hit_merge_multi_hit_invalid_membership_is_rejected_before_kernel():
+    hits = np.array(
+        [
+            make_hit(
+                position=10,
+                edge_start=8,
+                edge_end=12,
+                timestamp=100_000,
+                channel=0,
+                record_id=0,
+            )
+        ],
+        dtype=THRESHOLD_HIT_DTYPE,
+    )
+    cluster_rows = np.array([(0, 0), (0, 99)], dtype=HIT_MERGE_CLUSTERS_DTYPE)
+    enriched = hit_merge_compute._build_enriched_for_hits(
+        hits,
+        explicit_dt=2,
+        plugin_name="test_hit_merge",
+    )
+
+    with pytest.raises(ValueError, match="invalid hit index"):
+        hit_merge_compute._build_merged_from_cluster_rows(hits, cluster_rows, enriched)
