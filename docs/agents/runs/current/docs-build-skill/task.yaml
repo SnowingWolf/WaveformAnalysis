@@ -193,7 +193,7 @@ status:
     condition: execution_report_ready
     evidence: Numba isolation fix, focused regression, all required gates and new
       parent real builds verified; actual Reviewer retains terminal decision.
-  plan_sha256: null
+  plan_sha256: 995bc8accbb712065a31b9ee27b554478c484f010f0f5d801fb21724c8397c43
   execution:
     generation: 2
     summary: 'Generation 2 rework complete: external Numba cache configured before
