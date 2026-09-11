@@ -4,13 +4,29 @@ Shared fixtures for contract tests.
 
 from pathlib import Path
 import tempfile
-from typing import Any
+from typing import Any, get_origin
 
 import numpy as np
 import pytest
 
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.core.base import Plugin
+
+
+def _is_plugin_class(obj: object) -> bool:
+    """Return whether *obj* is a real Plugin subclass.
+
+    Python 3.10 treats ``types.GenericAlias`` instances such as
+    ``tuple[str, str | None]`` as ``type`` instances.  Check their typing
+    origin before calling ``issubclass`` so lazy-export metadata cannot be
+    mistaken for a plugin class.
+    """
+    return (
+        isinstance(obj, type)
+        and get_origin(obj) is None
+        and issubclass(obj, Plugin)
+        and obj is not Plugin
+    )
 
 
 @pytest.fixture
@@ -43,9 +59,7 @@ def all_builtin_plugins() -> list[type[Plugin]]:
         for name in dir(module):
             obj = getattr(module, name)
             if (
-                isinstance(obj, type)
-                and issubclass(obj, Plugin)
-                and obj is not Plugin
+                _is_plugin_class(obj)
                 and not name.startswith("_")
                 and id(obj) not in seen_classes  # Deduplicate
             ):

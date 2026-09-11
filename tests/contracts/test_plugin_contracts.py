@@ -25,6 +25,13 @@ pytestmark = pytest.mark.contract
 class TestPluginSpecExtraction:
     """Test that PluginSpec can be extracted from all builtin plugins."""
 
+    def test_builtin_plugin_discovery_excludes_generic_alias(self):
+        """Typing aliases must not be treated as plugin classes on Python 3.10."""
+        from tests.contracts.conftest import _is_plugin_class
+        from waveform_analysis._lazy_exports import LazyExport
+
+        assert not _is_plugin_class(LazyExport)
+
     def test_all_builtin_plugins_have_extractable_spec(self, all_builtin_plugins):
         """Every builtin plugin must have an extractable PluginSpec."""
         failed_plugins = []

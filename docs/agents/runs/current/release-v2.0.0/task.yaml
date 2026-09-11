@@ -2,9 +2,9 @@ api_version: waveform-analysis/agent-task/v1
 kind: AgentTask
 metadata:
   id: release-v2.0.0
-  generation: 4
+  generation: 6
   created_at: '2026-09-11T08:27:10Z'
-  updated_at: '2026-09-11T11:03:55Z'
+  updated_at: '2026-09-11T12:03:27Z'
 spec:
   goal: Prepare and publish v2.0.0 from approved develop 84bd5a8, summarize changes
     since v1.5.0, rebuild packaged documentation, build and validate wheel/sdist,
@@ -42,6 +42,13 @@ spec:
     - tests/contracts/test_plugin_lazy_exports.py
     - waveform_analysis/core/storage/backends.py
     - waveform_analysis/documentation/plugin_docs/generator.py
+    - docs/agents/runs/current/docs-build-skill/task.yaml
+    - docs_unification_preview.html
+    - plugin_restructure_preview.html
+    - s1_s2_pairing_visualization.html
+    - archive/reports/documentation/
+    - tests/contracts/conftest.py
+    - tests/contracts/test_plugin_contracts.py
   acceptance_criteria:
   - Version, release notes and packaged documentation describe v2.0.0 and all changes
     since v1.5.0 with explicit API migration notes.
@@ -143,38 +150,52 @@ status:
     to: executing
     at: '2026-09-11T11:03:55Z'
     actor: executor
-  plan_sha256: 3514493e01ff58ba51ff3cf4d948a695c80003d4852a18ae97e38856192158e4
-  execution:
-    task_id: release-v2.0.0
-    workflow_cost: strict
-    workflow_shape: staged
-    changed_paths:
-    - release metadata and migration notes
-    - documentation model contracts and packaged static site
-    - release and performance quality scripts with regression tests
-    - seven generation 4 Black-only CI baseline files
-    actions_taken:
-    - prepared the v2.0.0 candidate from develop 84bd5a8 with v1.5.0 history
-    - rebuilt and staged the isolated documentation export
-    - repaired benchmark validity and verified representative baseline performance
-    - formatted the complete Python CI baseline without semantic changes
-    commands_run:
-    - python -m pytest
-    - python -m pytest -m slow -o addopts=
-    - black --check .
-    - ruff check .
-    - scripts/check_plugin_deps.py
-    - scripts/check_doc_sync.sh
-    - scripts/check_doc_anchors.py --check-sync --base v1.5.0^{}
-    - scripts/schema_compat_check.py --base v1.5.0^{} --run-smoke
-    - scripts/performance_regression_check.py --base v1.5.0^{}
-    - scripts/release_artifact_sync.py --base v1.5.0^{}
-    - scripts/docs_build.py build --stage-output
-    open_risks:
-    - exact candidate GitHub CI and final artifact installation remain pending
-    - npm audit reports two moderate advisories in build-only dependencies
-    requested_review_focus:
-    - exact candidate CI matrix, artifact smoke, tag and remote release verification
+  - from: executing
+    to: reviewing
+    at: '2026-09-11T11:53:55Z'
+    actor: executor
+  - from: reviewing
+    to: rework_required
+    at: '2026-09-11T11:53:55Z'
+    actor: reviewer
+  - from: rework_required
+    to: planning
+    at: '2026-09-11T11:53:55Z'
+    actor: planner
+    condition: scope_changed
+    scope_changed: true
+  - from: planning
+    to: ready_for_execution
+    at: '2026-09-11T11:54:12Z'
+    actor: planner
+  - from: ready_for_execution
+    to: executing
+    at: '2026-09-11T11:54:12Z'
+    actor: executor
+  - from: executing
+    to: reviewing
+    at: '2026-09-11T12:03:11Z'
+    actor: executor
+  - from: reviewing
+    to: rework_required
+    at: '2026-09-11T12:03:11Z'
+    actor: reviewer
+  - from: rework_required
+    to: planning
+    at: '2026-09-11T12:03:12Z'
+    actor: planner
+    condition: scope_changed
+    scope_changed: true
+  - from: planning
+    to: ready_for_execution
+    at: '2026-09-11T12:03:27Z'
+    actor: planner
+  - from: ready_for_execution
+    to: executing
+    at: '2026-09-11T12:03:27Z'
+    actor: executor
+  plan_sha256: e4f4333facfec9efb6680cf812bd07077c7a1cc3740c7aefbfb10dae463ec0b2
+  execution: {}
   review: {}
   approval: {}
   handoff: {}
