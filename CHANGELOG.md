@@ -12,6 +12,8 @@
 
 ### Refactoring and performance
 
+- 优化 `hit_merged`/`hit_merged_components`：在同一 Context 中共享带 lineage guard 的 canonical cluster membership，并以 Numba serial CSR 内核加速 merged-row 物化；对应插件版本升级至 `hit_merged 2.2.0`、`hit_merged_components 1.2.0`、`hit_merge_clusters 1.2.0`。
+- `PeakletWaveformPlugin` 升级至 `2.2.1`：降低 fast peaklet 并行内核的调度与诊断计数开销，保持 canonical 路径、输出顺序和 waveform pool lineage 兼容。
 - 修正源码分支的发行版本元数据为 `1.5.0`；文档站源码构建优先读取 tracked `pyproject.toml`，避免被旧 editable install 的包元数据污染。
 - 将文档、可视化、分析与采集实现从 `waveform_analysis.utils` 迁入按职责划分的规范包，同时保留旧导入路径、对象身份和 monkeypatch 兼容性。
 - `PositionReconstructionPlugin` 改为批量消费 `peaklet_channels`，避免逐事件构造 Accessor，并升级到 `0.4.0` 以正确失效缓存 lineage。
