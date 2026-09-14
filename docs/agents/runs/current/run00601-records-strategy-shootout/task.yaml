@@ -2,9 +2,9 @@ api_version: waveform-analysis/agent-task/v1
 kind: AgentTask
 metadata:
   id: run00601-records-strategy-shootout
-  generation: 3
+  generation: 4
   created_at: '2026-09-14T02:20:40Z'
-  updated_at: '2026-09-14T05:28:02Z'
+  updated_at: '2026-09-14T05:32:23Z'
 spec:
   goal: Implement and compare three byte-exact Run 00601 records merge strategies
     in isolated worktrees, then obtain an independent blocking recommendation without
@@ -30,7 +30,10 @@ spec:
     - docs/agents/runs/current/run00601-records-strategy-shootout/task.yaml
     - plans/run00601-records-strategy-shootout
     dataset: /mnt/data/TPC/run7_Xe/00601
-    external_evidence_root: /tmp/wa-run00601-records-shootout-g1
+    external_evidence_root: /mnt/data/wa-run00601-records-shootout-g1
+    historical_evidence_root: /tmp/wa-run00601-records-shootout-g1
+    bulk_storage_policy: all benchmark caches and output arrays under /mnt/data; /tmp
+      limited to small logs and JSON only
     production_cache_policy: read_only
     benchmark_concurrency_group: benchmark-run00601
   acceptance_criteria:
@@ -75,6 +78,8 @@ spec:
       require_three_clean_commit_runs: true
       stop_if_representative_slice_has_no_measured_io_gain: true
       max_rework_rounds: 2
+      benchmark_storage_root: /mnt/data/wa-run00601-records-shootout-g1
+      recompute_baseline_on_same_storage: true
     baseline:
       primary_sampler: records_only_process_tree_0.1s
       records_wall_sec: 245.5027
@@ -157,14 +162,40 @@ status:
     at: '2026-09-14T05:28:02Z'
     actor: codex-root
     condition: final_rework_round_started
-  plan_sha256: aa473b857976fae50a111e28eae18b946e23f389a1b3de9a8ef027e19998c3a6
+  - from: executing
+    to: reviewing
+    at: '2026-09-14T05:31:49Z'
+    actor: codex-root
+    condition: user_corrected_bulk_storage_root
+  - from: reviewing
+    to: rework_required
+    at: '2026-09-14T05:31:49Z'
+    actor: codex-root
+    condition: benchmark_storage_contract_invalid
+  - from: rework_required
+    to: planning
+    at: '2026-09-14T05:31:49Z'
+    actor: codex-root
+    condition: bulk_storage_and_baseline_contract_changed
+    scope_changed: true
+  - from: planning
+    to: ready_for_execution
+    at: '2026-09-14T05:32:23Z'
+    actor: codex-root
+    condition: corrected_storage_plan_validated_and_user_approved
+  - from: ready_for_execution
+    to: executing
+    at: '2026-09-14T05:32:23Z'
+    actor: codex-root
+    condition: corrected_mnt_storage_execution_started
+  plan_sha256: a80994b651284c4ada1e610b13e7966dab954146ab09d9f59ebb10fb746e9fb7
   execution: {}
   review: {}
   approval:
     evidence:
-    - User explicitly instructed to proceed according to the plan, including at most
-      two rework rounds without lowering gates.
-    plan_sha256: aa473b857976fae50a111e28eae18b946e23f389a1b3de9a8ef027e19998c3a6
-    approved_at: '2026-09-14T05:28:02Z'
+    - User explicitly required benchmark data under /mnt/data rather than /tmp and
+      previously instructed execution to continue according to plan.
+    plan_sha256: a80994b651284c4ada1e610b13e7966dab954146ab09d9f59ebb10fb746e9fb7
+    approved_at: '2026-09-14T05:32:23Z'
     actor: codex-root
   handoff: {}

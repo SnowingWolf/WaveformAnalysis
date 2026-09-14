@@ -5,7 +5,7 @@ metadata:
   id: run00601-records-strategy-shootout
   title: Run 00601 records strategy shootout
   version: 1
-  generation: 3
+  generation: 4
   parent_graph: null
   goal: Compare three byte-exact records merge strategies and obtain one independent recommendation without integration.
 
@@ -71,6 +71,14 @@ nodes:
     concurrency: {group: records-strategy-1-write, limit: 1}
     position: {x: 1660, y: 220}
 
+  - id: mnt_storage_baseline
+    title: Rebaseline on corrected mnt data storage
+    executor: luna-max-executor
+    capabilities: [analysis, code_read, python, numpy, numba, testing, benchmarking, documentation]
+    task: Run the unchanged base with the identical records-plus-wave-pool command and all large outputs under /mnt/data so candidate comparisons do not mix storage devices.
+    concurrency: {group: benchmark-run00601, limit: 1}
+    position: {x: 1600, y: 80}
+
   - id: strategy_1_final_review
     title: Strategy 1 final blocking review
     executor: luna-max-reviewer
@@ -87,7 +95,8 @@ edges:
   - {id: s4-to-review, source: strategy_4_chunked_copy, target: independent_review}
   - {id: review-to-s1-rework, source: independent_review, target: strategy_1_rework}
   - {id: s1-rework-to-review, source: strategy_1_rework, target: strategy_1_rework_review}
-  - {id: s1-rework-review-to-io, source: strategy_1_rework_review, target: strategy_1_io_rework}
+  - {id: s1-rework-review-to-mnt-baseline, source: strategy_1_rework_review, target: mnt_storage_baseline}
+  - {id: mnt-baseline-to-s1-io, source: mnt_storage_baseline, target: strategy_1_io_rework}
   - {id: s1-io-to-final-review, source: strategy_1_io_rework, target: strategy_1_final_review}
 
 viewport: {x: 0, y: 0, zoom: 0.9}

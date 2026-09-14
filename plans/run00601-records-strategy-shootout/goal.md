@@ -65,3 +65,13 @@ formal hashes. If that screening does not show a gain, stop without three more
 full runs. If it does, commit first and run exactly three new clean-commit
 measurements; no sample replacement, baseline change, or threshold relaxation
 is allowed.
+
+## Generation 4: storage correction
+
+The user corrected the benchmark storage contract: large caches and arrays must
+live under `/mnt/data/wa-run00601-records-shootout-g1/`, never `/tmp` on the
+system disk. `/tmp` may hold only small logs or JSON. Because `/mnt/data` is a
+different filesystem from the historical local-NVMe baseline, the final round
+must first measure the unchanged base with the identical command and storage,
+then compare the candidate on that same `/mnt/data` root. Historical timings
+remain provenance only and cannot be mixed into the new storage comparison.
