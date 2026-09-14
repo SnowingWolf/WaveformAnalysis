@@ -4,7 +4,7 @@ metadata:
   id: run00601-records-strategy-shootout
   generation: 4
   created_at: '2026-09-14T02:20:40Z'
-  updated_at: '2026-09-14T06:27:55Z'
+  updated_at: '2026-09-14T08:27:38Z'
 spec:
   goal: Implement and compare three byte-exact Run 00601 records merge strategies
     in isolated worktrees, then obtain an independent blocking recommendation without
@@ -93,7 +93,7 @@ spec:
       strategy_3: /tmp/wa-records-s3-10k-layout
       strategy_4: /tmp/wa-records-s4-chunked-copy
 status:
-  state: executing
+  state: failed
   transitions:
   - from: created
     to: planning
@@ -203,6 +203,16 @@ status:
     at: '2026-09-14T06:27:55Z'
     actor: codex-root
     condition: continue_same_final_rework_with_scoped_commit_and_three_full_runs
+  - from: executing
+    to: reviewing
+    at: '2026-09-14T08:27:38Z'
+    actor: codex-root
+    condition: final_clean_commit_full_run_evidence_ready
+  - from: reviewing
+    to: failed
+    at: '2026-09-14T08:27:38Z'
+    actor: luna-max-reviewer
+    condition: final_wall_and_stability_gates_failed_after_max_rework_rounds
   plan_sha256: a80994b651284c4ada1e610b13e7966dab954146ab09d9f59ebb10fb746e9fb7
   execution:
     final_rework_screening:
@@ -215,6 +225,20 @@ status:
       exact_outputs: true
       max_rss_guardrail_pass: true
       executor_disposition: stop_no_value
+    final_rework_candidate:
+      evidence: /mnt/data/wa-run00601-records-shootout-g1/s1-rework2/evidence/execution-report-io-candidate.md
+      commit: 3b8ad9ee88a3f2e8ce26b521ed5d8e32279f9950
+      same_storage_base_wall_sec: 1329.841327548027
+      candidate_wall_sec:
+      - 996.1328345580259
+      - 1084.5735058230348
+      - 1417.1127111399546
+      candidate_wall_median_sec: 1084.5735058230348
+      median_improvement_fraction: 0.184434
+      range_over_median_fraction: 0.388152
+      exact_outputs: true
+      rss_gate_pass: true
+      integrated: false
   review:
     final_rework_screening:
       evidence: /mnt/data/wa-run00601-records-shootout-g1/s1-rework2/evidence/review-report.md
@@ -222,6 +246,15 @@ status:
       integration_approved: false
       finding: Measured representative I/O gain requires a scoped commit and exactly
         three clean-commit full candidate runs; stop_no_value was misapplied.
+    final:
+      evidence: /mnt/data/wa-run00601-records-shootout-g1/s1-rework2/evidence/final-review-report.md
+      decision: FAIL
+      integration_approved: false
+      wall_gate_pass: false
+      stability_gate_pass: false
+      rss_gate_pass: true
+      exact_output_gate_pass: true
+      disposition: Do not integrate after two allowed rework rounds.
   approval:
     evidence:
     - User explicitly required benchmark data under /mnt/data rather than /tmp and
@@ -229,4 +262,10 @@ status:
     plan_sha256: a80994b651284c4ada1e610b13e7966dab954146ab09d9f59ebb10fb746e9fb7
     approved_at: '2026-09-14T05:32:23Z'
     actor: codex-root
-  handoff: {}
+  handoff:
+    candidate_commit: 3b8ad9ee88a3f2e8ce26b521ed5d8e32279f9950
+    candidate_branch: codex/records-s1-stable-order-00601
+    integrated: false
+    evidence_root: /mnt/data/wa-run00601-records-shootout-g1/s1-rework2/evidence
+    residual_risk: Merge I/O improved materially, but end-to-end wall and stability
+      gates failed under same-storage NFS measurements.

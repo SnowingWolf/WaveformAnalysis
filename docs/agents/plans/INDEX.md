@@ -15,7 +15,7 @@ links and readers; edit the task record and rerun
 | `import-topology-optimization` | `executing` | `modify_code` | `strict` | `staged` | `ReworkExecutionStarted` | `docs/agents/runs/current/import-topology-optimization/task.yaml` |
 | `managed-workflow-mvp` | `completed` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/managed-workflow-mvp/task.yaml` |
 | `run00601-full-chain-performance` | `failed` | `modify_plugin` | `strict` | `staged` | `—` | `docs/agents/runs/current/run00601-full-chain-performance/task.yaml` |
-| `run00601-records-strategy-shootout` | `executing` | `modify_plugin` | `strict` | `staged` | `—` | `docs/agents/runs/current/run00601-records-strategy-shootout/task.yaml` |
+| `run00601-records-strategy-shootout` | `failed` | `modify_plugin` | `strict` | `staged` | `—` | `docs/agents/runs/current/run00601-records-strategy-shootout/task.yaml` |
 | `v1725-merged-parts-cleanup` | `completed` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/v1725-merged-parts-cleanup/task.yaml` |
 | `waveform-doc-content-recovery-20260901` | `completed` | `modify_code` | `standard` | `staged` | `—` | `docs/agents/runs/current/waveform-doc-content-recovery-20260901/task.yaml` |
 | `waveform-doc-lineage-density-20260901` | `completed` | `modify_code` | `standard` | `staged` | `AllBlockingGatesPass` | `docs/agents/runs/current/waveform-doc-lineage-density-20260901/task.yaml` |
