@@ -745,8 +745,8 @@ export function parseSiteModel(value: unknown): SiteModel {
     lineage: validateLineage(value.lineage),
   };
   const records = model.plugins.find((plugin) => plugin.provides === "records");
-  if (!records || records.version !== "0.14.2" || records.dependsOn[0] !== "raw_files") {
-    throw new SiteModelValidationError("records fixture must be v0.14.2 with raw_files as its first dependency");
+  if (!records || records.version !== "0.15.0" || records.dependsOn[0] !== "raw_files") {
+    throw new SiteModelValidationError("records fixture must be v0.15.0 with raw_files as its first dependency");
   }
   if (!model.routes.some((route) => route.path === "/plugins/records/" && route.kind === "plugin")) {
     throw new SiteModelValidationError("records plugin route is missing");

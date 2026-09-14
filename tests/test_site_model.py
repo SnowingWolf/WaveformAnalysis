@@ -104,7 +104,7 @@ def test_site_model_v1_uses_real_plugin_and_guide_facts_without_html():
     assert all(guide["summary"] != "---" for guide in model["guides"])
 
     records = next(plugin for plugin in model["plugins"] if plugin["provides"] == "records")
-    assert records["version"] == "0.14.2"
+    assert records["version"] == "0.15.0"
     assert records["dependsOn"][0] == "raw_files"
     assert records["fields"]
     assert json.dumps(model, ensure_ascii=False).find("<html") < 0
