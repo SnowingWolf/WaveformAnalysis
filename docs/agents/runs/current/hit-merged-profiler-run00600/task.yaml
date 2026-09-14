@@ -187,7 +187,8 @@ status:
     granted_by: user
     constraint: independent_worktree
   handoff:
-    commit_status: scoped_commit_pending
+    commit_status: committed
+    implementation_commit: 995b5c971d2204eccd6ecb8a9dd842684caee659
     branch: codex/hit-profiler-00600
     worktree: /tmp/wa-hit-profiler-00600
     merge_to_main: not_performed
