@@ -41,6 +41,7 @@ class WavePoolPlugin(_RecordsBundlePluginBase):
         ],
         "behavior_notes": [
             "The returned array is a flat `uint16` pool; per-event waveforms are slices `pool[offset : offset + length]`.",
+            "V1725 disk merges copy validated wave_pool bytes in bounded 16 MiB chunks, preserving exact sample order and file size.",
             "`wave_pool` is paired 1:1 with `records` through `wave_offset`/`event_length`; keeping both plugins consistent is part of the shared bundle contract.",
             "Config resolution follows the `records` plugin (`_resolve_bundle_config_plugin`) so the two outputs never drift in dtype/dt/bundle semantics.",
         ],

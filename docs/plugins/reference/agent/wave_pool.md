@@ -5,7 +5,7 @@ profile: "agent"
 provides: "wave_pool"
 plugin_class: "WavePoolPlugin"
 module: "waveform_analysis.core.plugins.builtin.wave_pool.plugin"
-version: "0.15.0"
+version: "0.15.1"
 summary: "Build wave_pool from the shared internal records bundle."
 depends_on: []
 declared_depends_on: []
@@ -17,7 +17,7 @@ output_kind: "array"
 execution_kind: "static"
 narrative_source: "source"
 narrative_source_reason: null
-source_fingerprint: "ec6c0538db1567e967a6269e93dbcfc4aa2adb5efd92cbbe73327438c8831b59"
+source_fingerprint: "db1f52c06b1931d8cc334f0efc3b72627096b7e75e82cf526b39b72a031b3210"
 generated: true
 ---
 # wave_pool
@@ -36,7 +36,7 @@ WavePoolPlugin 把共享 RecordsBundle 中的原始 ADC 波形样本暴露为正
 | Provides | `wave_pool` |
 | Plugin Class | `WavePoolPlugin` |
 | Module | `waveform_analysis.core.plugins.builtin.wave_pool.plugin` |
-| Version | `0.15.0` |
+| Version | `0.15.1` |
 | Category | 波形处理 |
 | Output Container | `array` |
 | Execution Mode | `static` |
@@ -45,7 +45,7 @@ WavePoolPlugin 把共享 RecordsBundle 中的原始 ADC 波形样本暴露为正
 | Timeout | `none` |
 | Side Effect | no |
 | Narrative Source | `source` |
-| Source Fingerprint | `ec6c0538db1567e967a6269e93dbcfc4aa2adb5efd92cbbe73327438c8831b59` |
+| Source Fingerprint | `db1f52c06b1931d8cc334f0efc3b72627096b7e75e82cf526b39b72a031b3210` |
 
 ### Dependencies
 
@@ -106,6 +106,7 @@ result = ctx.get_data("run_001", "wave_pool")
 ### Behavior
 
 - The returned array is a flat `uint16` pool; per-event waveforms are slices `pool[offset : offset + length]`.
+- V1725 disk merges copy validated wave_pool bytes in bounded 16 MiB chunks, preserving exact sample order and file size.
 - `wave_pool` is paired 1:1 with `records` through `wave_offset`/`event_length`; keeping both plugins consistent is part of the shared bundle contract.
 - Config resolution follows the `records` plugin (`_resolve_bundle_config_plugin`) so the two outputs never drift in dtype/dt/bundle semantics.
 ### Failure Modes

@@ -60,6 +60,7 @@ export, __all__ = exporter()
 RECORDS_DTYPE = export(_RECORDS_DTYPE, name="RECORDS_DTYPE")
 EVENTS_DTYPE = export(_EVENTS_DTYPE, name="EVENTS_DTYPE")
 _MAX_V1725_IN_MEMORY_WAVES = 10_000
+_WAVE_POOL_COPY_CHUNK_BYTES = 16 * 1024 * 1024
 
 
 @export
@@ -1406,6 +1407,45 @@ def _merge_records_only_part_refs_to_disk(
     )
 
 
+def _copy_wave_pool_part_bytes(part: _RecordsPartRef, destination, part_idx_local: int) -> None:
+    """Copy one wave-pool part without materializing it in a NumPy memmap.
+
+    The input is checked before reading and each bounded read is checked again
+    for EOF.  The latter protects against a file changing after ``stat()`` or
+    a short read from a network filesystem.  ``destination`` is intentionally
+    a binary file-like object so the exact-byte contract can be tested without
+    allocating a full NumPy array.
+    """
+    if part.n_samples < 0:
+        raise ValueError(f"wave_pool part {part_idx_local} has negative sample count")
+
+    expected_size = part.n_samples * np.dtype(np.uint16).itemsize
+    actual_size = part.wave_pool_path.stat().st_size
+    if actual_size != expected_size:
+        raise RuntimeError(
+            f"wave_pool part {part_idx_local} size mismatch: "
+            f"expected exactly {expected_size} bytes ({part.n_samples} samples), "
+            f"got {actual_size} bytes. Path: {part.wave_pool_path}"
+        )
+
+    remaining = expected_size
+    with part.wave_pool_path.open("rb", buffering=_WAVE_POOL_COPY_CHUNK_BYTES) as source:
+        while remaining:
+            chunk = source.read(min(_WAVE_POOL_COPY_CHUNK_BYTES, remaining))
+            if not chunk:
+                raise RuntimeError(
+                    f"wave_pool part {part_idx_local} short read: "
+                    f"{remaining} bytes remaining. Path: {part.wave_pool_path}"
+                )
+            written = destination.write(chunk)
+            if written != len(chunk):
+                raise RuntimeError(
+                    f"wave_pool part {part_idx_local} short write: "
+                    f"expected {len(chunk)} bytes, got {written}."
+                )
+            remaining -= len(chunk)
+
+
 def _concat_wave_pool_part_refs_to_disk(
     parts: Sequence[_RecordsPartRef], output_dir: Path, part_idx: int = 0
 ) -> Path | None:
@@ -1415,44 +1455,28 @@ def _concat_wave_pool_part_refs_to_disk(
 
     output_dir.mkdir(parents=True, exist_ok=True)
     wave_pool_path = output_dir / f"wave_pool_merged_{part_idx}.dat"
-    wave_pool_out = np.memmap(
-        wave_pool_path,
-        dtype=np.uint16,
-        mode="w+",
-        shape=(total_samples,),
-    )
+    temporary_path = output_dir / f".{wave_pool_path.name}.tmp"
+    expected_total_size = total_samples * np.dtype(np.uint16).itemsize
 
-    cursor = 0
-    for part_idx_local, part in enumerate(parts):
-        if part.n_samples <= 0:
-            continue
+    try:
+        with temporary_path.open("wb", buffering=_WAVE_POOL_COPY_CHUNK_BYTES) as destination:
+            for part_idx_local, part in enumerate(parts):
+                if part.n_samples <= 0:
+                    continue
+                _copy_wave_pool_part_bytes(part, destination, part_idx_local)
+            destination.flush()
 
-        # 验证文件实际大小
-        actual_size = part.wave_pool_path.stat().st_size
-        expected_size = part.n_samples * 2  # uint16 = 2 bytes
-        if actual_size < expected_size:
+        actual_total_size = temporary_path.stat().st_size
+        if actual_total_size != expected_total_size:
             raise RuntimeError(
-                f"wave_pool part {part_idx_local} truncated: "
-                f"expected {expected_size} bytes ({part.n_samples} samples), "
-                f"got {actual_size} bytes. Path: {part.wave_pool_path}"
+                f"merged wave_pool size mismatch: expected exactly {expected_total_size} bytes, "
+                f"got {actual_total_size} bytes"
             )
+        temporary_path.replace(wave_pool_path)
+    except Exception:
+        temporary_path.unlink(missing_ok=True)
+        raise
 
-        wave_pool_src = np.memmap(
-            part.wave_pool_path,
-            dtype=np.uint16,
-            mode="r",
-            shape=(part.n_samples,),
-        )
-        wave_pool_out[cursor : cursor + part.n_samples] = wave_pool_src
-        cursor += part.n_samples
-        wave_pool_src._mmap.close()
-
-    if cursor != total_samples:
-        raise RuntimeError(f"merged wave_pool size mismatch: {cursor} != {total_samples}")
-
-    wave_pool_out.flush()
-    wave_pool_out._mmap.close()
-    del wave_pool_out
     return wave_pool_path
 
 

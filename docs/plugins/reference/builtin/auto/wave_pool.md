@@ -5,7 +5,7 @@ profile: "auto"
 provides: "wave_pool"
 plugin_class: "WavePoolPlugin"
 module: "waveform_analysis.core.plugins.builtin.wave_pool.plugin"
-version: "0.15.0"
+version: "0.15.1"
 summary: "Build wave_pool from the shared internal records bundle."
 depends_on: []
 declared_depends_on: []
@@ -17,7 +17,7 @@ output_kind: "array"
 execution_kind: "static"
 narrative_source: "source"
 narrative_source_reason: null
-source_fingerprint: "ec6c0538db1567e967a6269e93dbcfc4aa2adb5efd92cbbe73327438c8831b59"
+source_fingerprint: "db1f52c06b1931d8cc334f0efc3b72627096b7e75e82cf526b39b72a031b3210"
 generated: true
 ---
 # wave_pool
@@ -36,7 +36,7 @@ WavePoolPlugin 把共享 RecordsBundle 中的原始 ADC 波形样本暴露为正
 | Provides | `wave_pool` |
 | Plugin Class | `WavePoolPlugin` |
 | Module | `waveform_analysis.core.plugins.builtin.wave_pool.plugin` |
-| Version | `0.15.0` |
+| Version | `0.15.1` |
 | Category | 波形处理 |
 | Output Container | `array` |
 | Execution Mode | `static` |
@@ -45,7 +45,7 @@ WavePoolPlugin 把共享 RecordsBundle 中的原始 ADC 波形样本暴露为正
 | Timeout | `none` |
 | Side Effect | no |
 | Narrative Source | `source` |
-| Source Fingerprint | `ec6c0538db1567e967a6269e93dbcfc4aa2adb5efd92cbbe73327438c8831b59` |
+| Source Fingerprint | `db1f52c06b1931d8cc334f0efc3b72627096b7e75e82cf526b39b72a031b3210` |
 
 ### Dependencies
 

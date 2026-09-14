@@ -1,6 +1,6 @@
 provides: records
 plugin_class: RecordsPlugin
-version: 0.15.0
+version: 0.15.1
 depends_on:
 third_party_dependencies:
   - numpy

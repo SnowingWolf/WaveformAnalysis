@@ -9,7 +9,7 @@ describe("site-model/v1", () => {
     const records = model.plugins.find((plugin) => plugin.provides === "records");
 
     expect(model.schema).toBe("site-model/v1");
-    expect(records?.version).toBe("0.15.0");
+    expect(records?.version).toBe("0.15.1");
     expect(records?.dependsOn[0]).toBe("raw_files");
     expect(records?.route).toBe("/plugins/records/");
     expect(model.routes.some((route) => route.path === "/plugins/records/" && route.kind === "plugin")).toBe(true);

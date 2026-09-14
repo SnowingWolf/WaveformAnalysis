@@ -1,3 +1,4 @@
+from io import BytesIO
 from pathlib import Path
 import sys
 from types import SimpleNamespace
@@ -13,10 +14,13 @@ from waveform_analysis.core.processing.records_builder import (
     RECORDS_DTYPE,
     RecordsBundle,
     RecordsBundleRef,
+    _concat_wave_pool_part_refs_to_disk,
+    _copy_wave_pool_part_bytes,
     _merge_records_only_part_refs_to_disk,
     _merge_records_part_refs,
     _merge_records_part_refs_batched_to_disk,
     _merge_records_part_refs_records_only_to_disk,
+    _RecordsPartRef,
     _resolve_v1725_file_workers,
     _write_records_part,
     build_records_from_raw_files,
@@ -164,6 +168,111 @@ def test_records_only_stable_kway_matches_numpy_oracle_for_ties_and_empty_parts(
 
 def test_records_only_stable_kway_empty_input_returns_none(tmp_path: Path):
     assert _merge_records_only_part_refs_to_disk([], tmp_path) is None
+
+
+def test_wave_pool_concat_copies_exact_raw_bytes_in_part_order(tmp_path: Path):
+    parts = []
+    expected = b""
+    for part_idx, values in enumerate(([0, 1, 65535], [7, 8])):
+        wave_pool_path = tmp_path / f"wave_pool_part_{part_idx}.dat"
+        payload = np.asarray(values, dtype=np.uint16).tobytes()
+        wave_pool_path.write_bytes(payload)
+        expected += payload
+        parts.append(
+            _RecordsPartRef(
+                records_path=tmp_path / f"records_part_{part_idx}.dat",
+                wave_pool_path=wave_pool_path,
+                n_records=0,
+                n_samples=len(values),
+            )
+        )
+
+    output = _concat_wave_pool_part_refs_to_disk(parts, tmp_path / "merged")
+
+    assert output is not None
+    assert output.read_bytes() == expected
+    assert output.stat().st_size == sum(part.n_samples for part in parts) * 2
+    loaded = np.memmap(output, dtype=np.uint16, mode="r", shape=(5,))
+    np.testing.assert_array_equal(loaded, np.array([0, 1, 65535, 7, 8], dtype=np.uint16))
+    loaded._mmap.close()
+
+
+@pytest.mark.parametrize("payload", [b"\x01", b"\x01\x02\x03\x04\x05"])
+def test_wave_pool_concat_rejects_non_exact_part_size(tmp_path: Path, payload: bytes):
+    wave_pool_path = tmp_path / "wave_pool_part.dat"
+    wave_pool_path.write_bytes(payload)
+    part = _RecordsPartRef(
+        records_path=tmp_path / "records_part.dat",
+        wave_pool_path=wave_pool_path,
+        n_records=0,
+        n_samples=2,
+    )
+
+    with pytest.raises(RuntimeError, match="size mismatch.*exactly 4 bytes"):
+        _concat_wave_pool_part_refs_to_disk([part], tmp_path / "merged")
+    assert not (tmp_path / "merged" / "wave_pool_merged_0.dat").exists()
+    assert not (tmp_path / "merged" / ".wave_pool_merged_0.dat.tmp").exists()
+
+
+class _ShortReadFile:
+    def __init__(self, payload: bytes):
+        self._payload = payload
+        self._read = False
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return False
+
+    def read(self, _size: int) -> bytes:
+        if self._read:
+            return b""
+        self._read = True
+        return self._payload
+
+
+class _DeclaredSizePath:
+    def __init__(self, payload: bytes, declared_size: int):
+        self._payload = payload
+        self._declared_size = declared_size
+
+    def stat(self):
+        return SimpleNamespace(st_size=self._declared_size)
+
+    def open(self, *_args, **_kwargs):
+        return _ShortReadFile(self._payload)
+
+
+def test_wave_pool_concat_rejects_short_read_after_exact_stat():
+    part = _RecordsPartRef(
+        records_path=Path("records.dat"),
+        wave_pool_path=_DeclaredSizePath(b"\x01\x02", declared_size=4),
+        n_records=0,
+        n_samples=2,
+    )
+
+    with pytest.raises(RuntimeError, match="short read.*2 bytes remaining"):
+        _copy_wave_pool_part_bytes(part, BytesIO(), part_idx_local=0)
+
+
+class _ShortWriter:
+    def write(self, payload: bytes) -> int:
+        return len(payload) - 1
+
+
+def test_wave_pool_concat_rejects_short_write(tmp_path: Path):
+    wave_pool_path = tmp_path / "wave_pool_part.dat"
+    wave_pool_path.write_bytes(b"\x01\x02")
+    part = _RecordsPartRef(
+        records_path=tmp_path / "records_part.dat",
+        wave_pool_path=wave_pool_path,
+        n_records=0,
+        n_samples=1,
+    )
+
+    with pytest.raises(RuntimeError, match="short write.*expected 2 bytes, got 1"):
+        _copy_wave_pool_part_bytes(part, _ShortWriter(), part_idx_local=0)
 
 
 def test_build_records_from_v1725_files_sorts_approximately_ordered_input(tmp_path: Path):
