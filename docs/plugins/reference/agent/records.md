@@ -5,7 +5,7 @@ profile: "agent"
 provides: "records"
 plugin_class: "RecordsPlugin"
 module: "waveform_analysis.core.plugins.builtin.records.plugin"
-version: "0.14.3"
+version: "0.15.0"
 summary: "Build records (event index table) from the shared internal records bundle."
 depends_on: []
 declared_depends_on: []
@@ -36,7 +36,7 @@ records 是绝大多数 records-backed 产物的源头：波形池的切片访�
 | Provides | `records` |
 | Plugin Class | `RecordsPlugin` |
 | Module | `waveform_analysis.core.plugins.builtin.records.plugin` |
-| Version | `0.14.3` |
+| Version | `0.15.0` |
 | Category | 记录处理 |
 | Output Container | `structured_array` |
 | Execution Mode | `static` |

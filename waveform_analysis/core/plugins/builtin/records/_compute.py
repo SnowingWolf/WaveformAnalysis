@@ -482,7 +482,9 @@ class _RecordsBundlePluginBase(Plugin):
             "Use 'st_waveforms' for the materialized waveform path.",
         ),
     }
-    version = "0.14.3"
+    # MINOR bump: the stable disk-merge implementation changes the internal
+    # algorithm path while preserving the formal records/wave_pool bytes.
+    version = "0.15.0"
 
     def resolve_depends_on(self, context: Any, run_id: str | None = None) -> list[str]:
         """Resolve raw-file upstream data for shared records bundle outputs."""
