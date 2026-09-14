@@ -2,9 +2,9 @@ api_version: waveform-analysis/agent-task/v1
 kind: AgentTask
 metadata:
   id: run00601-records-strategy-shootout
-  generation: 4
+  generation: 5
   created_at: '2026-09-14T02:20:40Z'
-  updated_at: '2026-09-14T08:27:38Z'
+  updated_at: '2026-09-14T09:00:04Z'
 spec:
   goal: Implement and compare three byte-exact Run 00601 records merge strategies
     in isolated worktrees, then obtain an independent blocking recommendation without
@@ -262,10 +262,45 @@ status:
     plan_sha256: a80994b651284c4ada1e610b13e7966dab954146ab09d9f59ebb10fb746e9fb7
     approved_at: '2026-09-14T05:32:23Z'
     actor: codex-root
+    post_failure_user_override:
+      requested_at: '2026-09-14T09:00:04Z'
+      actor: user
+      decision: integrate_candidate_despite_failed_performance_gates
+      rationale: User considers the change acceptable after reviewing exact-output,
+        RSS, measured merge gains, end-to-end results, and evidence that concurrent
+        NAS traffic contaminated timing stability.
+      preserves_review_decision: true
+      overridden_gates:
+      - records_wall_improvement_at_least_20_percent
+      - three_run_range_over_median_at_most_10_percent
+      non_overridden_gates:
+      - exact_output_identity
+      - peak_rss_guardrail
+      - targeted_correctness
+      - schema_compatibility
   handoff:
     candidate_commit: 3b8ad9ee88a3f2e8ce26b521ed5d8e32279f9950
     candidate_branch: codex/records-s1-stable-order-00601
-    integrated: false
+    integrated: pending_final_integration_review
+    integration_branch: codex/integrate-records-io-00601
+    integration_commits:
+    - 4d78b16
+    - 286da7e
+    - cda591a
+    - 8c5c531
     evidence_root: /mnt/data/wa-run00601-records-shootout-g1/s1-rework2/evidence
     residual_risk: Merge I/O improved materially, but end-to-end wall and stability
-      gates failed under same-storage NFS measurements.
+      gates failed under same-storage NFS measurements. Integration proceeds only
+      by explicit user override; the blocking reviewer FAIL remains authoritative
+      for the original acceptance criteria.
+    integration_validation:
+      records_tests: 35_passed
+      plugin_docs_regeneration: clean
+      assess_change_impact: passed
+      schema_compat_smoke: passed
+      doc_render: passed
+      doc_sync: passed_with_explicit_python_3_12
+      doc_anchors: passed
+      performance_regression_check: passed
+      site_model_test: pre_existing_baseline_failure
+      release_artifact_sync: interrupted_after_approximately_4_minutes_in_full_pytest
