@@ -2,9 +2,9 @@ api_version: waveform-analysis/agent-task/v1
 kind: AgentTask
 metadata:
   id: run00601-records-strategy-shootout
-  generation: 5
+  generation: 6
   created_at: '2026-09-14T02:20:40Z'
-  updated_at: '2026-09-14T09:06:03Z'
+  updated_at: '2026-09-14T09:06:58Z'
 spec:
   goal: Implement and compare three byte-exact Run 00601 records merge strategies
     in isolated worktrees, then obtain an independent blocking recommendation without
@@ -294,7 +294,10 @@ status:
   handoff:
     candidate_commit: 3b8ad9ee88a3f2e8ce26b521ed5d8e32279f9950
     candidate_branch: codex/records-s1-stable-order-00601
-    integrated: approved_pending_fast_forward
+    integrated: true
+    integrated_at: '2026-09-14T09:06:58Z'
+    target_branch: develop
+    integrated_implementation_head: 956c3dbb78bd48dc53dd5c41b943c07678a6c044
     integration_branch: codex/integrate-records-io-00601
     integration_commits:
     - 4d78b16
@@ -308,6 +311,7 @@ status:
       for the original acceptance criteria.
     integration_validation:
       records_tests: 35_passed
+      records_auto_config_tests: 6_passed
       plugin_docs_regeneration: clean
       assess_change_impact: passed
       schema_compat_smoke: passed
