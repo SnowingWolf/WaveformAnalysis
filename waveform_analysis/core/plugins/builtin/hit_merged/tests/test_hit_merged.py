@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 
 from tests.utils import DummyContext, FakeContext, make_hit
+from waveform_analysis.core.foundation.utils import Profiler
 from waveform_analysis.core.plugins.builtin.hit.hit_finder import THRESHOLD_HIT_DTYPE
 from waveform_analysis.core.plugins.builtin.hit.hit_merge import (
     HIT_MERGE_CLUSTERS_DTYPE,
@@ -43,6 +44,69 @@ def test_hit_merge_dtype_and_empty():
 
     assert out.dtype == HIT_MERGED_DTYPE
     assert len(out) == 0
+
+
+def test_hit_merge_profiler_segments_preserve_output_and_order():
+    hits = np.array(
+        [
+            make_hit(
+                position=10,
+                edge_start=8.0,
+                edge_end=12.0,
+                timestamp=100_000,
+                board=0,
+                channel=0,
+                record_id=0,
+            ),
+            make_hit(
+                position=14,
+                edge_start=13.0,
+                edge_end=16.0,
+                timestamp=108_000,
+                board=0,
+                channel=0,
+                record_id=1,
+            ),
+            make_hit(
+                position=20,
+                edge_start=18.0,
+                edge_end=22.0,
+                timestamp=200_000,
+                board=1,
+                channel=0,
+                record_id=2,
+            ),
+            make_hit(
+                position=24,
+                edge_start=23.0,
+                edge_end=26.0,
+                timestamp=208_000,
+                board=1,
+                channel=0,
+                record_id=3,
+            ),
+        ],
+        dtype=THRESHOLD_HIT_DTYPE,
+    )
+    config = {"merge_gap_ns": 3.0, "max_total_width_ns": 10_000.0, "dt": 2}
+    expected = HitMergePlugin().compute(DummyContext(config, {"hit_threshold": hits}), "run_001")
+    profiled_context = DummyContext(config, {"hit_threshold": hits})
+    profiled_context.profiler = Profiler()
+
+    actual = HitMergePlugin().compute(profiled_context, "run_001")
+
+    np.testing.assert_array_equal(actual, expected)
+    assert actual.dtype == expected.dtype == HIT_MERGED_DTYPE
+    assert profiled_context.profiler.counts == {
+        "hit_merged.group_hardware_channels": 1,
+        "hit_merged.per_channel_mergesort": 2,
+        "hit_merged.cluster_scan": 2,
+        "hit_merged.cluster_rows_concat": 1,
+        "hit_merged.merged_materialize": 1,
+    }
+    assert all(
+        profiled_context.profiler.durations[key] >= 0.0 for key in profiled_context.profiler.counts
+    )
 
 
 def test_hit_merge_same_channel_across_records_marks_direct_window_invalid():

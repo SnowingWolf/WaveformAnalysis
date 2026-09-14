@@ -17,7 +17,7 @@ output_kind: "structured_array"
 execution_kind: "static"
 narrative_source: "published"
 narrative_source_reason: null
-source_fingerprint: "72e27ace320a06da9ae8c0fd50a15cc2feeb6ce3ae229c2f0e00aea1c3887aa2"
+source_fingerprint: "e079766324e83c584e3a27ece573b8edb8d9db8fe5506b32963eccfeca66defc"
 generated: true
 ---
 # hit_merged
@@ -47,7 +47,7 @@ HitMergePlugin 是波形分析中最核心的后处理插件之一，负责将 h
 | Timeout | `none` |
 | Side Effect | no |
 | Narrative Source | `published` |
-| Source Fingerprint | `72e27ace320a06da9ae8c0fd50a15cc2feeb6ce3ae229c2f0e00aea1c3887aa2` |
+| Source Fingerprint | `e079766324e83c584e3a27ece573b8edb8d9db8fe5506b32963eccfeca66defc` |
 
 ### Dependencies
 

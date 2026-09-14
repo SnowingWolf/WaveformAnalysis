@@ -1,5 +1,6 @@
 """HitMergePlugin 类实现 - 合并临近 hit（同通道，允许跨波形/跨文件）。"""
 
+from contextlib import nullcontext
 from typing import Any
 
 import numpy as np
@@ -169,4 +170,11 @@ class HitMergePlugin(BatchProcessingPlugin):
             hits, explicit_dt=explicit_dt, plugin_name=self.provides, pre_trigger_ps=pre_trigger_ps
         )
 
-        return _build_merged_from_cluster_rows(hits, cluster_rows, enriched)
+        profiler = getattr(context, "profiler", None)
+        timing = (
+            profiler.timeit("hit_merged.merged_materialize")
+            if profiler is not None
+            else nullcontext()
+        )
+        with timing:
+            return _build_merged_from_cluster_rows(hits, cluster_rows, enriched)

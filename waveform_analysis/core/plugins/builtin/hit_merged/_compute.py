@@ -5,6 +5,7 @@
 """
 
 from collections.abc import Iterator
+from contextlib import nullcontext
 from dataclasses import dataclass
 import hashlib
 from typing import Any, NamedTuple
@@ -332,6 +333,14 @@ def _build_cluster_rows_from_bounds(
     return rows
 
 
+def _profile_block(profiler: Any | None, key: str):
+    """Return a profiler timing block without requiring profiling support."""
+
+    if profiler is None:
+        return nullcontext()
+    return profiler.timeit(key)
+
+
 def _compute_cluster_rows(
     hits: np.ndarray,
     merge_gap_ns: float,
@@ -339,6 +348,8 @@ def _compute_cluster_rows(
     explicit_dt: int | None,
     plugin_name: str,
     pre_trigger_ps: int = 0,
+    *,
+    profiler: Any | None = None,
 ) -> np.ndarray:
     if len(hits) == 0:
         return np.zeros(0, dtype=HIT_MERGE_CLUSTERS_DTYPE)
@@ -356,7 +367,10 @@ def _compute_cluster_rows(
     merge_gap_ps = int(round(merge_gap_ns * 1e3))
     max_total_width_ps = int(round(max_total_width_ns * 1e3))
 
-    for _hw_channel, indices in group_indices_by_hardware_channel(boards, channels).items():
+    with _profile_block(profiler, "hit_merged.group_hardware_channels"):
+        hardware_channels = group_indices_by_hardware_channel(boards, channels)
+
+    for _hw_channel, indices in hardware_channels.items():
         ch_hits = hits[indices]
         if len(ch_hits) == 0:
             continue
@@ -370,23 +384,25 @@ def _compute_cluster_rows(
         enriched = _build_enriched_arrays(
             ch_hits, channel_dt, indices.astype(np.int64, copy=False), pre_trigger_ps=pre_trigger_ps
         )
-        order = np.argsort(enriched.abs_start_ps, kind="mergesort")
-        abs_starts = enriched.abs_start_ps[order]
-        abs_ends = enriched.abs_end_ps[order]
-        dts = enriched.dt_ps[order]
-        sorted_source_indices = enriched.source_indices[order]
+        with _profile_block(profiler, "hit_merged.per_channel_mergesort"):
+            order = np.argsort(enriched.abs_start_ps, kind="mergesort")
+            abs_starts = enriched.abs_start_ps[order]
+            abs_ends = enriched.abs_end_ps[order]
+            dts = enriched.dt_ps[order]
+            sorted_source_indices = enriched.source_indices[order]
 
-        if _NUMBA_AVAILABLE and len(abs_starts) > 50:
-            cluster_starts, cluster_ends = _merge_clusters_numba(
-                abs_starts, abs_ends, dts, merge_gap_ps, max_total_width_ps
-            )
-        else:
-            # Numba 不可用时直接报错
-            if not _NUMBA_AVAILABLE:
-                raise RuntimeError("Numba is required for hit merging")
-            cluster_starts, cluster_ends = _cluster_bounds_python(
-                abs_starts, abs_ends, dts, merge_gap_ps, max_total_width_ps
-            )
+        with _profile_block(profiler, "hit_merged.cluster_scan"):
+            if _NUMBA_AVAILABLE and len(abs_starts) > 50:
+                cluster_starts, cluster_ends = _merge_clusters_numba(
+                    abs_starts, abs_ends, dts, merge_gap_ps, max_total_width_ps
+                )
+            else:
+                # Numba 不可用时直接报错
+                if not _NUMBA_AVAILABLE:
+                    raise RuntimeError("Numba is required for hit merging")
+                cluster_starts, cluster_ends = _cluster_bounds_python(
+                    abs_starts, abs_ends, dts, merge_gap_ps, max_total_width_ps
+                )
 
         rows = _build_cluster_rows_from_bounds(
             sorted_source_indices,
@@ -398,9 +414,10 @@ def _compute_cluster_rows(
             cluster_rows.append(rows)
             cluster_offset += len(cluster_starts)
 
-    if cluster_rows:
-        return np.concatenate(cluster_rows)
-    return np.zeros(0, dtype=HIT_MERGE_CLUSTERS_DTYPE)
+    with _profile_block(profiler, "hit_merged.cluster_rows_concat"):
+        if cluster_rows:
+            return np.concatenate(cluster_rows)
+        return np.zeros(0, dtype=HIT_MERGE_CLUSTERS_DTYPE)
 
 
 def _build_enriched_for_hits(
@@ -501,6 +518,8 @@ def _compute_canonical_cluster_rows(
     context: Any,
     merge_plugin: Plugin,
     pre_trigger_ps: int,
+    *,
+    profiler: Any | None = None,
 ) -> tuple[np.ndarray, int | None, bool]:
     merge_gap_ns, max_total_width_ns, explicit_dt = _resolve_merge_config(context, merge_plugin)
     if merge_gap_ns <= 0:
@@ -513,6 +532,7 @@ def _compute_canonical_cluster_rows(
             explicit_dt=explicit_dt,
             plugin_name=merge_plugin.provides,
             pre_trigger_ps=pre_trigger_ps,
+            profiler=profiler,
         ),
         explicit_dt,
         False,
@@ -697,7 +717,11 @@ def _compute_canonical_cluster_rows_shared(
         _context_result_remove(context, run_id, cache_key)
 
     cluster_rows, explicit_dt, merge_disabled = _compute_canonical_cluster_rows(
-        hits, context, merge_plugin, pre_trigger_ps
+        hits,
+        context,
+        merge_plugin,
+        pre_trigger_ps,
+        profiler=getattr(context, "profiler", None),
     )
     _clear_hit_merge_cluster_rows_cache(context, run_id, keep=cache_key)
     _context_result_store(

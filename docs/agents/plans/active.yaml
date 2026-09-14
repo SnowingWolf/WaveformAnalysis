@@ -26,6 +26,14 @@ active_plans:
   condition: NeedsRevalidation
   task_file: docs/agents/runs/current/hit-merged-peaklet-responsibility/task.yaml
   legacy_plan: docs/agents/runs/current/hit-merged-peaklet-responsibility/legacy-plan.md
+- task_id: hit-merged-profiler-run00600
+  state: completed
+  route: modify_plugin
+  workflow_cost: standard
+  workflow_shape: staged
+  condition: —
+  task_file: docs/agents/runs/current/hit-merged-profiler-run00600/task.yaml
+  legacy_plan: docs/agents/runs/current/hit-merged-profiler-run00600/legacy-plan.md
 - task_id: hit-threshold-ragged-optimization
   state: planning
   route: modify_plugin
