@@ -4,7 +4,7 @@ metadata:
   id: run00601-records-strategy-shootout
   generation: 4
   created_at: '2026-09-14T02:20:40Z'
-  updated_at: '2026-09-14T05:32:23Z'
+  updated_at: '2026-09-14T06:27:55Z'
 spec:
   goal: Implement and compare three byte-exact Run 00601 records merge strategies
     in isolated worktrees, then obtain an independent blocking recommendation without
@@ -188,9 +188,40 @@ status:
     at: '2026-09-14T05:32:23Z'
     actor: codex-root
     condition: corrected_mnt_storage_execution_started
+  - from: executing
+    to: reviewing
+    at: '2026-09-14T06:27:55Z'
+    actor: codex-root
+    condition: final_rework_representative_evidence_ready
+  - from: reviewing
+    to: rework_required
+    at: '2026-09-14T06:27:55Z'
+    actor: luna-max-reviewer
+    condition: stop_no_value_condition_misapplied
+  - from: rework_required
+    to: executing
+    at: '2026-09-14T06:27:55Z'
+    actor: codex-root
+    condition: continue_same_final_rework_with_scoped_commit_and_three_full_runs
   plan_sha256: a80994b651284c4ada1e610b13e7966dab954146ab09d9f59ebb10fb746e9fb7
-  execution: {}
-  review: {}
+  execution:
+    final_rework_screening:
+      evidence: /mnt/data/wa-run00601-records-shootout-g1/s1-rework2/evidence/execution-report-stop-no-value.md
+      unchanged_base_wall_sec: 424.610844872077
+      reviewed_s1_wall_sec: 381.18097073805984
+      io_candidate_wall_sec: 378.83279063599184
+      wave_pool_concat_base_sec: 66.41350415896159
+      wave_pool_concat_candidate_sec: 27.77063583699055
+      exact_outputs: true
+      max_rss_guardrail_pass: true
+      executor_disposition: stop_no_value
+  review:
+    final_rework_screening:
+      evidence: /mnt/data/wa-run00601-records-shootout-g1/s1-rework2/evidence/review-report.md
+      decision: FAIL
+      integration_approved: false
+      finding: Measured representative I/O gain requires a scoped commit and exactly
+        three clean-commit full candidate runs; stop_no_value was misapplied.
   approval:
     evidence:
     - User explicitly required benchmark data under /mnt/data rather than /tmp and
