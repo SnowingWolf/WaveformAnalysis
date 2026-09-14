@@ -54,3 +54,14 @@ run uses a fresh task-local cache and records fallback status. Historical and
 new evidence remain separate; no outlier may be discarded or replaced. The
 independent reviewer must reject integration unless exact hashes, the 20% wall
 gate, RSS +5% guardrail, and range/median <=10% all pass.
+
+## Generation 3: final merge-I/O rework
+
+Round 1 fixed the site-model lineage fixture but failed wall and stability.
+The final allowed round may change only the measured records-final or wave-pool
+concatenation I/O path. It must first demonstrate lower copied/flushed bytes or
+representative-stage time while preserving the stable source-order contract and
+formal hashes. If that screening does not show a gain, stop without three more
+full runs. If it does, commit first and run exactly three new clean-commit
+measurements; no sample replacement, baseline change, or threshold relaxation
+is allowed.

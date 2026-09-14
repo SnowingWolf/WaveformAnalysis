@@ -5,7 +5,7 @@ metadata:
   id: run00601-records-strategy-shootout
   title: Run 00601 records strategy shootout
   version: 1
-  generation: 2
+  generation: 3
   parent_graph: null
   goal: Compare three byte-exact records merge strategies and obtain one independent recommendation without integration.
 
@@ -63,6 +63,21 @@ nodes:
     task: Independently verify the rework commit, exact outputs, wall stability, RSS, site-model compatibility, and decide whether integration is allowed.
     position: {x: 1360, y: 220}
 
+  - id: strategy_1_io_rework
+    title: Strategy 1 final merge I/O rework
+    executor: luna-max-executor
+    capabilities: [analysis, code_read, python, numpy, numba, coding, testing, benchmarking, documentation]
+    task: Use measured profiler evidence to reduce records-final or wave-pool concat I/O without changing stable ordering, wave offsets, output bytes, or RSS; stop if representative screening has no gain.
+    concurrency: {group: records-strategy-1-write, limit: 1}
+    position: {x: 1660, y: 220}
+
+  - id: strategy_1_final_review
+    title: Strategy 1 final blocking review
+    executor: luna-max-reviewer
+    capabilities: [analysis, code_read, testing, benchmarking, review, documentation]
+    task: Apply the unchanged exact-byte, 20% wall, 5% RSS, and 10% stability gates after the final allowed rework and approve or permanently reject integration.
+    position: {x: 1960, y: 220}
+
 edges:
   - {id: baseline-to-s1, source: baseline_lock, target: strategy_1_stable_order}
   - {id: baseline-to-s3, source: baseline_lock, target: strategy_3_10k_layout}
@@ -72,5 +87,7 @@ edges:
   - {id: s4-to-review, source: strategy_4_chunked_copy, target: independent_review}
   - {id: review-to-s1-rework, source: independent_review, target: strategy_1_rework}
   - {id: s1-rework-to-review, source: strategy_1_rework, target: strategy_1_rework_review}
+  - {id: s1-rework-review-to-io, source: strategy_1_rework_review, target: strategy_1_io_rework}
+  - {id: s1-io-to-final-review, source: strategy_1_io_rework, target: strategy_1_final_review}
 
 viewport: {x: 0, y: 0, zoom: 0.9}

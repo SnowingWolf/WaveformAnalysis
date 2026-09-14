@@ -2,9 +2,9 @@ api_version: waveform-analysis/agent-task/v1
 kind: AgentTask
 metadata:
   id: run00601-records-strategy-shootout
-  generation: 2
+  generation: 3
   created_at: '2026-09-14T02:20:40Z'
-  updated_at: '2026-09-14T04:39:43Z'
+  updated_at: '2026-09-14T05:28:02Z'
 spec:
   goal: Implement and compare three byte-exact Run 00601 records merge strategies
     in isolated worktrees, then obtain an independent blocking recommendation without
@@ -65,13 +65,16 @@ spec:
     reasoning_effort: max
     independent_worktrees: true
     integrate_before_review: false
-    rework_round: 1
+    rework_round: 2
     rework_strategy: strategy_1
     rework_policy:
-      preserve_algorithm: true
+      preserve_algorithm: false
+      allowed_algorithm_change: bounded_merge_io_only
       fresh_task_local_cache_per_run: true
       immutable_prior_evidence: true
       require_three_clean_commit_runs: true
+      stop_if_representative_slice_has_no_measured_io_gain: true
+      max_rework_rounds: 2
     baseline:
       primary_sampler: records_only_process_tree_0.1s
       records_wall_sec: 245.5027
@@ -128,14 +131,40 @@ status:
     at: '2026-09-14T04:39:43Z'
     actor: codex-root
     condition: strategy_1_rework_round_1_started
-  plan_sha256: 906efc874bc18ca0876f414ab03ec50050c067291a360f2ef873e93162cd84ec
+  - from: executing
+    to: reviewing
+    at: '2026-09-14T05:27:31Z'
+    actor: codex-root
+    condition: strategy_1_rework1_execution_ready
+  - from: reviewing
+    to: rework_required
+    at: '2026-09-14T05:27:31Z'
+    actor: luna-max-reviewer
+    condition: rework1_wall_and_stability_failed
+  - from: rework_required
+    to: planning
+    at: '2026-09-14T05:27:31Z'
+    actor: codex-root
+    condition: final_merge_io_rework_changes_implementation_scope
+    scope_changed: true
+  - from: planning
+    to: ready_for_execution
+    at: '2026-09-14T05:28:02Z'
+    actor: codex-root
+    condition: generation_3_plan_validated_and_user_approved
+  - from: ready_for_execution
+    to: executing
+    at: '2026-09-14T05:28:02Z'
+    actor: codex-root
+    condition: final_rework_round_started
+  plan_sha256: aa473b857976fae50a111e28eae18b946e23f389a1b3de9a8ef027e19998c3a6
   execution: {}
   review: {}
   approval:
     evidence:
-    - User explicitly instructed to proceed according to the reviewed Strategy 1 rework
-      plan.
-    plan_sha256: 906efc874bc18ca0876f414ab03ec50050c067291a360f2ef873e93162cd84ec
-    approved_at: '2026-09-14T04:39:42Z'
+    - User explicitly instructed to proceed according to the plan, including at most
+      two rework rounds without lowering gates.
+    plan_sha256: aa473b857976fae50a111e28eae18b946e23f389a1b3de9a8ef027e19998c3a6
+    approved_at: '2026-09-14T05:28:02Z'
     actor: codex-root
   handoff: {}
