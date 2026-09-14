@@ -62,6 +62,63 @@ def test_hit_merge_empty_does_not_build_enriched_arrays(monkeypatch):
     assert out.dtype == HIT_MERGED_DTYPE
 
 
+def test_compute_cluster_rows_empty_preserves_cluster_dtype():
+    rows = hit_merge_compute._compute_cluster_rows(
+        np.zeros(0, dtype=THRESHOLD_HIT_DTYPE),
+        merge_gap_ns=3.0,
+        max_total_width_ns=10_000.0,
+        explicit_dt=2,
+        plugin_name="test_hit_merge",
+    )
+
+    assert rows.shape == (0,)
+    assert rows.dtype == HIT_MERGE_CLUSTERS_DTYPE
+
+
+def test_compute_cluster_rows_preserves_sorted_membership_and_dtype():
+    hits = np.array(
+        [
+            make_hit(
+                position=14,
+                edge_start=13.0,
+                edge_end=16.0,
+                timestamp=108_000,
+                channel=0,
+                record_id=1,
+            ),
+            make_hit(
+                position=10,
+                edge_start=8.0,
+                edge_end=12.0,
+                timestamp=100_000,
+                channel=0,
+                record_id=0,
+            ),
+            make_hit(
+                position=20,
+                edge_start=18.0,
+                edge_end=22.0,
+                timestamp=200_000,
+                channel=0,
+                record_id=2,
+            ),
+        ],
+        dtype=THRESHOLD_HIT_DTYPE,
+    )
+
+    rows = hit_merge_compute._compute_cluster_rows(
+        hits,
+        merge_gap_ns=3.0,
+        max_total_width_ns=10_000.0,
+        explicit_dt=2,
+        plugin_name="test_hit_merge",
+    )
+
+    expected = np.array([(0, 1), (0, 0), (1, 2)], dtype=HIT_MERGE_CLUSTERS_DTYPE)
+    np.testing.assert_array_equal(rows, expected)
+    assert rows.dtype == HIT_MERGE_CLUSTERS_DTYPE
+
+
 def test_hit_merge_reuses_one_global_enriched_array_for_interleaved_channels(monkeypatch):
     hits = np.array(
         [
@@ -202,7 +259,7 @@ def test_hit_merge_profiler_segments_preserve_output_and_order():
         "hit_merged.group_hardware_channels": 1,
         "hit_merged.per_channel_mergesort": 2,
         "hit_merged.cluster_scan": 2,
-        "hit_merged.cluster_rows_concat": 1,
+        "hit_merged.cluster_rows_prealloc": 1,
         "hit_merged.merged_materialize": 1,
     }
     assert all(

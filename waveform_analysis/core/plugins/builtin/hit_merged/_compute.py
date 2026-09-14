@@ -313,24 +313,29 @@ def _cluster_bounds_python(
     return np.asarray(starts, dtype=np.int32), np.asarray(ends, dtype=np.int32)
 
 
-def _build_cluster_rows_from_bounds(
+def _fill_cluster_rows_from_bounds(
+    rows: np.ndarray,
+    row_offset: int,
     sorted_source_indices: np.ndarray,
     cluster_starts: np.ndarray,
     cluster_ends: np.ndarray,
     cluster_offset: int,
-) -> np.ndarray:
+) -> int:
+    """Fill one channel's cluster rows into the shared output buffer."""
+
     n_clusters = len(cluster_starts)
     if n_clusters == 0:
-        return np.zeros(0, dtype=HIT_MERGE_CLUSTERS_DTYPE)
+        return row_offset
 
     counts = (cluster_ends - cluster_starts).astype(np.int64, copy=False)
-    rows = np.empty(len(sorted_source_indices), dtype=HIT_MERGE_CLUSTERS_DTYPE)
-    rows["cluster_index"] = np.repeat(
+    row_end = row_offset + len(sorted_source_indices)
+    channel_rows = rows[row_offset:row_end]
+    channel_rows["cluster_index"] = np.repeat(
         np.arange(cluster_offset, cluster_offset + n_clusters, dtype=np.int64),
         counts,
     )
-    rows["hit_index"] = sorted_source_indices
-    return rows
+    channel_rows["hit_index"] = sorted_source_indices
+    return row_end
 
 
 def _profile_block(profiler: Any | None, key: str):
@@ -363,7 +368,8 @@ def _compute_cluster_rows(
         raise ValueError(f"{plugin_name} requires hit data with a 'channel' field")
     channels = hits["channel"]
 
-    cluster_rows: list[np.ndarray] = []
+    cluster_rows = np.empty(len(hits), dtype=HIT_MERGE_CLUSTERS_DTYPE)
+    row_offset = 0
     cluster_offset = 0
     merge_gap_ps = int(round(merge_gap_ns * 1e3))
     max_total_width_ps = int(round(max_total_width_ns * 1e3))
@@ -411,20 +417,18 @@ def _compute_cluster_rows(
                     abs_starts, abs_ends, dts, merge_gap_ps, max_total_width_ps
                 )
 
-        rows = _build_cluster_rows_from_bounds(
+        row_offset = _fill_cluster_rows_from_bounds(
+            cluster_rows,
+            row_offset,
             sorted_source_indices,
             cluster_starts,
             cluster_ends,
             cluster_offset,
         )
-        if len(rows) > 0:
-            cluster_rows.append(rows)
-            cluster_offset += len(cluster_starts)
+        cluster_offset += len(cluster_starts)
 
-    with _profile_block(profiler, "hit_merged.cluster_rows_concat"):
-        if cluster_rows:
-            return np.concatenate(cluster_rows)
-        return np.zeros(0, dtype=HIT_MERGE_CLUSTERS_DTYPE)
+    with _profile_block(profiler, "hit_merged.cluster_rows_prealloc"):
+        return cluster_rows[:row_offset]
 
 
 def _build_enriched_for_hits(
