@@ -1,0 +1,96 @@
+api_version: waveform-analysis/agent-task/v1
+kind: AgentTask
+metadata:
+  id: run00601-records-strategy-shootout
+  generation: 1
+  created_at: '2026-09-14T02:20:40Z'
+  updated_at: '2026-09-14T02:24:55Z'
+spec:
+  goal: Implement and compare three byte-exact Run 00601 records merge strategies
+    in isolated worktrees, then obtain an independent blocking recommendation without
+    integration.
+  route: modify_plugin
+  workflow_cost: strict
+  workflow_shape: staged
+  risk_level: high
+  scope:
+    base_sha: 0840ed9de67f7c59eeaf4285db399d475cdfd4e4
+    allowed_paths:
+    - waveform_analysis/core/processing/records_builder.py
+    - waveform_analysis/core/plugins/builtin/records
+    - tests/test_records_sorting.py
+    - tests/plugins/test_plugin_auto_config_records.py
+    - docs/plugins/reference/agent/records.md
+    - docs/plugins/reference/builtin/auto/records.md
+    - docs/agents/runs/current/run00601-records-strategy-shootout/task.yaml
+    - plans/run00601-records-strategy-shootout
+    dataset: /mnt/data/TPC/run7_Xe/00601
+    external_evidence_root: /tmp/wa-run00601-records-shootout-g1
+    production_cache_policy: read_only
+    benchmark_concurrency_group: benchmark-run00601
+  acceptance_criteria:
+  - Each strategy is implemented on the same base in its own worktree and preserves
+    exact records and wave_pool dtype, shape, row order, and data SHA-256.
+  - Run 00601 wall time and process-tree RSS use one shared baseline, identical command/config,
+    task-local caches, and serialized NFS benchmarking.
+  - Independent reviewer compares performance, implementation complexity, compatibility
+    risk, and recommends at most one strategy; no candidate is integrated before review.
+  required_gates:
+  - targeted_tests
+  - records_wave_pool_hash
+  - process_tree_rss
+  - three_run_wall_stability
+  - assess_change_impact
+  - schema_compat_check
+  - doc_sync
+  - doc_anchors
+  assignment:
+    planner_role: planner
+    executor_role: executor.plugin
+    reviewer_role: reviewer
+  plan_artifacts:
+    goal: plans/run00601-records-strategy-shootout/goal.md
+    graphspec: plans/run00601-records-strategy-shootout/graphspec.yaml
+    agent_registry: plans/run00601-records-strategy-shootout/agent-registry.yaml
+  implementation_constraints:
+    model: gpt-5.6-luna
+    reasoning_effort: max
+    independent_worktrees: true
+    integrate_before_review: false
+    baseline:
+      primary_sampler: records_only_process_tree_0.1s
+      records_wall_sec: 245.5027
+      incremental_peak_rss_bytes: 12241170432
+      full_chain_reference_records_wall_sec: 234.6442048990284
+      full_chain_reference_incremental_peak_rss_bytes: 46655692800
+      records_sha256: 9e29a985a5ec2d8fa2a265c4859b8152cf08751161e724e0c1907af5153306e7
+      wave_pool_sha256: 424d1015398e519ff129099425eded180746dac080b0791fa96b04b86ff7cce9
+    strategy_worktrees:
+      strategy_1: /tmp/wa-records-s1-stable-order
+      strategy_3: /tmp/wa-records-s3-10k-layout
+      strategy_4: /tmp/wa-records-s4-chunked-copy
+status:
+  state: ready_for_execution
+  transitions:
+  - from: created
+    to: planning
+    at: '2026-09-14T02:24:55Z'
+    actor: codex-root
+    condition: task_record_and_graphspec_created
+  - from: planning
+    to: ready_for_execution
+    at: '2026-09-14T02:24:55Z'
+    actor: codex-root
+    condition: graphspec_validated_and_user_directed_execution
+  plan_sha256: 214e75a645b9f52e03e9608af1bc79d789c09df0cc31d575290f37cb9e4f3fc1
+  execution: {}
+  review: {}
+  approval:
+    evidence:
+    - User explicitly requested the three strategy implementations, Luna Max agents,
+      isolated worktrees, shared Run 00601 baseline, independent review, and no pre-review
+      integration.
+    plan_sha256: 214e75a645b9f52e03e9608af1bc79d789c09df0cc31d575290f37cb9e4f3fc1
+    approved_at: '2026-09-14T02:24:55Z'
+    actor: codex-root
+  handoff: {}

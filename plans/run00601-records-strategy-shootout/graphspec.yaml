@@ -1,0 +1,59 @@
+api_version: graphflow/v1alpha1
+kind: GraphSpec
+
+metadata:
+  id: run00601-records-strategy-shootout
+  title: Run 00601 records strategy shootout
+  version: 1
+  generation: 1
+  parent_graph: null
+  goal: Compare three byte-exact records merge strategies and obtain one independent recommendation without integration.
+
+nodes:
+  - id: baseline_lock
+    title: Freeze baseline and benchmark contract
+    executor: luna-max-reviewer
+    capabilities: [analysis, code_read, benchmarking, review, documentation]
+    task: Verify the base, Run 00601 config, golden hashes, wall/RSS references, shared lock, and task-local cache boundary before execution.
+    position: {x: 60, y: 280}
+
+  - id: strategy_1_stable_order
+    title: Strategy 1 stable original order
+    executor: luna-max-executor
+    capabilities: [analysis, code_read, python, numpy, coding, testing, benchmarking, documentation]
+    task: Preserve monotonic source order as the canonical stable tie-break and remove redundant final ordering or copy work while retaining exact bytes.
+    concurrency: {group: records-strategy-1-write, limit: 1}
+    position: {x: 360, y: 80}
+
+  - id: strategy_3_10k_layout
+    title: Strategy 3 keep 10k layout
+    executor: luna-max-executor
+    capabilities: [analysis, code_read, python, numpy, numba, coding, testing, benchmarking, documentation]
+    task: Keep the historical 10k V1725 partition and wave-offset layout, optimizing only the stable merge with a bounded NumPy or serial Numba path.
+    concurrency: {group: records-strategy-3-write, limit: 1}
+    position: {x: 360, y: 280}
+
+  - id: strategy_4_chunked_copy
+    title: Strategy 4 canonical chunked aggregation copy
+    executor: luna-max-executor
+    capabilities: [analysis, code_read, python, numpy, numba, coding, testing, benchmarking, documentation]
+    task: Reuse the exact canonical permutation and materialize records through bounded chunk aggregation/copy without changing output order or wave offsets.
+    concurrency: {group: records-strategy-4-write, limit: 1}
+    position: {x: 360, y: 480}
+
+  - id: independent_review
+    title: Independent blocking comparison
+    executor: luna-max-reviewer
+    capabilities: [analysis, code_read, testing, benchmarking, review, documentation]
+    task: Compare wall, RSS, exact hashes, complexity, compatibility risk, tests and commit scope; recommend at most one candidate and never integrate it.
+    position: {x: 760, y: 280}
+
+edges:
+  - {id: baseline-to-s1, source: baseline_lock, target: strategy_1_stable_order}
+  - {id: baseline-to-s3, source: baseline_lock, target: strategy_3_10k_layout}
+  - {id: baseline-to-s4, source: baseline_lock, target: strategy_4_chunked_copy}
+  - {id: s1-to-review, source: strategy_1_stable_order, target: independent_review}
+  - {id: s3-to-review, source: strategy_3_10k_layout, target: independent_review}
+  - {id: s4-to-review, source: strategy_4_chunked_copy, target: independent_review}
+
+viewport: {x: 0, y: 0, zoom: 0.9}

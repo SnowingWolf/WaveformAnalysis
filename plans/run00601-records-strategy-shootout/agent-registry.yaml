@@ -1,0 +1,27 @@
+api_version: graphflow/v1
+kind: AgentRegistry
+
+profiles:
+  luna-max-executor:
+    kind: codex_cli
+    capabilities: [analysis, code_read, python, numpy, numba, coding, testing, benchmarking, documentation]
+    priority: 10
+    model: gpt-5.6-luna
+    reasoning_effort: max
+    sandbox: workspace-write
+    approval_policy: never
+    ephemeral: true
+    skip_git_repo_check: false
+    extra_args: []
+
+  luna-max-reviewer:
+    kind: codex_cli
+    capabilities: [analysis, code_read, testing, benchmarking, review, documentation]
+    priority: 20
+    model: gpt-5.6-luna
+    reasoning_effort: max
+    sandbox: read-only
+    approval_policy: never
+    ephemeral: true
+    skip_git_repo_check: false
+    extra_args: []
