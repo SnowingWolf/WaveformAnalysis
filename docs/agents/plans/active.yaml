@@ -51,7 +51,7 @@ active_plans:
   task_file: docs/agents/runs/current/managed-workflow-mvp/task.yaml
   legacy_plan: docs/agents/runs/current/managed-workflow-mvp/legacy-plan.md
 - task_id: release-v2.0.0
-  state: executing
+  state: completed
   route: release_artifact_sync
   workflow_cost: strict
   workflow_shape: staged
