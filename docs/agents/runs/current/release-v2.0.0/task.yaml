@@ -4,7 +4,7 @@ metadata:
   id: release-v2.0.0
   generation: 6
   created_at: '2026-09-11T08:27:10Z'
-  updated_at: '2026-09-11T12:03:27Z'
+  updated_at: '2026-09-14T02:26:29Z'
 spec:
   goal: Prepare and publish v2.0.0 from approved develop 84bd5a8, summarize changes
     since v1.5.0, rebuild packaged documentation, build and validate wheel/sdist,
@@ -74,7 +74,7 @@ spec:
     executor_role: executor.qa
     reviewer_role: reviewer
 status:
-  state: executing
+  state: completed
   transitions:
   - from: created
     to: planning
@@ -194,8 +194,94 @@ status:
     to: executing
     at: '2026-09-11T12:03:27Z'
     actor: executor
+  - from: executing
+    to: reviewing
+    at: '2026-09-14T02:17:43Z'
+    actor: executor.qa
+  - from: reviewing
+    to: completed
+    at: '2026-09-14T02:26:29Z'
+    actor: reviewer
   plan_sha256: e4f4333facfec9efb6680cf812bd07077c7a1cc3740c7aefbfb10dae463ec0b2
-  execution: {}
-  review: {}
+  execution:
+    generation: 6
+    workflow_cost: strict
+    workflow_shape: staged
+    summary: Published WaveformAnalysis v2.0.0 from master 5556fed after two merged
+      PRs, exact-candidate CI, full local release gates, independent artifact installation
+      and public-download verification.
+    changed_paths:
+    - release metadata and migration notes
+    - packaged Next.js static documentation
+    - release quality gates and regression tests
+    - Python 3.10 contract discovery fix
+    - historical HTML preview archive
+    - docs/agents/runs/current/release-v2.0.0/task.yaml
+    actions_taken:
+    - 'Merged PR #9 and CI repair PR #10 into master.'
+    - Created v2.0.0 and v2.0.0-r1 tags at master 5556fed.
+    - Built wheel and sdist from a detached worktree at the exact master commit.
+    - Installed wheel and sdist independently and exported 182 documentation files
+      without Node.js in PATH.
+    - Published immutable GitHub Release v2.0.0-r1 with wheel, sdist and SHA256SUMS.
+    - Downloaded all public assets and verified their SHA256 checksums.
+    commands_run:
+      exact_candidate_ci: 'PR #10: 10/10 checks PASS'
+      release_artifact_sync: overall PASS; 1780 passed, 2 skipped, 15 deselected
+      wheel_install_smoke: PASS; version 2.0.0; site export 182 files
+      sdist_install_smoke: PASS; version 2.0.0; site export 182 files
+      public_asset_checksums: PASS; sha256sum -c SHA256SUMS
+    release:
+      url: https://github.com/SnowingWolf/WaveformAnalysis/releases/tag/v2.0.0-r1
+      release_id: 387040028
+      commit: 5556fedcbc779dbdccdd94510396e3d24077ad85
+      title: WaveformAnalysis v2.0.0
+      package_version: 2.0.0
+      immutable: true
+    open_risks:
+    - GitHub permanently reserved the original v2.0.0 release tag name after an empty
+      immutable release was deleted; the public release record therefore uses v2.0.0-r1
+      while both tags point to the same commit.
+    - No PyPI upload or production service deployment was performed, as excluded by
+      scope.
+    requested_review_focus:
+    - remote release metadata, tag targets, public asset hashes and immutable state
+    - exact-candidate CI and final gate evidence
+  review:
+    generation: 6
+    plan_sha256: e4f4333facfec9efb6680cf812bd07077c7a1cc3740c7aefbfb10dae463ec0b2
+    workflow_cost: strict
+    workflow_shape: staged
+    reviewer: /root/luna_v200_remote_release_review
+    decision: approved
+    gate_results:
+      documentation_contract_consistent: PASS
+      frontend_typecheck_and_tests: PASS
+      release_artifacts_consistent: PASS
+      documentation_build: PASS
+      full_testpaths_fast: PASS
+      slow_tests: PASS
+      python_version_matrix: PASS
+      schema_and_plugin_contract_review: PASS
+      performance_baseline_verified: PASS
+      wheel_install_smoke: PASS
+      sdist_install_smoke: PASS
+      exact_candidate_ci: PASS
+      independent_review: PASS
+      remote_release_verification: PASS
+    blocking_findings: []
+    summary: Independent Luna Max review approved the immutable public release, both
+      tag targets, merged PRs, exact-candidate CI, GitHub asset digests and independently
+      downloaded public artifact hashes.
+    residual_risks:
+    - The public release record uses v2.0.0-r1 because GitHub permanently reserved
+      the deleted immutable v2.0.0 release name; both tags resolve to the same master
+      commit.
+    - PyPI upload and production service deployment remain outside this task scope.
+    follow_up_actions: []
   approval: {}
-  handoff: {}
+  handoff:
+    commit_status: committed
+    reason: This final task record is delivered in a scoped post-release closeout
+      commit; immutable tag and release artifacts remain unchanged.
+    release_url: https://github.com/SnowingWolf/WaveformAnalysis/releases/tag/v2.0.0-r1
