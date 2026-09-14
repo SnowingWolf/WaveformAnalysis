@@ -417,19 +417,20 @@ def _compute_cluster_rows(
                     abs_starts, abs_ends, dts, merge_gap_ps, max_total_width_ps
                 )
 
-        row_offset = _fill_cluster_rows_from_bounds(
-            cluster_rows,
-            row_offset,
-            sorted_source_indices,
-            cluster_starts,
-            cluster_ends,
-            cluster_offset,
-        )
+        with _profile_block(profiler, "hit_merged.cluster_rows_fill"):
+            row_offset = _fill_cluster_rows_from_bounds(
+                cluster_rows,
+                row_offset,
+                sorted_source_indices,
+                cluster_starts,
+                cluster_ends,
+                cluster_offset,
+            )
         cluster_offset += len(cluster_starts)
 
     # Preserve the established profiler key for before/after comparability.
-    # The optimized path no longer concatenates; this block now measures only
-    # final cluster-row materialization (normally a zero-copy slice).
+    # The optimized path no longer concatenates, so this should be near zero;
+    # actual preallocated writes are reported by cluster_rows_fill above.
     with _profile_block(profiler, "hit_merged.cluster_rows_concat"):
         return cluster_rows[:row_offset]
 

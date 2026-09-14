@@ -259,6 +259,7 @@ def test_hit_merge_profiler_segments_preserve_output_and_order():
         "hit_merged.group_hardware_channels": 1,
         "hit_merged.per_channel_mergesort": 2,
         "hit_merged.cluster_scan": 2,
+        "hit_merged.cluster_rows_fill": 2,
         "hit_merged.cluster_rows_concat": 1,
         "hit_merged.merged_materialize": 1,
     }
