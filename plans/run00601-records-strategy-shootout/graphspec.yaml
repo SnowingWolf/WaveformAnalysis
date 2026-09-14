@@ -5,7 +5,7 @@ metadata:
   id: run00601-records-strategy-shootout
   title: Run 00601 records strategy shootout
   version: 1
-  generation: 1
+  generation: 2
   parent_graph: null
   goal: Compare three byte-exact records merge strategies and obtain one independent recommendation without integration.
 
@@ -48,6 +48,21 @@ nodes:
     task: Compare wall, RSS, exact hashes, complexity, compatibility risk, tests and commit scope; recommend at most one candidate and never integrate it.
     position: {x: 760, y: 280}
 
+  - id: strategy_1_rework
+    title: Strategy 1 controlled rework round 1
+    executor: luna-max-executor
+    capabilities: [analysis, code_read, python, numpy, numba, coding, testing, benchmarking, documentation]
+    task: Keep the accepted stable-order merge algorithm, synchronize records 0.15.0 site-model fixtures, and collect three new clean-commit Run 00601 measurements without discarding outliers.
+    concurrency: {group: records-strategy-1-write, limit: 1}
+    position: {x: 1060, y: 220}
+
+  - id: strategy_1_rework_review
+    title: Strategy 1 round 1 blocking review
+    executor: luna-max-reviewer
+    capabilities: [analysis, code_read, testing, benchmarking, review, documentation]
+    task: Independently verify the rework commit, exact outputs, wall stability, RSS, site-model compatibility, and decide whether integration is allowed.
+    position: {x: 1360, y: 220}
+
 edges:
   - {id: baseline-to-s1, source: baseline_lock, target: strategy_1_stable_order}
   - {id: baseline-to-s3, source: baseline_lock, target: strategy_3_10k_layout}
@@ -55,5 +70,7 @@ edges:
   - {id: s1-to-review, source: strategy_1_stable_order, target: independent_review}
   - {id: s3-to-review, source: strategy_3_10k_layout, target: independent_review}
   - {id: s4-to-review, source: strategy_4_chunked_copy, target: independent_review}
+  - {id: review-to-s1-rework, source: independent_review, target: strategy_1_rework}
+  - {id: s1-rework-to-review, source: strategy_1_rework, target: strategy_1_rework_review}
 
 viewport: {x: 0, y: 0, zoom: 0.9}

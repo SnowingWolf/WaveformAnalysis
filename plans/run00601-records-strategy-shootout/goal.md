@@ -43,3 +43,14 @@ The reviewer ranks only byte-exact candidates. A recommendation requires a
 three-run median and range, RSS within baseline +5%, scoped tests, and a written
 complexity/compatibility assessment. If no candidate is clearly better, the
 reviewer recommends no integration.
+
+## Generation 2: Strategy 1 controlled rework
+
+The first blocking review selected Strategy 1 as the only rework candidate.
+Round 1 keeps its merge algorithm unchanged, synchronizes the site-model
+records-version fixture with the intentional `0.15.0` lineage bump, and runs
+three new clean-commit full measurements under the existing shared lock. Each
+run uses a fresh task-local cache and records fallback status. Historical and
+new evidence remain separate; no outlier may be discarded or replaced. The
+independent reviewer must reject integration unless exact hashes, the 20% wall
+gate, RSS +5% guardrail, and range/median <=10% all pass.

@@ -2,9 +2,9 @@ api_version: waveform-analysis/agent-task/v1
 kind: AgentTask
 metadata:
   id: run00601-records-strategy-shootout
-  generation: 1
+  generation: 2
   created_at: '2026-09-14T02:20:40Z'
-  updated_at: '2026-09-14T04:00:23Z'
+  updated_at: '2026-09-14T04:39:43Z'
 spec:
   goal: Implement and compare three byte-exact Run 00601 records merge strategies
     in isolated worktrees, then obtain an independent blocking recommendation without
@@ -22,6 +22,11 @@ spec:
     - tests/plugins/test_plugin_auto_config_records.py
     - docs/plugins/reference/agent/records.md
     - docs/plugins/reference/builtin/auto/records.md
+    - waveform_analysis/documentation/site_model.py
+    - tests/test_site_model.py
+    - docs/site-next/lib/site-model.ts
+    - docs/site-next/lib/site-model.test.ts
+    - docs/site-next/fixture/site-model.v1.json
     - docs/agents/runs/current/run00601-records-strategy-shootout/task.yaml
     - plans/run00601-records-strategy-shootout
     dataset: /mnt/data/TPC/run7_Xe/00601
@@ -35,6 +40,9 @@ spec:
     task-local caches, and serialized NFS benchmarking.
   - Independent reviewer compares performance, implementation complexity, compatibility
     risk, and recommends at most one strategy; no candidate is integrated before review.
+  - Strategy 1 rework resolves the records 0.15.0 site-model fixture contract and
+    obtains three new clean-commit Run 00601 measurements with range/median no more
+    than 10%; prior measurements remain immutable evidence.
   required_gates:
   - targeted_tests
   - records_wave_pool_hash
@@ -57,6 +65,13 @@ spec:
     reasoning_effort: max
     independent_worktrees: true
     integrate_before_review: false
+    rework_round: 1
+    rework_strategy: strategy_1
+    rework_policy:
+      preserve_algorithm: true
+      fresh_task_local_cache_per_run: true
+      immutable_prior_evidence: true
+      require_three_clean_commit_runs: true
     baseline:
       primary_sampler: records_only_process_tree_0.1s
       records_wall_sec: 245.5027
@@ -70,7 +85,7 @@ spec:
       strategy_3: /tmp/wa-records-s3-10k-layout
       strategy_4: /tmp/wa-records-s4-chunked-copy
 status:
-  state: rework_required
+  state: executing
   transitions:
   - from: created
     to: planning
@@ -97,63 +112,30 @@ status:
     at: '2026-09-14T04:00:23Z'
     actor: luna-max-reviewer
     condition: blocking_gates_failed
-  plan_sha256: 214e75a645b9f52e03e9608af1bc79d789c09df0cc31d575290f37cb9e4f3fc1
-  execution:
-    base_sha: 0840ed9de67f7c59eeaf4285db399d475cdfd4e4
-    integrated_commits: []
-    production_cache: read_only
-    execution_report: /tmp/wa-run00601-records-shootout-g1/s1/execution-report.md;
-      /tmp/wa-run00601-records-shootout-g1/s3/execution-report.md; /tmp/wa-run00601-records-shootout-g1/s4/execution-report.md
-    baseline_historical_wall_sec: 245.50269995402778
-    baseline_same_command_wall_sec: 264.6675903960131
-    strategy_1:
-      commits:
-      - 1146d14656444a590140af93b001d0e4a65420cf
-      - 064a9a68605c6a44fc314c238ae5b46519ddeba8
-      wall_median_sec: 183.1413427350344
-      wall_range_over_median_pct: 25.637022
-      incremental_rss_median_bytes: 11418800128
-      hashes: exact
-      report: /tmp/wa-run00601-records-shootout-g1/s1/execution-report.md
-    strategy_3:
-      commit: f16e321d70c422a3ad4b6886c7f76e3625707baa
-      wall_median_sec: 205.9457362240646
-      wall_range_over_median_pct: 5.468436
-      incremental_rss_median_bytes: 11878846464
-      hashes: exact
-      report: /tmp/wa-run00601-records-shootout-g1/s3/execution-report.md
-    strategy_4:
-      commit: 30327b8f23b503287c619d7c6600c664c7a373fe
-      wall_median_sec: 229.31391991197597
-      wall_range_over_median_pct: 15.09397
-      incremental_rss_median_bytes: 13185548288
-      hashes: exact
-      report: /tmp/wa-run00601-records-shootout-g1/s4/execution-report.md
-  review:
-    decision: rework_required
-    integration_approved: false
-    recommended_strategy: strategy_1_controlled_retest_only
-    strategy_1: fail_wall_stability
-    strategy_3: fail_historical_speed_gate_and_commit_provenance
-    strategy_4: fail_speed_rss_stability_and_commit_provenance
-    exact_hashes: pass_all_candidates
-    reviewer_core_tests:
-      strategy_1: 43 passed
-      strategy_3: 45 passed
-      strategy_4: 42 passed
-    report: /tmp/wa-run00601-records-shootout-g1/reviewer/final-review-report.md
-    residual_risks:
-    - historical and same-command baseline scopes differ
-    - same-command baseline has one repetition
-    - strategy 1 wall range exceeds ten percent
-    - strategy 3 and strategy 4 runtime provenance is not three clean commit-bound
-      runs
+  - from: rework_required
+    to: planning
+    at: '2026-09-14T04:38:59Z'
+    actor: codex-root
+    condition: reviewer_requested_site_model_fixture_scope
+    scope_changed: true
+  - from: planning
+    to: ready_for_execution
+    at: '2026-09-14T04:39:42Z'
+    actor: codex-root
+    condition: generation_2_plan_validated_and_user_approved
+  - from: ready_for_execution
+    to: executing
+    at: '2026-09-14T04:39:43Z'
+    actor: codex-root
+    condition: strategy_1_rework_round_1_started
+  plan_sha256: 906efc874bc18ca0876f414ab03ec50050c067291a360f2ef873e93162cd84ec
+  execution: {}
+  review: {}
   approval:
     evidence:
-    - User explicitly requested the three strategy implementations, Luna Max agents,
-      isolated worktrees, shared Run 00601 baseline, independent review, and no pre-review
-      integration.
-    plan_sha256: 214e75a645b9f52e03e9608af1bc79d789c09df0cc31d575290f37cb9e4f3fc1
-    approved_at: '2026-09-14T02:24:55Z'
+    - User explicitly instructed to proceed according to the reviewed Strategy 1 rework
+      plan.
+    plan_sha256: 906efc874bc18ca0876f414ab03ec50050c067291a360f2ef873e93162cd84ec
+    approved_at: '2026-09-14T04:39:42Z'
     actor: codex-root
   handoff: {}
