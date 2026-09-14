@@ -427,7 +427,10 @@ def _compute_cluster_rows(
         )
         cluster_offset += len(cluster_starts)
 
-    with _profile_block(profiler, "hit_merged.cluster_rows_prealloc"):
+    # Preserve the established profiler key for before/after comparability.
+    # The optimized path no longer concatenates; this block now measures only
+    # final cluster-row materialization (normally a zero-copy slice).
+    with _profile_block(profiler, "hit_merged.cluster_rows_concat"):
         return cluster_rows[:row_offset]
 
 
