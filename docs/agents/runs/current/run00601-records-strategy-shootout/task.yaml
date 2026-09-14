@@ -4,7 +4,7 @@ metadata:
   id: run00601-records-strategy-shootout
   generation: 5
   created_at: '2026-09-14T02:20:40Z'
-  updated_at: '2026-09-14T09:00:04Z'
+  updated_at: '2026-09-14T09:06:03Z'
 spec:
   goal: Implement and compare three byte-exact Run 00601 records merge strategies
     in isolated worktrees, then obtain an independent blocking recommendation without
@@ -255,6 +255,19 @@ status:
       rss_gate_pass: true
       exact_output_gate_pass: true
       disposition: Do not integrate after two allowed rework rounds.
+    post_failure_integration:
+      reviewed_at: '2026-09-14T09:06:03Z'
+      actor: luna-max-integration-reviewer
+      reviewed_head: 9d532c834d79809f1c6e951b4fe7667371079ec9
+      decision: PASS
+      integration_approved: true
+      scope: Approval applies only to the explicit post-failure user override;
+        it does not change the original performance review from FAIL to PASS.
+      blocking_findings: []
+      residual_risks:
+      - Original wall improvement and three-run stability gates remain failed.
+      - release_artifact_sync was interrupted during full pytest and is not complete.
+      - Packaged site_dist must be regenerated before a release-ready claim.
   approval:
     evidence:
     - User explicitly required benchmark data under /mnt/data rather than /tmp and
@@ -281,7 +294,7 @@ status:
   handoff:
     candidate_commit: 3b8ad9ee88a3f2e8ce26b521ed5d8e32279f9950
     candidate_branch: codex/records-s1-stable-order-00601
-    integrated: pending_final_integration_review
+    integrated: approved_pending_fast_forward
     integration_branch: codex/integrate-records-io-00601
     integration_commits:
     - 4d78b16
