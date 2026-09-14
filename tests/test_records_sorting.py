@@ -13,8 +13,10 @@ from waveform_analysis.core.processing.records_builder import (
     RECORDS_DTYPE,
     RecordsBundle,
     RecordsBundleRef,
+    _merge_records_only_part_refs_to_disk,
     _merge_records_part_refs,
     _merge_records_part_refs_batched_to_disk,
+    _merge_records_part_refs_records_only_to_disk,
     _resolve_v1725_file_workers,
     _write_records_part,
     build_records_from_raw_files,
@@ -77,6 +79,91 @@ def test_build_records_from_st_waveforms_sharded_keeps_global_timestamp_order():
     np.testing.assert_array_equal(sharded.records["channel"], baseline.records["channel"])
     np.testing.assert_array_equal(sharded.records["record_id"], baseline.records["record_id"])
     np.testing.assert_array_equal(sharded.wave_pool, baseline.wave_pool)
+
+
+@pytest.mark.parametrize("use_numba", [True, False])
+def test_records_only_stable_kway_matches_numpy_oracle_for_ties_and_empty_parts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, use_numba: bool
+):
+    """The direct out-of-core merge is byte-identical to the legacy oracle."""
+    from waveform_analysis.core.processing import records_builder as builder
+
+    if not use_numba:
+        monkeypatch.setattr(builder, "_NUMBA_AVAILABLE", False)
+
+    rows_by_part = [
+        [(10, 0, 0, 0, 11), (20, 0, 0, 0, 12), (20, 0, 0, 1, 13)],
+        [(10, 0, 0, 0, 21), (20, 0, 0, 0, 22), (30, 0, 0, 0, 23)],
+        [(20, 0, 0, 0, 31), (20, 0, 0, 1, 32), (30, 0, 0, 0, 33)],
+    ]
+    (tmp_path / "parts").mkdir()
+    parts = []
+    for part_idx, rows in enumerate(rows_by_part):
+        records = np.zeros(len(rows), dtype=RECORDS_DTYPE)
+        for row_idx, (timestamp, pid, board, channel, wave_offset) in enumerate(rows):
+            records[row_idx]["timestamp"] = timestamp
+            records[row_idx]["pid"] = pid
+            records[row_idx]["board"] = board
+            records[row_idx]["channel"] = channel
+            records[row_idx]["wave_offset"] = wave_offset
+            records[row_idx]["event_length"] = 0
+            records[row_idx]["record_id"] = 100 + part_idx * 10 + row_idx
+        part = _write_records_part(
+            RecordsBundle(records, np.zeros(0, dtype=np.uint16)), tmp_path / "parts", part_idx
+        )
+        assert part is not None
+        parts.append(part)
+    builder._ensure_source_sequence_starts(parts)
+
+    # The first-level merge represents the same sorted intermediate refs used
+    # by the indexed disk path when the input has multiple parts.
+    batch_parts = [
+        _merge_records_part_refs_records_only_to_disk(
+            parts[:2], [0, 0], tmp_path / "batches", part_idx=0, assign_record_ids=False
+        ),
+        _merge_records_part_refs_records_only_to_disk(
+            parts[2:], [0], tmp_path / "batches", part_idx=1, assign_record_ids=False
+        ),
+    ]
+    assert all(part is not None for part in batch_parts)
+
+    source = np.concatenate(
+        [
+            np.asarray(
+                np.memmap(part.records_path, dtype=RECORDS_DTYPE, mode="r", shape=(part.n_records,))
+            )
+            for part in parts
+        ]
+    )
+    order = np.lexsort(
+        (
+            np.arange(len(source), dtype=np.int64),
+            source["channel"],
+            source["board"],
+            source["pid"],
+            source["timestamp"],
+        )
+    )
+    expected = source[order].copy()
+    expected["record_id"] = np.arange(len(expected), dtype=np.int64)
+
+    merged = _merge_records_only_part_refs_to_disk(
+        [part for part in batch_parts if part is not None], tmp_path / "final"
+    )
+    assert merged is not None
+    assert merged.source_sequence_start == 0
+    assert not list((tmp_path / "final").glob("records_unsorted_*.dat"))
+    actual = np.memmap(
+        merged.records_path, dtype=RECORDS_DTYPE, mode="r", shape=(merged.n_records,)
+    )
+    assert actual.dtype == RECORDS_DTYPE
+    assert actual.shape == expected.shape
+    assert actual.tobytes() == expected.tobytes()
+    actual._mmap.close()
+
+
+def test_records_only_stable_kway_empty_input_returns_none(tmp_path: Path):
+    assert _merge_records_only_part_refs_to_disk([], tmp_path) is None
 
 
 def test_build_records_from_v1725_files_sorts_approximately_ordered_input(tmp_path: Path):

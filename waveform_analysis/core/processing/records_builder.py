@@ -27,6 +27,16 @@ import time
 
 import numpy as np
 
+try:
+    from numba import njit as _numba_njit
+    from numba.typed import List as _NumbaTypedList
+
+    _NUMBA_AVAILABLE = True
+except ImportError:  # pragma: no cover - exercised only in minimal installs
+    _NUMBA_AVAILABLE = False
+    _numba_njit = None
+    _NumbaTypedList = None
+
 from waveform_analysis.core.foundation.utils import exporter
 from waveform_analysis.core.hardware.channel import (
     HardwareChannel,
@@ -69,6 +79,9 @@ class _RecordsPartRef:
     n_records: int
     n_samples: int
     time_range: tuple[int, int] | None = None  # (start_time, end_time) for filtering
+    # Internal only: monotonically increasing source order of this part.  It is
+    # deliberately not persisted in RECORDS_DTYPE or any formal output.
+    source_sequence_start: int | None = None
 
 
 @export
@@ -305,6 +318,152 @@ def _records_sort_order(records: np.ndarray) -> np.ndarray:
     )
 
 
+def _ensure_source_sequence_starts(parts: Sequence[_RecordsPartRef]) -> list[_RecordsPartRef]:
+    """Attach a monotonic stable-order origin to a part sequence.
+
+    A part list is assembled in source order before the shared merge is
+    entered.  The original implementation implicitly used that list position
+    as its final stable key.  Making the origin explicit lets later merges
+    retain the same key after a batch has been sorted, while keeping it out of
+    the formal records dtype and on-disk files.
+
+    Part references created by older callers do not carry the optional
+    metadata.  In that case starts are assigned from the current source-order
+    concatenation, which is exactly the legacy stable tie-break.
+    """
+    part_list = list(parts)
+    if not part_list:
+        return part_list
+
+    if all(part.source_sequence_start is not None for part in part_list):
+        return part_list
+
+    cursor = 0
+    for part in part_list:
+        part.source_sequence_start = cursor
+        cursor += max(int(part.n_records), 0)
+    return part_list
+
+
+def _source_sequence_starts(parts: Sequence[_RecordsPartRef]) -> np.ndarray:
+    """Return source-order starts as an int64 array for Python/Numba merges."""
+    part_list = _ensure_source_sequence_starts(parts)
+    return np.asarray(
+        [int(part.source_sequence_start or 0) for part in part_list],
+        dtype=np.int64,
+    )
+
+
+if _NUMBA_AVAILABLE:
+
+    @_numba_njit(cache=True, nogil=True, inline="always")  # type: ignore[misc]
+    def _records_kway_less(
+        records_parts,
+        left_part,
+        right_part,
+        positions,
+        source_starts,
+    ):
+        """Compare current rows using the canonical stable records key."""
+        left = records_parts[left_part][positions[left_part]]
+        right = records_parts[right_part][positions[right_part]]
+        if left["timestamp"] != right["timestamp"]:
+            return left["timestamp"] < right["timestamp"]
+        if left["pid"] != right["pid"]:
+            return left["pid"] < right["pid"]
+        if left["board"] != right["board"]:
+            return left["board"] < right["board"]
+        if left["channel"] != right["channel"]:
+            return left["channel"] < right["channel"]
+        if source_starts[left_part] != source_starts[right_part]:
+            return source_starts[left_part] < source_starts[right_part]
+        # Rows sharing all canonical fields retain their stable within-part
+        # order.  This is the same final key used by np.lexsort's sequence
+        # array for a concatenated sequence of sorted parts.
+        return positions[left_part] < positions[right_part]
+
+    @_numba_njit(cache=True, nogil=True)  # type: ignore[misc]
+    def _records_kway_sift_down(
+        records_parts,
+        heap,
+        heap_size,
+        positions,
+        source_starts,
+    ):
+        root = 0
+        while True:
+            left = root * 2 + 1
+            if left >= heap_size:
+                return
+            right = left + 1
+            child = left
+            if right < heap_size and _records_kway_less(
+                records_parts,
+                heap[right],
+                heap[left],
+                positions,
+                source_starts,
+            ):
+                child = right
+            if not _records_kway_less(
+                records_parts,
+                heap[child],
+                heap[root],
+                positions,
+                source_starts,
+            ):
+                return
+            heap[root], heap[child] = heap[child], heap[root]
+            root = child
+
+    @_numba_njit(cache=True, nogil=True)  # type: ignore[misc]
+    def _records_kway_merge_numba(records_parts, source_starts, records_out):
+        """K-way merge sorted part arrays directly into the output memmap."""
+        n_parts = len(records_parts)
+        positions = np.zeros(n_parts, dtype=np.int64)
+        heap = np.empty(n_parts, dtype=np.int64)
+        heap_size = 0
+
+        for part_idx in range(n_parts):
+            if len(records_parts[part_idx]) == 0:
+                continue
+            heap[heap_size] = part_idx
+            child = heap_size
+            heap_size += 1
+            while child > 0:
+                parent = (child - 1) // 2
+                if not _records_kway_less(
+                    records_parts,
+                    heap[child],
+                    heap[parent],
+                    positions,
+                    source_starts,
+                ):
+                    break
+                heap[child], heap[parent] = heap[parent], heap[child]
+                child = parent
+
+        out_idx = 0
+        while heap_size > 0:
+            part_idx = heap[0]
+            records_out[out_idx] = records_parts[part_idx][positions[part_idx]]
+            out_idx += 1
+            positions[part_idx] += 1
+
+            if positions[part_idx] >= len(records_parts[part_idx]):
+                heap_size -= 1
+                if heap_size > 0:
+                    heap[0] = heap[heap_size]
+            _records_kway_sift_down(
+                records_parts,
+                heap,
+                heap_size,
+                positions,
+                source_starts,
+            )
+        return out_idx
+
+
 @export
 def split_by_hardware_channel(st_waveforms: np.ndarray) -> list[tuple[HardwareChannel, np.ndarray]]:
     """Split a structured array into per-hardware-channel views."""
@@ -487,7 +646,10 @@ def _build_records_part_from_raw_array(
 
 
 def _write_records_part(
-    bundle: RecordsBundle, part_dir: Path, part_idx: int
+    bundle: RecordsBundle,
+    part_dir: Path,
+    part_idx: int,
+    source_sequence_start: int | None = None,
 ) -> _RecordsPartRef | None:
     if len(bundle.records) == 0:
         return None
@@ -527,6 +689,7 @@ def _write_records_part(
         n_records=len(bundle.records),
         n_samples=len(bundle.wave_pool),
         time_range=time_range,
+        source_sequence_start=source_sequence_start,
     )
 
 
@@ -534,15 +697,18 @@ def _merge_key(
     records: np.ndarray,
     source_idx: int,
     row_idx: int,
-) -> tuple[int, int, int, int, int, int]:
+    source_sequence_start: int | None = None,
+) -> tuple[int, int, int, int, int, int, int]:
     rec = records[row_idx]
+    source_sequence = source_idx if source_sequence_start is None else int(source_sequence_start)
     return (
         int(rec["timestamp"]),
         int(rec["pid"]),
         int(rec["board"]),
         int(rec["channel"]),
-        int(source_idx),
+        source_sequence,
         int(row_idx),
+        int(source_idx),
     )
 
 
@@ -550,7 +716,8 @@ def _find_run_stop_by_next_heap_key(
     records: np.ndarray,
     source_idx: int,
     row_idx: int,
-    boundary_key: tuple[int, int, int, int, int, int] | None,
+    boundary_key: tuple[int, int, int, int, int, int, int] | None,
+    source_sequence_start: int | None = None,
 ) -> int:
     """Find the largest consecutive run from one sorted part that can be emitted."""
     n_records = len(records)
@@ -565,7 +732,7 @@ def _find_run_stop_by_next_heap_key(
         stop = row_idx + 1
 
     while stop < n_records:
-        if _merge_key(records, source_idx, stop) <= boundary_key:
+        if _merge_key(records, source_idx, stop, source_sequence_start) <= boundary_key:
             stop += 1
         else:
             break
@@ -654,6 +821,8 @@ def _merge_records_part_refs_batched(
     if not parts:
         return []
 
+    parts = _ensure_source_sequence_starts(parts)
+
     if len(parts) <= batch_size:
         # 分片数量少，直接返回
         return list(parts)
@@ -674,7 +843,12 @@ def _merge_records_part_refs_batched(
         merged_bundle = _merge_records_part_refs_to_memory(batch)
 
         # 写入新的分片
-        merged_part_ref = _write_records_part(merged_bundle, output_dir, len(merged_parts))
+        merged_part_ref = _write_records_part(
+            merged_bundle,
+            output_dir,
+            len(merged_parts),
+            source_sequence_start=parts[batch_idx].source_sequence_start,
+        )
 
         if merged_part_ref:
             merged_parts.append(merged_part_ref)
@@ -695,6 +869,7 @@ def _merge_records_part_refs_batched_to_disk(
 ) -> list[_RecordsPartRef]:
     if not parts:
         return []
+    parts = _ensure_source_sequence_starts(parts)
     if len(parts) <= batch_size:
         return list(parts)
 
@@ -805,6 +980,9 @@ def _merge_records_part_refs_to_memory(parts: Sequence[_RecordsPartRef]) -> Reco
     if not parts:
         return RecordsBundle(np.zeros(0, dtype=RECORDS_DTYPE), np.zeros(0, dtype=np.uint16))
 
+    parts = _ensure_source_sequence_starts(parts)
+    source_starts = _source_sequence_starts(parts)
+
     if len(parts) == 1:
         part = parts[0]
         records = np.array(
@@ -838,17 +1016,17 @@ def _merge_records_part_refs_to_memory(parts: Sequence[_RecordsPartRef]) -> Reco
         for part in parts
     ]
 
-    heap: list[tuple[int, int, int, int, int, int]] = []
+    heap: list[tuple[int, int, int, int, int, int, int]] = []
     for source_idx, records in enumerate(records_parts):
         if len(records) == 0:
             continue
-        heapq.heappush(heap, _merge_key(records, source_idx, 0))
+        heapq.heappush(heap, _merge_key(records, source_idx, 0, source_starts[source_idx]))
 
     out_idx = 0
     wave_cursor = 0
     while heap:
         key = heapq.heappop(heap)
-        source_idx = key[4]
+        source_idx = key[6]
         row_idx = key[5]
         records_src = records_parts[source_idx]
         wave_pool_src = wave_pool_parts[source_idx]
@@ -859,6 +1037,7 @@ def _merge_records_part_refs_to_memory(parts: Sequence[_RecordsPartRef]) -> Reco
             source_idx=source_idx,
             row_idx=row_idx,
             boundary_key=boundary_key,
+            source_sequence_start=source_starts[source_idx],
         )
         out_idx, wave_cursor = _copy_records_run_with_waves(
             records_src=records_src,
@@ -872,7 +1051,10 @@ def _merge_records_part_refs_to_memory(parts: Sequence[_RecordsPartRef]) -> Reco
         )
 
         if row_stop < len(records_src):
-            heapq.heappush(heap, _merge_key(records_src, source_idx, row_stop))
+            heapq.heappush(
+                heap,
+                _merge_key(records_src, source_idx, row_stop, source_starts[source_idx]),
+            )
 
     if out_idx != total_records:
         records_out = records_out[:out_idx]
@@ -889,6 +1071,9 @@ def _merge_records_part_refs_to_disk(
     """Merge sorted part refs into a single disk-backed part."""
     if not parts:
         return None
+
+    parts = _ensure_source_sequence_starts(parts)
+    source_starts = _source_sequence_starts(parts)
 
     total_records = sum(part.n_records for part in parts)
     if total_records == 0:
@@ -923,17 +1108,17 @@ def _merge_records_part_refs_to_disk(
         for part in parts
     ]
 
-    heap: list[tuple[int, int, int, int, int, int]] = []
+    heap: list[tuple[int, int, int, int, int, int, int]] = []
     for source_idx, records in enumerate(records_parts):
         if len(records) == 0:
             continue
-        heapq.heappush(heap, _merge_key(records, source_idx, 0))
+        heapq.heappush(heap, _merge_key(records, source_idx, 0, source_starts[source_idx]))
 
     out_idx = 0
     wave_cursor = 0
     while heap:
         key = heapq.heappop(heap)
-        source_idx = key[4]
+        source_idx = key[6]
         row_idx = key[5]
         records_src = records_parts[source_idx]
         wave_pool_src = wave_pool_parts[source_idx]
@@ -944,6 +1129,7 @@ def _merge_records_part_refs_to_disk(
             source_idx=source_idx,
             row_idx=row_idx,
             boundary_key=boundary_key,
+            source_sequence_start=source_starts[source_idx],
         )
         out_idx, wave_cursor = _copy_records_run_with_waves(
             records_src=records_src,
@@ -957,7 +1143,10 @@ def _merge_records_part_refs_to_disk(
         )
 
         if row_stop < len(records_src):
-            heapq.heappush(heap, _merge_key(records_src, source_idx, row_stop))
+            heapq.heappush(
+                heap,
+                _merge_key(records_src, source_idx, row_stop, source_starts[source_idx]),
+            )
 
     if out_idx != total_records:
         raise RuntimeError(f"merged records count mismatch: {out_idx} != {total_records}")
@@ -977,12 +1166,14 @@ def _merge_records_part_refs_to_disk(
         n_records=total_records,
         n_samples=total_samples,
         time_range=time_range,
+        source_sequence_start=int(source_starts[0]),
     )
 
 
 def _write_records_only_part(
     records_path: Path,
     n_records: int,
+    source_sequence_start: int | None = None,
 ) -> _RecordsPartRef | None:
     if n_records == 0:
         return None
@@ -996,6 +1187,7 @@ def _write_records_only_part(
         n_records=n_records,
         n_samples=0,
         time_range=time_range,
+        source_sequence_start=source_sequence_start,
     )
 
 
@@ -1011,6 +1203,9 @@ def _merge_records_part_refs_records_only_to_disk(
         return None
     if len(parts) != len(wave_bases):
         raise ValueError("parts and wave_bases length mismatch")
+
+    parts = _ensure_source_sequence_starts(parts)
+    source_starts = _source_sequence_starts(parts)
 
     total_records = sum(part.n_records for part in parts)
     if total_records == 0:
@@ -1032,16 +1227,16 @@ def _merge_records_part_refs_records_only_to_disk(
         for part in parts
     ]
 
-    heap: list[tuple[int, int, int, int, int, int]] = []
+    heap: list[tuple[int, int, int, int, int, int, int]] = []
     for source_idx, records in enumerate(records_parts):
         if len(records) == 0:
             continue
-        heapq.heappush(heap, _merge_key(records, source_idx, 0))
+        heapq.heappush(heap, _merge_key(records, source_idx, 0, source_starts[source_idx]))
 
     out_idx = 0
     while heap:
         key = heapq.heappop(heap)
-        source_idx = key[4]
+        source_idx = key[6]
         row_idx = key[5]
         records_src = records_parts[source_idx]
         boundary_key = heap[0] if heap else None
@@ -1051,6 +1246,7 @@ def _merge_records_part_refs_records_only_to_disk(
             source_idx=source_idx,
             row_idx=row_idx,
             boundary_key=boundary_key,
+            source_sequence_start=source_starts[source_idx],
         )
         out_idx = _copy_records_run_with_wave_base(
             records_src=records_src,
@@ -1062,7 +1258,10 @@ def _merge_records_part_refs_records_only_to_disk(
         )
 
         if row_stop < len(records_src):
-            heapq.heappush(heap, _merge_key(records_src, source_idx, row_stop))
+            heapq.heappush(
+                heap,
+                _merge_key(records_src, source_idx, row_stop, source_starts[source_idx]),
+            )
 
     if out_idx != total_records:
         raise RuntimeError(f"merged records count mismatch: {out_idx} != {total_records}")
@@ -1075,7 +1274,11 @@ def _merge_records_part_refs_records_only_to_disk(
     records_out._mmap.close()
     del records_out
 
-    return _write_records_only_part(records_path, total_records)
+    return _write_records_only_part(
+        records_path,
+        total_records,
+        source_sequence_start=int(source_starts[0]),
+    )
 
 
 def _merge_records_only_part_refs_to_disk(
@@ -1084,69 +1287,123 @@ def _merge_records_only_part_refs_to_disk(
     part_idx: int = 0,
     assign_record_ids: bool = True,
 ) -> _RecordsPartRef | None:
-    """Merge records-only intermediate refs; wave offsets are already final."""
+    """Merge already-sorted records refs without a global temp copy.
+
+    The legacy path concatenated all refs into ``records_unsorted`` and then
+    applied ``np.lexsort``.  Each input ref is already sorted with the same
+    canonical key, so a stable k-way merge is sufficient.  The Numba kernel
+    writes directly to the final memmap; the Python heap implementation is a
+    correctness-preserving fallback for minimal NumPy-only installations.
+    """
     if not parts:
         return None
 
+    parts = _ensure_source_sequence_starts(parts)
+    source_starts = _source_sequence_starts(parts)
     total_records = sum(part.n_records for part in parts)
     if total_records == 0:
         return None
 
     output_dir.mkdir(parents=True, exist_ok=True)
     records_path = output_dir / f"records_merged_{part_idx}.dat"
-    unsorted_path = output_dir / f"records_unsorted_{part_idx}.dat"
-
-    records_unsorted = np.memmap(
-        unsorted_path,
+    records_parts = [
+        np.memmap(part.records_path, dtype=RECORDS_DTYPE, mode="r", shape=(part.n_records,))
+        for part in parts
+    ]
+    records_out = np.memmap(
+        records_path,
         dtype=RECORDS_DTYPE,
         mode="w+",
         shape=(total_records,),
     )
 
-    cursor = 0
     try:
-        for part in parts:
-            records_src = np.memmap(
-                part.records_path,
-                dtype=RECORDS_DTYPE,
-                mode="r",
-                shape=(part.n_records,),
-            )
-            records_unsorted[cursor : cursor + part.n_records] = records_src
-            cursor += part.n_records
-            records_src._mmap.close()
+        merged_count: int | None = None
+        if _NUMBA_AVAILABLE and _NumbaTypedList is not None:
+            try:
+                typed_parts = _NumbaTypedList()
+                for records_part in records_parts:
+                    # np.asarray preserves the memmap view; it does not create
+                    # a second records-sized array.
+                    typed_parts.append(np.asarray(records_part))
+                merged_count = int(
+                    _records_kway_merge_numba(
+                        typed_parts,
+                        source_starts,
+                        np.asarray(records_out),
+                    )
+                )
+            except Exception:
+                # Fall back to the reference heap path if Numba is absent or
+                # cannot type the installed NumPy/structured-dtype pair.
+                merged_count = None
 
-        if cursor != total_records:
-            raise RuntimeError(f"merged records count mismatch: {cursor} != {total_records}")
+        if merged_count is None:
+            import heapq
 
-        order = _records_sort_order(records_unsorted)
-        records_out = np.memmap(
-            records_path,
-            dtype=RECORDS_DTYPE,
-            mode="w+",
-            shape=(total_records,),
-        )
+            heap: list[tuple[int, int, int, int, int, int, int]] = []
+            for source_idx, records in enumerate(records_parts):
+                if len(records) == 0:
+                    continue
+                heapq.heappush(
+                    heap,
+                    _merge_key(records, source_idx, 0, source_starts[source_idx]),
+                )
 
-        copy_chunk_size = 250_000
-        for start in range(0, total_records, copy_chunk_size):
-            stop = min(start + copy_chunk_size, total_records)
-            records_out[start:stop] = records_unsorted[order[start:stop]]
+            out_idx = 0
+            while heap:
+                key = heapq.heappop(heap)
+                source_idx = key[6]
+                row_idx = key[5]
+                records_src = records_parts[source_idx]
+                boundary_key = heap[0] if heap else None
+                row_stop = _find_run_stop_by_next_heap_key(
+                    records=records_src,
+                    source_idx=source_idx,
+                    row_idx=row_idx,
+                    boundary_key=boundary_key,
+                    source_sequence_start=source_starts[source_idx],
+                )
+                out_idx = _copy_records_run_with_wave_base(
+                    records_src=records_src,
+                    row_start=row_idx,
+                    row_stop=row_stop,
+                    records_out=records_out,
+                    out_idx=out_idx,
+                    wave_base=0,
+                )
+                if row_stop < len(records_src):
+                    heapq.heappush(
+                        heap,
+                        _merge_key(
+                            records_src,
+                            source_idx,
+                            row_stop,
+                            source_starts[source_idx],
+                        ),
+                    )
+            merged_count = out_idx
+
+        if merged_count != total_records:
+            raise RuntimeError(f"merged records count mismatch: {merged_count} != {total_records}")
 
         if assign_record_ids:
-            records_out["record_id"] = np.arange(total_records, dtype=np.int64)
+            copy_chunk_size = 250_000
+            for start in range(0, total_records, copy_chunk_size):
+                stop = min(start + copy_chunk_size, total_records)
+                records_out["record_id"][start:stop] = np.arange(start, stop, dtype=np.int64)
         records_out.flush()
+    finally:
+        for records_part in records_parts:
+            records_part._mmap.close()
         records_out._mmap.close()
         del records_out
-        del order
-    finally:
-        records_unsorted._mmap.close()
-        del records_unsorted
-        try:
-            unsorted_path.unlink()
-        except FileNotFoundError:
-            pass
 
-    return _write_records_only_part(records_path, total_records)
+    return _write_records_only_part(
+        records_path,
+        total_records,
+        source_sequence_start=int(source_starts[0]),
+    )
 
 
 def _concat_wave_pool_part_refs_to_disk(
@@ -1218,6 +1475,8 @@ def _merge_records_part_refs_indexed_to_disk(
     """
     if not parts:
         return None
+
+    parts = _ensure_source_sequence_starts(parts)
 
     total_records = sum(part.n_records for part in parts)
     if total_records == 0:
@@ -1329,7 +1588,7 @@ def _merge_records_part_refs_indexed_to_disk(
 
         if show_progress:
             print(
-                f"[Records 合并] records-only final sort merge, " f"分片数={len(batched_records)}"
+                f"[Records 合并] records-only stable k-way merge, " f"分片数={len(batched_records)}"
             )
         with timer("records.merge.records_only_final.disk") if timer else nullcontext():
             records_only = _merge_records_only_part_refs_to_disk(
@@ -1366,6 +1625,7 @@ def _merge_records_part_refs_indexed_to_disk(
         n_records=total_records,
         n_samples=total_samples,
         time_range=records_only.time_range,
+        source_sequence_start=records_only.source_sequence_start,
     )
 
 
@@ -1388,6 +1648,8 @@ def _concat_records_part_refs_to_disk(
 ) -> _RecordsPartRef | None:
     if not parts:
         return None
+
+    parts = _ensure_source_sequence_starts(parts)
 
     total_records = sum(part.n_records for part in parts)
     if total_records == 0:
@@ -1436,6 +1698,7 @@ def _concat_records_part_refs_to_disk(
         n_records=total_records,
         n_samples=total_samples,
         time_range=time_range,
+        source_sequence_start=parts[0].source_sequence_start,
     )
 
 
@@ -1471,6 +1734,8 @@ def _merge_records_part_refs(
     """
     if not parts:
         return RecordsBundle(np.zeros(0, dtype=RECORDS_DTYPE), np.zeros(0, dtype=np.uint16))
+
+    parts = _ensure_source_sequence_starts(parts)
 
     # 诊断信息
     if show_progress:
