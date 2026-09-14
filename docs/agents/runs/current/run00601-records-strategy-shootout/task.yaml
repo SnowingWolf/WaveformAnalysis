@@ -4,7 +4,7 @@ metadata:
   id: run00601-records-strategy-shootout
   generation: 1
   created_at: '2026-09-14T02:20:40Z'
-  updated_at: '2026-09-14T02:24:55Z'
+  updated_at: '2026-09-14T04:00:23Z'
 spec:
   goal: Implement and compare three byte-exact Run 00601 records merge strategies
     in isolated worktrees, then obtain an independent blocking recommendation without
@@ -70,7 +70,7 @@ spec:
       strategy_3: /tmp/wa-records-s3-10k-layout
       strategy_4: /tmp/wa-records-s4-chunked-copy
 status:
-  state: ready_for_execution
+  state: rework_required
   transitions:
   - from: created
     to: planning
@@ -82,9 +82,72 @@ status:
     at: '2026-09-14T02:24:55Z'
     actor: codex-root
     condition: graphspec_validated_and_user_directed_execution
+  - from: ready_for_execution
+    to: executing
+    at: '2026-09-14T02:25:21Z'
+    actor: codex-root
+    condition: three_isolated_worktrees_authorized
+  - from: executing
+    to: reviewing
+    at: '2026-09-14T04:00:23Z'
+    actor: codex-root
+    condition: execution_reports_ready
+  - from: reviewing
+    to: rework_required
+    at: '2026-09-14T04:00:23Z'
+    actor: luna-max-reviewer
+    condition: blocking_gates_failed
   plan_sha256: 214e75a645b9f52e03e9608af1bc79d789c09df0cc31d575290f37cb9e4f3fc1
-  execution: {}
-  review: {}
+  execution:
+    base_sha: 0840ed9de67f7c59eeaf4285db399d475cdfd4e4
+    integrated_commits: []
+    production_cache: read_only
+    execution_report: /tmp/wa-run00601-records-shootout-g1/s1/execution-report.md;
+      /tmp/wa-run00601-records-shootout-g1/s3/execution-report.md; /tmp/wa-run00601-records-shootout-g1/s4/execution-report.md
+    baseline_historical_wall_sec: 245.50269995402778
+    baseline_same_command_wall_sec: 264.6675903960131
+    strategy_1:
+      commits:
+      - 1146d14656444a590140af93b001d0e4a65420cf
+      - 064a9a68605c6a44fc314c238ae5b46519ddeba8
+      wall_median_sec: 183.1413427350344
+      wall_range_over_median_pct: 25.637022
+      incremental_rss_median_bytes: 11418800128
+      hashes: exact
+      report: /tmp/wa-run00601-records-shootout-g1/s1/execution-report.md
+    strategy_3:
+      commit: f16e321d70c422a3ad4b6886c7f76e3625707baa
+      wall_median_sec: 205.9457362240646
+      wall_range_over_median_pct: 5.468436
+      incremental_rss_median_bytes: 11878846464
+      hashes: exact
+      report: /tmp/wa-run00601-records-shootout-g1/s3/execution-report.md
+    strategy_4:
+      commit: 30327b8f23b503287c619d7c6600c664c7a373fe
+      wall_median_sec: 229.31391991197597
+      wall_range_over_median_pct: 15.09397
+      incremental_rss_median_bytes: 13185548288
+      hashes: exact
+      report: /tmp/wa-run00601-records-shootout-g1/s4/execution-report.md
+  review:
+    decision: rework_required
+    integration_approved: false
+    recommended_strategy: strategy_1_controlled_retest_only
+    strategy_1: fail_wall_stability
+    strategy_3: fail_historical_speed_gate_and_commit_provenance
+    strategy_4: fail_speed_rss_stability_and_commit_provenance
+    exact_hashes: pass_all_candidates
+    reviewer_core_tests:
+      strategy_1: 43 passed
+      strategy_3: 45 passed
+      strategy_4: 42 passed
+    report: /tmp/wa-run00601-records-shootout-g1/reviewer/final-review-report.md
+    residual_risks:
+    - historical and same-command baseline scopes differ
+    - same-command baseline has one repetition
+    - strategy 1 wall range exceeds ten percent
+    - strategy 3 and strategy 4 runtime provenance is not three clean commit-bound
+      runs
   approval:
     evidence:
     - User explicitly requested the three strategy implementations, Luna Max agents,
