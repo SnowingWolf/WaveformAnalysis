@@ -187,7 +187,7 @@ class V1725Reader(FormatReader):
         )  # 16MB buffer (was 256KB)
 
     def _read_events_batch(
-        self, f, board_id: int, max_events: int = 1000
+        self, f, board_id: int, max_events: int | None = None
     ) -> list[V1725Wave] | None:
         """
         批量读取事件数据，使用向量化解析减少 Python 循环开销。
@@ -195,12 +195,12 @@ class V1725Reader(FormatReader):
         Args:
             f: 文件对象
             board_id: 板卡 ID
-            max_events: 最多读取的事件数
+            max_events: 最多读取的事件数；None 表示完整消费当前读取窗口
 
         Returns:
             V1725Wave 对象列表，如果到达文件末尾则返回 None
         """
-        if max_events <= 0:
+        if max_events is not None and max_events <= 0:
             raise ValueError("max_events must be positive")
 
         read_size = max(self._buffer_size, 16)
@@ -212,13 +212,14 @@ class V1725Reader(FormatReader):
                 return None
 
             data = np.frombuffer(buffer, dtype=np.uint8)
+            window_event_limit = max_events if max_events is not None else len(data) // 16 + 1
             (
                 offset,
                 events_read,
                 channel_headers_list,
                 channel_info_list,
                 incomplete_event,
-            ) = _scan_event_batch(data, max_events)
+            ) = _scan_event_batch(data, window_event_limit)
 
             # An event larger than the initial window is reread from its header
             # with enough room. Complete events are returned before retrying a
@@ -362,7 +363,9 @@ class V1725Reader(FormatReader):
 
             with path.open(mode="rb") as f:
                 while True:
-                    batch = self._read_events_batch(f, board_id, max_events=1000)
+                    # Consume the whole window so the next read resumes at its
+                    # end instead of rereading bytes after an arbitrary event cap.
+                    batch = self._read_events_batch(f, board_id)
                     if batch is None:
                         break
                     yield from batch

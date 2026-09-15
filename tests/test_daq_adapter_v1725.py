@@ -104,6 +104,73 @@ class TestV1725Reader:
             assert w_opt.trunc == w_leg.trunc
             np.testing.assert_array_equal(w_opt.waveform, w_leg.waveform)
 
+    def test_iter_waves_consumes_read_window_without_1000_event_rewind(
+        self, tmp_path: Path, monkeypatch
+    ):
+        raw = tmp_path / "test_raw_b0_seg0.bin"
+        event_count = 2_500
+        events = [
+            make_v1725_single_wave_blob(
+                channel=0,
+                timestamp=i,
+                samples=np.array([i, -i], dtype=np.int16),
+            )
+            for i in range(event_count)
+        ]
+        raw_bytes = b"".join(events)
+        raw.write_bytes(raw_bytes)
+
+        original_open = Path.open
+        opened_readers = []
+
+        class CountingReader:
+            def __init__(self, path: Path, file_obj):
+                self.path = path
+                self.file_obj = file_obj
+                self.bytes_read = 0
+
+            def __enter__(self):
+                self.file_obj.__enter__()
+                return self
+
+            def __exit__(self, exc_type, exc_value, traceback):
+                return self.file_obj.__exit__(exc_type, exc_value, traceback)
+
+            def read(self, size=-1):
+                data = self.file_obj.read(size)
+                self.bytes_read += len(data)
+                return data
+
+            def tell(self):
+                return self.file_obj.tell()
+
+            def seek(self, offset, whence=0):
+                return self.file_obj.seek(offset, whence)
+
+        def counted_open(path, *args, **kwargs):
+            reader = CountingReader(path, original_open(path, *args, **kwargs))
+            opened_readers.append(reader)
+            return reader
+
+        monkeypatch.setattr(Path, "open", counted_open)
+        waves = list(V1725Reader(buffer_size=64 * 1024).iter_waves([raw]))
+
+        assert len(waves) == event_count
+        np.testing.assert_array_equal(
+            np.fromiter((wave.timestamp for wave in waves), dtype=np.uint64),
+            np.arange(event_count, dtype=np.uint64),
+        )
+        assert sum(reader.bytes_read for reader in opened_readers if reader.path == raw) == len(
+            raw_bytes
+        )
+
+    def test_empty_file_yields_no_waves_or_batches(self, tmp_path: Path):
+        raw = tmp_path / "empty_raw_b0_seg0.bin"
+        raw.touch()
+
+        assert list(V1725Reader().iter_waves([raw])) == []
+        assert list(V1725Reader().iter_waves_batched([raw], batch_size=10)) == []
+
     def test_optimized_reader_preserves_multi_channel_events_across_buffer_boundaries(
         self, tmp_path: Path
     ):
