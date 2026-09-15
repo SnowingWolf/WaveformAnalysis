@@ -4,7 +4,7 @@ metadata:
   id: run00601-records-buffer-8m
   generation: 2
   created_at: '2026-09-15T05:03:13Z'
-  updated_at: '2026-09-15T05:56:03Z'
+  updated_at: '2026-09-15T05:58:07Z'
 spec:
   goal: Make the bounded records/wave_pool disk-copy buffer 8 MiB by default while preserving exact outputs, cache-lineage correctness, and memory safety.
   route: modify_plugin
@@ -63,7 +63,7 @@ spec:
     parallel_scope: none
     max_rework_rounds: 2
 status:
-  state: reviewing
+  state: completed
   transitions:
   - from: created
     to: planning
@@ -126,6 +126,11 @@ status:
     at: '2026-09-15T05:55:29Z'
     actor: records_buffer8_executor
     condition: task_artifact_lifecycle_and_execution_evidence_corrected
+  - from: reviewing
+    to: completed
+    at: '2026-09-15T05:58:07Z'
+    actor: records_buffer8_reviewer
+    condition: all_blocking_gates_pass
   execution:
     task_id: run00601-records-buffer-8m
     candidate_commit: 2f776b8b70f5ab84f318cda148904c7119bfafee
@@ -302,8 +307,11 @@ status:
       - yaml_parse
       - render_agent_docs_write_check
       - doc_sync
-    final_decision: pending
-    completion_allowed: false
+    final_decision: pass
+    reviewer: records_buffer8_reviewer
+    reviewed_head: 4653bf7a558cd3380b4ea21a45e1638effaa55f2
+    integration_approved: true
+    completion_allowed: true
     blocking_findings: []
     non_blocking_findings: []
     gate_results:
@@ -311,5 +319,17 @@ status:
       render_agent_docs_write: PASS
       render_agent_docs_check: PASS
       doc_sync: PASS
-  approval: {}
-  handoff: {}
+      core_implementation_and_lineage: PASS
+      run00601_exact_output_and_rss: PASS
+  approval:
+    design_approved_by_user: true
+    integration_approved_by_reviewer: true
+  handoff:
+    commit_status: committed
+    commits:
+    - 2f776b8b70f5ab84f318cda148904c7119bfafee
+    - 96ccdc94db17f7efc2cce281d82282680f93e180
+    - 134f2e9dd1d9f947957340b622cef44647b0a7b5
+    - 4653bf7a558cd3380b4ea21a45e1638effaa55f2
+    integration_status: approved_pending_cherry_pick
+    evidence_root: /mnt/data/wa-run00601-records-buffer-8m

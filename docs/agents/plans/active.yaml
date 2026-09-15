@@ -75,7 +75,7 @@ active_plans:
   task_file: docs/agents/runs/current/run00601-full-chain-performance/task.yaml
   legacy_plan: docs/agents/runs/current/run00601-full-chain-performance/legacy-plan.md
 - task_id: run00601-records-buffer-8m
-  state: reviewing
+  state: completed
   route: modify_plugin
   workflow_cost: strict
   workflow_shape: staged
