@@ -4,7 +4,7 @@ metadata:
   id: run00601-records-buffer-8m
   generation: 1
   created_at: '2026-09-15T05:03:13Z'
-  updated_at: '2026-09-15T05:32:06Z'
+  updated_at: '2026-09-15T05:47:30Z'
 spec:
   goal: Make the bounded records/wave_pool disk-copy buffer 8 MiB by default while preserving exact outputs, cache-lineage correctness, and memory safety.
   route: modify_plugin
@@ -28,6 +28,9 @@ spec:
     - docs/plugins/reference
     - docs/site-next
     - docs/agents/runs/current/run00601-records-buffer-8m/task.yaml
+    - docs/agents/plans/INDEX.md
+    - docs/agents/plans/active.yaml
+    - CHANGELOG.md
   acceptance_criteria:
   - The production bounded wave_pool copy/read buffer is exactly 8 MiB, with no new public configuration option.
   - RecordsPlugin and WavePoolPlugin lineage versions are 0.15.2 and all manifests, site-model fixtures, generated references, and assertions agree.
@@ -81,13 +84,105 @@ status:
     at: '2026-09-15T05:32:06Z'
     actor: records_buffer8_executor
     condition: scoped_commit_and_execution_evidence_ready
+  - from: reviewing
+    to: rework_required
+    at: '2026-09-15T05:38:55Z'
+    actor: records_buffer8_reviewer
+    condition: generated_plan_views_and_release_changelog_missing
+  - from: rework_required
+    to: executing
+    at: '2026-09-15T05:38:55Z'
+    actor: root
+    scope_changed: true
+    condition: scope_expanded_to_required_generated_views_and_changelog
+  - from: executing
+    to: reviewing
+    at: '2026-09-15T05:42:10Z'
+    actor: records_buffer8_executor
+    condition: rework_docs_updated_and_required_gates_passed
   execution:
     candidate_commit: 2f776b8b70f5ab84f318cda148904c7119bfafee
+    workflow_cost: strict
+    workflow_shape: staged
+    changed_paths:
+    - CHANGELOG.md
+    - docs/agents/plans/INDEX.md
+    - docs/agents/plans/active.yaml
+    - docs/agents/runs/current/run00601-records-buffer-8m/task.yaml
+    - docs/plugins/reference/agent/INDEX.md
+    - docs/plugins/reference/agent/records.md
+    - docs/plugins/reference/agent/wave_pool.md
+    - docs/plugins/reference/builtin/auto/INDEX.md
+    - docs/plugins/reference/builtin/auto/records.md
+    - docs/plugins/reference/builtin/auto/wave_pool.md
+    - docs/site-next/fixture/site-model.v1.json
+    - docs/site-next/lib/site-model.test.ts
+    - docs/site-next/lib/site-model.ts
+    - tests/test_records_sorting.py
+    - tests/test_site_model.py
+    - waveform_analysis/core/plugins/builtin/records/_compute.py
+    - waveform_analysis/core/plugins/builtin/records/manifest.yaml
+    - waveform_analysis/core/plugins/builtin/records/plugin.py
+    - waveform_analysis/core/plugins/builtin/wave_pool/manifest.yaml
+    - waveform_analysis/core/plugins/builtin/wave_pool/plugin.py
+    - waveform_analysis/core/processing/records_builder.py
+    - waveform_analysis/documentation/site_model.py
     implementation:
       buffer_bytes: 8388608
       records_version: 0.15.2
       wave_pool_version: 0.15.2
       public_config_added: false
+    commands_run:
+    - command: pytest -q --no-cov tests/test_records_sorting.py
+      result: 'PASS: 36/36'
+    - command: pytest -q --no-cov tests/plugins/test_plugin_auto_config_records.py tests/plugins/test_records_plugin_dependencies.py
+      result: 'PASS: 19/19'
+    - command: pytest -q --no-cov tests/test_site_model.py -k 'not public_guide_baseline_tracks_source_and_typed_content_independently'
+      result: 'PASS: 16 passed, 1 deselected'
+    - command: pytest -q --no-cov tests/test_records_sorting.py tests/test_site_model.py
+      result: 'KNOWN BASELINE FAILURE: 52 passed, 1 failed on the unchanged public-guide source digest baseline'
+    - command: npm --prefix docs/site-next test
+      result: 'PASS: 4 files, 22 tests'
+    - command: npm --prefix docs/site-next run check
+      result: 'PASS: TypeScript typecheck'
+    - command: /home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m waveform_analysis.documentation.cli generate plugins-auto -o docs/plugins/reference/builtin/auto/
+      result: 'PASS: generated auto plugin references'
+    - command: /home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m waveform_analysis.documentation.cli generate plugins-agent -o docs/plugins/reference/agent/
+      result: 'PASS: generated agent plugin references'
+    - command: /home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/render_agent_docs.py --write
+      result: 'PASS: regenerated plan index and active plan view from task.yaml'
+    - command: /home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/render_agent_docs.py --check
+      result: 'PASS: no generated plan-view drift'
+    - command: WAVEFORM_PYTHON=/home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/check_doc_sync.sh --base b0cb0a927cc37906c0f6f7a895d1c78ccbca0230
+      result: 'PASS: manifest and repository doc-sync checks'
+    - command: /home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/check_doc_anchors.py --check-sync --base b0cb0a927cc37906c0f6f7a895d1c78ccbca0230
+      result: 'PASS: 29 anchors, 0 errors, 0 warnings'
+    - command: /home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/assess_change_impact.py --base b0cb0a927cc37906c0f6f7a895d1c78ccbca0230
+      result: 'PASS: one plugin-class version change, low lineage risk'
+    - command: /home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/schema_compat_check.py --base b0cb0a927cc37906c0f6f7a895d1c78ccbca0230 --run-smoke
+      result: 'PASS: no dtype changes; smoke chain passed'
+    - command: /home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/performance_regression_check.py --base b0cb0a927cc37906c0f6f7a895d1c78ccbca0230
+      result: 'PASS: independently run by root; base-worktree fallback and CSV pickle warning noted'
+    - command: WAVEFORM_PYTHON=/home/wxy/anaconda3/envs/pyroot-kernel/bin/python timeout 180s /home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/release_artifact_sync.py --base b0cb0a927cc37906c0f6f7a895d1c78ccbca0230 --skip-tests --skip-perf
+      result: 'PASS: version changelog, generated docs, and doc-sync/anchors; tests/perf skipped and validated separately'
+    - command: >-
+        env TMPDIR=/mnt/data/wa-run00601-records-buffer-8m/representative-2raw-8m-1/scratch
+        NUMBA_CACHE_DIR=/mnt/data/wa-run00601-records-buffer-8m/representative-2raw-8m-1/numba
+        MPLCONFIGDIR=/mnt/data/wa-run00601-records-buffer-8m/representative-2raw-8m-1/mplconfig
+        flock -n /mnt/data/wa-run00601-records-shootout-g1/benchmark-run00601.lock
+        /home/wxy/anaconda3/envs/pyroot-kernel/bin/python
+        /mnt/data/wa-run00601-records-shootout-g1/s1-rework2/evidence/records_io_benchmark.py
+        --repo /tmp/wa-records-buffer-8m-00601 --raw-root /mnt/data/TPC/run7_Xe --run-id 00601
+        --storage-root /mnt/data/wa-run00601-records-buffer-8m
+        --storage-dir /mnt/data/wa-run00601-records-buffer-8m/representative-2raw-8m-1/storage
+        --scratch-dir /mnt/data/wa-run00601-records-buffer-8m/representative-2raw-8m-1/scratch
+        --numba-cache-dir /mnt/data/wa-run00601-records-buffer-8m/representative-2raw-8m-1/numba
+        --json-out /mnt/data/wa-run00601-records-buffer-8m/representative-2raw-8m-1/evidence.json
+        --v1725-part-size 20000 --n-jobs 16
+        --raw-file /mnt/data/TPC/run7_Xe/00601/RAW/run7_Xe_20260908_061836_00601_raw_b0_seg0.bin
+        --raw-file /mnt/data/TPC/run7_Xe/00601/RAW/run7_Xe_20260908_061836_00601_raw_b0_seg1.bin
+      result: 'PASS: one real-data 8 MiB representative run; full command and environment retained with evidence.json and run.log'
+    scope_changed: true
     tests:
       records_sorting: 36/36_pass
       records_auto_config_and_dependencies: 19/19_pass
@@ -99,10 +194,12 @@ status:
       plugin_docs: pass
       assess_change_impact: pass
       schema_compat_check_smoke: pass
-      doc_anchors: pass
       performance_regression_check: pass_with_base_worktree_fallback
-      doc_sync: fail_existing_agent_plan_views_stale
-      release_artifact_sync: fail_existing_agent_plan_views_and_changelog_scope
+      render_agent_docs_check: pass
+      agent_plan_views: regenerated_and_in_sync
+      doc_sync: pass
+      doc_anchors: pass
+      release_artifact_sync: pass_tests_and_perf_skipped_after_independent_validation
     representative_benchmark:
       sample: run00601_first_two_raw_segments
       evidence: /mnt/data/wa-run00601-records-buffer-8m/representative-2raw-8m-1/evidence.json
@@ -118,6 +215,14 @@ status:
       wave_pool_sha256: e168e71540688533bf15081ae453c4b2fdb6a70996f3ca865689674535760516
       exact_match_to_historical_16m: true
       production_cache_accessed: false
+    open_risks:
+    - The 8 MiB benchmark is a single two-RAW sample on NFS; the timing difference versus historical 16 MiB evidence is diagnostic only and is not attributed to buffer size.
+    - One unchanged Python site-model test fails because the public-guide source digest differs from docs/site-content-baseline.json; scoped site-model tests pass.
+    - release_artifact_sync skipped tests and performance by request; those gates were run independently, with performance using a base-worktree fallback.
+    requested_review_focus:
+    - Verify the 8 MiB copy bound, absence of a public option, and synchronized 0.15.2 lineage across manifests, generated plugin docs, Python/TS site model, and fixture.
+    - Verify records and wave_pool output hashes, dtype, shape, ordering and process-tree RSS evidence; ensure the single NFS timing sample is not overstated.
+    - Verify the four-file documentation/task follow-up is scoped and all required doc and release gates are accurately recorded.
   review: {}
   approval: {}
   handoff: {}
