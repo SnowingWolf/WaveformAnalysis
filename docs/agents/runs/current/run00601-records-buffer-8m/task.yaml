@@ -4,7 +4,7 @@ metadata:
   id: run00601-records-buffer-8m
   generation: 2
   created_at: '2026-09-15T05:03:13Z'
-  updated_at: '2026-09-15T05:58:07Z'
+  updated_at: '2026-09-15T06:01:25Z'
 spec:
   goal: Make the bounded records/wave_pool disk-copy buffer 8 MiB by default while preserving exact outputs, cache-lineage correctness, and memory safety.
   route: modify_plugin
@@ -331,5 +331,12 @@ status:
     - 96ccdc94db17f7efc2cce281d82282680f93e180
     - 134f2e9dd1d9f947957340b622cef44647b0a7b5
     - 4653bf7a558cd3380b4ea21a45e1638effaa55f2
-    integration_status: approved_pending_cherry_pick
+    integration_status: integrated_into_develop
+    integration_base: 1e4d28217d72ab23fe8bfd111b9d3dc3d985f65d
+    integration_commits:
+    - f46f1c6
+    - f637dea
+    - 649283a
+    - cf4381b
+    - b7f274e
     evidence_root: /mnt/data/wa-run00601-records-buffer-8m
