@@ -11,6 +11,7 @@ from tests.daq_adapter_helpers import make_v1725_single_wave_blob
 from waveform_analysis.core.foundation.utils import Profiler
 from waveform_analysis.core.processing.dtypes import create_record_dtype
 from waveform_analysis.core.processing.records_builder import (
+    _WAVE_POOL_COPY_CHUNK_BYTES,
     RECORDS_DTYPE,
     RecordsBundle,
     RecordsBundleRef,
@@ -194,6 +195,91 @@ def test_wave_pool_concat_copies_exact_raw_bytes_in_part_order(tmp_path: Path):
     assert output.stat().st_size == sum(part.n_samples for part in parts) * 2
     loaded = np.memmap(output, dtype=np.uint16, mode="r", shape=(5,))
     np.testing.assert_array_equal(loaded, np.array([0, 1, 65535, 7, 8], dtype=np.uint16))
+    loaded._mmap.close()
+
+
+def test_wave_pool_concat_uses_8mib_bounded_io_and_preserves_exact_bytes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    chunk_bytes = 8 * 1024 * 1024
+    assert _WAVE_POOL_COPY_CHUNK_BYTES == chunk_bytes
+
+    wave_pool_path = tmp_path / "wave_pool_part.dat"
+    payload = bytes(range(256)) * (chunk_bytes // 256) + bytes(range(34))
+    wave_pool_path.write_bytes(payload)
+    part = _RecordsPartRef(
+        records_path=tmp_path / "records_part.dat",
+        wave_pool_path=wave_pool_path,
+        n_records=0,
+        n_samples=len(payload) // np.dtype(np.uint16).itemsize,
+    )
+
+    output_dir = tmp_path / "merged"
+    temporary_output = output_dir / ".wave_pool_merged_0.dat.tmp"
+    input_buffer_sizes = []
+    output_buffer_sizes = []
+    read_sizes = []
+    write_sizes = []
+    original_open = Path.open
+
+    class _TrackedInput:
+        def __init__(self, stream):
+            self.stream = stream
+
+        def __enter__(self):
+            self.stream.__enter__()
+            return self
+
+        def __exit__(self, *args):
+            return self.stream.__exit__(*args)
+
+        def read(self, size):
+            read_sizes.append(size)
+            return self.stream.read(size)
+
+    class _TrackedOutput:
+        def __init__(self, stream):
+            self.stream = stream
+
+        def __enter__(self):
+            self.stream.__enter__()
+            return self
+
+        def __exit__(self, *args):
+            return self.stream.__exit__(*args)
+
+        def write(self, data):
+            write_sizes.append(len(data))
+            return self.stream.write(data)
+
+        def flush(self):
+            return self.stream.flush()
+
+    def _tracked_open(path, *args, **kwargs):
+        stream = original_open(path, *args, **kwargs)
+        buffering = kwargs.get("buffering", args[1] if len(args) > 1 else -1)
+        if path == wave_pool_path:
+            input_buffer_sizes.append(buffering)
+            return _TrackedInput(stream)
+        if path == temporary_output:
+            output_buffer_sizes.append(buffering)
+            return _TrackedOutput(stream)
+        return stream
+
+    monkeypatch.setattr(Path, "open", _tracked_open)
+
+    output = _concat_wave_pool_part_refs_to_disk([part], output_dir)
+
+    assert output == output_dir / "wave_pool_merged_0.dat"
+    assert input_buffer_sizes == [chunk_bytes]
+    assert output_buffer_sizes == [chunk_bytes]
+    assert read_sizes == [chunk_bytes, len(payload) - chunk_bytes]
+    assert write_sizes == read_sizes
+    assert output.stat().st_size == len(payload)
+    assert output.read_bytes() == payload
+    loaded = np.memmap(output, dtype=np.uint16, mode="r", shape=(len(payload) // 2,))
+    assert loaded.dtype == np.dtype(np.uint16)
+    np.testing.assert_array_equal(loaded, np.frombuffer(payload, dtype=np.uint16))
     loaded._mmap.close()
 
 

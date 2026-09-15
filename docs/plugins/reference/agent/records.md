@@ -5,7 +5,7 @@ profile: "agent"
 provides: "records"
 plugin_class: "RecordsPlugin"
 module: "waveform_analysis.core.plugins.builtin.records.plugin"
-version: "0.15.1"
+version: "0.15.2"
 summary: "Build records (event index table) from the shared internal records bundle."
 depends_on: []
 declared_depends_on: []
@@ -17,7 +17,7 @@ output_kind: "structured_array"
 execution_kind: "static"
 narrative_source: "source"
 narrative_source_reason: null
-source_fingerprint: "d80ab203b4e418f5c1758db8fdaeeab84da6648d5fd5726721922fa200940240"
+source_fingerprint: "76b3e9a8abf2803683c45e6e8c7396758d7c56865224102e121826746aa9804b"
 generated: true
 ---
 # records
@@ -36,7 +36,7 @@ records 是绝大多数 records-backed 产物的源头：波形池的切片访�
 | Provides | `records` |
 | Plugin Class | `RecordsPlugin` |
 | Module | `waveform_analysis.core.plugins.builtin.records.plugin` |
-| Version | `0.15.1` |
+| Version | `0.15.2` |
 | Category | 记录处理 |
 | Output Container | `structured_array` |
 | Execution Mode | `static` |
@@ -45,7 +45,7 @@ records 是绝大多数 records-backed 产物的源头：波形池的切片访�
 | Timeout | `none` |
 | Side Effect | no |
 | Narrative Source | `source` |
-| Source Fingerprint | `d80ab203b4e418f5c1758db8fdaeeab84da6648d5fd5726721922fa200940240` |
+| Source Fingerprint | `76b3e9a8abf2803683c45e6e8c7396758d7c56865224102e121826746aa9804b` |
 
 ### Dependencies
 
@@ -119,7 +119,7 @@ result = ctx.get_data("run_001", "records")
 ### Behavior
 
 - V1725 disk builds validate merged counts, file sizes and wave bounds before reclaiming owned input shards and records-only batches; final files remain readable until bundle cleanup.
-- V1725 disk merges concatenate validated wave_pool bytes in bounded 16 MiB chunks; the raw uint16 order and exact output size are preserved without a second memmap assignment.
+- V1725 disk merges concatenate validated wave_pool bytes in bounded 8 MiB chunks; the raw uint16 order and exact output size are preserved without a second memmap assignment.
 - The plugin never re-parses raw waveforms itself; it only materializes the record metadata view from the shared bundle.
 - Single-part `RecordsBundleRef` returns a memmap over `records_path` (zero-copy); multi-part falls back to a merged metadata-only view.
 - `wave_offset` + `event_length` references into the `wave_pool` array (uint16), so `records` and `wave_pool` must stay index-consistent.
