@@ -1,0 +1,194 @@
+api_version: waveform-analysis/agent-task/v1
+kind: AgentTask
+metadata:
+  id: hit-merged-profiler-run00600
+  generation: 1
+  created_at: '2026-09-14T17:00:00+08:00'
+  updated_at: '2026-09-14T17:33:39+08:00'
+spec:
+  goal: Add observability-only hit_merged phase timers and use Run 00600 to locate the hotspot.
+  route: modify_plugin
+  workflow_cost: standard
+  workflow_shape: staged
+  risk_level: medium
+  scope:
+    base_sha: d633584dbaa2651d416c35069eae45eadaac7b93
+    worktree: /tmp/wa-hit-profiler-00600
+    branch: codex/hit-profiler-00600
+    dataset: /mnt/data/TPC/run7_Xe/00600
+    cache_policy: fresh_task_local_only
+    allowed_paths:
+    - waveform_analysis/core/plugins/builtin/hit_merged/_compute.py
+    - waveform_analysis/core/plugins/builtin/hit_merged/plugin.py
+    - waveform_analysis/core/plugins/builtin/hit_merged/tests/test_hit_merged.py
+    - waveform_analysis/documentation/agent_docs/hit_merged.yaml
+    - docs/plugins/reference/agent/hit_merged.md
+    - docs/agents/runs/current/hit-merged-profiler-run00600/task.yaml
+    - docs/agents/plans/INDEX.md
+    - docs/agents/plans/active.yaml
+  scope_out:
+  - Algorithm, sorting, dtype, output order, plugin version, lineage, and cache-key changes.
+  - Records implementation or benchmark changes.
+  acceptance_criteria:
+  - The five hit_merged phase timers and existing context.save_cache timer are reported.
+  - Timed and untimed outputs have identical dtype, shape, values, and row order.
+  - Run 00600 is measured once with a fresh task-local cache and target-worktree imports.
+  required_gates:
+  - targeted_tests
+  - plugin_docs_no_diff
+  - assess_change_impact
+  - schema_compat_check
+  - doc_sync
+  - doc_anchors
+  assignment:
+    planner_role: planner
+    executor_role: executor.plugin
+    reviewer_role: reviewer
+  change_level: L1-observability-only
+  contract_impact: none
+  version_action: unchanged_to_preserve_lineage
+  execution_backend:
+    backend: numpy_and_numba_serial
+    parallel_scope: none_added
+    benchmark_required: true
+status:
+  state: completed
+  transitions:
+  - from: created
+    to: planning
+    at: '2026-09-14T17:00:00+08:00'
+    actor: planner
+  - from: planning
+    to: ready_for_execution
+    at: '2026-09-14T17:00:00+08:00'
+    actor: planner
+    condition: plan_brief_ready
+  - from: ready_for_execution
+    to: executing
+    at: '2026-09-14T17:00:00+08:00'
+    actor: root-executor
+    condition: executor_assigned
+  - from: executing
+    to: reviewing
+    at: '2026-09-14T17:27:42+08:00'
+    actor: root-executor
+    condition: execution_report_ready
+  - from: reviewing
+    to: rework_required
+    at: '2026-09-14T17:32:38+08:00'
+    actor: profiler-reviewer
+    condition: task_scope_record_incomplete
+  - from: rework_required
+    to: executing
+    at: '2026-09-14T17:32:38+08:00'
+    actor: root-executor
+    condition: scope_unchanged
+  - from: executing
+    to: reviewing
+    at: '2026-09-14T17:32:38+08:00'
+    actor: root-executor
+    condition: task_scope_record_fixed_and_light_gates_passed
+  - from: reviewing
+    to: completed
+    at: '2026-09-14T17:33:39+08:00'
+    actor: profiler-reviewer
+    condition: all_blocking_gates_pass
+  execution:
+    changed_paths:
+    - waveform_analysis/core/plugins/builtin/hit_merged/_compute.py
+    - waveform_analysis/core/plugins/builtin/hit_merged/plugin.py
+    - waveform_analysis/core/plugins/builtin/hit_merged/tests/test_hit_merged.py
+    - waveform_analysis/documentation/agent_docs/hit_merged.yaml
+    - docs/plugins/reference/agent/hit_merged.md
+    - docs/agents/runs/current/hit-merged-profiler-run00600/task.yaml
+    - docs/agents/plans/INDEX.md
+    - docs/agents/plans/active.yaml
+    actions_taken:
+    - Added five optional Context profiler phase timers without changing computation.
+    - Reused the existing context.save_cache timer.
+    - Ran Run 00600 against a fresh task-local target cache seeded only with a read-only hit_threshold symlink.
+    - Compared the complete output binary against the existing same-lineage result.
+    benchmark:
+      source_module: /tmp/wa-hit-profiler-00600/waveform_analysis/__init__.py
+      task_cache: /tmp/wa-hit-profile-00600-task
+      run_id: '00600'
+      threshold_key: 00600-hit_threshold-943ee86e
+      merged_key: 00600-hit_merged-e86ed5fb
+      threshold_rows: 129376974
+      output_rows: 45334412
+      wall_sec: 348.542373
+      plugin_compute_sec: 345.035458
+      context_save_cache_sec: 3.482258
+      phase_durations_sec:
+        hit_merged.group_hardware_channels: 251.321210
+        hit_merged.per_channel_mergesort: 0.934275
+        hit_merged.cluster_scan: 0.836631
+        hit_merged.cluster_rows_concat: 4.331749
+        hit_merged.merged_materialize: 14.053620
+      phase_counts:
+        hit_merged.group_hardware_channels: 1
+        hit_merged.per_channel_mergesort: 7
+        hit_merged.cluster_scan: 7
+        hit_merged.cluster_rows_concat: 1
+        hit_merged.merged_materialize: 1
+      compute_residual_sec: 73.557974
+      output_sha256: 23167367d281348f06df40a9897fbf400b0c4ef636b0a8237757e29399b90c9d
+      reference_sha256: 23167367d281348f06df40a9897fbf400b0c4ef636b0a8237757e29399b90c9d
+    commands_run:
+    - python -m pytest -q waveform_analysis/core/plugins/builtin/hit_merged/tests/test_hit_merged.py
+    - python scripts/assess_change_impact.py --base HEAD
+    - python scripts/schema_compat_check.py --base HEAD --run-smoke
+    - python -m waveform_analysis.documentation.cli generate plugins-agent --plugin hit_merged
+    - python scripts/render_agent_docs.py --write
+    - python scripts/render_agent_docs.py --check
+    - scripts/check_doc_sync.sh
+    - python scripts/check_doc_anchors.py --check-sync --base HEAD
+    gate_results:
+      targeted_tests: PASS_28
+      formatting: PASS_black_and_ruff
+      plugin_docs: PASS_published_fingerprint_synced
+      assess_change_impact: PASS_no_contract_changes
+      schema_compat_check: PASS_zero_dtype_changes_and_smoke
+      render_agent_docs: PASS
+      doc_sync: PASS
+      doc_anchors: PASS
+      real_output_hash: PASS_exact_match
+    open_risks:
+    - Single-run timings are sensitive to concurrent host I/O and memory pressure.
+    - The 73.56 second compute residual includes enriched-array construction and other unsegmented work.
+    requested_review_focus:
+    - Verify timer boundaries and that profiler state cannot affect output or lineage.
+    - Verify the real-run cache isolation and output hash evidence.
+  review:
+    rounds:
+    - decision: rework_required
+      scope_changed: false
+      blocking_findings:
+      - Generated task indexes were not listed in spec.scope.allowed_paths.
+      required_fixes:
+      - Add docs/agents/plans/INDEX.md and docs/agents/plans/active.yaml to allowed_paths.
+      gates_to_rerun:
+      - render_agent_docs
+      - doc_sync
+      - doc_anchors
+    final_decision: completed
+    completion_allowed: true
+    blocking_findings: []
+    gate_results:
+      code_and_schema: PASS
+      output_hash_and_lineage: PASS
+      docs_after_rework: PASS
+      performance_style: PASS
+    residual_risks:
+    - Run 00600 is a single measurement and absolute timing depends on host load.
+    - The 73.56 second compute residual remains unsegmented.
+    - Shared canonical cluster rows can attribute hit_merged phase keys under a sibling plugin when the sibling triggers them first.
+  approval:
+    granted_by: user
+    constraint: independent_worktree
+  handoff:
+    commit_status: committed
+    implementation_commit: 995b5c971d2204eccd6ecb8a9dd842684caee659
+    branch: codex/hit-profiler-00600
+    worktree: /tmp/wa-hit-profiler-00600
+    merge_to_main: not_performed

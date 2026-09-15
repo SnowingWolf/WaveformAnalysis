@@ -10,7 +10,66 @@ import warnings
 
 import numpy as np
 
+try:
+    from numba import njit
+
+    _NUMBA_AVAILABLE = True
+except ImportError:
+    _NUMBA_AVAILABLE = False
+    njit = None
+
 VALID_POLARITIES = {"positive", "negative"}
+
+# Dense counting is useful for the compact non-negative board/channel ranges
+# produced by DAQ data, but a key span can be much wider than the number of
+# rows.  Keep the temporary count table bounded both absolutely and relative
+# to the input so sparse keys stay on the reference path.
+_DENSE_GROUP_MAX_BUCKETS = 1 << 20
+_DENSE_GROUP_MAX_BUCKETS_PER_ROW = 8
+_DENSE_GROUP_MIN_BUCKETS = 256
+_DENSE_GROUP_MAX_COUNT_BYTES = 8 * 1024 * 1024
+
+
+if _NUMBA_AVAILABLE:
+
+    @njit(cache=True, nogil=True)  # type: ignore[misc]
+    def _stable_dense_order_numba(
+        boards: np.ndarray,
+        channels: np.ndarray,
+        board_min: int,
+        channel_min: int,
+        channel_span: int,
+        bucket_count: int,
+    ) -> np.ndarray:
+        """Return a stable lexicographic order using a serial counting pass.
+
+        ``bucket = (board - board_min) * channel_span + channel - channel_min``
+        is collision-free within the guarded non-negative dense range.  The
+        first pass records bucket starts, and the second pass scatters rows in
+        input order, so equal hardware-channel keys retain their source order.
+        """
+
+        counts = np.zeros(bucket_count, dtype=np.int64)
+        for index in range(len(boards)):
+            bucket = (boards[index] - board_min) * channel_span + (channels[index] - channel_min)
+            counts[bucket] += 1
+
+        offset = 0
+        for bucket in range(bucket_count):
+            count = counts[bucket]
+            counts[bucket] = offset
+            offset += count
+
+        order = np.empty(len(boards), dtype=np.int64)
+        for index in range(len(boards)):
+            bucket = (boards[index] - board_min) * channel_span + (channels[index] - channel_min)
+            position = counts[bucket]
+            order[position] = index
+            counts[bucket] = position + 1
+        return order
+
+else:
+    _stable_dense_order_numba = None
 
 
 @dataclass(frozen=True, order=True, slots=True)
@@ -105,6 +164,48 @@ def unique_hardware_channels(
     return [HardwareChannel(int(item["board"]), int(item["channel"])) for item in unique_keys]
 
 
+def _dense_group_order(
+    boards: np.ndarray,
+    channels: np.ndarray,
+) -> np.ndarray | None:
+    """Return a dense stable order, or ``None`` for the reference fallback."""
+
+    if _stable_dense_order_numba is None:
+        return None
+
+    # Negative values deliberately stay on the structured-key reference path:
+    # the dense representation is reserved for the ordinary non-negative DAQ
+    # key space and this keeps the bucket arithmetic easy to bound.
+    board_min = int(boards.min())
+    channel_min = int(channels.min())
+    if board_min < 0 or channel_min < 0:
+        return None
+
+    board_span = int(boards.max()) - board_min + 1
+    channel_span = int(channels.max()) - channel_min + 1
+    # Calculate in Python integers before passing values to Numba so a large
+    # int32 span cannot wrap while deciding whether a dense table is safe.
+    bucket_count = board_span * channel_span
+    if bucket_count <= 0 or bucket_count > _DENSE_GROUP_MAX_BUCKETS:
+        return None
+    if (
+        bucket_count > _DENSE_GROUP_MIN_BUCKETS
+        and bucket_count > len(boards) * _DENSE_GROUP_MAX_BUCKETS_PER_ROW
+    ):
+        return None
+    if bucket_count * np.dtype(np.int64).itemsize > _DENSE_GROUP_MAX_COUNT_BYTES:
+        return None
+
+    return _stable_dense_order_numba(
+        boards,
+        channels,
+        board_min,
+        channel_min,
+        channel_span,
+        bucket_count,
+    )
+
+
 def group_indices_by_hardware_channel(
     boards: Sequence[int] | np.ndarray,
     channels: Sequence[int] | np.ndarray,
@@ -116,6 +217,30 @@ def group_indices_by_hardware_channel(
 
     boards_arr = np.asarray(boards, dtype=np.int32)
     channels_arr = np.asarray(channels, dtype=np.int32)
+
+    dense_order = _dense_group_order(boards_arr, channels_arr)
+    if dense_order is not None:
+        sorted_boards = boards_arr[dense_order]
+        sorted_channels = channels_arr[dense_order]
+        group_starts = np.flatnonzero(
+            np.r_[
+                True,
+                (sorted_boards[1:] != sorted_boards[:-1])
+                | (sorted_channels[1:] != sorted_channels[:-1]),
+            ]
+        )
+        group_ends = np.r_[group_starts[1:], len(dense_order)]
+
+        groups: dict[HardwareChannel, np.ndarray] = {}
+        for start, end in zip(group_starts, group_ends, strict=False):
+            groups[
+                HardwareChannel(
+                    int(sorted_boards[start]),
+                    int(sorted_channels[start]),
+                )
+            ] = dense_order[start:end]
+        return groups
+
     keys = _channel_keys_from_arrays(boards_arr, channels_arr)
     order = np.argsort(keys, kind="stable")
     sorted_keys = keys[order]

@@ -44,7 +44,7 @@ print(preview)
 | [`hit`](hit.md) | `HitFinderPlugin` | 特征提取 | `records`, `wave_pool` | `structured_array` | `static` | `3.0.0` |
 | [`hit_grouped`](hit_grouped.md) | `HitGroupedPlugin` | 特征提取 | `hit_merged`, `hit_merged_components`, `hit_threshold` | `dataframe` | `static` | `0.5.0` |
 | [`hit_merge_clusters`](hit_merge_clusters.md) | `HitMergeClustersPlugin` | 特征提取 | `hit_merged`, `hit_threshold` | `structured_array` | `static` | `1.2.0` |
-| [`hit_merged`](hit_merged.md) | `HitMergePlugin` | 特征提取 | `hit_threshold` | `structured_array` | `static` | `2.2.0` |
+| [`hit_merged`](hit_merged.md) | `HitMergePlugin` | 特征提取 | `hit_threshold` | `structured_array` | `static` | `2.2.1` |
 | [`hit_merged_components`](hit_merged_components.md) | `HitMergedComponentsPlugin` | 特征提取 | `hit_merged`, `hit_threshold` | `structured_array` | `static` | `1.2.0` |
 | [`hit_merged_features`](hit_merged_features.md) | `HitMergedFeaturesPlugin` | 特征提取 | `hit_merged`, `hit_merged_components`, `hit_threshold`, `records`, `wave_pool` | `structured_array` | `static` | `1.1.3` |
 | [`hit_threshold`](hit_threshold.md) | `ThresholdHitPlugin` | 特征提取 | `records`, `wave_pool`, `records_asymmetry_mask` | `structured_array` | `static` | `1.2.2` |

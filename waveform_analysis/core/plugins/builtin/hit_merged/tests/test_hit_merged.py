@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 
 from tests.utils import DummyContext, FakeContext, make_hit
+from waveform_analysis.core.foundation.utils import Profiler
 from waveform_analysis.core.plugins.builtin.hit.hit_finder import THRESHOLD_HIT_DTYPE
 from waveform_analysis.core.plugins.builtin.hit.hit_merge import (
     HIT_MERGE_CLUSTERS_DTYPE,
@@ -43,6 +44,228 @@ def test_hit_merge_dtype_and_empty():
 
     assert out.dtype == HIT_MERGED_DTYPE
     assert len(out) == 0
+
+
+def test_hit_merge_empty_does_not_build_enriched_arrays(monkeypatch):
+    def fail_if_called(*_args, **_kwargs):
+        raise AssertionError("empty hit input should not build enriched arrays")
+
+    monkeypatch.setattr(hit_merge_compute, "_build_enriched_arrays", fail_if_called)
+    ctx = DummyContext(
+        {"merge_gap_ns": 50.0},
+        {"hit_threshold": np.zeros(0, dtype=THRESHOLD_HIT_DTYPE)},
+    )
+
+    out = HitMergePlugin().compute(ctx, "run_001")
+
+    assert out.shape == (0,)
+    assert out.dtype == HIT_MERGED_DTYPE
+
+
+def test_compute_cluster_rows_empty_preserves_cluster_dtype():
+    rows = hit_merge_compute._compute_cluster_rows(
+        np.zeros(0, dtype=THRESHOLD_HIT_DTYPE),
+        merge_gap_ns=3.0,
+        max_total_width_ns=10_000.0,
+        explicit_dt=2,
+        plugin_name="test_hit_merge",
+    )
+
+    assert rows.shape == (0,)
+    assert rows.dtype == HIT_MERGE_CLUSTERS_DTYPE
+
+
+def test_compute_cluster_rows_preserves_sorted_membership_and_dtype():
+    hits = np.array(
+        [
+            make_hit(
+                position=14,
+                edge_start=13.0,
+                edge_end=16.0,
+                timestamp=108_000,
+                channel=0,
+                record_id=1,
+            ),
+            make_hit(
+                position=10,
+                edge_start=8.0,
+                edge_end=12.0,
+                timestamp=100_000,
+                channel=0,
+                record_id=0,
+            ),
+            make_hit(
+                position=20,
+                edge_start=18.0,
+                edge_end=22.0,
+                timestamp=200_000,
+                channel=0,
+                record_id=2,
+            ),
+        ],
+        dtype=THRESHOLD_HIT_DTYPE,
+    )
+
+    rows = hit_merge_compute._compute_cluster_rows(
+        hits,
+        merge_gap_ns=3.0,
+        max_total_width_ns=10_000.0,
+        explicit_dt=2,
+        plugin_name="test_hit_merge",
+    )
+
+    expected = np.array([(0, 1), (0, 0), (1, 2)], dtype=HIT_MERGE_CLUSTERS_DTYPE)
+    np.testing.assert_array_equal(rows, expected)
+    assert rows.dtype == HIT_MERGE_CLUSTERS_DTYPE
+
+
+def test_hit_merge_reuses_one_global_enriched_array_for_interleaved_channels(monkeypatch):
+    hits = np.array(
+        [
+            make_hit(
+                position=10,
+                edge_start=8,
+                edge_end=12,
+                timestamp=100_000,
+                board=0,
+                channel=1,
+                record_id=0,
+            ),
+            make_hit(
+                position=10,
+                edge_start=8,
+                edge_end=12,
+                timestamp=200_000,
+                board=0,
+                channel=0,
+                record_id=1,
+            ),
+            make_hit(
+                position=14,
+                edge_start=13,
+                edge_end=16,
+                timestamp=108_000,
+                board=0,
+                channel=1,
+                record_id=0,
+            ),
+            make_hit(
+                position=14,
+                edge_start=13,
+                edge_end=16,
+                timestamp=208_000,
+                board=0,
+                channel=0,
+                record_id=1,
+            ),
+        ],
+        dtype=THRESHOLD_HIT_DTYPE,
+    )
+    config = {"merge_gap_ns": 3.0, "max_total_width_ns": 10_000.0, "dt": 2}
+    calls = []
+    original = hit_merge_compute._build_enriched_arrays
+
+    def counted(*args, **kwargs):
+        calls.append(len(args[0]))
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(hit_merge_compute, "_build_enriched_arrays", counted)
+    merge_plugin = HitMergePlugin()
+    ctx = FakeContext(
+        {"hit_merged": config},
+        {"hit_threshold": hits},
+        plugins={"hit_merged": merge_plugin},
+    )
+
+    out = merge_plugin.compute(ctx, "run_001")
+
+    expected = np.zeros(2, dtype=HIT_MERGED_DTYPE)
+    expected["merged_id"] = [0, 1]
+    expected["position"] = [10, 10]
+    expected["time_start"] = [196_000, 96_000]
+    expected["time_end"] = [212_000, 112_000]
+    expected["sample_start"] = [8, 8]
+    expected["sample_end"] = [16, 16]
+    expected["width"] = [8.0, 8.0]
+    expected["dt"] = [2, 2]
+    expected["timestamp"] = [200_000, 100_000]
+    expected["board"] = [0, 0]
+    expected["channel"] = [0, 1]
+    expected["record_id"] = [1, 0]
+    expected["component_offset"] = [0, 2]
+    expected["component_count"] = [2, 2]
+    expected["is_single_record"] = [True, True]
+
+    np.testing.assert_array_equal(out, expected)
+    assert calls == [len(hits)]
+
+    clusters = HitMergeClustersPlugin().compute(ctx, "run_001")
+    expected_clusters = np.array([(0, 1), (0, 3), (1, 0), (1, 2)], dtype=HIT_MERGE_CLUSTERS_DTYPE)
+    np.testing.assert_array_equal(clusters, expected_clusters)
+
+
+def test_hit_merge_profiler_segments_preserve_output_and_order():
+    hits = np.array(
+        [
+            make_hit(
+                position=10,
+                edge_start=8.0,
+                edge_end=12.0,
+                timestamp=100_000,
+                board=0,
+                channel=0,
+                record_id=0,
+            ),
+            make_hit(
+                position=14,
+                edge_start=13.0,
+                edge_end=16.0,
+                timestamp=108_000,
+                board=0,
+                channel=0,
+                record_id=1,
+            ),
+            make_hit(
+                position=20,
+                edge_start=18.0,
+                edge_end=22.0,
+                timestamp=200_000,
+                board=1,
+                channel=0,
+                record_id=2,
+            ),
+            make_hit(
+                position=24,
+                edge_start=23.0,
+                edge_end=26.0,
+                timestamp=208_000,
+                board=1,
+                channel=0,
+                record_id=3,
+            ),
+        ],
+        dtype=THRESHOLD_HIT_DTYPE,
+    )
+    config = {"merge_gap_ns": 3.0, "max_total_width_ns": 10_000.0, "dt": 2}
+    expected = HitMergePlugin().compute(DummyContext(config, {"hit_threshold": hits}), "run_001")
+    profiled_context = DummyContext(config, {"hit_threshold": hits})
+    profiled_context.profiler = Profiler()
+
+    actual = HitMergePlugin().compute(profiled_context, "run_001")
+
+    np.testing.assert_array_equal(actual, expected)
+    assert actual.dtype == expected.dtype == HIT_MERGED_DTYPE
+    assert profiled_context.profiler.counts == {
+        "hit_merged.group_hardware_channels": 1,
+        "hit_merged.per_channel_mergesort": 2,
+        "hit_merged.cluster_scan": 2,
+        "hit_merged.cluster_rows_fill": 2,
+        "hit_merged.cluster_rows_concat": 1,
+        "hit_merged.merged_materialize": 1,
+    }
+    assert all(
+        profiled_context.profiler.durations[key] >= 0.0 for key in profiled_context.profiler.counts
+    )
 
 
 def test_hit_merge_same_channel_across_records_marks_direct_window_invalid():

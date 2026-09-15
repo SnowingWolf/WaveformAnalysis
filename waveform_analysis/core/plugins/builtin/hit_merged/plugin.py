@@ -1,5 +1,6 @@
 """HitMergePlugin 类实现 - 合并临近 hit（同通道，允许跨波形/跨文件）。"""
 
+from contextlib import nullcontext
 from typing import Any
 
 import numpy as np
@@ -8,7 +9,7 @@ from waveform_analysis.core.plugins.builtin.hit_merged._compute import (
     HIT_MERGED_DTYPE,
     _build_enriched_for_hits,
     _build_merged_from_cluster_rows,
-    _compute_canonical_cluster_rows_shared,
+    _compute_canonical_cluster_rows_shared_with_enriched,
     _hits_to_merged_fast,
     _materialize_array,
 )
@@ -23,7 +24,7 @@ class HitMergePlugin(BatchProcessingPlugin):
     provides = "hit_merged"
     depends_on = ["hit_threshold"]
     description = "Merge nearby threshold hits per channel with time-gap and max-width constraints."
-    version = "2.2.0"
+    version = "2.2.1"
     save_when = "always"
     output_dtype = HIT_MERGED_DTYPE
     agent_doc = {
@@ -119,6 +120,7 @@ class HitMergePlugin(BatchProcessingPlugin):
             "Changing anchor-field semantics affects downstream `position`, `timestamp`, `record_id`, and channel aggregation behavior.",
         ],
         "agent_change_notes": [
+            "v2.2.1: Reuses one global enriched hit table across channel grouping and merged materialization; output values, dtype, ordering, and cluster attribution are unchanged.",
             "v2.1.0: Added `merged_id` field as unique identifier equal to row index. This is a backward-compatible addition; downstream plugins auto-adapt via dtype.names checks.",
             "v2.2.0: Canonical cluster membership is shared in the owning Context with hit_merge_clusters and hit_merged_components, guarded by run-id, lineage, and merge configuration; it is not a persisted plugin output.",
             "v2.0.0: Added `time_start`, `time_end`, `is_single_record` fields to support cross-record merging.",
@@ -158,15 +160,30 @@ class HitMergePlugin(BatchProcessingPlugin):
             return np.zeros(0, dtype=HIT_MERGED_DTYPE)
 
         pre_trigger_ps = get_pre_trigger_offset_ps(context)
-        cluster_rows, explicit_dt, merge_disabled = _compute_canonical_cluster_rows_shared(
-            hits, context, self, pre_trigger_ps, run_id
+        cluster_rows, explicit_dt, merge_disabled, enriched = (
+            _compute_canonical_cluster_rows_shared_with_enriched(
+                hits, context, self, pre_trigger_ps, run_id
+            )
         )
 
         if merge_disabled:
             return _hits_to_merged_fast(hits, explicit_dt=explicit_dt, plugin_name=self.provides)
 
-        enriched = _build_enriched_for_hits(
-            hits, explicit_dt=explicit_dt, plugin_name=self.provides, pre_trigger_ps=pre_trigger_ps
-        )
+        if enriched is None:
+            # Canonical membership may already be cached by a sibling output;
+            # build the full enriched table once for this materialization call.
+            enriched = _build_enriched_for_hits(
+                hits,
+                explicit_dt=explicit_dt,
+                plugin_name=self.provides,
+                pre_trigger_ps=pre_trigger_ps,
+            )
 
-        return _build_merged_from_cluster_rows(hits, cluster_rows, enriched)
+        profiler = getattr(context, "profiler", None)
+        timing = (
+            profiler.timeit("hit_merged.merged_materialize")
+            if profiler is not None
+            else nullcontext()
+        )
+        with timing:
+            return _build_merged_from_cluster_rows(hits, cluster_rows, enriched)
