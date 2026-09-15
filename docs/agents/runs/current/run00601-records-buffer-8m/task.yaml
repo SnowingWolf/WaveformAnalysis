@@ -1,0 +1,123 @@
+api_version: waveform-analysis/agent-task/v1
+kind: AgentTask
+metadata:
+  id: run00601-records-buffer-8m
+  generation: 1
+  created_at: '2026-09-15T05:03:13Z'
+  updated_at: '2026-09-15T05:32:06Z'
+spec:
+  goal: Make the bounded records/wave_pool disk-copy buffer 8 MiB by default while preserving exact outputs, cache-lineage correctness, and memory safety.
+  route: modify_plugin
+  workflow_cost: strict
+  workflow_shape: staged
+  risk_level: high
+  scope:
+    base_sha: b0cb0a927cc37906c0f6f7a895d1c78ccbca0230
+    branch: codex/records-wave-buffer-8m
+    worktree: /tmp/wa-records-buffer-8m-00601
+    dataset: /mnt/data/TPC/run7_Xe/00601
+    evidence_root: /mnt/data/wa-run00601-records-buffer-8m
+    production_cache_policy: forbidden
+    benchmark_concurrency_group: benchmark-run00601
+    allowed_paths:
+    - waveform_analysis/core/processing/records_builder.py
+    - waveform_analysis/core/plugins/builtin/records
+    - waveform_analysis/core/plugins/builtin/wave_pool
+    - waveform_analysis/documentation/site_model.py
+    - tests
+    - docs/plugins/reference
+    - docs/site-next
+    - docs/agents/runs/current/run00601-records-buffer-8m/task.yaml
+  acceptance_criteria:
+  - The production bounded wave_pool copy/read buffer is exactly 8 MiB, with no new public configuration option.
+  - RecordsPlugin and WavePoolPlugin lineage versions are 0.15.2 and all manifests, site-model fixtures, generated references, and assertions agree.
+  - Run 00601 representative same-medium validation preserves records and wave_pool dtype, shape, row order, and SHA-256 exactly.
+  - Candidate peak process-tree RSS does not exceed the comparable 16 MiB evidence; performance evidence records NAS/page-cache contamination honestly.
+  - An independent read-only reviewer approves correctness, compatibility, evidence, and commit scope before integration.
+  required_gates:
+  - targeted_records_tests
+  - plugin_docs
+  - assess_change_impact
+  - schema_compat_check
+  - doc_sync
+  - doc_anchors
+  - performance_regression_check
+  - release_artifact_sync
+  assignment:
+    planner: records_buffer8_planner
+    executor: records_buffer8_executor
+    reviewer: pending_independent_luna_max
+  implementation_constraints:
+    model: gpt-5.6-luna
+    reasoning_effort: max
+    independent_worktree: true
+    large_temporary_data_root: /mnt/data
+    tmp_usage: source_worktree_and_small_logs_only
+    no_fastmath_or_dtype_changes: true
+    change_level: L1
+    backend: python
+    performance_reason: IO-bound
+    parallel_scope: none
+    max_rework_rounds: 2
+status:
+  state: reviewing
+  transitions:
+  - from: created
+    to: planning
+    at: '2026-09-15T05:03:13Z'
+    actor: root
+  - from: planning
+    to: ready_for_execution
+    at: '2026-09-15T05:07:00Z'
+    actor: root
+    condition: approved_user_design_recorded
+  - from: ready_for_execution
+    to: executing
+    at: '2026-09-15T05:07:00Z'
+    actor: root
+    condition: independent_worktree_clean
+  - from: executing
+    to: reviewing
+    at: '2026-09-15T05:32:06Z'
+    actor: records_buffer8_executor
+    condition: scoped_commit_and_execution_evidence_ready
+  execution:
+    candidate_commit: 2f776b8b70f5ab84f318cda148904c7119bfafee
+    implementation:
+      buffer_bytes: 8388608
+      records_version: 0.15.2
+      wave_pool_version: 0.15.2
+      public_config_added: false
+    tests:
+      records_sorting: 36/36_pass
+      records_auto_config_and_dependencies: 19/19_pass
+      python_site_model_scoped: 16/16_pass
+      typescript_site_model: 22/22_pass
+      typescript_typecheck: pass
+      known_unrelated_python_site_model_failure: public_guide_source_digest_baseline_stale
+    gates:
+      plugin_docs: pass
+      assess_change_impact: pass
+      schema_compat_check_smoke: pass
+      doc_anchors: pass
+      performance_regression_check: pass_with_base_worktree_fallback
+      doc_sync: fail_existing_agent_plan_views_stale
+      release_artifact_sync: fail_existing_agent_plan_views_and_changelog_scope
+    representative_benchmark:
+      sample: run00601_first_two_raw_segments
+      evidence: /mnt/data/wa-run00601-records-buffer-8m/representative-2raw-8m-1/evidence.json
+      log: /mnt/data/wa-run00601-records-buffer-8m/representative-2raw-8m-1/run.log
+      candidate_wall_sec: 134.9844218438957
+      candidate_peak_process_tree_rss_bytes: 4075180032
+      historical_16m_wall_sec: 378.833
+      historical_16m_peak_process_tree_rss_bytes: 4083867648
+      timing_interpretation: diagnostic_only_due_to_different_date_nas_and_page_cache_state
+      records_shape: [13832245]
+      wave_pool_shape: [913498090]
+      records_sha256: 224fe98f1001362bc711ad72ccbe3dd3b22aa0d51435b3f262773ded2a013cd6
+      wave_pool_sha256: e168e71540688533bf15081ae453c4b2fdb6a70996f3ca865689674535760516
+      exact_match_to_historical_16m: true
+      production_cache_accessed: false
+  review: {}
+  approval: {}
+  handoff: {}
