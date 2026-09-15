@@ -159,6 +159,42 @@ def _one_loc_fast(num: int) -> np.ndarray:
     return bits[mask.astype(bool)]
 
 
+@dataclass(frozen=True)
+class _V1725ArrayBatch:
+    """Primitive V1725 columns plus views into the batch's raw sample bytes.
+
+    Waveform offsets and lengths are measured in samples within
+    ``waveform_samples``.  Keeping the source view alive lets the records
+    builder copy samples after sorting without first constructing one
+    ``V1725Wave`` object per channel.
+    """
+
+    timestamps: np.ndarray
+    boards: np.ndarray
+    channels: np.ndarray
+    baselines: np.ndarray
+    truncs: np.ndarray
+    waveform_offsets: np.ndarray
+    waveform_lengths: np.ndarray
+    waveform_samples: np.ndarray
+
+    def __len__(self) -> int:
+        return len(self.timestamps)
+
+    def slice(self, start: int, stop: int) -> "_V1725ArrayBatch":
+        """Slice metadata rows while retaining their shared source buffer."""
+        return _V1725ArrayBatch(
+            timestamps=self.timestamps[start:stop],
+            boards=self.boards[start:stop],
+            channels=self.channels[start:stop],
+            baselines=self.baselines[start:stop],
+            truncs=self.truncs[start:stop],
+            waveform_offsets=self.waveform_offsets[start:stop],
+            waveform_lengths=self.waveform_lengths[start:stop],
+            waveform_samples=self.waveform_samples,
+        )
+
+
 @export
 @dataclass
 class V1725Wave:
@@ -187,8 +223,13 @@ class V1725Reader(FormatReader):
         )  # 16MB buffer (was 256KB)
 
     def _read_events_batch(
-        self, f, board_id: int, max_events: int | None = None
-    ) -> list[V1725Wave] | None:
+        self,
+        f,
+        board_id: int,
+        max_events: int | None = None,
+        *,
+        as_array_batch: bool = False,
+    ) -> list[V1725Wave] | _V1725ArrayBatch | None:
         """
         批量读取事件数据，使用向量化解析减少 Python 循环开销。
 
@@ -229,23 +270,30 @@ class V1725Reader(FormatReader):
                 read_size = max(read_size * 2, incomplete_event.required_end)
                 continue
 
-            waves = []
+            waves: list[V1725Wave] | _V1725ArrayBatch
             if channel_headers_list:
-                waves.extend(
-                    self._process_channel_batch(
+                if as_array_batch:
+                    waves = self._process_channel_array_batch(
                         channel_headers_list, channel_info_list, data, board_id
                     )
-                )
+                else:
+                    waves = self._process_channel_batch(
+                        channel_headers_list, channel_info_list, data, board_id
+                    )
+            elif as_array_batch:
+                waves = self._process_channel_array_batch([], [], data, board_id)
+            else:
+                waves = []
 
             if incomplete_event is not None and len(buffer) < read_size:
                 logger.warning("Truncated V1725 event at byte offset %d", chunk_start + offset)
             elif offset < len(data):
                 f.seek(chunk_start + offset)
 
-            if waves:
+            if len(waves):
                 return waves
             if events_read:
-                return []
+                return waves if as_array_batch else []
             return None
 
     def _process_channel_batch(
@@ -288,6 +336,48 @@ class V1725Reader(FormatReader):
             )
 
         return waves
+
+    def _process_channel_array_batch(
+        self,
+        channel_headers: list,
+        channel_info: list[tuple[int, int, int]],
+        data: np.ndarray,
+        board_id: int,
+    ) -> _V1725ArrayBatch:
+        """Build primitive metadata arrays without allocating per-wave objects."""
+        headers_array = np.asarray(channel_headers, dtype=np.uint8)
+        _, timestamps, truncs, baselines = _parse_channel_headers_vectorized(headers_array)
+
+        # Convert the scanner's tuple list once into a primitive matrix.  The
+        # reader still scans event boundaries in Python, but avoids extracting
+        # every field from a V1725Wave object on the records fast path.
+        info = np.asarray(channel_info, dtype=np.int64).reshape((-1, 3))
+        if len(info) != len(timestamps):
+            raise ValueError("V1725 channel metadata does not align with channel headers")
+
+        signal_starts = info[:, 1]
+        signal_sizes = info[:, 2]
+        if np.any((signal_starts & 1) != 0) or np.any((signal_sizes & 1) != 0):
+            raise ValueError("V1725 waveform offsets and sizes must be sample-aligned")
+
+        waveform_lengths_64 = signal_sizes // 2
+        if np.any(waveform_lengths_64 > np.iinfo(np.int32).max):
+            raise ValueError("event_length exceeds int32 range")
+
+        sample_bytes = data[: len(data) - (len(data) % 2)]
+        # This signed-then-unsigned view has the same uint16 bit pattern as
+        # _clip_wave_to_uint16(waveform), without a per-wave conversion copy.
+        waveform_samples = sample_bytes.view(np.int16).view(np.uint16)
+        return _V1725ArrayBatch(
+            timestamps=timestamps,
+            boards=np.full(len(timestamps), board_id, dtype=np.int16),
+            channels=info[:, 0].astype(np.int16, copy=False),
+            baselines=baselines,
+            truncs=truncs,
+            waveform_offsets=(signal_starts // 2).astype(np.int64, copy=False),
+            waveform_lengths=waveform_lengths_64.astype(np.int32, copy=False),
+            waveform_samples=waveform_samples,
+        )
 
     @staticmethod
     def _extract_board_from_path(path: Path) -> int:
@@ -363,9 +453,7 @@ class V1725Reader(FormatReader):
 
             with path.open(mode="rb") as f:
                 while True:
-                    # Consume the whole window so the next read resumes at its
-                    # end instead of rereading bytes after an arbitrary event cap.
-                    batch = self._read_events_batch(f, board_id)
+                    batch = self._read_events_batch(f, board_id, max_events=None)
                     if batch is None:
                         break
                     yield from batch
@@ -409,6 +497,9 @@ class V1725Reader(FormatReader):
             ...     # 每次处理 1000 个 wave，而非逐个处理
             ...     process_batch(batch)
         """
+        if batch_size <= 0:
+            raise ValueError("batch_size must be positive")
+
         if self.use_optimized:
             for file_path in file_paths:
                 path = Path(file_path)
@@ -419,10 +510,11 @@ class V1725Reader(FormatReader):
 
                 with path.open(mode="rb") as f:
                     while True:
-                        batch = self._read_events_batch(f, board_id, max_events=batch_size)
+                        batch = self._read_events_batch(f, board_id, max_events=None)
                         if batch is None:
                             break
-                        yield batch
+                        for start in range(0, len(batch), batch_size):
+                            yield batch[start : start + batch_size]
         else:
             # Legacy 路径：收集到 batch_size 后返回
             batch = []
@@ -433,6 +525,36 @@ class V1725Reader(FormatReader):
                     batch = []
             if batch:
                 yield batch
+
+    def _iter_wave_array_batches(
+        self, file_paths: list[str | Path], batch_size: int = 1000
+    ) -> Iterator[_V1725ArrayBatch]:
+        """Internal optimized reader path for records construction."""
+        if batch_size <= 0:
+            raise ValueError("batch_size must be positive")
+        if not self.use_optimized:
+            raise RuntimeError("array batches require the optimized V1725 reader")
+
+        for file_path in file_paths:
+            path = Path(file_path)
+            if not path.exists():
+                logger.warning("File not found: %s", path)
+                continue
+            board_id = self._extract_board_from_path(path)
+
+            with path.open(mode="rb") as f:
+                while True:
+                    batch = self._read_events_batch(
+                        f, board_id, max_events=None, as_array_batch=True
+                    )
+                    if batch is None:
+                        break
+                    # The private reader call guarantees this type in the
+                    # optimized array path; keep a clear guard at the boundary.
+                    if not isinstance(batch, _V1725ArrayBatch):
+                        raise TypeError("V1725 array reader returned an invalid batch")
+                    for start in range(0, len(batch), batch_size):
+                        yield batch.slice(start, start + batch_size)
 
     def iter_waves_mmap(
         self, file_paths: list[str | Path], batch_size: int = 1000

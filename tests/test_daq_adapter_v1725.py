@@ -6,7 +6,13 @@ import time
 import numpy as np
 
 from tests.daq_adapter_helpers import make_v1725_single_wave_blob
-from waveform_analysis.core.processing.records_builder import build_records_from_v1725_files
+from waveform_analysis.core.processing.records_builder import (
+    RECORDS_DTYPE,
+    _build_v1725_records_part_from_array_batches,
+    _build_v1725_records_part_from_waves,
+    _process_v1725_file_to_disk,
+    build_records_from_v1725_files,
+)
 from waveform_analysis.utils.formats import RawTimestampMode, V1725Reader, get_adapter
 from waveform_analysis.utils.formats.v1725_numba import parse_channel_headers_numba
 
@@ -32,6 +38,29 @@ def _make_multi_channel_event(*, event_id: int, channels: int, samples: int) -> 
     return bytes(event_header + payload)
 
 
+def _array_batch_rows(batches):
+    for batch in batches:
+        for idx in range(len(batch)):
+            start = int(batch.waveform_offsets[idx])
+            stop = start + int(batch.waveform_lengths[idx])
+            yield (
+                int(batch.boards[idx]),
+                int(batch.channels[idx]),
+                int(batch.timestamps[idx]),
+                int(batch.baselines[idx]),
+                bool(batch.truncs[idx]),
+                batch.waveform_samples[start:stop],
+            )
+
+
+def _assert_array_batch_rows_match_waves(batches, waves):
+    rows = list(_array_batch_rows(batches))
+    assert len(rows) == len(waves)
+    for row, wave in zip(rows, waves, strict=True):
+        assert row[:5] == (wave.board, wave.channel, wave.timestamp, wave.baseline, wave.trunc)
+        np.testing.assert_array_equal(row[5], wave.waveform.astype(np.uint16))
+
+
 class TestV1725Reader:
     def test_v1725_spec_marks_sample_index_timestamps(self):
         assert get_adapter("v1725").format_spec.raw_timestamp_mode == RawTimestampMode.SAMPLE_INDEX
@@ -47,6 +76,60 @@ class TestV1725Reader:
         assert waves[0].channel == 1
         assert waves[0].timestamp == 77
         assert waves[0].baseline == 555
+
+    def test_internal_array_batches_expose_primitive_columns_and_wave_views(self, tmp_path: Path):
+        raw = tmp_path / "test_raw_b6_seg0.bin"
+        blobs = [
+            make_v1725_single_wave_blob(
+                channel=channel,
+                timestamp=timestamp,
+                baseline=baseline,
+                trunc=trunc,
+                samples=np.array(samples, dtype=np.int16),
+            )
+            for channel, timestamp, baseline, trunc, samples in [
+                (1, 30, 101, False, [1, -2]),
+                (0, 10, 202, True, [-32768, 5, 6, 7]),
+                (3, 20, 303, False, [6, 7, 8, 9, 10, 11]),
+            ]
+        ]
+        raw.write_bytes(b"".join(blobs))
+
+        reader = V1725Reader(buffer_size=48)
+        batches = list(reader._iter_wave_array_batches([raw]))
+        waves = list(reader.iter_waves([raw]))
+
+        assert sum(len(batch) for batch in batches) == len(waves) == 3
+        for batch in batches:
+            assert batch.timestamps.ndim == 1
+            assert batch.boards.dtype == np.int16
+            assert batch.channels.dtype == np.int16
+            assert batch.baselines.dtype == np.uint16
+            assert batch.truncs.dtype == np.bool_
+            assert batch.waveform_offsets.dtype == np.int64
+            assert batch.waveform_lengths.dtype == np.int32
+
+        actual = []
+        for batch in batches:
+            for idx in range(len(batch)):
+                start = int(batch.waveform_offsets[idx])
+                stop = start + int(batch.waveform_lengths[idx])
+                actual.append(
+                    (
+                        int(batch.boards[idx]),
+                        int(batch.channels[idx]),
+                        int(batch.timestamps[idx]),
+                        int(batch.baselines[idx]),
+                        bool(batch.truncs[idx]),
+                        batch.waveform_samples[start:stop],
+                    )
+                )
+
+        assert [row[:5] for row in actual] == [
+            (w.board, w.channel, w.timestamp, w.baseline, w.trunc) for w in waves
+        ]
+        for row, wave in zip(actual, waves, strict=True):
+            np.testing.assert_array_equal(row[5], wave.waveform.astype(np.uint16))
 
     def test_iter_waves_legacy_name_defaults_board_zero(self, tmp_path: Path):
         raw = tmp_path / "CH1_0.bin"
@@ -188,9 +271,11 @@ class TestV1725Reader:
             )
             for wave in batch
         ]
+        array_batches = list(V1725Reader(buffer_size=buffer_size)._iter_wave_array_batches([raw]))
         legacy = list(V1725Reader(use_optimized=False).iter_waves([raw]))
 
         assert len(optimized) == len(optimized_batched) == len(legacy) == 28
+        _assert_array_batch_rows_match_waves(array_batches, legacy)
         for actual_waves in (optimized, optimized_batched):
             for actual, expected in zip(actual_waves, legacy, strict=True):
                 assert actual.board == expected.board
@@ -210,10 +295,12 @@ class TestV1725Reader:
         raw.write_bytes(b"".join(events))
 
         optimized = list(V1725Reader(buffer_size=64 * 1024).iter_waves([raw]))
+        array_batches = list(V1725Reader(buffer_size=64 * 1024)._iter_wave_array_batches([raw]))
         legacy = list(V1725Reader(use_optimized=False).iter_waves([raw]))
 
         assert len(events[1]) > 64 * 1024
         assert len(optimized) == len(legacy) == 9
+        _assert_array_batch_rows_match_waves(array_batches, legacy)
         for actual, expected in zip(optimized, legacy, strict=True):
             assert actual.timestamp == expected.timestamp
             np.testing.assert_array_equal(actual.waveform, expected.waveform)
@@ -225,9 +312,20 @@ class TestV1725Reader:
         raw.write_bytes(complete + truncated)
 
         waves = list(V1725Reader(buffer_size=len(complete) + 8).iter_waves([raw]))
+        array_batches = list(
+            V1725Reader(buffer_size=len(complete) + 8)._iter_wave_array_batches([raw])
+        )
 
         assert len(waves) == 2
+        assert sum(len(batch) for batch in array_batches) == 2
+        _assert_array_batch_rows_match_waves(array_batches, waves)
         assert "Truncated V1725 event" in caplog.text
+
+    def test_array_reader_empty_file_emits_no_rows(self, tmp_path: Path):
+        raw = tmp_path / "empty_raw_b0_seg0.bin"
+        raw.write_bytes(b"")
+
+        assert list(V1725Reader()._iter_wave_array_batches([raw])) == []
 
     def test_numba_channel_header_parser_matches_expected_values(self):
         header0 = make_v1725_single_wave_blob(
@@ -296,6 +394,102 @@ class TestV1725Reader:
                 ]
             ),
         )
+
+    def test_array_records_builder_matches_wave_object_builder_byte_for_byte(
+        self, tmp_path: Path, monkeypatch
+    ):
+        raw = tmp_path / "test_raw_b2_seg0.bin"
+        blobs = []
+        for channel, timestamp, baseline, trunc, samples in [
+            (1, 300, 400, False, [-1, 2, 3, 4]),
+            (0, 100, 401, False, [4, -5]),
+            (1, 200, 402, True, [-32768, 7, 8, 9]),
+            (0, 100, 403, False, [10, 11]),
+        ]:
+            blobs.append(
+                make_v1725_single_wave_blob(
+                    channel=channel,
+                    timestamp=timestamp,
+                    baseline=baseline,
+                    trunc=trunc,
+                    samples=np.array(samples, dtype=np.int16),
+                )
+            )
+        raw.write_bytes(b"".join(blobs))
+
+        expected_waves = list(V1725Reader().iter_waves([raw]))
+        expected = _build_v1725_records_part_from_waves(expected_waves, default_dt_ns=4)
+
+        array_batches = list(V1725Reader(buffer_size=48)._iter_wave_array_batches([raw]))
+        actual_part = _build_v1725_records_part_from_array_batches(array_batches, default_dt_ns=4)
+        assert actual_part.records.dtype == RECORDS_DTYPE
+        assert actual_part.records.tobytes() == expected.records.tobytes()
+        assert actual_part.wave_pool.tobytes() == expected.wave_pool.tobytes()
+
+        refs = _process_v1725_file_to_disk(
+            str(raw),
+            V1725Reader(),
+            dt_ns=4,
+            part_dir=tmp_path / "array-parts",
+            part_idx=0,
+            part_size=2,
+        )
+        assert [part.n_records for part in refs] == [2, 2]
+
+        def reject_wave_object_path(*args, **kwargs):
+            raise AssertionError("array fast path constructed V1725Wave objects")
+
+        monkeypatch.setattr(V1725Reader, "_process_channel_batch", reject_wave_object_path)
+        actual = build_records_from_v1725_files(
+            [str(raw)], dt_ns=4, n_jobs=1, keep_on_disk=False, v1725_part_size=2
+        )
+        assert actual.records.dtype == expected.records.dtype
+        assert actual.records.tobytes() == expected.records.tobytes()
+        assert actual.wave_pool.tobytes() == expected.wave_pool.tobytes()
+
+    def test_v1725_file_builder_falls_back_to_iter_waves_reader(self, tmp_path: Path):
+        raw = tmp_path / "test_raw_b1_seg0.bin"
+        raw.write_bytes(
+            make_v1725_single_wave_blob(
+                channel=2,
+                timestamp=9,
+                baseline=25,
+                trunc=True,
+                samples=np.array([-3, 4], dtype=np.int16),
+            )
+        )
+
+        class LegacyOnlyReader:
+            def __init__(self):
+                self._delegate = V1725Reader()
+
+            def iter_waves(self, file_paths):
+                return self._delegate.iter_waves(file_paths)
+
+        expected = _build_v1725_records_part_from_waves(
+            list(V1725Reader().iter_waves([raw])), default_dt_ns=2
+        )
+        refs = _process_v1725_file_to_disk(
+            str(raw),
+            LegacyOnlyReader(),
+            dt_ns=2,
+            part_dir=tmp_path / "fallback-parts",
+            part_idx=0,
+            part_size=0,
+        )
+
+        assert len(refs) == 1
+        actual_records = np.memmap(
+            refs[0].records_path, dtype=RECORDS_DTYPE, mode="r", shape=(refs[0].n_records,)
+        )
+        actual_wave_pool = np.memmap(
+            refs[0].wave_pool_path,
+            dtype=np.uint16,
+            mode="r",
+            shape=(refs[0].n_samples,),
+        )
+        assert actual_records.tobytes() == expected.records.tobytes()
+        assert actual_wave_pool.tobytes() == expected.wave_pool.tobytes()
 
     def test_v1725_records_multi_file_parallel_keeps_global_order(self, tmp_path: Path):
         raw0 = tmp_path / "test_raw_b3_seg0.bin"

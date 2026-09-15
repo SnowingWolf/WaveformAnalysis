@@ -2259,6 +2259,41 @@ def _process_v1725_file_to_disk(
     )
 
     part_refs: list[_RecordsPartRef] = []
+
+    array_batch_reader = getattr(reader, "_iter_wave_array_batches", None)
+    if callable(array_batch_reader) and getattr(reader, "use_optimized", True):
+        array_batches: list[object] = []
+        array_batch_records = 0
+        local_part_idx = 0
+
+        def flush_array_batches() -> None:
+            nonlocal local_part_idx, array_batch_records
+            if not array_batches:
+                return
+            bundle = _build_v1725_records_part_from_array_batches(array_batches, dt_ns)
+            part_ref = _write_records_part(bundle, file_part_dir, local_part_idx)
+            local_part_idx += 1
+            if part_ref is not None:
+                part_refs.append(part_ref)
+            array_batches.clear()
+            array_batch_records = 0
+
+        for array_batch in array_batch_reader([file_path]):
+            batch_start = 0
+            while batch_start < len(array_batch):
+                take = len(array_batch) - batch_start
+                if effective_part_size is not None:
+                    take = min(take, effective_part_size - array_batch_records)
+                batch_stop = batch_start + take
+                array_batches.append(array_batch.slice(batch_start, batch_stop))
+                array_batch_records += take
+                batch_start = batch_stop
+                if effective_part_size is not None and array_batch_records >= effective_part_size:
+                    flush_array_batches()
+
+        flush_array_batches()
+        return part_refs
+
     wave_batch = []
     local_part_idx = 0
 
@@ -2363,6 +2398,102 @@ def _build_v1725_records_part_from_waves(
             wave = wave_refs[int(source_idx[idx])]
             wave_pool[wave_cursor : wave_cursor + length] = _clip_wave_to_uint16(wave[:length])
         records["wave_offset"][idx] = wave_cursor
+        wave_cursor += length
+
+    records["record_id"] = np.arange(n_records, dtype=np.int64)
+    return RecordsBundle(records=records, wave_pool=wave_pool)
+
+
+def _build_v1725_records_part_from_array_batches(
+    array_batches: Sequence[object],
+    default_dt_ns: int,
+) -> RecordsBundle:
+    """Build one V1725 records part directly from primitive reader arrays."""
+    batches = [batch for batch in array_batches if len(batch) > 0]
+    if not batches:
+        return RecordsBundle(np.zeros(0, dtype=RECORDS_DTYPE), np.zeros(0, dtype=np.uint16))
+
+    row_counts = np.asarray([len(batch) for batch in batches], dtype=np.int64)
+    n_records = int(row_counts.sum())
+
+    def concatenate_column(name: str, dtype: np.dtype) -> np.ndarray:
+        values = [np.asarray(getattr(batch, name)) for batch in batches]
+        if any(
+            value.ndim != 1 or len(value) != count
+            for value, count in zip(values, row_counts, strict=True)
+        ):
+            raise ValueError(f"V1725 array batch column {name!r} has an invalid shape")
+        return np.concatenate(values).astype(dtype, copy=False)
+
+    timestamp_ticks = concatenate_column("timestamps", np.dtype(np.int64))
+    boards = concatenate_column("boards", np.dtype(np.int16))
+    channels = concatenate_column("channels", np.dtype(np.int16))
+    baselines = concatenate_column("baselines", np.dtype(np.uint16))
+    truncs = concatenate_column("truncs", np.dtype(np.bool_))
+    waveform_offsets = concatenate_column("waveform_offsets", np.dtype(np.int64))
+    event_lengths = concatenate_column("waveform_lengths", np.dtype(np.int32))
+    waveform_samples_by_batch = [np.asarray(batch.waveform_samples) for batch in batches]
+
+    if any(
+        samples.ndim != 1 or samples.dtype != np.dtype(np.uint16)
+        for samples in waveform_samples_by_batch
+    ):
+        raise ValueError("V1725 waveform source views must be one-dimensional uint16 arrays")
+    if np.any(event_lengths < 0):
+        raise ValueError("event_length exceeds int32 range")
+    row_start = 0
+    for samples, count in zip(waveform_samples_by_batch, row_counts, strict=True):
+        row_stop = row_start + int(count)
+        starts = waveform_offsets[row_start:row_stop]
+        lengths = event_lengths[row_start:row_stop].astype(np.int64, copy=False)
+        if np.any(starts < 0) or np.any(starts + lengths > len(samples)):
+            raise ValueError("V1725 waveform slice falls outside its reader batch")
+        row_start = row_stop
+    source_batch_indices = np.repeat(np.arange(len(batches), dtype=np.int32), row_counts)
+
+    records = np.zeros(n_records, dtype=RECORDS_DTYPE)
+    from waveform_analysis.acquisition.formats.v1725_numba import (
+        fill_v1725_records_metadata_serial,
+    )
+
+    fill_v1725_records_metadata_serial(
+        timestamp_ticks,
+        boards,
+        channels,
+        baselines,
+        truncs,
+        event_lengths,
+        int(default_dt_ns),
+        records["timestamp"],
+        records["pid"],
+        records["board"],
+        records["channel"],
+        records["baseline"],
+        records["baseline_upstream"],
+        records["dt"],
+        records["trigger_type"],
+        records["flags"],
+        records["event_length"],
+        records["time"],
+    )
+    records["polarity"] = "unknown"
+
+    source_indices = _records_sort_order(records)
+    records = records[source_indices]
+
+    total_samples = int(event_lengths.astype(np.int64, copy=False).sum())
+    wave_pool = np.zeros(total_samples, dtype=np.uint16)
+    wave_cursor = 0
+    for output_idx, source_idx in enumerate(source_indices):
+        length = int(records["event_length"][output_idx])
+        if length > 0:
+            batch_idx = int(source_batch_indices[source_idx])
+            start = int(waveform_offsets[source_idx])
+            np.copyto(
+                wave_pool[wave_cursor : wave_cursor + length],
+                waveform_samples_by_batch[batch_idx][start : start + length],
+            )
+        records["wave_offset"][output_idx] = wave_cursor
         wave_cursor += length
 
     records["record_id"] = np.arange(n_records, dtype=np.int64)
