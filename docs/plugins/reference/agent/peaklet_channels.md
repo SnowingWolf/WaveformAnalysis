@@ -5,7 +5,7 @@ profile: "agent"
 provides: "peaklet_channels"
 plugin_class: "PeakletChannelsPlugin"
 module: "waveform_analysis.core.plugins.builtin.peaklet_channels.plugin"
-version: "2.0.5"
+version: "2.1.0"
 summary: "Reconstruct deduplicated per-peaklet channel waveform contributions."
 depends_on: ["peaklets", "peaklet_components", "hit_merged", "hit_merged_components", "hit_threshold", "hit_merged_features", "peaklet_features", "records", "wave_pool"]
 declared_depends_on: ["peaklets", "peaklet_components", "hit_merged", "hit_merged_components", "hit_threshold", "hit_merged_features", "peaklet_features", "records", "wave_pool"]
@@ -17,7 +17,7 @@ output_kind: "structured_array"
 execution_kind: "static"
 narrative_source: "source"
 narrative_source_reason: null
-source_fingerprint: "6035546e6198b89c42b63335096a4f1607bbe576947ab58e4d09bf8f747245b8"
+source_fingerprint: "f68de2e157994635ba5e2084014539dcb92d690edd0db074dc4c4ba470369366"
 generated: true
 ---
 # peaklet_channels
@@ -32,7 +32,7 @@ Reconstruct peaklets into deduplicated per-board/channel contribution rows.
 | Provides | `peaklet_channels` |
 | Plugin Class | `PeakletChannelsPlugin` |
 | Module | `waveform_analysis.core.plugins.builtin.peaklet_channels.plugin` |
-| Version | `2.0.5` |
+| Version | `2.1.0` |
 | Category | 峰构建 |
 | Output Container | `structured_array` |
 | Execution Mode | `static` |
@@ -41,7 +41,7 @@ Reconstruct peaklets into deduplicated per-board/channel contribution rows.
 | Timeout | `none` |
 | Side Effect | no |
 | Narrative Source | `source` |
-| Source Fingerprint | `6035546e6198b89c42b63335096a4f1607bbe576947ab58e4d09bf8f747245b8` |
+| Source Fingerprint | `f68de2e157994635ba5e2084014539dcb92d690edd0db074dc4c4ba470369366` |
 
 ### Dependencies
 
@@ -109,7 +109,7 @@ result = ctx.get_data("run_001", "peaklet_channels")
 - 动态依赖无法解析、所需配置不合法或上游产物缺失时，插件不会生成有效输出。
 ### Downstream Impact
 
-直接消费者：`peaks`、`position_reconstruction`
+直接消费者：`position_reconstruction`
 ## Maintenance
 
 ### Change Playbook

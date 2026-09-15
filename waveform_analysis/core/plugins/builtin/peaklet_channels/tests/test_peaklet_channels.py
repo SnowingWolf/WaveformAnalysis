@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import numpy as np
 import pytest
 
@@ -77,6 +79,12 @@ def _compute(ctx):
         features=ctx._data["hit_merged_features"],
         peaklet_features=ctx._data["peaklet_features"],
     )
+
+
+def test_peaklet_channels_version_matches_manifest():
+    assert PeakletChannelsPlugin.version == "2.1.0"
+    manifest = Path(__file__).parents[1] / "manifest.yaml"
+    assert f"version: {PeakletChannelsPlugin.version}" in manifest.read_text(encoding="utf-8")
 
 
 def test_peaklet_channels_single_peaklet_multiple_channels():
@@ -192,6 +200,60 @@ def test_peaklet_channels_fast_csr_preserves_member_order_and_offsets():
     np.testing.assert_allclose(out["area"], [30.0, 30.0, 15.0, 35.0])
     np.testing.assert_array_equal(group_offsets, [0, 2, 3, 4, 5])
     np.testing.assert_array_equal(grouped_members, [0, 1, 2, 3, 4])
+
+
+def test_peaklet_channels_singleton_csr_fast_path_matches_generic_fallback(monkeypatch):
+    import waveform_analysis.core.plugins.builtin.peaklet_channels.plugin as plugin_module
+
+    peaklets = _peaklets([10.0, 20.0, 0.0, 40.0], component_count=0)
+    peaklets["component_offset"] = [0, 1, 2, 3]
+    peaklets["component_count"] = 1
+    components = _components([(0, 0), (1, 1), (2, 2), (3, 3)])
+    features = _features(
+        [
+            {"merged_index": 0, "board": 1, "channel": 2, "area": 10.0, "height": 5.0, "n_hits": 1},
+            {"merged_index": 1, "board": 0, "channel": 0, "area": 20.0, "height": 6.0, "n_hits": 2},
+            {
+                "merged_index": 2,
+                "board": 0,
+                "channel": 1,
+                "area": 0.0,
+                "height": 0.0,
+                "n_hits": 0,
+                "valid": 0,
+            },
+            {"merged_index": 3, "board": 0, "channel": 3, "area": 40.0, "height": 9.0, "n_hits": 3},
+        ]
+    )
+    peaklet_features = _peaklet_features([10.0, 20.0, 0.0, 40.0])
+
+    with monkeypatch.context() as patcher:
+        patcher.setattr(
+            plugin_module.np,
+            "lexsort",
+            lambda *_args, **_kwargs: pytest.fail("singleton CSR path used generic sorting"),
+        )
+        direct, group_offsets, grouped_members = PeakletChannelsPlugin()._compute_channels(
+            peaklets=peaklets,
+            components=components,
+            features=features,
+            peaklet_features=peaklet_features,
+            return_groups=True,
+        )
+
+    generic = PeakletChannelsPlugin()._compute_channels(
+        peaklets=peaklets,
+        components=components,
+        features=features[[3, 1, 0, 2]],
+        peaklet_features=peaklet_features,
+    )
+
+    np.testing.assert_array_equal(direct, generic)
+    np.testing.assert_array_equal(direct["peaklet_id"], [0, 1, 3])
+    np.testing.assert_array_equal(direct["board"], [1, 0, 0])
+    np.testing.assert_array_equal(direct["channel"], [2, 0, 3])
+    np.testing.assert_array_equal(group_offsets, [0, 1, 2, 3])
+    np.testing.assert_array_equal(grouped_members, [0, 1, 3])
 
 
 def test_peaklet_channels_fast_csr_sorts_unsorted_components_per_peaklet():
@@ -479,6 +541,49 @@ def test_peaklet_channels_zero_peaklet_area_writes_zero_fractions_when_channels_
     out = _compute(ctx)
 
     np.testing.assert_array_equal(out["area_fraction"], np.zeros(2, dtype=np.float32))
+
+
+def test_peaklet_channels_sorted_fraction_boundaries_use_linear_path(monkeypatch):
+    import waveform_analysis.core.plugins.builtin.peaklet_channels.plugin as plugin_module
+
+    peaklets = _peaklets([100.0, 0.0, 50.0], component_count=0)
+    peaklet_features = _peaklet_features([100.0, 0.0, 50.0])
+    out = np.zeros(3, dtype=PEAKLET_CHANNELS_DTYPE)
+    out["peaklet_id"] = [0, 0, 2]
+    out["area"] = [60.0, 40.0, 50.0]
+
+    with monkeypatch.context() as patcher:
+        patcher.setattr(
+            plugin_module.np,
+            "searchsorted",
+            lambda *_args, **_kwargs: pytest.fail("sorted output used binary search"),
+        )
+        PeakletChannelsPlugin._validate_and_fill_fractions(out, peaklets, peaklet_features)
+
+    np.testing.assert_array_equal(out["area_fraction"], np.array([0.6, 0.4, 1.0], dtype=np.float32))
+
+
+def test_peaklet_channels_unsorted_fraction_boundaries_keep_searchsorted_fallback(monkeypatch):
+    import waveform_analysis.core.plugins.builtin.peaklet_channels.plugin as plugin_module
+
+    peaklets = _peaklets([1.0, 1.0], component_count=0)
+    peaklet_features = _peaklet_features([1.0, 1.0])
+    out = np.zeros(2, dtype=PEAKLET_CHANNELS_DTYPE)
+    out["peaklet_id"] = [1, 0]
+    out["area"] = [1.0, 1.0]
+    searchsorted_calls = []
+    original_searchsorted = plugin_module.np.searchsorted
+
+    def track_searchsorted(*args, **kwargs):
+        searchsorted_calls.append(True)
+        return original_searchsorted(*args, **kwargs)
+
+    with monkeypatch.context() as patcher:
+        patcher.setattr(plugin_module.np, "searchsorted", track_searchsorted)
+        with pytest.raises(ValueError, match="area conservation failed for peaklet_id=0"):
+            PeakletChannelsPlugin._validate_and_fill_fractions(out, peaklets, peaklet_features)
+
+    assert searchsorted_calls == [True]
 
 
 def test_peaklet_channels_near_zero_nonzero_area_checks_fraction_sum():

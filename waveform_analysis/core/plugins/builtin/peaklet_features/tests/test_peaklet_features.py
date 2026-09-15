@@ -320,6 +320,55 @@ def test_peaklet_features_numba_matches_python_for_signed_nonmonotonic_cumsum(mo
         np.testing.assert_array_equal(optimized[field], reference[field], err_msg=field)
 
 
+def test_peaklet_features_numba_matches_python_at_signed_threshold_crossing_edges(monkeypatch):
+    waves = [
+        np.array([5.0, -4.0, 4.0, 1.0], dtype=np.float32),
+        np.array([1.0, 1.0, 2.0], dtype=np.float32),
+        np.array([-2.0, 1.0, -3.0], dtype=np.float32),
+        np.array([], dtype=np.float32),
+    ]
+    rows = []
+    pool_parts = []
+    offset = 0
+    for i in range(11):
+        wave = waves[i % len(waves)]
+        time_start = 1234 + i * 10_000
+        dt_ns = 3
+        rows.append(
+            {
+                "peak_id": i,
+                "time_start": time_start,
+                "time_end": time_start + len(wave) * dt_ns * 1000,
+                "dt": dt_ns,
+                "wave_offset": offset,
+                "wave_length": len(wave),
+            }
+        )
+        pool_parts.append(wave)
+        offset += len(wave)
+
+    data = {
+        "peaklets": _peaklets(len(rows)),
+        "peaklet_waveforms": _waveforms(rows),
+        "peaklet_waveform_pool": np.concatenate(pool_parts),
+    }
+
+    optimized = PeakletFeaturesPlugin().compute(DummyContext({}, data), "run_001")
+    monkeypatch.setattr(feature_module, "HAS_NUMBA", False)
+    reference = PeakletFeaturesPlugin().compute(DummyContext({}, data), "run_001")
+
+    assert optimized.dtype == PEAKLET_FEATURES_DTYPE
+    for field in PEAKLET_FEATURES_DTYPE.names:
+        np.testing.assert_array_equal(optimized[field], reference[field], err_msg=field)
+
+    # The first five thresholds cross at sample zero, before the signed drop;
+    # the last two cross later. The 50% crossing in [1, 1, 2] is exact.
+    assert int(optimized[0]["center_time"]) == 1234
+    assert optimized[0]["fall_time"] == np.float32(7.2)
+    assert optimized[0]["range_90p_area"] == np.float32(8.099)
+    assert int(optimized[1]["center_time"]) == 11_234 + 3000
+
+
 def test_peaklet_features_numba_matches_python_for_long_float32_waveform(monkeypatch):
     rng = np.random.default_rng(20260817)
     wave = rng.normal(loc=2.0, scale=20.0, size=10_000).astype(np.float32)

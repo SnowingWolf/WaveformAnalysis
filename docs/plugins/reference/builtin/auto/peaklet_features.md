@@ -5,7 +5,7 @@ profile: "auto"
 provides: "peaklet_features"
 plugin_class: "PeakletFeaturesPlugin"
 module: "waveform_analysis.core.plugins.builtin.peaklet_features.plugin"
-version: "5.0.0"
+version: "5.1.0"
 summary: "Compute peaklet waveform features from ragged signal pools."
 depends_on: ["peaklet_waveforms", "peaklet_waveform_pool", "peaklets"]
 declared_depends_on: ["peaklet_waveforms", "peaklet_waveform_pool", "peaklets"]
@@ -17,7 +17,7 @@ output_kind: "structured_array"
 execution_kind: "static"
 narrative_source: "source"
 narrative_source_reason: null
-source_fingerprint: "48ec6eaa661dde02dd57860f1e35fa97d1b20268fa4bac149b83d889d58a1725"
+source_fingerprint: "f617935859f91d752150e5f22ac26012655e1e3e8d1a26aa19505e37b696bfa3"
 generated: true
 ---
 # peaklet_features
@@ -32,7 +32,7 @@ Compute waveform-derived features from ragged peaklet waveforms.
 | Provides | `peaklet_features` |
 | Plugin Class | `PeakletFeaturesPlugin` |
 | Module | `waveform_analysis.core.plugins.builtin.peaklet_features.plugin` |
-| Version | `5.0.0` |
+| Version | `5.1.0` |
 | Category | 峰构建 |
 | Output Container | `structured_array` |
 | Execution Mode | `static` |
@@ -41,7 +41,7 @@ Compute waveform-derived features from ragged peaklet waveforms.
 | Timeout | `none` |
 | Side Effect | no |
 | Narrative Source | `source` |
-| Source Fingerprint | `48ec6eaa661dde02dd57860f1e35fa97d1b20268fa4bac149b83d889d58a1725` |
+| Source Fingerprint | `f617935859f91d752150e5f22ac26012655e1e3e8d1a26aa19505e37b696bfa3` |
 
 ### Dependencies
 

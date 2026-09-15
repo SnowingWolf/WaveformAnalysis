@@ -58,6 +58,14 @@ active_plans:
   condition: —
   task_file: docs/agents/runs/current/managed-workflow-mvp/task.yaml
   legacy_plan: docs/agents/runs/current/managed-workflow-mvp/legacy-plan.md
+- task_id: peaks-run00600-optimization
+  state: completed
+  route: modify_plugin
+  workflow_cost: strict
+  workflow_shape: staged
+  condition: AllBlockingGatesPassed
+  task_file: docs/agents/runs/current/peaks-run00600-optimization/task.yaml
+  legacy_plan: docs/agents/runs/current/peaks-run00600-optimization/legacy-plan.md
 - task_id: run00601-full-chain-performance
   state: failed
   route: modify_plugin

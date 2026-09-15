@@ -185,6 +185,10 @@ def _compute_features_numba(
     """Numba-accelerated feature computation for peaklet waveforms."""
     n = len(out)
     quantiles = np.array([0.05, 0.10, 0.25, 0.50, 0.75, 0.90, 0.95], dtype=np.float64)
+    targets = np.empty(7, dtype=np.float64)
+    sample_positions = np.empty(7, dtype=np.float64)
+    crossings_found = np.empty(7, dtype=np.bool_)
+    quantile_times = np.empty(7, dtype=np.int64)
 
     for i in range(n):
         peaklet_id = peaklet_indices[i]
@@ -205,10 +209,8 @@ def _compute_features_numba(
 
         wave = pool[offset : offset + length]
         total_area = 0.0
-        cumsum = np.empty(length, dtype=np.float64)
         for sample_idx in range(length):
             total_area += float(wave[sample_idx])
-            cumsum[sample_idx] = total_area
 
         if total_area <= 0:
             max_idx = np.argmax(wave)
@@ -226,31 +228,39 @@ def _compute_features_numba(
 
         # Cumulative area quantiles
         dt_ps = dt_ns * 1000
-        quantile_times = np.empty(7, dtype=np.int64)
+        for q_idx in range(7):
+            targets[q_idx] = quantiles[q_idx] * total_area
+            sample_positions[q_idx] = float(length - 1)
+            crossings_found[q_idx] = False
+
+        n_crossings_found = 0
+        cumulative_area = 0.0
+        for sample_idx in range(length):
+            c0 = cumulative_area
+            cumulative_area += float(wave[sample_idx])
+            c1 = cumulative_area
+
+            # Signed waveforms can make cumulative area non-monotonic. Find
+            # each threshold's first crossing while preserving sample order.
+            for q_idx in range(7):
+                target = targets[q_idx]
+                if not crossings_found[q_idx] and c1 >= target:
+                    if sample_idx == 0:
+                        sample_positions[q_idx] = 0.0
+                    elif c1 == target:
+                        sample_positions[q_idx] = float(sample_idx)
+                    elif c1 > c0:
+                        sample_positions[q_idx] = float(sample_idx - 1) + (target - c0) / (c1 - c0)
+                    else:
+                        sample_positions[q_idx] = float(sample_idx)
+                    crossings_found[q_idx] = True
+                    n_crossings_found += 1
+
+            if n_crossings_found == 7:
+                break
 
         for q_idx in range(7):
-            target = quantiles[q_idx] * total_area
-            idx = length
-            for sample_idx in range(length):
-                if cumsum[sample_idx] >= target:
-                    idx = sample_idx
-                    break
-
-            if idx >= length:
-                sample_pos = float(length - 1)
-            elif idx == 0:
-                sample_pos = 0.0
-            else:
-                c0 = cumsum[idx - 1]
-                c1 = cumsum[idx]
-                if c1 == target:
-                    sample_pos = float(idx)
-                elif c1 > c0:
-                    sample_pos = float(idx - 1) + (target - c0) / (c1 - c0)
-                else:
-                    sample_pos = float(idx)
-
-            quantile_times[q_idx] = int(time_start + sample_pos * dt_ps)
+            quantile_times[q_idx] = int(time_start + sample_positions[q_idx] * dt_ps)
 
         t05, t10, t25, t50, t75, t90, t95 = quantile_times
 

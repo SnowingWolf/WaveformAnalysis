@@ -66,6 +66,31 @@ def _has_dense_identity_merged_indices(merged_indices: np.ndarray) -> bool:
 
 
 @nb.njit(cache=True, nogil=True)
+def _build_output_peaklet_starts(
+    output_peaklet_ids: np.ndarray, n_peaklets: int
+) -> tuple[np.ndarray, bool]:
+    """Build ``searchsorted(..., side='left')`` boundaries in one linear scan.
+
+    The normal output path is sorted by peaklet id.  Keep the sortedness result
+    so callers can retain the historical binary-search behavior for malformed
+    non-monotonic arrays.
+    """
+    starts = np.empty(n_peaklets + 1, dtype=np.int64)
+    output_index = 0
+    nondecreasing = True
+    for peaklet_id in range(n_peaklets + 1):
+        while output_index < len(output_peaklet_ids):
+            current_peaklet_id = output_peaklet_ids[output_index]
+            if current_peaklet_id >= peaklet_id:
+                break
+            if output_index > 0 and current_peaklet_id < output_peaklet_ids[output_index - 1]:
+                nondecreasing = False
+            output_index += 1
+        starts[peaklet_id] = output_index
+    return starts, nondecreasing
+
+
+@nb.njit(cache=True, nogil=True)
 def _keys_are_nondecreasing(
     peaklet_ids: np.ndarray, boards: np.ndarray, channels: np.ndarray
 ) -> bool:
@@ -144,7 +169,18 @@ def _count_fast_groups_kernel(
     """
     for peaklet_id in nb.prange(len(peaklet_component_offsets)):
         start = peaklet_component_offsets[peaklet_id]
-        end = start + peaklet_component_counts[peaklet_id]
+        component_count = peaklet_component_counts[peaklet_id]
+        if component_count == 1:
+            merged_index = component_merged_indices[start]
+            if feature_valid[merged_index] == 0:
+                group_counts[peaklet_id] = 0
+                member_counts[peaklet_id] = 0
+            else:
+                group_counts[peaklet_id] = 1
+                member_counts[peaklet_id] = 1
+            continue
+
+        end = start + component_count
         local_size = max(1, end - start)
         unique_boards = np.empty(local_size, dtype=np.int16)
         unique_channels = np.empty(local_size, dtype=np.int16)
@@ -201,12 +237,32 @@ def _fill_fast_groups_kernel(
     out_heights: np.ndarray,
     out_n_hits: np.ndarray,
 ):
-    """Fill sorted hardware groups and their stable member CSR from prefixes."""
+    """Fill sorted hardware groups and their stable member CSR from prefixes.
+
+    Each output row writes only its own CSR start.  The caller writes the final
+    sentinel after this parallel kernel returns, avoiding shared boundary
+    writes between adjacent peaklets.
+    """
     for peaklet_id in nb.prange(len(peaklet_component_offsets)):
         component_start = peaklet_component_offsets[peaklet_id]
-        component_end = component_start + peaklet_component_counts[peaklet_id]
+        component_count = peaklet_component_counts[peaklet_id]
         group_cursor = group_prefix[peaklet_id]
         member_cursor = member_prefix[peaklet_id]
+        if component_count == 1:
+            merged_index = component_merged_indices[component_start]
+            if feature_valid[merged_index] != 0:
+                output_index = group_cursor
+                group_member_offsets[output_index] = member_cursor
+                out_peaklet_ids[output_index] = peaklet_id
+                out_boards[output_index] = feature_boards[merged_index]
+                out_channels[output_index] = feature_channels[merged_index]
+                grouped_merged_indices[member_cursor] = merged_index
+                out_areas[output_index] = np.float32(feature_areas[merged_index])
+                out_heights[output_index] = np.float32(feature_heights[merged_index])
+                out_n_hits[output_index] = np.int32(feature_n_hits[merged_index])
+            continue
+
+        component_end = component_start + component_count
         local_size = max(1, component_end - component_start)
         unique_boards = np.empty(local_size, dtype=np.int16)
         unique_channels = np.empty(local_size, dtype=np.int16)
@@ -269,7 +325,6 @@ def _fill_fast_groups_kernel(
                     if value > out_heights[output_index]:
                         out_heights[output_index] = value
                     out_n_hits[output_index] = np.int32(out_n_hits[output_index] + n_hits)
-        group_member_offsets[group_cursor + n_unique] = member_cursor
 
 
 def _polarity_sign_array(records: np.ndarray) -> np.ndarray:
@@ -500,7 +555,7 @@ class PeakletChannelsPlugin(Plugin):
         "wave_pool",
     ]
     description = "Reconstruct deduplicated per-peaklet channel waveform contributions."
-    version = "2.0.5"
+    version = "2.1.0"
     output_dtype = PEAKLET_CHANNELS_DTYPE
     save_when = "always"
 
@@ -986,9 +1041,13 @@ class PeakletChannelsPlugin(Plugin):
             # Keep the historical indexing failure shape for malformed
             # external products instead of silently dropping an output row.
             _ = area_by_peaklet[out_ids]
-        output_peaklet_starts = np.searchsorted(
-            out_ids, np.arange(len(peaklets) + 1, dtype=np.int64), side="left"
+        output_peaklet_starts, output_ids_nondecreasing = _build_output_peaklet_starts(
+            out_ids, len(peaklets)
         )
+        if not output_ids_nondecreasing:
+            output_peaklet_starts = np.searchsorted(
+                out_ids, np.arange(len(peaklets) + 1, dtype=np.int64), side="left"
+            )
         area_mismatch = np.zeros(len(peaklets), dtype=np.uint8)
         fraction_mismatch = np.zeros(len(peaklets), dtype=np.uint8)
         _fill_fractions_and_validate_kernel(
@@ -1132,6 +1191,9 @@ class PeakletChannelsPlugin(Plugin):
                         out["height"],
                         out["n_hits"],
                     )
+                    # Each group start is written exactly once by the parallel
+                    # kernel.  Write the terminal CSR sentinel after it returns.
+                    group_member_offsets[-1] = member_prefix[-1]
                     # Match NumPy's pairwise floating-point reduction exactly
                     # for the public area field.  The Numba fill kernel keeps
                     # the direct CSR path allocation-free for matching/key

@@ -49,13 +49,13 @@ print(preview)
 | [`hit_merged_features`](hit_merged_features.md) | `HitMergedFeaturesPlugin` | 特征提取 | `hit_merged`, `hit_merged_components`, `hit_threshold`, `records`, `wave_pool` | `structured_array` | `static` | `1.1.3` |
 | [`hit_threshold`](hit_threshold.md) | `ThresholdHitPlugin` | 特征提取 | `records`, `wave_pool`, `records_asymmetry_mask` | `structured_array` | `static` | `1.2.2` |
 | [`peak_classification`](peak_classification.md) | `PeakClassificationPlugin` | 特征提取 | `peaks` | `structured_array` | `static` | `1.2.1` |
-| [`peaklet_channels`](peaklet_channels.md) | `PeakletChannelsPlugin` | 峰构建 | `peaklets`, `peaklet_components`, `hit_merged`, `hit_merged_components`, `hit_threshold`, `hit_merged_features`, `peaklet_features`, `records`, `wave_pool` | `structured_array` | `static` | `2.0.5` |
+| [`peaklet_channels`](peaklet_channels.md) | `PeakletChannelsPlugin` | 峰构建 | `peaklets`, `peaklet_components`, `hit_merged`, `hit_merged_components`, `hit_threshold`, `hit_merged_features`, `peaklet_features`, `records`, `wave_pool` | `structured_array` | `static` | `2.1.0` |
 | [`peaklet_components`](peaklet_components.md) | `PeakletComponentsPlugin` | 峰构建 | `hit_merged` | `structured_array` | `static` | `1.4.0` |
-| [`peaklet_features`](peaklet_features.md) | `PeakletFeaturesPlugin` | 峰构建 | `peaklet_waveforms`, `peaklet_waveform_pool`, `peaklets` | `structured_array` | `static` | `5.0.0` |
+| [`peaklet_features`](peaklet_features.md) | `PeakletFeaturesPlugin` | 峰构建 | `peaklet_waveforms`, `peaklet_waveform_pool`, `peaklets` | `structured_array` | `static` | `5.1.0` |
 | [`peaklet_waveform_pool`](peaklet_waveform_pool.md) | `PeakletWaveformPoolPlugin` | 峰构建 | `peaklet_waveforms` | `array` | `static` | `3.0.0` |
 | [`peaklet_waveforms`](peaklet_waveforms.md) | `PeakletWaveformPlugin` | 峰构建 | `peaklets`, `peaklet_components`, `hit_merged`, `hit_merged_components`, `hit_threshold`, `records`, `wave_pool` | `structured_array` | `static` | `2.2.1` |
 | [`peaklets`](peaklets.md) | `PeakletPlugin` | 峰构建 | `hit_merged`, `peaklet_components` | `structured_array` | `static` | `1.2.0` |
-| [`peaks`](peaks.md) | `PeaksPlugin` | 特征提取 | `peaklets`, `peaklet_features`, `peaklet_channels` | `structured_array` | `static` | `5.0.0` |
+| [`peaks`](peaks.md) | `PeaksPlugin` | 特征提取 | `peaklets`, `peaklet_features` | `structured_array` | `static` | `5.1.0` |
 | [`position_reconstruction`](position_reconstruction.md) | `PositionReconstructionPlugin` | 其他 | `s1_s2_pairs`, `peaklet_channels` | `structured_array` | `static` | `0.4.0` |
 | [`raw_files`](raw_files.md) | `RawFileNamesPlugin` | 数据加载 | - | `list` | `static` | `0.0.2` |
 | [`records`](records.md) | `RecordsPlugin` | 记录处理 | `raw_files` | `structured_array` | `static` | `0.15.1` |
@@ -117,7 +117,7 @@ print(preview)
 | [`hit_merged_features`](hit_merged_features.md) | `HitMergedFeaturesPlugin` | `hit_merged`, `hit_merged_components`, `hit_threshold`, `records`, `wave_pool` | `source` |
 | [`hit_threshold`](hit_threshold.md) | `ThresholdHitPlugin` | `records`, `wave_pool`, `records_asymmetry_mask` | `source` |
 | [`peak_classification`](peak_classification.md) | `PeakClassificationPlugin` | `peaks` | `source` |
-| [`peaks`](peaks.md) | `PeaksPlugin` | `peaklets`, `peaklet_features`, `peaklet_channels` | `source` |
+| [`peaks`](peaks.md) | `PeaksPlugin` | `peaklets`, `peaklet_features` | `source` |
 
 ### 事件分析
 
