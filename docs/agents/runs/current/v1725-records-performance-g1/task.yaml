@@ -4,7 +4,7 @@ metadata:
   id: v1725-records-performance-g1
   generation: 1
   created_at: '2026-09-15T12:15:00Z'
-  updated_at: '2026-09-15T12:15:00Z'
+  updated_at: '2026-09-15T12:22:16Z'
 spec:
   goal: Optimize V1725 records construction through reader I/O, array-first construction, bounded storage, and measured parallelism while preserving exact products.
   route: modify_plugin
@@ -71,17 +71,21 @@ spec:
       parallel_scope: one_of_file_or_run
       numba_parallel: prohibited_without_separate_evidence
 status:
-  state: awaiting_approval
+  state: executing
   transitions:
     - {from: created, to: planning, at: '2026-09-15T12:15:00Z', actor: planner}
     - {from: planning, to: awaiting_approval, at: '2026-09-15T12:15:00Z', actor: planner, condition: graph_hash_approval_required}
+    - {from: awaiting_approval, to: ready_for_execution, at: '2026-09-15T12:22:16Z', actor: xiaoyu, condition: approval_granted}
+    - {from: ready_for_execution, to: executing, at: '2026-09-15T12:22:16Z', actor: planner, condition: executors_assigned}
   plan_sha256: 5720a049096b995dda2b6ce2ac7413c4301d42445c1470a75b98bb3a12498d3d
   execution: {}
   review: {}
   approval:
     required: true
     reviewer: xiaoyu
-    marker_created: false
+    marker_created: true
+    marker_path: /mnt/data/tmp/wa-v1725-records-performance-g1/control-plane/approval.json
+    approved_at: '2026-09-15T12:22:16.683061Z'
     candidate_hashes:
       graphspec: 5720a049096b995dda2b6ce2ac7413c4301d42445c1470a75b98bb3a12498d3d
       registry: 765378fe961abc33aaf0201b4c34b6a410077d841af786e57e6f35f9d7722992
