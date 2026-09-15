@@ -4,7 +4,7 @@ metadata:
   id: v1725-records-performance-g1
   generation: 1
   created_at: '2026-09-15T12:15:00Z'
-  updated_at: '2026-09-15T12:53:00Z'
+  updated_at: '2026-09-15T14:20:09Z'
 spec:
   goal: Optimize V1725 records construction through reader I/O, array-first construction, bounded storage, and measured parallelism while preserving exact products.
   route: modify_plugin
@@ -71,13 +71,16 @@ spec:
       parallel_scope: one_of_file_or_run
       numba_parallel: prohibited_without_separate_evidence
 status:
-  state: awaiting_user_input
+  state: executing
   transitions:
     - {from: created, to: planning, at: '2026-09-15T12:15:00Z', actor: planner}
     - {from: planning, to: awaiting_approval, at: '2026-09-15T12:15:00Z', actor: planner, condition: graph_hash_approval_required}
     - {from: awaiting_approval, to: ready_for_execution, at: '2026-09-15T12:22:16Z', actor: xiaoyu, condition: approval_granted}
     - {from: ready_for_execution, to: executing, at: '2026-09-15T12:22:16Z', actor: planner, condition: executors_assigned}
     - {from: executing, to: awaiting_user_input, at: '2026-09-15T12:53:00Z', actor: storage_chain, condition: storage_revision_design_approval_required}
+    - {from: awaiting_user_input, to: planning, at: '2026-09-15T14:20:09Z', actor: xiaoyu, condition: user_input_received}
+    - {from: planning, to: ready_for_execution, at: '2026-09-15T14:20:09Z', actor: planner, condition: single_raw_pass_constraint_recorded}
+    - {from: ready_for_execution, to: executing, at: '2026-09-15T14:20:09Z', actor: planner, condition: storage_executor_reassigned}
   plan_sha256: 5720a049096b995dda2b6ce2ac7413c4301d42445c1470a75b98bb3a12498d3d
   execution:
     reader_io:
@@ -89,10 +92,11 @@ status:
       commit: 2ed41279eb4d4c02eb9359a2b7d7bc152fcea383
       report: /mnt/data/tmp/wa-v1725-records-performance-g1/array-compute/report.md
     storage_chain:
-      status: awaiting_user_input
+      status: executing
       commit: null
       report: /mnt/data/tmp/wa-v1725-records-performance-g1/storage-chain/real-single-file-benchmark.json
-      blocker: Initial exact-output candidate kept 704 parts and added a second reader pass; revised stable-layout shard design requires approval.
+      blocker: null
+      approved_revision_constraint: Each RAW file is read exactly once; any replay or second-pass design is rejected.
     parallel_resources:
       status: not_started
       reason: depends_on foundation_review after storage_chain completion
