@@ -1,0 +1,774 @@
+{
+  "api_version": "graphflow/v1alpha1",
+  "compiled_sha256": "8c6c0274b146aa4322771ece97d2a09847188dc866e996b5ee43fd4b296decff",
+  "compiler_sha256": "a7e6586506a1d540bfff2ac8166d306b40cb2fabea88a96492648b521ee26e8b",
+  "compiler_version": "graphspec-compiler/1.1.0",
+  "components": [
+    {
+      "id": "scc-0",
+      "node_ids": [
+        "storage_chain"
+      ]
+    },
+    {
+      "id": "scc-1",
+      "node_ids": [
+        "reader_io"
+      ]
+    },
+    {
+      "id": "scc-2",
+      "node_ids": [
+        "parallel_resources"
+      ]
+    },
+    {
+      "id": "scc-3",
+      "node_ids": [
+        "integrate"
+      ]
+    },
+    {
+      "id": "scc-4",
+      "node_ids": [
+        "foundation_review"
+      ]
+    },
+    {
+      "id": "scc-5",
+      "node_ids": [
+        "final_qa"
+      ]
+    },
+    {
+      "id": "scc-6",
+      "node_ids": [
+        "array_compute"
+      ]
+    }
+  ],
+  "condensation": {
+    "components": [
+      {
+        "id": "scc-0",
+        "node_ids": [
+          "storage_chain"
+        ]
+      },
+      {
+        "id": "scc-1",
+        "node_ids": [
+          "reader_io"
+        ]
+      },
+      {
+        "id": "scc-2",
+        "node_ids": [
+          "parallel_resources"
+        ]
+      },
+      {
+        "id": "scc-3",
+        "node_ids": [
+          "integrate"
+        ]
+      },
+      {
+        "id": "scc-4",
+        "node_ids": [
+          "foundation_review"
+        ]
+      },
+      {
+        "id": "scc-5",
+        "node_ids": [
+          "final_qa"
+        ]
+      },
+      {
+        "id": "scc-6",
+        "node_ids": [
+          "array_compute"
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "edge_id": "storage-foundation-review",
+        "id": "storage-foundation-review",
+        "source": "scc-0",
+        "source_node": "storage_chain",
+        "target": "scc-4",
+        "target_node": "foundation_review"
+      },
+      {
+        "edge_id": "reader-foundation-review",
+        "id": "reader-foundation-review",
+        "source": "scc-1",
+        "source_node": "reader_io",
+        "target": "scc-4",
+        "target_node": "foundation_review"
+      },
+      {
+        "edge_id": "parallel-integrate",
+        "id": "parallel-integrate",
+        "source": "scc-2",
+        "source_node": "parallel_resources",
+        "target": "scc-3",
+        "target_node": "integrate"
+      },
+      {
+        "edge_id": "integrate-final-qa",
+        "id": "integrate-final-qa",
+        "source": "scc-3",
+        "source_node": "integrate",
+        "target": "scc-5",
+        "target_node": "final_qa"
+      },
+      {
+        "edge_id": "foundation-parallel",
+        "id": "foundation-parallel",
+        "source": "scc-4",
+        "source_node": "foundation_review",
+        "target": "scc-2",
+        "target_node": "parallel_resources"
+      },
+      {
+        "edge_id": "array-foundation-review",
+        "id": "array-foundation-review",
+        "source": "scc-6",
+        "source_node": "array_compute",
+        "target": "scc-4",
+        "target_node": "foundation_review"
+      }
+    ]
+  },
+  "edges": [
+    {
+      "edge_id": "storage-foundation-review",
+      "id": "storage-foundation-review",
+      "source": "scc-0",
+      "source_node": "storage_chain",
+      "target": "scc-4",
+      "target_node": "foundation_review"
+    },
+    {
+      "edge_id": "reader-foundation-review",
+      "id": "reader-foundation-review",
+      "source": "scc-1",
+      "source_node": "reader_io",
+      "target": "scc-4",
+      "target_node": "foundation_review"
+    },
+    {
+      "edge_id": "parallel-integrate",
+      "id": "parallel-integrate",
+      "source": "scc-2",
+      "source_node": "parallel_resources",
+      "target": "scc-3",
+      "target_node": "integrate"
+    },
+    {
+      "edge_id": "integrate-final-qa",
+      "id": "integrate-final-qa",
+      "source": "scc-3",
+      "source_node": "integrate",
+      "target": "scc-5",
+      "target_node": "final_qa"
+    },
+    {
+      "edge_id": "foundation-parallel",
+      "id": "foundation-parallel",
+      "source": "scc-4",
+      "source_node": "foundation_review",
+      "target": "scc-2",
+      "target_node": "parallel_resources"
+    },
+    {
+      "edge_id": "array-foundation-review",
+      "id": "array-foundation-review",
+      "source": "scc-6",
+      "source_node": "array_compute",
+      "target": "scc-4",
+      "target_node": "foundation_review"
+    }
+  ],
+  "generation": 1,
+  "graph_id": "v1725-records-performance-g1",
+  "graphspec_sha256": "5720a049096b995dda2b6ce2ac7413c4301d42445c1470a75b98bb3a12498d3d",
+  "kind": "CompiledGraphSpec",
+  "node_index": {
+    "array_compute": {
+      "scc_id": "scc-6",
+      "unit_id": "array_compute"
+    },
+    "final_qa": {
+      "scc_id": "scc-5",
+      "unit_id": "final_qa"
+    },
+    "foundation_review": {
+      "scc_id": "scc-4",
+      "unit_id": "foundation_review"
+    },
+    "integrate": {
+      "scc_id": "scc-3",
+      "unit_id": "integrate"
+    },
+    "parallel_resources": {
+      "scc_id": "scc-2",
+      "unit_id": "parallel_resources"
+    },
+    "reader_io": {
+      "scc_id": "scc-1",
+      "unit_id": "reader_io"
+    },
+    "storage_chain": {
+      "scc_id": "scc-0",
+      "unit_id": "storage_chain"
+    }
+  },
+  "semantic_graph": {
+    "agents": {
+      "registry": "agent-registry.yaml"
+    },
+    "api_version": "graphflow/v1alpha1",
+    "approval": {
+      "mode": "detached_hash",
+      "required": true,
+      "reviewers": [
+        "xiaoyu"
+      ]
+    },
+    "edges": [
+      {
+        "id": "array-foundation-review",
+        "source": "array_compute",
+        "target": "foundation_review"
+      },
+      {
+        "id": "foundation-parallel",
+        "source": "foundation_review",
+        "target": "parallel_resources"
+      },
+      {
+        "id": "integrate-final-qa",
+        "source": "integrate",
+        "target": "final_qa"
+      },
+      {
+        "id": "parallel-integrate",
+        "source": "parallel_resources",
+        "target": "integrate"
+      },
+      {
+        "id": "reader-foundation-review",
+        "source": "reader_io",
+        "target": "foundation_review"
+      },
+      {
+        "id": "storage-foundation-review",
+        "source": "storage_chain",
+        "target": "foundation_review"
+      }
+    ],
+    "execution": {
+      "allow_danger_full_access": false,
+      "default_executor": "auto",
+      "fail_fast": true,
+      "max_parallel": 3,
+      "run_root": "/mnt/data/tmp/wa-v1725-records-performance-g1/control-plane",
+      "workspace": "/mnt/data/Run3/WaveformAnalysis"
+    },
+    "kind": "GraphSpec",
+    "metadata": {
+      "assumptions": [
+        "Runs 00700--00702 remain available read-only under /mnt/data/TPC/run7_Xe.",
+        "Current task runtime permits three simultaneous child agents; the fourth is queued."
+      ],
+      "constraints": [
+        "Independent implementation worktrees.",
+        "Capacity-one real-data benchmark group.",
+        "No production cache writes."
+      ],
+      "generation": 1,
+      "goal": "Optimize V1725 records construction while preserving exact products and bounded resources.",
+      "id": "v1725-records-performance-g1",
+      "parent_graph": null,
+      "title": "V1725 records performance G1",
+      "version": 1
+    },
+    "nodes": [
+      {
+        "acceptance": {
+          "criteria": [
+            "Internal arrays cover timestamp, board, channel, baseline, truncation, offsets, and lengths.",
+            "records and wave_pool are built without per-wave Python field extraction on the fast path.",
+            "Public dtype, fields, order, bytes, and iter_waves behavior remain compatible."
+          ]
+        },
+        "capabilities": [
+          "analysis",
+          "code_read",
+          "python",
+          "coding",
+          "testing",
+          "benchmarking",
+          "documentation"
+        ],
+        "concurrency": {
+          "group": "array-worktree",
+          "writes_workspace": true
+        },
+        "depends_on": [],
+        "estimated_minutes": 180,
+        "executor": "luna-max-executor",
+        "id": "array_compute",
+        "inputs": [],
+        "outputs": [
+          {
+            "name": "scoped_commit",
+            "path": "artifacts/array-compute/commit.txt",
+            "required": true,
+            "type": "text"
+          },
+          {
+            "name": "execution_report",
+            "path": "artifacts/array-compute/report.md",
+            "required": true,
+            "type": "markdown"
+          }
+        ],
+        "retry": {
+          "backoff_seconds": 0,
+          "max_attempts": 2,
+          "on_failure": "request_replan"
+        },
+        "task": "Add an internal array-batch reader path and direct records/wave_pool construction while retaining iter_waves compatibility.",
+        "title": "Array-first V1725 construction",
+        "type": "implementation"
+      },
+      {
+        "acceptance": {
+          "criteria": [
+            "records and wave_pool dtype, shape, order, bytes, lineage, and cache behavior pass.",
+            "Single-file, Run 00700, and Runs 00700--00702 results include wall, CPU, RSS, I/O, parts, and scratch amplification.",
+            "All blocking repository gates pass and task-owned large temporary data is removed."
+          ]
+        },
+        "capabilities": [
+          "analysis",
+          "code_read",
+          "python",
+          "testing",
+          "benchmarking",
+          "review",
+          "documentation"
+        ],
+        "concurrency": {
+          "group": "benchmark-v1725",
+          "writes_workspace": true
+        },
+        "depends_on": [
+          "integrate"
+        ],
+        "estimated_minutes": 300,
+        "executor": "luna-max-reviewer",
+        "id": "final_qa",
+        "inputs": [
+          {
+            "name": "integration_report",
+            "path": "artifacts/integration/report.md",
+            "required": true,
+            "type": "markdown"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "review_report",
+            "path": "artifacts/final-review.md",
+            "required": true,
+            "type": "markdown"
+          }
+        ],
+        "retry": {
+          "backoff_seconds": 0,
+          "max_attempts": 1,
+          "on_failure": "stop"
+        },
+        "task": "Run exact-output checks, single-file/full-run/three-run benchmarks, repository gates, and cleanup audit without editing implementation.",
+        "title": "Blocking exact-output and performance review",
+        "type": "evaluation"
+      },
+      {
+        "acceptance": {
+          "criteria": [
+            "Conflicts, contract risks, version action, and integration order are explicit.",
+            "Rejected prototypes are not eligible for integration."
+          ]
+        },
+        "capabilities": [
+          "analysis",
+          "code_read",
+          "testing",
+          "benchmarking",
+          "review",
+          "documentation"
+        ],
+        "concurrency": {
+          "group": "review-artifacts",
+          "writes_workspace": true
+        },
+        "depends_on": [
+          "reader_io",
+          "array_compute",
+          "storage_chain"
+        ],
+        "estimated_minutes": 45,
+        "executor": "luna-max-reviewer",
+        "id": "foundation_review",
+        "inputs": [
+          {
+            "name": "reader_report",
+            "path": "artifacts/reader-io/report.md",
+            "required": true,
+            "type": "markdown"
+          },
+          {
+            "name": "array_report",
+            "path": "artifacts/array-compute/report.md",
+            "required": true,
+            "type": "markdown"
+          },
+          {
+            "name": "storage_report",
+            "path": "artifacts/storage-chain/report.md",
+            "required": true,
+            "type": "markdown"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "foundation_review",
+            "path": "artifacts/foundation-review.md",
+            "required": true,
+            "type": "markdown"
+          }
+        ],
+        "retry": {
+          "backoff_seconds": 0,
+          "max_attempts": 1,
+          "on_failure": "stop"
+        },
+        "task": "Independently review the three prototypes, select compatible commits, and define the integration order without editing source.",
+        "title": "Review first-stage contracts",
+        "type": "evaluation"
+      },
+      {
+        "acceptance": {
+          "criteria": [
+            "Plugin version and generated plugin documentation match the implemented path.",
+            "Targeted tests and integration smoke pass before full real-data QA."
+          ]
+        },
+        "capabilities": [
+          "analysis",
+          "code_read",
+          "python",
+          "coding",
+          "testing",
+          "integration",
+          "documentation"
+        ],
+        "concurrency": {
+          "group": "integration-worktree",
+          "writes_workspace": true
+        },
+        "depends_on": [
+          "parallel_resources"
+        ],
+        "estimated_minutes": 120,
+        "executor": "luna-max-integrator",
+        "id": "integrate",
+        "inputs": [
+          {
+            "name": "foundation_review",
+            "path": "artifacts/foundation-review.md",
+            "required": true,
+            "type": "markdown"
+          },
+          {
+            "name": "parallel_report",
+            "path": "artifacts/parallel-resources/report.md",
+            "required": true,
+            "type": "markdown"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "integrated_commit",
+            "path": "artifacts/integration/commit.txt",
+            "required": true,
+            "type": "text"
+          },
+          {
+            "name": "execution_report",
+            "path": "artifacts/integration/report.md",
+            "required": true,
+            "type": "markdown"
+          }
+        ],
+        "retry": {
+          "backoff_seconds": 0,
+          "max_attempts": 2,
+          "on_failure": "request_replan"
+        },
+        "task": "Integrate only approved scoped commits in reader, array, storage, then parallel order; resolve overlaps semantically and update version/docs.",
+        "title": "Integrate reviewed performance commits",
+        "type": "implementation"
+      },
+      {
+        "acceptance": {
+          "criteria": [
+            "One bounded concurrency layer is selected from measured wall, CPU, RSS, and I/O evidence.",
+            "Global worker, RSS, scratch, and merge limits are explicit.",
+            "No nested unbounded run/file parallelism is introduced."
+          ]
+        },
+        "capabilities": [
+          "analysis",
+          "code_read",
+          "python",
+          "coding",
+          "testing",
+          "benchmarking",
+          "documentation"
+        ],
+        "concurrency": {
+          "group": "benchmark-v1725",
+          "writes_workspace": true
+        },
+        "depends_on": [
+          "foundation_review"
+        ],
+        "estimated_minutes": 240,
+        "executor": "luna-max-executor",
+        "id": "parallel_resources",
+        "inputs": [
+          {
+            "name": "foundation_review",
+            "path": "artifacts/foundation-review.md",
+            "required": true,
+            "type": "markdown"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "scoped_commit",
+            "path": "artifacts/parallel-resources/commit.txt",
+            "required": true,
+            "type": "text"
+          },
+          {
+            "name": "execution_report",
+            "path": "artifacts/parallel-resources/report.md",
+            "required": true,
+            "type": "markdown"
+          }
+        ],
+        "retry": {
+          "backoff_seconds": 0,
+          "max_attempts": 2,
+          "on_failure": "request_replan"
+        },
+        "task": "Measure 1x4, 2x2, and 3x1 layouts on reviewed foundations; implement only the bounded winning policy and metrics/cleanup hooks.",
+        "title": "File/run concurrency and resource budgets",
+        "type": "implementation"
+      },
+      {
+        "acceptance": {
+          "criteria": [
+            "Window, oversized-event, truncated-tail, empty-file, and compatibility tests pass.",
+            "Single-file records and wave_pool SHA-256 match baseline.",
+            "Reader and pipeline measurements are reported with RSS."
+          ]
+        },
+        "capabilities": [
+          "analysis",
+          "code_read",
+          "python",
+          "coding",
+          "testing",
+          "benchmarking",
+          "documentation"
+        ],
+        "concurrency": {
+          "group": "reader-worktree",
+          "writes_workspace": true
+        },
+        "depends_on": [],
+        "estimated_minutes": 90,
+        "executor": "luna-max-executor",
+        "id": "reader_io",
+        "inputs": [],
+        "outputs": [
+          {
+            "name": "scoped_commit",
+            "path": "artifacts/reader-io/commit.txt",
+            "required": true,
+            "type": "text"
+          },
+          {
+            "name": "execution_report",
+            "path": "artifacts/reader-io/report.md",
+            "required": true,
+            "type": "markdown"
+          }
+        ],
+        "retry": {
+          "backoff_seconds": 0,
+          "max_attempts": 2,
+          "on_failure": "request_replan"
+        },
+        "task": "Remove fixed 1,000-event rewind amplification while preserving all V1725 boundary semantics.",
+        "title": "Reader full-window I/O",
+        "type": "implementation"
+      },
+      {
+        "acceptance": {
+          "criteria": [
+            "Byte-aware or measured part sizing is bounded by an explicit memory budget.",
+            "Part count, scratch bytes, write wall, merge wall, and peak RSS are reported.",
+            "Failure recovery, ownership, and cleanup tests pass."
+          ]
+        },
+        "capabilities": [
+          "analysis",
+          "code_read",
+          "python",
+          "coding",
+          "testing",
+          "benchmarking",
+          "documentation"
+        ],
+        "concurrency": {
+          "group": "storage-worktree",
+          "writes_workspace": true
+        },
+        "depends_on": [],
+        "estimated_minutes": 150,
+        "executor": "luna-max-executor",
+        "id": "storage_chain",
+        "inputs": [],
+        "outputs": [
+          {
+            "name": "scoped_commit",
+            "path": "artifacts/storage-chain/commit.txt",
+            "required": true,
+            "type": "text"
+          },
+          {
+            "name": "execution_report",
+            "path": "artifacts/storage-chain/report.md",
+            "required": true,
+            "type": "markdown"
+          }
+        ],
+        "retry": {
+          "backoff_seconds": 0,
+          "max_attempts": 2,
+          "on_failure": "request_replan"
+        },
+        "task": "Replace the hard 10,000-wave cap with a bounded byte-aware strategy and reduce part/merge amplification without weakening recovery.",
+        "title": "Bounded parts and merge/write reduction",
+        "type": "implementation"
+      }
+    ],
+    "replanning": {
+      "enabled": true,
+      "max_generations": 2,
+      "triggers": [
+        "node_failure",
+        "acceptance_failure",
+        "evaluator_rejection",
+        "human_request"
+      ]
+    }
+  },
+  "stages": [
+    [
+      "scc-0",
+      "scc-1",
+      "scc-6"
+    ],
+    [
+      "scc-4"
+    ],
+    [
+      "scc-2"
+    ],
+    [
+      "scc-3"
+    ],
+    [
+      "scc-5"
+    ]
+  ],
+  "units": [
+    {
+      "id": "storage_chain",
+      "kind": "node",
+      "node_ids": [
+        "storage_chain"
+      ],
+      "scc_id": "scc-0"
+    },
+    {
+      "id": "reader_io",
+      "kind": "node",
+      "node_ids": [
+        "reader_io"
+      ],
+      "scc_id": "scc-1"
+    },
+    {
+      "id": "parallel_resources",
+      "kind": "node",
+      "node_ids": [
+        "parallel_resources"
+      ],
+      "scc_id": "scc-2"
+    },
+    {
+      "id": "integrate",
+      "kind": "node",
+      "node_ids": [
+        "integrate"
+      ],
+      "scc_id": "scc-3"
+    },
+    {
+      "id": "foundation_review",
+      "kind": "node",
+      "node_ids": [
+        "foundation_review"
+      ],
+      "scc_id": "scc-4"
+    },
+    {
+      "id": "final_qa",
+      "kind": "node",
+      "node_ids": [
+        "final_qa"
+      ],
+      "scc_id": "scc-5"
+    },
+    {
+      "id": "array_compute",
+      "kind": "node",
+      "node_ids": [
+        "array_compute"
+      ],
+      "scc_id": "scc-6"
+    }
+  ]
+}

@@ -1,0 +1,192 @@
+api_version: graphflow/v1alpha1
+kind: GraphSpec
+
+metadata:
+  id: v1725-records-performance-g1
+  title: V1725 records performance G1
+  version: 1
+  generation: 1
+  parent_graph: null
+  goal: Optimize V1725 records construction while preserving exact products and bounded resources.
+  assumptions:
+    - Runs 00700--00702 remain available read-only under /mnt/data/TPC/run7_Xe.
+    - Current task runtime permits three simultaneous child agents; the fourth is queued.
+  constraints:
+    - Independent implementation worktrees.
+    - Capacity-one real-data benchmark group.
+    - No production cache writes.
+
+approval:
+  required: true
+  mode: detached_hash
+  reviewers: [xiaoyu]
+
+execution:
+  workspace: /mnt/data/Run3/WaveformAnalysis
+  run_root: /mnt/data/tmp/wa-v1725-records-performance-g1/control-plane
+  max_parallel: 3
+  fail_fast: true
+  allow_danger_full_access: false
+  default_executor: auto
+
+agents:
+  registry: agent-registry.yaml
+
+replanning:
+  enabled: true
+  max_generations: 2
+  triggers: [node_failure, acceptance_failure, evaluator_rejection, human_request]
+
+nodes:
+  - id: reader_io
+    title: Reader full-window I/O
+    type: implementation
+    task: Remove fixed 1,000-event rewind amplification while preserving all V1725 boundary semantics.
+    executor: luna-max-executor
+    capabilities: [analysis, code_read, python, coding, testing, benchmarking, documentation]
+    depends_on: []
+    inputs: []
+    outputs:
+      - {name: scoped_commit, path: artifacts/reader-io/commit.txt, type: text, required: true}
+      - {name: execution_report, path: artifacts/reader-io/report.md, type: markdown, required: true}
+    acceptance:
+      criteria:
+        - Window, oversized-event, truncated-tail, empty-file, and compatibility tests pass.
+        - Single-file records and wave_pool SHA-256 match baseline.
+        - Reader and pipeline measurements are reported with RSS.
+    retry: {max_attempts: 2, backoff_seconds: 0, on_failure: request_replan}
+    concurrency: {group: reader-worktree, writes_workspace: true}
+    estimated_minutes: 90
+
+  - id: array_compute
+    title: Array-first V1725 construction
+    type: implementation
+    task: Add an internal array-batch reader path and direct records/wave_pool construction while retaining iter_waves compatibility.
+    executor: luna-max-executor
+    capabilities: [analysis, code_read, python, coding, testing, benchmarking, documentation]
+    depends_on: []
+    inputs: []
+    outputs:
+      - {name: scoped_commit, path: artifacts/array-compute/commit.txt, type: text, required: true}
+      - {name: execution_report, path: artifacts/array-compute/report.md, type: markdown, required: true}
+    acceptance:
+      criteria:
+        - Internal arrays cover timestamp, board, channel, baseline, truncation, offsets, and lengths.
+        - records and wave_pool are built without per-wave Python field extraction on the fast path.
+        - Public dtype, fields, order, bytes, and iter_waves behavior remain compatible.
+    retry: {max_attempts: 2, backoff_seconds: 0, on_failure: request_replan}
+    concurrency: {group: array-worktree, writes_workspace: true}
+    estimated_minutes: 180
+
+  - id: storage_chain
+    title: Bounded parts and merge/write reduction
+    type: implementation
+    task: Replace the hard 10,000-wave cap with a bounded byte-aware strategy and reduce part/merge amplification without weakening recovery.
+    executor: luna-max-executor
+    capabilities: [analysis, code_read, python, coding, testing, benchmarking, documentation]
+    depends_on: []
+    inputs: []
+    outputs:
+      - {name: scoped_commit, path: artifacts/storage-chain/commit.txt, type: text, required: true}
+      - {name: execution_report, path: artifacts/storage-chain/report.md, type: markdown, required: true}
+    acceptance:
+      criteria:
+        - Byte-aware or measured part sizing is bounded by an explicit memory budget.
+        - Part count, scratch bytes, write wall, merge wall, and peak RSS are reported.
+        - Failure recovery, ownership, and cleanup tests pass.
+    retry: {max_attempts: 2, backoff_seconds: 0, on_failure: request_replan}
+    concurrency: {group: storage-worktree, writes_workspace: true}
+    estimated_minutes: 150
+
+  - id: foundation_review
+    title: Review first-stage contracts
+    type: evaluation
+    task: Independently review the three prototypes, select compatible commits, and define the integration order without editing source.
+    executor: luna-max-reviewer
+    capabilities: [analysis, code_read, testing, benchmarking, review, documentation]
+    depends_on: [reader_io, array_compute, storage_chain]
+    inputs:
+      - {name: reader_report, path: artifacts/reader-io/report.md, type: markdown, required: true}
+      - {name: array_report, path: artifacts/array-compute/report.md, type: markdown, required: true}
+      - {name: storage_report, path: artifacts/storage-chain/report.md, type: markdown, required: true}
+    outputs:
+      - {name: foundation_review, path: artifacts/foundation-review.md, type: markdown, required: true}
+    acceptance:
+      criteria:
+        - Conflicts, contract risks, version action, and integration order are explicit.
+        - Rejected prototypes are not eligible for integration.
+    retry: {max_attempts: 1, backoff_seconds: 0, on_failure: stop}
+    concurrency: {group: review-artifacts, writes_workspace: true}
+    estimated_minutes: 45
+
+  - id: parallel_resources
+    title: File/run concurrency and resource budgets
+    type: implementation
+    task: Measure 1x4, 2x2, and 3x1 layouts on reviewed foundations; implement only the bounded winning policy and metrics/cleanup hooks.
+    executor: luna-max-executor
+    capabilities: [analysis, code_read, python, coding, testing, benchmarking, documentation]
+    depends_on: [foundation_review]
+    inputs:
+      - {name: foundation_review, path: artifacts/foundation-review.md, type: markdown, required: true}
+    outputs:
+      - {name: scoped_commit, path: artifacts/parallel-resources/commit.txt, type: text, required: true}
+      - {name: execution_report, path: artifacts/parallel-resources/report.md, type: markdown, required: true}
+    acceptance:
+      criteria:
+        - One bounded concurrency layer is selected from measured wall, CPU, RSS, and I/O evidence.
+        - Global worker, RSS, scratch, and merge limits are explicit.
+        - No nested unbounded run/file parallelism is introduced.
+    retry: {max_attempts: 2, backoff_seconds: 0, on_failure: request_replan}
+    concurrency: {group: benchmark-v1725, writes_workspace: true}
+    estimated_minutes: 240
+
+  - id: integrate
+    title: Integrate reviewed performance commits
+    type: implementation
+    task: Integrate only approved scoped commits in reader, array, storage, then parallel order; resolve overlaps semantically and update version/docs.
+    executor: luna-max-integrator
+    capabilities: [analysis, code_read, python, coding, testing, integration, documentation]
+    depends_on: [parallel_resources]
+    inputs:
+      - {name: foundation_review, path: artifacts/foundation-review.md, type: markdown, required: true}
+      - {name: parallel_report, path: artifacts/parallel-resources/report.md, type: markdown, required: true}
+    outputs:
+      - {name: integrated_commit, path: artifacts/integration/commit.txt, type: text, required: true}
+      - {name: execution_report, path: artifacts/integration/report.md, type: markdown, required: true}
+    acceptance:
+      criteria:
+        - Plugin version and generated plugin documentation match the implemented path.
+        - Targeted tests and integration smoke pass before full real-data QA.
+    retry: {max_attempts: 2, backoff_seconds: 0, on_failure: request_replan}
+    concurrency: {group: integration-worktree, writes_workspace: true}
+    estimated_minutes: 120
+
+  - id: final_qa
+    title: Blocking exact-output and performance review
+    type: evaluation
+    task: Run exact-output checks, single-file/full-run/three-run benchmarks, repository gates, and cleanup audit without editing implementation.
+    executor: luna-max-reviewer
+    capabilities: [analysis, code_read, python, testing, benchmarking, review, documentation]
+    depends_on: [integrate]
+    inputs:
+      - {name: integration_report, path: artifacts/integration/report.md, type: markdown, required: true}
+    outputs:
+      - {name: review_report, path: artifacts/final-review.md, type: markdown, required: true}
+    acceptance:
+      criteria:
+        - records and wave_pool dtype, shape, order, bytes, lineage, and cache behavior pass.
+        - Single-file, Run 00700, and Runs 00700--00702 results include wall, CPU, RSS, I/O, parts, and scratch amplification.
+        - All blocking repository gates pass and task-owned large temporary data is removed.
+    retry: {max_attempts: 1, backoff_seconds: 0, on_failure: stop}
+    concurrency: {group: benchmark-v1725, writes_workspace: true}
+    estimated_minutes: 300
+
+edges:
+  - {id: reader-foundation-review, source: reader_io, target: foundation_review}
+  - {id: array-foundation-review, source: array_compute, target: foundation_review}
+  - {id: storage-foundation-review, source: storage_chain, target: foundation_review}
+  - {id: foundation-parallel, source: foundation_review, target: parallel_resources}
+  - {id: parallel-integrate, source: parallel_resources, target: integrate}
+  - {id: integrate-final-qa, source: integrate, target: final_qa}
+
+viewport: {x: 0, y: 0, zoom: 0.8}

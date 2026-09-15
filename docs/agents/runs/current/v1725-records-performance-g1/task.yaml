@@ -1,0 +1,90 @@
+api_version: waveform-analysis/agent-task/v1
+kind: AgentTask
+metadata:
+  id: v1725-records-performance-g1
+  generation: 1
+  created_at: '2026-09-15T12:15:00Z'
+  updated_at: '2026-09-15T12:15:00Z'
+spec:
+  goal: Optimize V1725 records construction through reader I/O, array-first construction, bounded storage, and measured parallelism while preserving exact products.
+  route: modify_plugin
+  workflow_cost: strict
+  workflow_shape: staged
+  lifecycle_profile: reviewed_change
+  risk_level: high
+  scope:
+    base_sha: d47fed4d49f115ba46d7a98823c83ec21a7119e4
+    allowed_paths:
+      - waveform_analysis/acquisition/formats/v1725.py
+      - waveform_analysis/acquisition/formats/v1725_numba.py
+      - waveform_analysis/core/processing/records_builder.py
+      - waveform_analysis/core/plugins/builtin/records
+      - tests
+      - docs/plugins/reference/agent
+      - docs/superpowers/specs/2026-09-15-v1725-records-performance-design.md
+      - docs/agents/runs/current/v1725-records-performance-g1/task.yaml
+      - plans/v1725-records-performance-g1
+    external_evidence_root: /mnt/data/tmp/wa-v1725-records-performance-g1
+    dataset:
+      - /mnt/data/TPC/run7_Xe/00700
+      - /mnt/data/TPC/run7_Xe/00701
+      - /mnt/data/TPC/run7_Xe/00702
+    production_cache_policy: read_only
+    benchmark_concurrency_group: benchmark-v1725
+  acceptance_criteria:
+    - records and wave_pool preserve exact dtype, shape, order, bytes, lineage, and cache behavior.
+    - Reader boundary and legacy compatibility tests pass.
+    - Single-file, Run 00700, and Runs 00700--00702 evidence includes wall, CPU, RSS, I/O, parts, and scratch amplification.
+    - Parallelism uses one bounded layer under explicit worker, RSS, scratch, and merge budgets.
+    - Task-owned large temporary outputs are removed after evidence preservation.
+  required_gates:
+    - targeted_tests
+    - plugin_docs
+    - assess_change_impact
+    - schema_compat_check
+    - doc_sync
+    - doc_anchors
+    - performance_regression_check
+    - release_artifact_sync
+  assignment:
+    planner_role: planner
+    executor_role: executor.plugin
+    reviewer_role: reviewer
+    model: gpt-5.6-luna
+    reasoning_effort: max
+    workstreams: [reader_io, array_compute, storage_chain, parallel_resources]
+  plan_artifacts:
+    goal: plans/v1725-records-performance-g1/goal.md
+    graphspec: plans/v1725-records-performance-g1/graphspec.yaml
+    agent_registry: plans/v1725-records-performance-g1/agent-registry.yaml
+    design: docs/superpowers/specs/2026-09-15-v1725-records-performance-design.md
+  implementation_constraints:
+    independent_worktrees: true
+    max_parallel_current_task: 3
+    configured_max_parallel_new_task: 4
+    max_rework_rounds_per_branch: 2
+    version_action: minor_if_array_path_integrated
+    execution_backend:
+      reader: python_and_numpy
+      metadata: numpy_or_numba_serial
+      waveform_copy: numba_serial_or_block_copy
+      parallel_scope: one_of_file_or_run
+      numba_parallel: prohibited_without_separate_evidence
+status:
+  state: awaiting_approval
+  transitions:
+    - {from: created, to: planning, at: '2026-09-15T12:15:00Z', actor: planner}
+    - {from: planning, to: awaiting_approval, at: '2026-09-15T12:15:00Z', actor: planner, condition: graph_hash_approval_required}
+  plan_sha256: 5720a049096b995dda2b6ce2ac7413c4301d42445c1470a75b98bb3a12498d3d
+  execution: {}
+  review: {}
+  approval:
+    required: true
+    reviewer: xiaoyu
+    marker_created: false
+    candidate_hashes:
+      graphspec: 5720a049096b995dda2b6ce2ac7413c4301d42445c1470a75b98bb3a12498d3d
+      registry: 765378fe961abc33aaf0201b4c34b6a410077d841af786e57e6f35f9d7722992
+      compiled_plan: 39efd2d360e94ae15e39bd69c20d82612d93fb5eda521ae4d2cf28d9e4f89be0
+      compiler: a7e6586506a1d540bfff2ac8166d306b40cb2fabea88a96492648b521ee26e8b
+  handoff: {}
