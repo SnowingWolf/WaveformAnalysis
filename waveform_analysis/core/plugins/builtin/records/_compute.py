@@ -482,9 +482,9 @@ class _RecordsBundlePluginBase(Plugin):
             "Use 'st_waveforms' for the materialized waveform path.",
         ),
     }
-    # PATCH bump: bounded 8 MiB raw-byte concatenation preserves formal
-    # records/wave_pool bytes while avoiding a second memmap copy on NFS.
-    version = "0.15.2"
+    # MINOR bump: V1725 full-window scanning and array-first construction keep
+    # formal records/wave_pool bytes stable while changing the build path.
+    version = "0.16.0"
 
     def resolve_depends_on(self, context: Any, run_id: str | None = None) -> list[str]:
         """Resolve raw-file upstream data for shared records bundle outputs."""

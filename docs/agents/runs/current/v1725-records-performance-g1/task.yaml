@@ -4,7 +4,7 @@ metadata:
   id: v1725-records-performance-g1
   generation: 1
   created_at: '2026-09-15T12:15:00Z'
-  updated_at: '2026-09-15T14:20:09Z'
+  updated_at: '2026-09-16T03:06:00Z'
 spec:
   goal: Optimize V1725 records construction through reader I/O, array-first construction, bounded storage, and measured parallelism while preserving exact products.
   route: modify_plugin
@@ -15,12 +15,21 @@ spec:
   scope:
     base_sha: d47fed4d49f115ba46d7a98823c83ec21a7119e4
     allowed_paths:
+      - CHANGELOG.md
       - waveform_analysis/acquisition/formats/v1725.py
       - waveform_analysis/acquisition/formats/v1725_numba.py
       - waveform_analysis/core/processing/records_builder.py
       - waveform_analysis/core/plugins/builtin/records
+      - waveform_analysis/core/plugins/builtin/wave_pool/manifest.yaml
       - tests
+      - docs/plugins/reference/builtin/auto
       - docs/plugins/reference/agent
+      - docs/site-next/fixture/site-model.v1.json
+      - docs/site-next/lib/site-model.test.ts
+      - docs/site-next/lib/site-model.ts
+      - docs/agents/plans/INDEX.md
+      - docs/agents/plans/active.yaml
+      - waveform_analysis/documentation/site_model.py
       - docs/superpowers/specs/2026-09-15-v1725-records-performance-design.md
       - docs/agents/runs/current/v1725-records-performance-g1/task.yaml
       - plans/v1725-records-performance-g1
@@ -34,6 +43,8 @@ spec:
   acceptance_criteria:
     - records and wave_pool preserve exact dtype, shape, order, bytes, lineage, and cache behavior.
     - Reader boundary and legacy compatibility tests pass.
+    - iter_waves, iter_waves_batched, and array batches consume complete scanner windows before in-memory batch slicing.
+    - Records and WavePool version 0.16.0 is synchronized across manifests, generated references, and site-model validation fixtures.
     - Single-file, Run 00700, and Runs 00700--00702 evidence includes wall, CPU, RSS, I/O, parts, and scratch amplification.
     - Parallelism uses one bounded layer under explicit worker, RSS, scratch, and merge budgets.
     - Task-owned large temporary outputs are removed after evidence preservation.
@@ -70,6 +81,15 @@ spec:
       waveform_copy: numba_serial_or_block_copy
       parallel_scope: one_of_file_or_run
       numba_parallel: prohibited_without_separate_evidence
+  review_replan:
+    previous_canonical_spec_sha256: 0ee99a9096f85b1ed5a09b48dc8620dd07fe897d3b2748749f6dd35c5f1aadb1
+    original_approval_graphspec_sha256: 5720a049096b995dda2b6ce2ac7413c4301d42445c1470a75b98bb3a12498d3d
+    foundation_review: technical_approved
+    storage_chain: completed_rejected_no_integration
+    parallel_resources: ready_pending_user_reapproval
+    user_approval_required_before_resumption: true
+    reason: >-
+      The second-round foundation review technically approved the Reader and Array foundation, rejected storage integration after the owner-aware real A/B showed no wall-time gain and a transient projected-workset budget blocker, and left parallel-resource work ready but gated on user approval of this revised spec.
 status:
   state: executing
   transitions:
@@ -77,11 +97,17 @@ status:
     - {from: planning, to: awaiting_approval, at: '2026-09-15T12:15:00Z', actor: planner, condition: graph_hash_approval_required}
     - {from: awaiting_approval, to: ready_for_execution, at: '2026-09-15T12:22:16Z', actor: xiaoyu, condition: approval_granted}
     - {from: ready_for_execution, to: executing, at: '2026-09-15T12:22:16Z', actor: planner, condition: executors_assigned}
-    - {from: executing, to: awaiting_user_input, at: '2026-09-15T12:53:00Z', actor: storage_chain, condition: storage_revision_design_approval_required}
-    - {from: awaiting_user_input, to: planning, at: '2026-09-15T14:20:09Z', actor: xiaoyu, condition: user_input_received}
+    - {from: executing, to: blocked, at: '2026-09-15T12:53:00Z', actor: storage_chain, condition: storage_revision_design_approval_required}
+    - {from: blocked, to: planning, at: '2026-09-15T14:20:09Z', actor: xiaoyu, condition: user_input_received}
     - {from: planning, to: ready_for_execution, at: '2026-09-15T14:20:09Z', actor: planner, condition: single_raw_pass_constraint_recorded}
     - {from: ready_for_execution, to: executing, at: '2026-09-15T14:20:09Z', actor: planner, condition: storage_executor_reassigned}
-  plan_sha256: 5720a049096b995dda2b6ce2ac7413c4301d42445c1470a75b98bb3a12498d3d
+    - {from: executing, to: reviewing, at: '2026-09-15T18:16:39Z', actor: executor, condition: execution_report_ready}
+    - {from: reviewing, to: rework_required, at: '2026-09-15T18:39:07Z', actor: foundation_reviewer, condition: revised_scope_requires_user_reapproval}
+    - {from: rework_required, to: planning, at: '2026-09-15T18:39:07Z', actor: planner, condition: reviewer_decision_replans_pending_work, scope_changed: true}
+    - {from: planning, to: awaiting_approval, at: '2026-09-15T18:39:07Z', actor: planner, condition: revised_canonical_spec_requires_user_approval}
+    - {from: awaiting_approval, to: ready_for_execution, at: '2026-09-16T03:06:00Z', actor: xiaoyu, condition: g1_r2_user_approval_granted}
+    - {from: ready_for_execution, to: executing, at: '2026-09-16T03:06:00Z', actor: planner, condition: g1_r2_executor_resumed}
+  plan_sha256: a3cc4f962448983e06cc9b2dd71069bef58c65679bb66d1c3848609562f8a78e
   execution:
     reader_io:
       status: completed
@@ -92,24 +118,150 @@ status:
       commit: 2ed41279eb4d4c02eb9359a2b7d7bc152fcea383
       report: /mnt/data/tmp/wa-v1725-records-performance-g1/array-compute/report.md
     storage_chain:
-      status: executing
+      status: completed_rejected
       commit: null
-      report: /mnt/data/tmp/wa-v1725-records-performance-g1/storage-chain/real-single-file-benchmark.json
-      blocker: null
+      report: /mnt/data/tmp/wa-v1725-records-performance-g1/storage-chain/real-single-file-owner-aware-ab-50k.json
+      integration: no_integration
+      decision_source: second_round_foundation_review
+      owner_aware_real_ab:
+        baseline_label: baseline10k
+        baseline_wall_seconds: 124.80699654098134
+        candidate_label: candidate50k
+        candidate_wall_seconds: 126.06691131205298
+        candidate_wall_delta_percent: 1.01
+        interpretation: candidate_is_1_01_percent_slower
+        output_hashes_match: true
+      budget_transient_blocker:
+        configured_budget_bytes: 536870912
+        max_projected_workset_bytes: 544821568
+        projected_over_budget_bytes: 7950656
+        max_unique_owner_bytes: 520093696
+        interpretation: >-
+          The benchmark's projected estimate includes the incoming wave before flush/recheck; the transient projected overshoot remains a blocker to candidate acceptance and does not mean the retained unique-owner ledger itself exceeded the configured budget.
       approved_revision_constraint: Each RAW file is read exactly once; any replay or second-pass design is rejected.
+    foundation_review:
+      status: approved
+      decision: technical_approve
+      reviewer_role: reviewer
+      decided_at: '2026-09-15T18:39:07Z'
+      scope: Reader and Array foundation; storage candidate rejected and not integrated.
     parallel_resources:
-      status: not_started
-      reason: depends_on foundation_review after storage_chain completion
-  review: {}
+      status: ready
+      approval_state: pending_user_reapproval
+      ready_basis: foundation_review_approved
+      execution_gate: approval_of_current_canonical_spec
+      reason: >-
+        Foundation review is approved; parallel-resource work may proceed only after the user approves the revised canonical spec. Storage integration remains rejected and is not part of the integrated branch.
+    integration:
+      status: completed_for_reader_and_array_only
+      reader_commit: c2025e4
+      array_commit: e98ecf6
+      storage_branch_integrated: false
+      shared_plugin_version: 0.16.0
+      changed_paths:
+        - CHANGELOG.md
+        - docs/agents/plans/INDEX.md
+        - docs/agents/plans/active.yaml
+        - docs/agents/runs/current/v1725-records-performance-g1/task.yaml
+        - docs/plugins/reference/agent/INDEX.md
+        - docs/plugins/reference/agent/records.md
+        - docs/plugins/reference/agent/wave_pool.md
+        - docs/plugins/reference/builtin/auto/INDEX.md
+        - docs/plugins/reference/builtin/auto/records.md
+        - docs/plugins/reference/builtin/auto/wave_pool.md
+        - docs/site-next/fixture/site-model.v1.json
+        - docs/site-next/lib/site-model.test.ts
+        - docs/site-next/lib/site-model.ts
+        - tests/test_daq_adapter_v1725.py
+        - tests/test_site_model.py
+        - waveform_analysis/acquisition/formats/v1725.py
+        - waveform_analysis/core/processing/records_builder.py
+        - waveform_analysis/core/plugins/builtin/records/_compute.py
+        - waveform_analysis/core/plugins/builtin/records/manifest.yaml
+        - waveform_analysis/core/plugins/builtin/wave_pool/manifest.yaml
+        - waveform_analysis/documentation/site_model.py
+      actions_taken:
+        - Cherry-picked the reviewed Reader commit followed by the reviewed Array commit in the requested order.
+        - Resolved the V1725 reader signature conflict by combining nullable max_events with array-batch output.
+        - Made iter_waves, iter_waves_batched, and _iter_wave_array_batches scan each read window with max_events=None; batch_size now slices returned objects or arrays in memory.
+        - Preserved optimized=False fallback, cross-window, oversized-event, and truncated-tail behavior.
+        - Raised the shared Records/WavePool plugin version to 0.16.0 and regenerated plugin references and site-model fixture from repository sources.
+        - Regenerated the two stale agent-plan views required by repository doc-sync validation.
+      commands_run:
+        - "pytest V1725 reader and site-model tests excluding the known source-content baseline assertion: PASS, 35 passed, 2 deselected."
+        - "pytest V1725 reader and site-model tests excluding only the performance benchmark: 35 passed, 1 failed, 1 deselected; the failure is the pre-existing DATA_PRODUCTS content-hash baseline drift."
+        - "ruff check and black --check on all changed Python source/test files: PASS."
+        - "assess_change_impact.py --base d47fed4d49f115ba46d7a98823c83ec21a7119e4: PASS, one version-only plugin change, low lineage risk."
+        - "schema_compat_check.py --base d47fed4d49f115ba46d7a98823c83ec21a7119e4 --run-smoke: PASS, zero dtype changes; raw_files=2, st_waveforms=24, hit=0, df=24, events=12."
+        - "plugins-agent and plugins-auto generators: PASS; build_site_model/write_site_model fixture generation: PASS."
+        - "render_agent_docs.py --write, check_doc_sync.sh, and check_doc_anchors.py --check-sync --base HEAD: PASS."
+        - "git diff --check: PASS."
+      scope_expansion:
+        source: foundation reviewer-required scope expansion relayed in the executor assignment
+        reason: shared Records/WavePool 0.16.0 requires synchronized generated references, site-model version checks and fixture, changelog, and the generated agent-plan views required by doc sync
+        added_allowed_paths:
+          - CHANGELOG.md
+          - waveform_analysis/core/plugins/builtin/wave_pool/manifest.yaml
+          - docs/plugins/reference/builtin/auto
+          - docs/site-next/fixture/site-model.v1.json
+          - docs/site-next/lib/site-model.test.ts
+          - docs/site-next/lib/site-model.ts
+          - waveform_analysis/documentation/site_model.py
+          - docs/agents/plans/INDEX.md
+          - docs/agents/plans/active.yaml
+        previous_approved_spec_sha256: 5720a049096b995dda2b6ce2ac7413c4301d42445c1470a75b98bb3a12498d3d
+        previous_current_canonical_spec_sha256: 0ee99a9096f85b1ed5a09b48dc8620dd07fe897d3b2748749f6dd35c5f1aadb1
+        current_spec_sha256: a3cc4f962448983e06cc9b2dd71069bef58c65679bb66d1c3848609562f8a78e
+        approval_boundary: The original approval record and candidate hashes are preserved as historical evidence; neither that approval nor the prior expanded spec covers the current canonical spec, which requires explicit user approval.
+      open_risks:
+        - "One existing site-content test remains blocked by docs/architecture/DATA_PRODUCTS.md hash drift: actual/development-base SHA256 de7d9d50514cef70b4de2c268bbbdbf0c93a5055b66b026a80e438527b119f4b, baseline SHA256 f91e12d2ac6b863694eeaca1151c3009cf3413eef6de643adb547ea78babbb66; neither baseline nor source file changed in this task."
+        - "docs/site-next Vitest/TypeScript tests were not run because docs/site-next/node_modules is absent; the repository-local Next docs are absent as well."
+        - "The real Runs 00700--00702 benchmark and performance_regression_check remain deferred per executor assignment. A later release_artifact_sync report at /mnt/data/tmp/wa-v1725-records-performance-g1/storage-chain/release-artifact-sync-owner-aware-20260916.json is not overall_ok: generated plan views were stale and the full suite failed only on the existing DATA_PRODUCTS content-hash baseline drift; plan views are regenerated in this handoff, but the release gate has not been rerun."
+      requested_review_focus:
+        - "Obtain explicit user approval for the current canonical spec hash before resuming parallel_resources."
+        - "Keep storage_chain rejected with no integration unless a separately approved design clears both wall-time and transient workset-budget acceptance."
+      commit_status: "Reader and Array are integrated as c2025e4 and e98ecf6. This status repair and the existing scoped integration changes remain uncommitted until the requested commit is created."
+  review:
+    foundation_review:
+      status: approved
+      decision: technical_approve
+      reviewer_role: reviewer
+      decided_at: '2026-09-15T18:39:07Z'
+      applies_to: Reader and Array foundation only; it does not approve the revised canonical spec or authorize parallel-resource execution.
+    overall_disposition: awaiting_approval
+    reapproval_required: true
+    reapproval_reason: The review decision changes the pending workstream disposition; the current canonical spec hash must be approved by the user before execution resumes.
   approval:
     required: true
     reviewer: xiaoyu
-    marker_created: true
-    marker_path: /mnt/data/tmp/wa-v1725-records-performance-g1/control-plane/approval.json
-    approved_at: '2026-09-15T12:22:16.683061Z'
-    candidate_hashes:
-      graphspec: 5720a049096b995dda2b6ce2ac7413c4301d42445c1470a75b98bb3a12498d3d
-      registry: 765378fe961abc33aaf0201b4c34b6a410077d841af786e57e6f35f9d7722992
-      compiled_plan: 39efd2d360e94ae15e39bd69c20d82612d93fb5eda521ae4d2cf28d9e4f89be0
-      compiler: a7e6586506a1d540bfff2ac8166d306b40cb2fabea88a96492648b521ee26e8b
+    status: approved_g1_r2
+    approved_at: '2026-09-16T03:06:00Z'
+    plan_sha256: a3cc4f962448983e06cc9b2dd71069bef58c65679bb66d1c3848609562f8a78e
+    approval_phrase: "用户已明确批准 G1-R2 canonical spec SHA a3cc4f962448983e06cc9b2dd71069bef58c65679bb66d1c3848609562f8a78e"
+    approval_phrase_sha256: 6836307cee9658eb2e2484eb1afa3f27f1d571692a359ba0536b21e9edace4a6
+    evidence:
+      status: approved
+      plan_sha256: a3cc4f962448983e06cc9b2dd71069bef58c65679bb66d1c3848609562f8a78e
+      approval_phrase: "用户已明确批准 G1-R2 canonical spec SHA a3cc4f962448983e06cc9b2dd71069bef58c65679bb66d1c3848609562f8a78e"
+      approval_phrase_sha256: 6836307cee9658eb2e2484eb1afa3f27f1d571692a359ba0536b21e9edace4a6
+      reason: User approval covers the current canonical G1-R2 spec hash; the prior approval remains historical evidence only.
+    prior_approval:
+      required: true
+      reviewer: xiaoyu
+      marker_created: true
+      marker_path: /mnt/data/tmp/wa-v1725-records-performance-g1/control-plane/approval.json
+      marker_sha256: 540b32f98f20bb08f2ff2f3cffa240afae15484e0af2519cc173784b8c9c4567
+      approved_at: '2026-09-15T12:22:16.683061Z'
+      candidate_hashes:
+        graphspec: 5720a049096b995dda2b6ce2ac7413c4301d42445c1470a75b98bb3a12498d3d
+        registry: 765378fe961abc33aaf0201b4c34b6a410077d841af786e57e6f35f9d7722992
+        compiled_plan: 39efd2d360e94ae15e39bd69c20d82612d93fb5eda521ae4d2cf28d9e4f89be0
+        compiler: a7e6586506a1d540bfff2ac8166d306b40cb2fabea88a96492648b521ee26e8b
+  final_user_acceptance:
+    required: true
+    status: pending
+    after_final_reviewer_state: awaiting_user_acceptance
+    final_reviewer_must_transition_to: awaiting_user_acceptance
+    completion_requires: explicit_user_acceptance
+    explicit_user_acceptance: null
   handoff: {}

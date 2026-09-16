@@ -12,6 +12,7 @@
 
 ### Refactoring and performance
 
+- 优化 V1725 reader 的完整窗口消费与 records 数组构建；`RecordsPlugin` 和 `WavePoolPlugin` 升级至 `0.16.0`，刷新共享 bundle 的缓存 lineage，正式输出字节与顺序保持不变。
 - 将 records/wave_pool 磁盘波形池拼接的有界复制块从 16 MiB 降至 8 MiB；RecordsPlugin 与 WavePoolPlugin 升级至 `0.15.2`，以更新缓存 lineage，输出字节与顺序保持不变。
 - 优化 `hit_merged`/`hit_merged_components`：在同一 Context 中共享带 lineage guard 的 canonical cluster membership，并以 Numba serial CSR 内核加速 merged-row 物化；对应插件版本升级至 `hit_merged 2.2.0`、`hit_merged_components 1.2.0`、`hit_merge_clusters 1.2.0`。
 - `PeakletWaveformPlugin` 升级至 `2.2.1`：降低 fast peaklet 并行内核的调度与诊断计数开销，保持 canonical 路径、输出顺序和 waveform pool lineage 兼容。

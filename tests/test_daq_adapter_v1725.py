@@ -187,7 +187,7 @@ class TestV1725Reader:
             assert w_opt.trunc == w_leg.trunc
             np.testing.assert_array_equal(w_opt.waveform, w_leg.waveform)
 
-    def test_iter_waves_consumes_read_window_without_1000_event_rewind(
+    def test_all_optimized_reader_interfaces_consume_full_windows_without_rewinds(
         self, tmp_path: Path, monkeypatch
     ):
         raw = tmp_path / "test_raw_b0_seg0.bin"
@@ -202,6 +202,9 @@ class TestV1725Reader:
         ]
         raw_bytes = b"".join(events)
         raw.write_bytes(raw_bytes)
+        events_per_window = 1_200
+        buffer_size = len(events[0]) * events_per_window
+        assert len(raw_bytes) > 2 * buffer_size
 
         original_open = Path.open
         opened_readers = []
@@ -211,6 +214,8 @@ class TestV1725Reader:
                 self.path = path
                 self.file_obj = file_obj
                 self.bytes_read = 0
+                self.read_calls = 0
+                self.seek_calls = 0
 
             def __enter__(self):
                 self.file_obj.__enter__()
@@ -222,12 +227,14 @@ class TestV1725Reader:
             def read(self, size=-1):
                 data = self.file_obj.read(size)
                 self.bytes_read += len(data)
+                self.read_calls += 1
                 return data
 
             def tell(self):
                 return self.file_obj.tell()
 
             def seek(self, offset, whence=0):
+                self.seek_calls += 1
                 return self.file_obj.seek(offset, whence)
 
         def counted_open(path, *args, **kwargs):
@@ -236,16 +243,68 @@ class TestV1725Reader:
             return reader
 
         monkeypatch.setattr(Path, "open", counted_open)
-        waves = list(V1725Reader(buffer_size=64 * 1024).iter_waves([raw]))
 
+        def run_without_rewind(read):
+            reader_start = len(opened_readers)
+            result = read()
+            raw_readers = [item for item in opened_readers[reader_start:] if item.path == raw]
+            assert len(raw_readers) == 1
+            assert raw_readers[0].read_calls == 4  # Three windows plus EOF.
+            assert raw_readers[0].bytes_read == len(raw_bytes)
+            assert raw_readers[0].seek_calls == 0
+            return result
+
+        waves = run_without_rewind(
+            lambda: list(V1725Reader(buffer_size=buffer_size).iter_waves([raw]))
+        )
+        wave_batches = run_without_rewind(
+            lambda: list(
+                V1725Reader(buffer_size=buffer_size).iter_waves_batched([raw], batch_size=257)
+            )
+        )
+        array_batches = run_without_rewind(
+            lambda: list(
+                V1725Reader(buffer_size=buffer_size)._iter_wave_array_batches([raw], batch_size=257)
+            )
+        )
+
+        expected_timestamps = np.arange(event_count, dtype=np.uint64)
         assert len(waves) == event_count
         np.testing.assert_array_equal(
             np.fromiter((wave.timestamp for wave in waves), dtype=np.uint64),
-            np.arange(event_count, dtype=np.uint64),
+            expected_timestamps,
         )
-        assert sum(reader.bytes_read for reader in opened_readers if reader.path == raw) == len(
-            raw_bytes
+        assert all(0 < len(batch) <= 257 for batch in wave_batches)
+        flattened_wave_batches = [wave for batch in wave_batches for wave in batch]
+        np.testing.assert_array_equal(
+            np.fromiter((wave.timestamp for wave in flattened_wave_batches), dtype=np.uint64),
+            expected_timestamps,
         )
+        assert all(0 < len(batch) <= 257 for batch in array_batches)
+        _assert_array_batch_rows_match_waves(array_batches, waves)
+
+    def test_iter_waves_batched_legacy_fallback_preserves_order(self, tmp_path: Path):
+        raw = tmp_path / "test_raw_b0_seg0.bin"
+        blobs = [
+            make_v1725_single_wave_blob(
+                channel=index % 2,
+                timestamp=timestamp,
+                samples=np.array([index, -index], dtype=np.int16),
+            )
+            for index, timestamp in enumerate([30, 10, 20, 0, 40])
+        ]
+        raw.write_bytes(b"".join(blobs))
+
+        reader = V1725Reader(use_optimized=False)
+        batches = list(reader.iter_waves_batched([raw], batch_size=2))
+        waves = list(V1725Reader(use_optimized=False).iter_waves([raw]))
+        flattened = [wave for batch in batches for wave in batch]
+
+        assert [len(batch) for batch in batches] == [2, 2, 1]
+        assert [wave.timestamp for wave in flattened] == [wave.timestamp for wave in waves]
+        for actual, expected in zip(flattened, waves, strict=True):
+            assert actual.channel == expected.channel
+            assert actual.waveform.tobytes() == expected.waveform.tobytes()
 
     def test_empty_file_yields_no_waves_or_batches(self, tmp_path: Path):
         raw = tmp_path / "empty_raw_b0_seg0.bin"
@@ -474,6 +533,60 @@ class TestV1725Reader:
             LegacyOnlyReader(),
             dt_ns=2,
             part_dir=tmp_path / "fallback-parts",
+            part_idx=0,
+            part_size=0,
+        )
+
+        assert len(refs) == 1
+        actual_records = np.memmap(
+            refs[0].records_path, dtype=RECORDS_DTYPE, mode="r", shape=(refs[0].n_records,)
+        )
+        actual_wave_pool = np.memmap(
+            refs[0].wave_pool_path,
+            dtype=np.uint16,
+            mode="r",
+            shape=(refs[0].n_samples,),
+        )
+        assert actual_records.tobytes() == expected.records.tobytes()
+        assert actual_wave_pool.tobytes() == expected.wave_pool.tobytes()
+
+    def test_records_builder_uses_legacy_reader_when_optimization_is_disabled(self, tmp_path: Path):
+        raw = tmp_path / "test_raw_b2_seg0.bin"
+        raw.write_bytes(
+            b"".join(
+                [
+                    make_v1725_single_wave_blob(
+                        channel=1,
+                        timestamp=30,
+                        samples=np.array([-1, 2], dtype=np.int16),
+                    ),
+                    make_v1725_single_wave_blob(
+                        channel=0,
+                        timestamp=10,
+                        samples=np.array([3, -4, 5], dtype=np.int16),
+                    ),
+                    make_v1725_single_wave_blob(
+                        channel=1,
+                        timestamp=20,
+                        trunc=True,
+                        samples=np.array([6, -7], dtype=np.int16),
+                    ),
+                ]
+            )
+        )
+
+        legacy_waves = list(V1725Reader(use_optimized=False).iter_waves([raw]))
+        optimized_waves = list(V1725Reader(use_optimized=True).iter_waves([raw]))
+        assert [wave.timestamp for wave in legacy_waves] == [
+            wave.timestamp for wave in optimized_waves
+        ]
+        expected = _build_v1725_records_part_from_waves(optimized_waves, default_dt_ns=2)
+
+        refs = _process_v1725_file_to_disk(
+            str(raw),
+            V1725Reader(use_optimized=False),
+            dt_ns=2,
+            part_dir=tmp_path / "optimized-disabled-parts",
             part_idx=0,
             part_size=0,
         )

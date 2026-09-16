@@ -99,7 +99,7 @@ active_plans:
   task_file: docs/agents/runs/current/v1725-merged-parts-cleanup/task.yaml
   legacy_plan: docs/agents/runs/current/v1725-merged-parts-cleanup/legacy-plan.md
 - task_id: v1725-records-performance-g1
-  state: awaiting_approval
+  state: executing
   route: modify_plugin
   workflow_cost: strict
   workflow_shape: staged

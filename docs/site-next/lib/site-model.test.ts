@@ -10,9 +10,9 @@ describe("site-model/v1", () => {
     const wavePool = model.plugins.find((plugin) => plugin.provides === "wave_pool");
 
     expect(model.schema).toBe("site-model/v1");
-    expect(records?.version).toBe("0.15.2");
+    expect(records?.version).toBe("0.16.0");
     expect(records?.dependsOn[0]).toBe("raw_files");
-    expect(wavePool?.version).toBe("0.15.2");
+    expect(wavePool?.version).toBe("0.16.0");
     expect(records?.route).toBe("/plugins/records/");
     expect(model.routes.some((route) => route.path === "/plugins/records/" && route.kind === "plugin")).toBe(true);
     expect(model.contexts.some((page) => page.slug === "context")).toBe(true);
