@@ -197,9 +197,17 @@ def _safe_histogram2d(x, y, xbins, ybins, weights=None):
 # The backend owns histogram execution; these aliases intentionally remain
 # module globals so existing monkeypatch targets keep controlling ``corner_hist``.
 from waveform_analysis.visualization.statistical.histogram import (  # noqa: E402
+    _compute_bin_index_ext,
     _ensure_numba_histogram2d,
+    _hist1d_bincount,
+    _hist2d_bincount,
     _safe_histogram2d,
 )
+
+# Keep the historical module-level alias patchable.  A caller that replaces
+# this alias expects corner_hist to exercise that replacement, so only the
+# unmodified default backend enables the shared-index fast path below.
+_DEFAULT_SAFE_HISTOGRAM2D = _safe_histogram2d
 
 
 def corner_hist(
@@ -518,13 +526,18 @@ def corner_hist(
     # 使用 logical_and.reduce 一次性合并所有条件，避免多次中间数组创建
     mask = np.logical_and.reduce(conditions) if conditions else np.ones(length, dtype=bool)
 
-    data = [x[mask] for x in data]
+    filtered_data = [x[mask] for x in data]
 
     if weights is not None:
         weights = np.asarray(weights)
         if len(weights) != length:
             raise ValueError("weights 长度应与数据数组长度相同。")
         weights = weights[mask]
+
+    # The filtered arrays can be large.  Do not retain their unfiltered
+    # counterparts or the per-condition masks while searchsorted runs.
+    del data, conditions, mask, x
+    data = filtered_data
 
     # 解析分箱边界
     def resolve_bins(x, b, r, scale, linthresh):
@@ -577,6 +590,24 @@ def corner_hist(
             if hi <= 0:
                 hi = 1.0  # 默认上限
 
+            # A non-finite input range can fall back to a single observed
+            # positive value (for example, ``(-inf, inf)`` with one value).
+            # Expand that value once more after the positive-value fallback so
+            # the generated logarithmic edges remain strictly increasing.
+            if lo == hi:
+                eps = abs(lo) * 1e-12
+                expanded_lo = lo - eps
+                expanded_hi = hi + eps
+                if (
+                    expanded_lo <= 0
+                    or expanded_lo == lo
+                    or expanded_hi == hi
+                    or not np.isfinite(expanded_hi)
+                ):
+                    expanded_lo = lo / 10.0
+                    expanded_hi = hi * 10.0
+                lo, hi = expanded_lo, expanded_hi
+
             return np.logspace(np.log10(lo), np.log10(hi), nbin + 1)
 
         if scale == "symlog":
@@ -595,6 +626,33 @@ def corner_hist(
             strict=False,
         )
     ]
+
+    # ``np.histogram`` requires finite, strictly increasing bin edges.  The
+    # shared-index path uses ``searchsorted`` directly, so validate both
+    # explicit and generated edges here to preserve that legacy contract.
+    for index, edges in enumerate(bin_edges):
+        try:
+            finite = np.all(np.isfinite(edges))
+            increasing = np.all(np.diff(edges) > 0)
+        except (TypeError, ValueError) as error:
+            raise ValueError(f"bins[{index}] 必须为有限且严格递增的数值边界。") from error
+        if not finite or not increasing:
+            raise ValueError(f"bins[{index}] 必须为有限且严格递增的数值边界。")
+
+    # Preserve the old, alias-driven 2D backend whenever users or tests have
+    # monkeypatched it.  Otherwise every variable is searched only once and
+    # all panels reuse those extended bin indices through bincount.
+    use_bincount = _safe_histogram2d is _DEFAULT_SAFE_HISTOGRAM2D
+    use_bincount_1d = use_bincount and (weights is None or weights.dtype == np.dtype(np.float64))
+    if use_bincount:
+        extended_bin_indices = [
+            _compute_bin_index_ext(x, edges) for x, edges in zip(data, bin_edges, strict=False)
+        ]
+        if use_bincount_1d:
+            hist1d_counts = [
+                _hist1d_bincount(indices, nbins, weights) for indices, nbins in extended_bin_indices
+            ]
+        hist2d_cache = {}
 
     # 创建或复用图形
     if (fig is None) != (axes is None):
@@ -657,24 +715,63 @@ def corner_hist(
 
             # 对角线：1D 直方图
             if i == j:
-                ax.hist(
-                    x,
-                    bins=xbins,
-                    weights=weights,
-                    histtype="step",
-                    linewidth=1.5,
-                    color=hist_color,
-                    alpha=hist_alpha,
-                    density=hist_density,
-                )
+                if use_bincount_1d:
+                    counts = hist1d_counts[j]
+                    if hist_density:
+                        with np.errstate(divide="ignore", invalid="ignore"):
+                            counts = counts / np.diff(xbins) / counts.sum()
+                    ax.stairs(
+                        counts,
+                        xbins,
+                        linewidth=1.5,
+                        color=hist_color,
+                        alpha=hist_alpha,
+                    )
+                else:
+                    ax.hist(
+                        x,
+                        bins=xbins,
+                        weights=weights,
+                        histtype="step",
+                        linewidth=1.5,
+                        color=hist_color,
+                        alpha=hist_alpha,
+                        density=hist_density,
+                    )
 
                 set_axis_scale(ax, "x", xscale, symlog_linthresh[j])
                 ax.set_yscale("log")
 
             # 非对角线：2D 直方图
             else:
-                # 使用 Numba 加速版本（自动降级到 NumPy）
-                H = _safe_histogram2d(x, y, xbins, ybins, weights)
+                if use_bincount:
+                    if i < j:
+                        # The canonical pair is the lower-triangle panel.  In
+                        # a full matrix, retain it until its lower counterpart
+                        # consumes it and draw this upper panel as a transpose.
+                        canonical = _hist2d_bincount(
+                            extended_bin_indices[i][0],
+                            extended_bin_indices[i][1],
+                            extended_bin_indices[j][0],
+                            extended_bin_indices[j][1],
+                            weights,
+                        )
+                        if triangle == "full":
+                            hist2d_cache[(j, i)] = canonical
+                        H = canonical.T
+                    elif triangle == "full":
+                        H = hist2d_cache.pop((i, j))
+                    else:
+                        H = _hist2d_bincount(
+                            extended_bin_indices[j][0],
+                            extended_bin_indices[j][1],
+                            extended_bin_indices[i][0],
+                            extended_bin_indices[i][1],
+                            weights,
+                        )
+                else:
+                    # Historical monkeypatch target / compatibility backend.
+                    H = _safe_histogram2d(x, y, xbins, ybins, weights)
                 H = np.ma.masked_less(H, min_count)
 
                 # 只有在有有效数据时才绘制

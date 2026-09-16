@@ -67,4 +67,39 @@ def _safe_histogram2d(x, y, xbins, ybins, weights=None):
     return result.T
 
 
-__all__ = ["_ensure_numba_histogram2d", "_safe_histogram2d"]
+def _compute_bin_index_ext(values, edges):
+    """Return NumPy-histogram bin indices plus one out-of-range sentinel.
+
+    The sentinel is numbered ``nbins``.  It lets a later ``bincount`` include
+    all values in one pass and then discard its final bin, preserving the
+    inclusion of the exact rightmost edge without allocating a boolean mask.
+    """
+    values = np.asarray(values)
+    edges = np.asarray(edges)
+    nbins = len(edges) - 1
+    indices = np.searchsorted(edges, values, side="right") - 1
+    at_right_edge = (indices == nbins) & (values == edges[-1])
+    if np.any(at_right_edge):
+        indices = np.where(at_right_edge, nbins - 1, indices)
+    invalid = (indices < 0) | (indices >= nbins)
+    return np.where(invalid, nbins, indices).astype(np.int32), nbins
+
+
+def _hist1d_bincount(indices, nbins, weights=None):
+    """Accumulate a 1D histogram from extended bin indices."""
+    return np.bincount(indices, weights=weights, minlength=nbins + 1)[:nbins]
+
+
+def _hist2d_bincount(xindices, nx, yindices, ny, weights=None):
+    """Accumulate ``(y, x)`` 2D counts from extended bin indices."""
+    combined = yindices.astype(np.int64)
+    combined *= nx + 1
+    combined += xindices
+    counts = np.bincount(combined, weights=weights, minlength=(nx + 1) * (ny + 1))
+    return counts.reshape(ny + 1, nx + 1)[:ny, :nx]
+
+
+__all__ = [
+    "_ensure_numba_histogram2d",
+    "_safe_histogram2d",
+]
