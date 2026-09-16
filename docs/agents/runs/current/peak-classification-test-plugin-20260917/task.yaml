@@ -90,5 +90,5 @@ status:
     completion_allowed: true
   handoff:
     commit_status: committed
-    commit_hash: 86c8337
+    commit_hash: 1fbc31a
 api_version: waveform-analysis/agent-task/v1
