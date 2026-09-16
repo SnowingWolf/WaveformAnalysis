@@ -20,7 +20,7 @@ links and readers; edit the task record and rerun
 | `run00601-records-buffer-8m` | `completed` | `modify_plugin` | `strict` | `staged` | `—` | `docs/agents/runs/current/run00601-records-buffer-8m/task.yaml` |
 | `run00601-records-strategy-shootout` | `failed` | `modify_plugin` | `strict` | `staged` | `—` | `docs/agents/runs/current/run00601-records-strategy-shootout/task.yaml` |
 | `v1725-merged-parts-cleanup` | `completed` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/v1725-merged-parts-cleanup/task.yaml` |
-| `v1725-records-performance-g1` | `executing` | `modify_plugin` | `strict` | `staged` | `—` | `docs/agents/runs/current/v1725-records-performance-g1/task.yaml` |
+| `v1725-records-performance-g1` | `awaiting_user_acceptance` | `modify_plugin` | `strict` | `staged` | `—` | `docs/agents/runs/current/v1725-records-performance-g1/task.yaml` |
 | `waveform-doc-content-recovery-20260901` | `completed` | `modify_code` | `standard` | `staged` | `—` | `docs/agents/runs/current/waveform-doc-content-recovery-20260901/task.yaml` |
 | `waveform-doc-lineage-density-20260901` | `completed` | `modify_code` | `standard` | `staged` | `AllBlockingGatesPass` | `docs/agents/runs/current/waveform-doc-lineage-density-20260901/task.yaml` |
 | `waveform-doc-nested-nav-20260902` | `completed` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/waveform-doc-nested-nav-20260902/task.yaml` |

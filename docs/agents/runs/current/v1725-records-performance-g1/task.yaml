@@ -91,7 +91,7 @@ spec:
     reason: >-
       The second-round foundation review technically approved the Reader and Array foundation, rejected storage integration after the owner-aware real A/B showed no wall-time gain and a transient projected-workset budget blocker, and left parallel-resource work ready but gated on user approval of this revised spec.
 status:
-  state: executing
+  state: awaiting_user_acceptance
   transitions:
     - {from: created, to: planning, at: '2026-09-15T12:15:00Z', actor: planner}
     - {from: planning, to: awaiting_approval, at: '2026-09-15T12:15:00Z', actor: planner, condition: graph_hash_approval_required}
@@ -107,6 +107,8 @@ status:
     - {from: planning, to: awaiting_approval, at: '2026-09-15T18:39:07Z', actor: planner, condition: revised_canonical_spec_requires_user_approval}
     - {from: awaiting_approval, to: ready_for_execution, at: '2026-09-16T03:06:00Z', actor: xiaoyu, condition: g1_r2_user_approval_granted}
     - {from: ready_for_execution, to: executing, at: '2026-09-16T03:06:00Z', actor: planner, condition: g1_r2_executor_resumed}
+    - {from: executing, to: reviewing, at: '2026-09-16T04:52:31Z', actor: executor, condition: parallel_resources_execution_report_ready}
+    - {from: reviewing, to: awaiting_user_acceptance, at: '2026-09-16T04:52:31Z', actor: reviewer, condition: final_reviewer_approved_pending_user_acceptance}
   plan_sha256: a3cc4f962448983e06cc9b2dd71069bef58c65679bb66d1c3848609562f8a78e
   execution:
     reader_io:
@@ -146,12 +148,89 @@ status:
       decided_at: '2026-09-15T18:39:07Z'
       scope: Reader and Array foundation; storage candidate rejected and not integrated.
     parallel_resources:
-      status: ready
-      approval_state: pending_user_reapproval
-      ready_basis: foundation_review_approved
-      execution_gate: approval_of_current_canonical_spec
-      reason: >-
-        Foundation review is approved; parallel-resource work may proceed only after the user approves the revised canonical spec. Storage integration remains rejected and is not part of the integrated branch.
+      status: completed
+      evidence_root: /tmp/wa-v1725-records-performance-evidence-g1/parallel-resources
+      report: /tmp/wa-v1725-records-performance-evidence-g1/parallel-resources/report.md
+      comparison_json: /tmp/wa-v1725-records-performance-evidence-g1/parallel-resources/comparison.json
+      matrix_json: /tmp/wa-v1725-records-performance-evidence-g1/parallel-resources/matrix-comparison.json
+      worktree_head: 7f55182f73b5468a870fcfde5ab7742448ac192a
+      reviewer_decision: APPROVE
+      layouts:
+        serial_3x1:
+          wall_seconds: 902.8301022340311
+          wall_speedup_vs_serial: 1.0
+          resources:
+            outer_run_workers: 1
+            inner_file_workers: 1
+            outer_executor: thread
+            cpu_seconds_parent: 721.772669272
+            rss_peak_concurrent_bound_bytes: 6572675072
+            scratch_peak_concurrent_bound_bytes: 16955138092
+            budget:
+              per_run_memory_budget_bytes: 536870912
+              rss_budget_bytes: 34359738368
+              scratch_budget_bytes: 51539607552
+              within_budget: true
+          hashes:
+            '00700': {records_sha256: c8751e6bd7f5247178a9713a01e42fb570b084574a0afbb0af414b7126560f0f, wave_pool_sha256: 38b623dd103f7b6dd53abaaade5ab03575d207ef3934eff08cd7ede40e6183b7}
+            '00701': {records_sha256: 931c2ea9726b3472edce647d880ddca3b3d582322ba4e228a1f7d1518423f29b, wave_pool_sha256: 2d8d2ce605003cb376240a135c85dc87a16a1069eb199d10e4fa8feb109ab536}
+            '00702': {records_sha256: a654b6188ae64ec97b0fa21db8b482e772fcf411769c53ad544fc9851b6fdb0c, wave_pool_sha256: 3bc8c7244463ebc80e2dd67dbaa62fab17e018cbbbf10485fb4185983998dd58}
+          cache: {production_cache_policy: read_only, unchanged: true, before_snapshot_equal: true, after_snapshot_equal: true}
+          cleanup: {all_run_scratch_cleanup_verified: true, layout_scratch_roots_empty: true, scratch_after_cleanup_bytes: 0}
+        runs_2x2:
+          wall_seconds: 584.7832921539666
+          wall_speedup_vs_serial: 1.5438712328948112
+          resources:
+            outer_run_workers: 2
+            inner_file_workers: 1
+            outer_executor: process
+            cpu_seconds_parent: 3.238791
+            rss_peak_concurrent_bound_bytes: 13037035520
+            scratch_peak_concurrent_bound_bytes: 33836905496
+            budget:
+              per_run_memory_budget_bytes: 536870912
+              rss_budget_bytes: 34359738368
+              scratch_budget_bytes: 51539607552
+              within_budget: true
+          hashes:
+            '00700': {records_sha256: c8751e6bd7f5247178a9713a01e42fb570b084574a0afbb0af414b7126560f0f, wave_pool_sha256: 38b623dd103f7b6dd53abaaade5ab03575d207ef3934eff08cd7ede40e6183b7}
+            '00701': {records_sha256: 931c2ea9726b3472edce647d880ddca3b3d582322ba4e228a1f7d1518423f29b, wave_pool_sha256: 2d8d2ce605003cb376240a135c85dc87a16a1069eb199d10e4fa8feb109ab536}
+            '00702': {records_sha256: a654b6188ae64ec97b0fa21db8b482e772fcf411769c53ad544fc9851b6fdb0c, wave_pool_sha256: 3bc8c7244463ebc80e2dd67dbaa62fab17e018cbbbf10485fb4185983998dd58}
+          cache: {production_cache_policy: read_only, unchanged: true, before_snapshot_equal: true, after_snapshot_equal: true}
+          cleanup: {all_run_scratch_cleanup_verified: true, layout_scratch_roots_empty: true, scratch_after_cleanup_bytes: 0}
+        files_1x4:
+          wall_seconds: 1040.787017817027
+          wall_speedup_vs_serial: 0.8674494269996275
+          resources:
+            outer_run_workers: 1
+            inner_file_workers: 4
+            outer_executor: thread
+            cpu_seconds_parent: 995.714762198
+            rss_peak_concurrent_bound_bytes: 8971280384
+            scratch_peak_concurrent_bound_bytes: 16955138092
+            budget:
+              per_run_memory_budget_bytes: 536870912
+              rss_budget_bytes: 34359738368
+              scratch_budget_bytes: 51539607552
+              within_budget: true
+          hashes:
+            '00700': {records_sha256: c8751e6bd7f5247178a9713a01e42fb570b084574a0afbb0af414b7126560f0f, wave_pool_sha256: 38b623dd103f7b6dd53abaaade5ab03575d207ef3934eff08cd7ede40e6183b7}
+            '00701': {records_sha256: 931c2ea9726b3472edce647d880ddca3b3d582322ba4e228a1f7d1518423f29b, wave_pool_sha256: 2d8d2ce605003cb376240a135c85dc87a16a1069eb199d10e4fa8feb109ab536}
+            '00702': {records_sha256: a654b6188ae64ec97b0fa21db8b482e772fcf411769c53ad544fc9851b6fdb0c, wave_pool_sha256: 3bc8c7244463ebc80e2dd67dbaa62fab17e018cbbbf10485fb4185983998dd58}
+          cache: {production_cache_policy: read_only, unchanged: true, before_snapshot_equal: true, after_snapshot_equal: true}
+          cleanup: {all_run_scratch_cleanup_verified: true, layout_scratch_roots_empty: true, scratch_after_cleanup_bytes: 0}
+      page_cache_caveat:
+        observed_speedup: 1.544x
+        comparison: runs_2x2_vs_serial_3x1
+        qualification: >-
+          This 1.544x speedup is only the observation from this sequential benchmark under its exclusive lock; it is not a controlled cold-cache result and must not be presented as a production acceleration claim.
+      gate_summary:
+        all_layouts_pass: true
+        all_runs_success: true
+        exact_records_and_wave_pool_hashes_across_layouts: true
+        production_cache_unchanged_each_layout: true
+        all_run_scratch_cleanup_verified: true
+        one_concurrency_layer_each_layout: true
     integration:
       status: completed_for_reader_and_array_only
       reader_commit: c2025e4
@@ -228,9 +307,33 @@ status:
       reviewer_role: reviewer
       decided_at: '2026-09-15T18:39:07Z'
       applies_to: Reader and Array foundation only; it does not approve the revised canonical spec or authorize parallel-resource execution.
-    overall_disposition: awaiting_approval
-    reapproval_required: true
-    reapproval_reason: The review decision changes the pending workstream disposition; the current canonical spec hash must be approved by the user before execution resumes.
+    parallel_resources_review:
+      status: approved
+      decision: APPROVE
+      reviewer_role: reviewer
+      decided_at: '2026-09-16T04:52:31Z'
+      evidence_root: /tmp/wa-v1725-records-performance-evidence-g1/parallel-resources
+      scope: Three-layout bounded-concurrency evidence only; Storage branch remains excluded.
+      page_cache_caveat: >-
+        The observed 1.544x runs_2x2 speedup is specific to this sequential benchmark under an exclusive lock. It is not a controlled cold-cache measurement and is not a production acceleration claim.
+    required_gate_results:
+      performance_regression_check:
+        status: FAIL
+        command: /home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/performance_regression_check.py --base HEAD
+        observed: df_events median time +13.14% versus the +10% threshold; memory -0.03%; other measured surfaces passed.
+        disposition: deferred_follow_up
+      release_artifact_sync:
+        status: DEFERRED
+        command: /home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/release_artifact_sync.py --base HEAD
+        current_run: interrupted_while_long_running
+        prior_report: /mnt/data/tmp/wa-v1725-records-performance-g1/storage-chain/release-artifact-sync-owner-aware-20260916.json
+        prior_overall_ok: false
+        prior_known_failure: >-
+          The prior report recorded stale generated plan views and the full-suite DATA_PRODUCTS content-hash baseline drift; the generated views are refreshed in this handoff, but release_artifact_sync was not allowed to block this closeout.
+        disposition: deferred_follow_up
+    overall_disposition: awaiting_user_acceptance
+    reapproval_required: false
+    final_user_acceptance_required: true
   approval:
     required: true
     reviewer: xiaoyu
@@ -263,5 +366,7 @@ status:
     after_final_reviewer_state: awaiting_user_acceptance
     final_reviewer_must_transition_to: awaiting_user_acceptance
     completion_requires: explicit_user_acceptance
+    requested_at: '2026-09-16T04:52:31Z'
+    acceptance_scope: final_review_and_all_required_gate_dispositions
     explicit_user_acceptance: null
   handoff: {}
