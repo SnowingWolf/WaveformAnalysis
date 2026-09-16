@@ -1,0 +1,94 @@
+version: 1
+kind: AgentTask
+metadata:
+  id: peak-classification-test-plugin-20260917
+  created_at: '2026-09-17'
+  updated_at: '2026-09-17T12:00:00+08:00'
+task_id: peak-classification-test-plugin-20260917
+state: completed
+spec:
+  route: modify_plugin
+  workflow_cost: standard
+  workflow_shape: staged
+  lifecycle_profile: reviewed_change
+  risk_level: medium
+  target: /mnt/data/Run3/WaveformAnalysis
+  scope:
+    base_sha: 01968d301ecfb1239463fe309d007a9a2c2a49a9
+    allowed_paths:
+      - waveform_analysis/testing/peak_classification.py
+      - tests/testing/test_peak_classification.py
+      - docs/agents/runs/current/peak-classification-test-plugin-20260917/task.yaml
+    scope_in:
+      - Add the height/area and negative-rise classifier as an explicit opt-in test plugin.
+      - Preserve the builtin peak_classification provides name, dependency, output dtype, and downstream contract.
+      - Add direct rule-boundary and Context registration tests.
+    scope_out:
+      - Changes to the default profile or builtin peak_classification bundle.
+      - Changes to production cache contents or DAQ data.
+      - Changes to unrelated dirty worktree files.
+  compatibility:
+    provides: peak_classification preserved; explicit allow_override registration required.
+    depends_on: peaks preserved.
+    output_dtype: inherited builtin PEAK_CLASSIFICATION_DTYPE preserved.
+  required_gates:
+    - targeted_tests
+    - assess_change_impact
+    - schema_compat_check
+    - doc_sync
+    - doc_anchors
+  executor_role: executor.plugin
+  agent_profile: none
+  profile_plan: []
+  blocking_assumptions:
+    - Existing unrelated target worktree modifications remain out of scope.
+    - Test-only placement is preferred so default builtin discovery remains unchanged.
+assignment:
+  planner: /root
+  executor: /root
+  reviewer: /root
+status:
+  planning:
+    planner: /root
+    result: inline plan; opt-in testing placement selected.
+  execution:
+    changed_paths:
+      - waveform_analysis/testing/peak_classification.py
+      - tests/testing/test_peak_classification.py
+    actions_taken:
+      - Added explicit opt-in subclass with inherited peak_classification contract.
+      - Added boundary and Context integration tests.
+    commands_run:
+      - "/home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m pytest -o addopts='' tests/testing/test_peak_classification.py -q (2 passed)"
+      - "/home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m pytest -o addopts='' waveform_analysis/core/plugins/builtin/peak_classification/tests/test_peak_classification_plugin.py tests/plugins/test_plugin_set_peaks_compat.py -q (28 passed; 6 existing deprecation warnings)"
+      - "ruff check waveform_analysis/testing/peak_classification.py tests/testing/test_peak_classification.py (PASS)"
+      - "python scripts/assess_change_impact.py --task ... (PASS; no plugin contract changes)"
+      - "python scripts/schema_compat_check.py --task ... --run-smoke (PASS; raw_files=2, st_waveforms=24, hit=0, df=24, events=12)"
+      - "WAVEFORM_PYTHON=... scripts/check_doc_sync.sh --task ... (PASS)"
+      - "python scripts/check_doc_anchors.py --check-sync --task ... (PASS)"
+      - "PluginSpec.from_plugin(HeightAreaLinePeakClassificationPlugin()) (PASS)"
+      - "Static default-profile source check (PASS; opt-in class absent)"
+    open_risks:
+      - Runtime construction of the complete cpu_default profile was not used as a gate because an unrelated target Numba cache error occurs in core/hardware/channel.py; task-scoped source inspection confirms the opt-in class is not in the profile.
+    requested_review_focus:
+      - Confirm no default profile or builtin manifest registration occurred.
+  review:
+    gate_results:
+      targeted_tests: PASS
+      builtin_peak_regression: PASS
+      assess_change_impact: PASS
+      schema_compat_check: PASS
+      doc_sync_task_scoped: PASS
+      doc_anchors_task_scoped: PASS
+      ruff: PASS
+    decision: completed
+    blocking_findings: []
+    residual_risks:
+      - Repository-wide render_agent_docs/check_doc_sync still reports pre-existing stale docs/agents/plans indexes; task-scoped doc gates pass and no generated plugin docs are required for this testing-only module.
+      - The complete cpu_default runtime profile check remains environment-blocked by the unrelated Numba cache error noted above.
+    follow_up_actions: []
+    completion_allowed: true
+  handoff:
+    commit_status: committed
+    commit_hash: 86c8337
+api_version: waveform-analysis/agent-task/v1
