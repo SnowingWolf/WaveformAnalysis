@@ -24,7 +24,7 @@ links and readers; edit the task record and rerun
 | `v1725-merged-parts-cleanup` | `completed` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/v1725-merged-parts-cleanup/task.yaml` |
 | `v1725-records-performance-g1` | `reviewing` | `modify_plugin` | `strict` | `staged` | `—` | `docs/agents/runs/current/v1725-records-performance-g1/task.yaml` |
 | `vx2730-bin-adapter-20260917` | `completed` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/vx2730-bin-adapter-20260917/task.yaml` |
-| `wa-data-default-20260918` | `—` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/wa-data-default-20260918/task.yaml` |
+| `wa-data-default-20260918` | `completed` | `modify_code` | `strict` | `staged` | `all_scoped_gates_pass` | `docs/agents/runs/current/wa-data-default-20260918/task.yaml` |
 | `waveform-doc-content-recovery-20260901` | `completed` | `modify_code` | `standard` | `staged` | `—` | `docs/agents/runs/current/waveform-doc-content-recovery-20260901/task.yaml` |
 | `waveform-doc-lineage-density-20260901` | `completed` | `modify_code` | `standard` | `staged` | `AllBlockingGatesPass` | `docs/agents/runs/current/waveform-doc-lineage-density-20260901/task.yaml` |
 | `waveform-doc-nested-nav-20260902` | `completed` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/waveform-doc-nested-nav-20260902/task.yaml` |

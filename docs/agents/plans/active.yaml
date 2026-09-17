@@ -131,11 +131,11 @@ active_plans:
   task_file: docs/agents/runs/current/vx2730-bin-adapter-20260917/task.yaml
   legacy_plan: docs/agents/runs/current/vx2730-bin-adapter-20260917/legacy-plan.md
 - task_id: wa-data-default-20260918
-  state: —
+  state: completed
   route: modify_code
   workflow_cost: strict
   workflow_shape: staged
-  condition: —
+  condition: all_scoped_gates_pass
   task_file: docs/agents/runs/current/wa-data-default-20260918/task.yaml
   legacy_plan: docs/agents/runs/current/wa-data-default-20260918/legacy-plan.md
 - task_id: waveform-doc-content-recovery-20260901
