@@ -705,7 +705,7 @@ ctx.get_performance_report()                # 性能报告
 | 配置项 | 类型 | 默认值 | 说明 |
 |---|---|---|---|
 | data_root | str | "DAQ" | 原始数据根目录 |
-| storage_dir | str | data_root | 缓存存储目录 |
+| storage_dir | str | "./wa_data" | 缓存存储目录 |
 | enable_plugin_parallelism | bool | False | 是否启用并行执行 |
 | max_parallel_workers | int | 4 | 最大并行工作线程数 |
 | enable_checksum | bool | False | 是否写入缓存校验和 |

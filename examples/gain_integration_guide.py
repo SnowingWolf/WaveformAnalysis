@@ -37,7 +37,7 @@ def method_1_global_config():
     print("方式 1: 全局配置")
     print("=" * 80)
 
-    ctx = Context(storage_dir="./strax_data")
+    ctx = Context(storage_dir="./wa_data")
 
     # 注册所有需要的插件
     ctx.register(
@@ -231,7 +231,7 @@ def complete_workflow_example():
     print("=" * 80)
 
     # 1. 创建 Context
-    ctx = Context(storage_dir="./strax_data")
+    ctx = Context(storage_dir="./wa_data")
 
     # 2. 注册插件
     ctx.register(
@@ -254,7 +254,7 @@ def complete_workflow_example():
     ctx.set_config({"gain_adc_per_pe": gain_config})
 
     print("✓ 系统配置完成")
-    print("  存储目录: ./strax_data")
+    print("  存储目录: ./wa_data")
     print("  注册插件: 4 个")
     print(f"  增益配置: {len(gain_config)} 个通道")
 

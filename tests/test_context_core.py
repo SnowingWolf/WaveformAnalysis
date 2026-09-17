@@ -17,7 +17,7 @@ from waveform_analysis.core.processing.chunk import Chunk
 
 @pytest.fixture
 def context(tmp_path):
-    storage_dir = str(tmp_path / "strax_data")
+    storage_dir = str(tmp_path / "wa_data")
     ctx = Context(storage_dir=storage_dir)
     ctx.register(MockPlugin)
     ctx.register(DependentPlugin)
@@ -31,6 +31,16 @@ def test_context_basic_get(context):
     assert len(data) == 2
     assert data[0]["value"] == 10.0
     assert data[1]["value"] == 20.0
+
+
+def test_context_uses_wa_data_as_default_storage(tmp_path, monkeypatch):
+    """Context 默认将缓存写入独立的 wa_data 目录。"""
+    monkeypatch.chdir(tmp_path)
+
+    ctx = Context()
+
+    assert ctx.storage_dir == "./wa_data"
+    assert (tmp_path / "wa_data").is_dir()
 
 
 def test_context_dependency(context):

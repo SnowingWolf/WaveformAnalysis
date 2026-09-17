@@ -12,7 +12,7 @@ from waveform_analysis.plugins import (
 )
 
 # 创建 Context
-ctx = Context(storage_dir="./strax_data")
+ctx = Context(storage_dir="./wa_data")
 
 # 注册插件
 ctx.register(

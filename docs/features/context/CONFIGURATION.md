@@ -5,6 +5,10 @@
 `Context` 保持无状态的数据访问接口；配置解析由内部的 `ContextConfigDomain` 承接，
 不改变 `ctx.set_config()`、`ctx.get_config()` 或 `ctx.get_resolved_config()` 的用法。
 
+Context 未显式传入 `storage_dir` 时，默认将缓存和处理产物写入当前目录下的 `./wa_data/`；
+`data_root` 仍用于定位原始 DAQ 数据，默认值为 `DAQ`。如需使用其他缓存位置，请显式传入
+`storage_dir`。
+
 ## 配置优先级
 
 配置生效顺序为：

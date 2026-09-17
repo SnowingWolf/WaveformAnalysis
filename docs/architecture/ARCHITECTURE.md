@@ -74,8 +74,9 @@ Context 自身配置直接控制运行环境，不经过某个 Plugin 的 `optio
 | 执行资源 | `enable_plugin_parallelism`、`max_parallel_workers` | 控制同级 Plugin 并行执行 |
 | 配置快照 | `custom_config_json_path` | 将本次分析配置写入指定 JSON 路径 |
 
-`storage_dir` 是 Context 初始化时的运行参数。未显式提供时，当前实现使用 `config["data_root"]`
-作为默认存储目录；因此输入目录与缓存目录需要分离时，应明确传入 `storage_dir`。
+`storage_dir` 是 Context 初始化时的运行参数。未显式提供时，当前实现使用独立的
+`./wa_data` 作为默认缓存目录；`data_root` 仅用于定位原始 DAQ 数据。需要自定义缓存位置时，
+可显式传入 `storage_dir`。
 
 ```python
 from waveform_analysis import Context

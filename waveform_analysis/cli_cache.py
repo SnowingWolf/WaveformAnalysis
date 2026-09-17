@@ -18,10 +18,10 @@ def create_parser() -> argparse.ArgumentParser:
         epilog="""
 示例:
   # 查看缓存信息（全局选项在子命令之后）
-  waveform-cache info --storage-dir ./strax_data
+  waveform-cache info --storage-dir ./wa_data
 
   # 详细统计
-  waveform-cache stats --detailed --storage-dir ./strax_data -v
+  waveform-cache stats --detailed --storage-dir ./wa_data -v
 
   # 诊断缓存问题
   waveform-cache diagnose --run run_001 --verbose
@@ -37,7 +37,7 @@ def create_parser() -> argparse.ArgumentParser:
     # 创建全局选项的 parent parser（所有子命令继承）
     global_parser = argparse.ArgumentParser(add_help=False)
     global_parser.add_argument(
-        "--storage-dir", type=str, default="./strax_data", help="缓存存储目录（默认: ./strax_data）"
+        "--storage-dir", type=str, default="./wa_data", help="缓存存储目录（默认: ./wa_data）"
     )
     global_parser.add_argument("--verbose", "-v", action="store_true", help="显示详细信息")
 

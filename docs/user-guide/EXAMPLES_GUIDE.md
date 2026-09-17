@@ -14,7 +14,7 @@ from waveform_analysis import Context
 from waveform_analysis.plugins import profiles
 
 # 初始化
-ctx = Context(storage_dir='./strax_data')
+ctx = Context(storage_dir='./wa_data')
 ctx.register(*profiles.cpu_default())
 ctx.set_config({'data_root': 'DAQ', 'daq_adapter': 'vx2730'})
 
@@ -284,7 +284,7 @@ ctx.clear_cache_for('run_001', 'basic_features')
 
 # 清除所有缓存（注意：会删除已缓存结果）
 import shutil
-shutil.rmtree('./strax_data')
+shutil.rmtree('./wa_data')
 ```
 
 ### Q3: 如何查看插件依赖关系？

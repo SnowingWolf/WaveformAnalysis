@@ -400,7 +400,7 @@ def create_storage_backend(backend_type: str = "memmap", **kwargs) -> StorageBac
     if backend_type == "memmap":
         from waveform_analysis.core.storage.memmap import MemmapStorage
 
-        storage_dir = kwargs.get("storage_dir", "./strax_data")
+        storage_dir = kwargs.get("storage_dir", "./wa_data")
         profiler = kwargs.get("profiler", None)
         return MemmapStorage(work_dir=storage_dir, profiler=profiler)
 

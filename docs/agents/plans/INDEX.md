@@ -8,6 +8,7 @@ links and readers; edit the task record and rerun
 <!-- BEGIN GENERATED: current_task_registry -->
 | task_id | state | route | cost | shape | condition | record |
 | --- | --- | --- | --- | --- | --- | --- |
+| `corner-hist-bincount-optimization` | `completed` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/corner-hist-bincount-optimization/task.yaml` |
 | `docs-build-skill` | `reviewing` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/docs-build-skill/task.yaml` |
 | `get-data-output-unification` | `planning` | `modify_code` | `standard` | `staged` | `NeedsRevalidation` | `docs/agents/runs/current/get-data-output-unification/task.yaml` |
 | `hit-merged-peaklet-responsibility` | `planning` | `modify_code` | `standard` | `staged` | `NeedsRevalidation` | `docs/agents/runs/current/hit-merged-peaklet-responsibility/task.yaml` |
@@ -15,12 +16,15 @@ links and readers; edit the task record and rerun
 | `hit-threshold-ragged-optimization` | `planning` | `modify_plugin` | `standard` | `staged` | `NeedsRevalidation` | `docs/agents/runs/current/hit-threshold-ragged-optimization/task.yaml` |
 | `import-topology-optimization` | `executing` | `modify_code` | `strict` | `staged` | `ReworkExecutionStarted` | `docs/agents/runs/current/import-topology-optimization/task.yaml` |
 | `managed-workflow-mvp` | `completed` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/managed-workflow-mvp/task.yaml` |
+| `peak-classification-test-plugin-20260917` | `—` | `modify_plugin` | `standard` | `staged` | `—` | `docs/agents/runs/current/peak-classification-test-plugin-20260917/task.yaml` |
 | `peaks-run00600-optimization` | `completed` | `modify_plugin` | `strict` | `staged` | `AllBlockingGatesPassed` | `docs/agents/runs/current/peaks-run00600-optimization/task.yaml` |
 | `run00601-full-chain-performance` | `failed` | `modify_plugin` | `strict` | `staged` | `—` | `docs/agents/runs/current/run00601-full-chain-performance/task.yaml` |
 | `run00601-records-buffer-8m` | `completed` | `modify_plugin` | `strict` | `staged` | `—` | `docs/agents/runs/current/run00601-records-buffer-8m/task.yaml` |
 | `run00601-records-strategy-shootout` | `failed` | `modify_plugin` | `strict` | `staged` | `—` | `docs/agents/runs/current/run00601-records-strategy-shootout/task.yaml` |
 | `v1725-merged-parts-cleanup` | `completed` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/v1725-merged-parts-cleanup/task.yaml` |
 | `v1725-records-performance-g1` | `reviewing` | `modify_plugin` | `strict` | `staged` | `—` | `docs/agents/runs/current/v1725-records-performance-g1/task.yaml` |
+| `vx2730-bin-adapter-20260917` | `completed` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/vx2730-bin-adapter-20260917/task.yaml` |
+| `wa-data-default-20260918` | `—` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/wa-data-default-20260918/task.yaml` |
 | `waveform-doc-content-recovery-20260901` | `completed` | `modify_code` | `standard` | `staged` | `—` | `docs/agents/runs/current/waveform-doc-content-recovery-20260901/task.yaml` |
 | `waveform-doc-lineage-density-20260901` | `completed` | `modify_code` | `standard` | `staged` | `AllBlockingGatesPass` | `docs/agents/runs/current/waveform-doc-lineage-density-20260901/task.yaml` |
 | `waveform-doc-nested-nav-20260902` | `completed` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/waveform-doc-nested-nav-20260902/task.yaml` |

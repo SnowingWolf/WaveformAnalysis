@@ -9,6 +9,10 @@
 Context 负责统一协调插件注册、依赖解析、lineage 与缓存复用；具体产物仍由单一 Plugin 发布，
 组合查询由 Accessor 完成。
 
+除非显式传入 `storage_dir`，Context 默认把缓存和处理产物写入当前目录下的 `./wa_data/`；
+`data_root` 只用于定位原始 DAQ 数据，默认值为 `DAQ`。因此原始输入与可重建的缓存产物不会因为
+默认配置而混在同一个目录中。
+
 ```mermaid
 flowchart LR
     CONTRACT[Plugin 契约] --> DAG[本次 Plugin DAG]

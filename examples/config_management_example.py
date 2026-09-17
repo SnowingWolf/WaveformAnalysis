@@ -24,7 +24,7 @@ def main():
     print("\n步骤 1: 创建 Context 并注册插件")
     print("-" * 80)
 
-    ctx = Context(storage_dir="./strax_data")
+    ctx = Context(storage_dir="./wa_data")
     ctx.register(
         RawFilesPlugin(),
         WaveformsPlugin(),

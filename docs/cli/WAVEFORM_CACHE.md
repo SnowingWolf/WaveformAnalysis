@@ -45,7 +45,7 @@ waveform-cache stats --detailed --storage-dir ./outputs/_cache
 
 | 参数 | 简写 | 类型 | 默认值 | 说明 |
 |------|------|------|--------|------|
-| `--storage-dir` | - | str | "./strax_data" | 缓存存储目录。**必须在子命令之前指定** |
+| `--storage-dir` | - | str | "./wa_data" | 缓存存储目录。**必须在子命令之前指定** |
 | `--verbose` | `-v` | flag | False | 显示详细信息。**必须在子命令之前指定** |
 
 ---
@@ -326,7 +326,7 @@ waveform-cache clean --run run_001 --strategy oldest --days 30 --no-dry-run
 
 2. **存储目录不存在**
    ```
-   警告: 存储目录不存在: ./strax_data
+   警告: 存储目录不存在: ./wa_data
    将创建空的缓存目录...
    ```
    解决: 工具会自动创建目录，或使用 `--storage-dir` 指定正确路径

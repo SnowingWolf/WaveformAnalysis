@@ -146,7 +146,7 @@ class DAQAnalyzer:
 
         Args:
             run_name: 运行名称（与 run_id 一致）
-            storage_dir: 存储根目录（如 "./strax_data"）
+            storage_dir: 存储根目录（如 "./wa_data"）
 
         Returns:
             Dict[data_name, count]，例如：{"records": 1200000, "hits": 340000}
@@ -424,7 +424,7 @@ class DAQAnalyzer:
             start_time: Filter runs starting after this time (format: "YYYY-MM-DD" or "YYYY-MM-DD HH:MM:SS")
             end_time: Filter runs ending before this time (format: "YYYY-MM-DD" or "YYYY-MM-DD HH:MM:SS")
             show_cache: Whether to display cache status column (default False)
-            cache_storage_dir: Cache storage directory path (e.g., "./strax_data"), None disables cache column
+            cache_storage_dir: Cache storage directory path (e.g., "./wa_data"), None disables cache column
             cache_data_types: List of data types to display (default ["records", "hits", "peaks"])
         """
         if self.df_runs is None or self.df_runs.empty:

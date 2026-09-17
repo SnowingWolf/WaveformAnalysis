@@ -47,7 +47,7 @@ from waveform_analysis.core.context import Context
 from waveform_analysis.core.data import BatchProcessor
 from waveform_analysis.core.plugins import profiles
 
-ctx = Context(storage_dir='./strax_data')
+ctx = Context(storage_dir='./wa_data')
 ctx.register(*profiles.cpu_default())
 ctx.set_config({'data_root': 'DAQ', 'daq_adapter': 'vx2730'})
 

@@ -31,7 +31,7 @@ waveform-process --show-daq run_001
 
 ```bash
 # 查看缓存信息
-waveform-cache info --storage-dir ./strax_data
+waveform-cache info --storage-dir ./wa_data
 
 # 清理缓存
 waveform-cache clean --strategy lru --size-mb 500 --no-dry-run

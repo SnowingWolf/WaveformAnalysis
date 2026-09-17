@@ -314,7 +314,7 @@ from waveform_analysis.plugins import profiles
 
 def main():
     # 1. 初始化 Context
-    ctx = Context(storage_dir='./strax_data')
+    ctx = Context(storage_dir='./wa_data')
     ctx.register(*profiles.cpu_default())
 
     # 2. 设置配置
@@ -359,7 +359,7 @@ if __name__ == '__main__':
 
 ### 预期
 
-- **缓存位置**: `./strax_data/`
+- **缓存位置**: `./wa_data/`
 - **输出**: NumPy 结构化数组
 
 ---
@@ -377,7 +377,7 @@ from waveform_analysis import Context, get_streaming_context
 from waveform_analysis.plugins import profiles
 
 # 初始化
-ctx = Context(storage_dir='./strax_data')
+ctx = Context(storage_dir='./wa_data')
 ctx.register(*profiles.cpu_default())
 ctx.set_config({'data_root': 'DAQ', 'daq_adapter': 'vx2730'})
 

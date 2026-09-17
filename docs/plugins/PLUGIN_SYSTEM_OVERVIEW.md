@@ -94,7 +94,7 @@ class RecordScalePlugin(Plugin):
 from waveform_analysis import Context
 from waveform_analysis.plugins import profiles
 
-# Context 保存配置、插件注册表和 Storage；storage_dir 可按项目需要指定。
+# Context 保存配置、插件注册表和 Storage；未指定 storage_dir 时，缓存默认写入 ./wa_data/。
 ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
 
 # profile 返回一组已经组织好的插件；register() 会逐个加入注册表。
@@ -108,6 +108,9 @@ ctx.register(record_scale)
 ctx.show_resolved_config("record_scale", verbose=True)
 scaled = ctx.get_data("run_001", "record_scale")
 ```
+
+`data_root` 仍用于定位原始 DAQ 数据，默认值为 `DAQ`；它不再作为缓存目录。需要把缓存写到其他
+位置时，应显式传入 `storage_dir`。
 
 如果同一个 `provides` 已经注册，默认会拒绝覆盖；只有明确传入 `allow_override=True` 才会替换旧
 实现。严格的 `require_spec=True` 还会要求插件提供有效的 `spec()` 或 `SPEC`，适合在插件集成和

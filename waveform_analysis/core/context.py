@@ -262,7 +262,7 @@ class Context:
             config: 全局配置字典
                     可选配置: config['plugin_backends'] = {'peaks': SQLiteBackend(...), ...}
             storage_dir: (Old:run_name)存储目录 (默认的 memmap 后端), 数据按 run_id 分目录存储。
-                        如果为 None，将使用 config['data_root'] 作为存储目录。
+                        如果为 None，将使用 ./wa_data 作为缓存存储目录。
             storage_backend: 自定义存储后端（必须实现 StorageBackend 接口）
                     如果为 None，使用默认的 MemmapStorage
             external_plugin_dirs: 插件搜索目录列表
@@ -274,12 +274,12 @@ class Context:
             数据按 run_id 分目录存储：storage_dir/{run_id}/_cache/*.bin
 
         Examples:
-            >>> # 使用 data_root 作为存储目录（推荐）
+            >>> # 默认使用独立的 wa_data 作为缓存存储目录
             >>> ctx = Context(config={"data_root": "DAQ"})
-            >>> # 缓存将存储在 DAQ/{run_id}/_cache/
+            >>> # 原始数据在 DAQ/{run_id}/RAW/，缓存存储在 ./wa_data/{run_id}/_cache/
 
-            >>> # 显式指定存储目录 (不推荐, 容易和 run_id 混淆)
-            >>> ctx = Context(storage_dir="./strax_data")
+            >>> # 显式指定存储目录
+            >>> ctx = Context(storage_dir="./wa_data")
 
             >>> # 使用 SQLite 存储
             >>> from waveform_analysis.core.storage.backends import SQLiteBackend
@@ -293,9 +293,9 @@ class Context:
         self.profiler = Profiler()
         self.config = config or {}
 
-        # 确定存储目录：优先使用显式指定的 storage_dir，否则使用 data_root
+        # 确定存储目录：优先使用显式指定的 storage_dir，否则使用独立默认缓存目录
         if storage_dir is None:
-            storage_dir = self.config.get("data_root", "DAQ")
+            storage_dir = "./wa_data"
 
         self.storage_dir = storage_dir
 
@@ -584,7 +584,7 @@ class Context:
             ...     RawFileNamesPlugin, WaveformsPlugin
             ... )
             >>>
-            >>> ctx = Context(storage_dir="./strax_data")
+            >>> ctx = Context(storage_dir="./wa_data")
             >>>
             >>> # 方式1: 注册插件实例
             >>> ctx.register(RawFileNamesPlugin())

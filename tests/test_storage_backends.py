@@ -179,6 +179,16 @@ class TestStorageBackendFactory:
         assert isinstance(storage, MemmapStorage)
         assert validate_storage_backend(storage)
 
+    def test_create_memmap_backend_uses_wa_data_by_default(self, tmp_path, monkeypatch):
+        """测试 memmap 工厂默认使用 wa_data 目录"""
+        monkeypatch.chdir(tmp_path)
+
+        storage = create_storage_backend("memmap")
+
+        assert isinstance(storage, MemmapStorage)
+        assert storage.work_dir == "./wa_data"
+        assert (tmp_path / "wa_data").is_dir()
+
     def test_create_sqlite_backend(self, tmp_path):
         """测试创建 SQLite 后端"""
         db_path = tmp_path / "test.db"

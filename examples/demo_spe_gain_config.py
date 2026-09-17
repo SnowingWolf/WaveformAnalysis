@@ -31,7 +31,7 @@ def example_1_global_gain_config():
     print("示例 1: 全局增益配置")
     print("=" * 80)
 
-    ctx = Context(storage_dir="./strax_data")
+    ctx = Context(storage_dir="./wa_data")
     ctx.register(
         RawFilesPlugin(),
         WaveformsPlugin(),
@@ -65,7 +65,7 @@ def example_2_per_channel_gain_config():
     print("示例 2: 逐通道增益配置（不同通道不同增益）")
     print("=" * 80)
 
-    ctx = Context(storage_dir="./strax_data")
+    ctx = Context(storage_dir="./wa_data")
     ctx.register(
         RawFilesPlugin(),
         WaveformsPlugin(),
@@ -99,7 +99,7 @@ def example_3_plugin_specific_gain_config():
     print("示例 3: 插件特定增益配置")
     print("=" * 80)
 
-    ctx = Context(storage_dir="./strax_data")
+    ctx = Context(storage_dir="./wa_data")
     ctx.register(
         RawFilesPlugin(),
         WaveformsPlugin(),
@@ -131,7 +131,7 @@ def example_4_run_specific_gain_config():
     print("示例 4: Run 特定增益配置")
     print("=" * 80)
 
-    ctx = Context(storage_dir="./strax_data")
+    ctx = Context(storage_dir="./wa_data")
     ctx.register(
         RawFilesPlugin(),
         WaveformsPlugin(),
@@ -192,7 +192,7 @@ def example_6_multi_board_config():
     print("示例 6: 多板卡增益配置")
     print("=" * 80)
 
-    ctx = Context(storage_dir="./strax_data")
+    ctx = Context(storage_dir="./wa_data")
     ctx.register(
         RawFilesPlugin(),
         WaveformsPlugin(),

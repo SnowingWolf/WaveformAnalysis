@@ -2,6 +2,14 @@ version: 2
 generated_by: scripts/render_agent_docs.py
 source: docs/agents/runs/current/*/task.yaml
 active_plans:
+- task_id: corner-hist-bincount-optimization
+  state: completed
+  route: modify_code
+  workflow_cost: strict
+  workflow_shape: staged
+  condition: —
+  task_file: docs/agents/runs/current/corner-hist-bincount-optimization/task.yaml
+  legacy_plan: docs/agents/runs/current/corner-hist-bincount-optimization/legacy-plan.md
 - task_id: docs-build-skill
   state: reviewing
   route: modify_code
@@ -58,6 +66,14 @@ active_plans:
   condition: —
   task_file: docs/agents/runs/current/managed-workflow-mvp/task.yaml
   legacy_plan: docs/agents/runs/current/managed-workflow-mvp/legacy-plan.md
+- task_id: peak-classification-test-plugin-20260917
+  state: —
+  route: modify_plugin
+  workflow_cost: standard
+  workflow_shape: staged
+  condition: —
+  task_file: docs/agents/runs/current/peak-classification-test-plugin-20260917/task.yaml
+  legacy_plan: docs/agents/runs/current/peak-classification-test-plugin-20260917/legacy-plan.md
 - task_id: peaks-run00600-optimization
   state: completed
   route: modify_plugin
@@ -106,6 +122,22 @@ active_plans:
   condition: —
   task_file: docs/agents/runs/current/v1725-records-performance-g1/task.yaml
   legacy_plan: docs/agents/runs/current/v1725-records-performance-g1/legacy-plan.md
+- task_id: vx2730-bin-adapter-20260917
+  state: completed
+  route: modify_code
+  workflow_cost: strict
+  workflow_shape: staged
+  condition: —
+  task_file: docs/agents/runs/current/vx2730-bin-adapter-20260917/task.yaml
+  legacy_plan: docs/agents/runs/current/vx2730-bin-adapter-20260917/legacy-plan.md
+- task_id: wa-data-default-20260918
+  state: —
+  route: modify_code
+  workflow_cost: strict
+  workflow_shape: staged
+  condition: —
+  task_file: docs/agents/runs/current/wa-data-default-20260918/task.yaml
+  legacy_plan: docs/agents/runs/current/wa-data-default-20260918/legacy-plan.md
 - task_id: waveform-doc-content-recovery-20260901
   state: completed
   route: modify_code

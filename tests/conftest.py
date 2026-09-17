@@ -39,14 +39,14 @@ def temp_storage_dir():
 @pytest.fixture
 def context(tmp_path):
     """Standard Context fixture with temporary storage directory."""
-    storage_dir = str(tmp_path / "strax_data")
+    storage_dir = str(tmp_path / "wa_data")
     return Context(storage_dir=storage_dir)
 
 
 @pytest.fixture
 def context_with_mock_plugins(tmp_path):
     """Context with MockPlugin and DependentPlugin pre-registered."""
-    storage_dir = str(tmp_path / "strax_data")
+    storage_dir = str(tmp_path / "wa_data")
     ctx = Context(storage_dir=storage_dir)
     ctx.register(MockPlugin)
     ctx.register(DependentPlugin)

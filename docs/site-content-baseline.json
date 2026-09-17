@@ -1608,8 +1608,8 @@
       "route": "/user-guide/EXAMPLES_GUIDE/",
       "title": "常见场景示例",
       "source": "docs/user-guide/EXAMPLES_GUIDE.md",
-      "source_sha256": "21cb058cb2a37fdaecd788ee10dca996003190d6f2745f26d86193ac0ac40a88",
-      "model_fingerprint": "5b04fa22e7aa802e33b6d332fa96d605eb041351ac4c0976a4095e674ab78527",
+      "source_sha256": "ef919bbda358097dee153f92652ee7245810647d883771805c8fb49edc161291",
+      "model_fingerprint": "6300c0ed0f02e31d468fe07905fd204a30ffc0d95b22f9336269dc1d177fd592",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -1674,8 +1674,8 @@
       "route": "/user-guide/QUICKSTART_GUIDE/",
       "title": "快速开始指南",
       "source": "docs/user-guide/QUICKSTART_GUIDE.md",
-      "source_sha256": "d4119a2f60e52ed0e57819f217d98f5adbc7a92c7b7b11e0a1b68a693450dec0",
-      "model_fingerprint": "301adbf7277756ecb06a2862e8a27ce1d600ebdd9bffa1eac797a959e4eeb1fb",
+      "source_sha256": "c4630dabf4e9b57483855bbb5236f7ad3143b4e10a22f4a5d5122e5476640269",
+      "model_fingerprint": "23c0e358049ac7a86936e8d26af18cfe48b34c8d87b7e3e8e5679de5dcfc5c69",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -1849,8 +1849,8 @@
       "route": "/plugins/overview/",
       "title": "插件系统与模板 API",
       "source": "docs/plugins/PLUGIN_SYSTEM_OVERVIEW.md",
-      "source_sha256": "8fcccd53b0f002dde4f540ccd59922bd9f57e89ae58a66d803132169d3a7e903",
-      "model_fingerprint": "9e151d46c6cad9670b9cb87f0366bb415538cd33319a0e9a71b90108ecc1b93e",
+      "source_sha256": "5d0c82c516d51ee6ea211d77f62abc76408358594ab940bc70131d7918291188",
+      "model_fingerprint": "0f3c7321c48ff3e81d7458d5e13eeddde578bc576883efd0353ee3b128582124",
       "block_types": [
         "paragraph",
         "heading",
@@ -1866,6 +1866,7 @@
         "heading",
         "paragraph",
         "code",
+        "paragraph",
         "paragraph",
         "paragraph",
         "heading",
@@ -2037,7 +2038,7 @@
         "paragraph"
       ],
       "content_counts": {
-        "paragraph": 89,
+        "paragraph": 90,
         "link": 3,
         "code": 27,
         "table": 8,
@@ -2689,9 +2690,10 @@
       "route": "/architecture/plugin-dag-lineage-cache/",
       "title": "插件执行链与缓存",
       "source": "docs/architecture/PLUGIN_DAG_LINEAGE_CACHE.md",
-      "source_sha256": "f6245502c930cbdbf4dbdd17f4b64f75d394611b88217da9bd919ae2305f850e",
-      "model_fingerprint": "50f30f70a70962972a64cf80c340839b67ab5ea7722d3d42a4195142b94e6ed3",
+      "source_sha256": "ac8e7c188caaa1abcbaaec2df0c0e2d9bfe76ab8707d779bb2b02377e824ba23",
+      "model_fingerprint": "7150e66d7484c5a90c4f992251b3b185e6942fb3f6ad317b671fdc1f7deff390",
       "block_types": [
+        "paragraph",
         "paragraph",
         "paragraph",
         "paragraph",
@@ -2755,7 +2757,7 @@
         "list"
       ],
       "content_counts": {
-        "paragraph": 23,
+        "paragraph": 24,
         "link": 4,
         "code": 8,
         "table": 4,
@@ -2766,8 +2768,8 @@
       "route": "/architecture/system/",
       "title": "系统架构与数据流",
       "source": "docs/architecture/ARCHITECTURE.md",
-      "source_sha256": "7eb9a092ef9249824c7f4a8f1df59ec40ae64b0ecd74c54f407e1db678a05e08",
-      "model_fingerprint": "9251a7411bfba21f6d6e5d9cee4a42868692d426d7ac4ea8d1c53359ca9b060c",
+      "source_sha256": "2da80de457fd80e94ffb95e909dfb75103ecaf615ba6d06cc37d67309513d9fb",
+      "model_fingerprint": "41a535ab6cc15fc46227c559a41e40573fc3fa4a5ca398457cad803278804c97",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -3037,8 +3039,8 @@
       "route": "/features/context/BATCH_PROCESSOR/",
       "title": "BatchProcessor - 多运行批量处理",
       "source": "docs/features/context/BATCH_PROCESSOR.md",
-      "source_sha256": "ec1015953645d389ec1170c7b5d83dcad3d3ab38ac491e6912443ec4e40e8db8",
-      "model_fingerprint": "dff3d5a6288b57ab5ee08b01f7616b949c87b81d17f8a9259103adfc1c863733",
+      "source_sha256": "9df614fe3d6e5daf977ce74ac421471115a5c8eb74542c527e5953e0e20e40de",
+      "model_fingerprint": "1a0290397f97594267477876de13e098b635fcc14821ac47dd361e953528e434",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -3129,9 +3131,10 @@
       "route": "/features/context/CONFIGURATION/",
       "title": "配置管理",
       "source": "docs/features/context/CONFIGURATION.md",
-      "source_sha256": "0d70769499bd2fc677c3e305844eba5199818242df0aed361fdf22806d7c75e4",
-      "model_fingerprint": "aa3521c796e80a2144f7b9a55e43216fcd812fb3553bb8dbde16de1390fbf810",
+      "source_sha256": "fcc3ee75a4e1e08fb3b2735c5f9c36c45f08e97b8c9a159f06c20f12ffef8525",
+      "model_fingerprint": "f67e91561b53534e6465d946f40ae3aeb4d639a93fb8cdfb7e43b9f4469f4298",
       "block_types": [
+        "paragraph",
         "paragraph",
         "paragraph",
         "heading",
@@ -3178,7 +3181,7 @@
         "list"
       ],
       "content_counts": {
-        "paragraph": 24,
+        "paragraph": 25,
         "link": 2,
         "code": 3,
         "table": 0,
@@ -3520,8 +3523,8 @@
       "route": "/cli/WAVEFORM_CACHE/",
       "title": "waveform-cache 命令参考",
       "source": "docs/cli/WAVEFORM_CACHE.md",
-      "source_sha256": "298829d8cea0b1f9b13c146060f595dfc7b6fdb3efdaf5eef00da6f263ea8cf0",
-      "model_fingerprint": "d0bc013183afa29c3bf4233c840970b0b457a8d66ce13968882a164e1267eaf7",
+      "source_sha256": "9779c04e71074f8c507d891674027e7525aebf548e2b43d59b54453df537d9a3",
+      "model_fingerprint": "6fa7ac40cf658ad398baf8b0d53ee866b5efdbe7f266a920bbe2dcd1c9320b3c",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -4682,8 +4685,8 @@
       "route": "/cli/",
       "source": "docs/cli/README.md",
       "title": "命令行工具",
-      "source_sha256": "9085e92d3fa5e53f702c594102d182eef3c04c80c20962d35efe0efb1dbfbf60",
-      "model_fingerprint": "a626212fe8e87889addf53c04dd901a990f011c933d9cd6cbbd54a900d8cbc24",
+      "source_sha256": "a8f1edf0e97bb4d3989b309557d0472e9a816ba6acf64610e4edcb9545e30cf1",
+      "model_fingerprint": "4aba915e940182d4bc04950bab8e9d331ccacb523c76ae4c961d28c42ec8cdcb",
       "block_types": [
         "paragraph",
         "paragraph",

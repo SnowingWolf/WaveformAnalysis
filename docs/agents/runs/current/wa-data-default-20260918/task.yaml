@@ -1,0 +1,75 @@
+task_id: wa-data-default-20260918
+state: reviewing
+spec:
+  route: modify_code
+  workflow_cost: strict
+  workflow_shape: staged
+  lifecycle_profile: reviewed_change
+  risk_level: medium
+  objective: 将默认缓存目录从 ./strax_data 统一改为 ./wa_data，并同步活动文档与生成站点。
+  scope_in:
+    - waveform_analysis/core/context.py
+    - waveform_analysis/core/storage/backends.py
+    - waveform_analysis/core/plugins/core/adapters.py
+    - waveform_analysis/cli_cache.py
+    - waveform_analysis/acquisition/daq/daq_analyzer.py
+    - examples/
+    - tests/conftest.py
+    - tests/test_context_core.py
+    - tests/test_storage_backends.py
+    - docs/architecture/ARCHITECTURE.md
+    - docs/architecture/PLUGIN_DAG_LINEAGE_CACHE.md
+    - docs/architecture/context_analysis.md
+    - docs/cli/README.md
+    - docs/cli/WAVEFORM_CACHE.md
+    - docs/features/context/BATCH_PROCESSOR.md
+    - docs/features/context/CONFIGURATION.md
+    - docs/plugins/PLUGIN_SYSTEM_OVERVIEW.md
+    - docs/user-guide/QUICKSTART_GUIDE.md
+    - docs/user-guide/EXAMPLES_GUIDE.md
+    - docs/site-content-baseline.json
+    - docs/site-next/fixture/site-model.v1.json
+    - docs/agents/plans/INDEX.md
+    - docs/agents/plans/active.yaml
+    - waveform_analysis/documentation/site_dist/
+    - tests/test_cli_cache.py
+    - this task record
+  scope_out:
+    - archive/reports/
+    - tests/test_strax_adapter.py
+    - intentional explicit non-default storage paths
+  required_gates:
+    - assess_change_impact
+    - schema_compat_check
+    - targeted_tests
+    - doc_sync
+    - doc_anchors
+    - generated_site_sync
+  executor_role: executor.code
+  blocking_assumptions:
+    - data_root remains the raw DAQ input root and keeps its default value DAQ.
+    - explicit storage_dir values remain unchanged in behavior.
+status:
+  execution:
+    summary: 默认缓存路径已在 Context、memmap 工厂、strax 兼容工厂和 waveform-cache CLI 中统一为 ./wa_data；data_root 仍默认为 DAQ 并只定位原始输入。
+    documentation: 活动文档、示例、站点 baseline、Next fixture 和预构建静态站点已同步；活动计划视图已重新生成。
+    tests:
+      targeted: 66 passed, 1 known timeout warning
+      assess_change_impact: pass, no plugin contract changes
+      schema_compat_check: pass, smoke raw_files=2, st_waveforms=24, hit=0, df=24, events=12
+      doc_anchors: pass, 29 anchors, 0 errors, 0 warnings
+      render_agent_docs_check: pass
+      doc_sync: pass
+      generated_site_sync: pass, TypeScript check and Next static build passed; site model fixture matches site_dist
+      site_baseline_isolated: pass, 33 guides match; DATA_PRODUCTS.md skipped as pre-existing HEAD drift
+    requested_review_focus:
+      - 显式 storage_dir 仍优先于默认值
+      - data_root 与缓存目录语义保持分离
+      - 历史 strax 归档与专用兼容测试未被改写
+  review:
+    decision: ready_for_commit
+    blocking_findings: []
+    residual_risks:
+      - tests/test_site_model.py 的全量 rich baseline 检查仍会因未改动的 docs/architecture/DATA_PRODUCTS.md 与 baseline 不一致而失败；本轮未扩大范围修复。
+  handoff:
+    commit_status: pending
