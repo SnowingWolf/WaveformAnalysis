@@ -87,9 +87,15 @@
       "V1725_ADAPTER",
       "V1725_LAYOUT",
       "V1725_SPEC",
+      "VX2730BinLayout",
+      "VX2730BinReader",
+      "VX2730BinSpec",
       "VX2730Reader",
       "VX2730Spec",
       "VX2730_ADAPTER",
+      "VX2730_BIN_ADAPTER",
+      "VX2730_BIN_LAYOUT",
+      "VX2730_BIN_SPEC",
       "VX2730_LAYOUT",
       "VX2730_SPEC",
       "get_adapter",
@@ -186,8 +192,8 @@
     ]
   },
   "registries": {
-    "formats": ["vx2730_csv", "v1725_bin"],
-    "adapters": ["v1725", "vx2730"],
+    "formats": ["vx2730_csv", "v1725_bin", "vx2730_bin"],
+    "adapters": ["v1725", "vx2730", "vx2730_bin"],
     "v1725_adapter_type": "V1725Adapter",
     "vx2730_adapter_type": "DAQAdapter"
   },

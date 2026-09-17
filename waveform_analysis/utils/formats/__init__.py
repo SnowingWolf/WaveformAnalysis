@@ -17,6 +17,7 @@ register_module_aliases(
             "v1725",
             "v1725_numba",
             "vx2730",
+            "vx2730_bin",
         )
     }
 )

@@ -13,6 +13,8 @@ DAQ 数据格式适配器
 
 内置适配器:
 - vx2730: CAEN VX2730 数字化仪（CSV 格式）
+- vx2730_bin: CAEN VX2730 数字化仪（CoMPASS 二进制 .BIN 格式）
+- v1725: CAEN V1725 数字化仪（DAW_DEMO 二进制格式）
 
 Examples:
     基础用法（使用默认 VX2730 适配器）:
@@ -94,6 +96,16 @@ from .vx2730 import (
     VX2730Spec,
 )
 
+# VX2730 CoMPASS 二进制适配器
+from .vx2730_bin import (
+    VX2730_BIN_ADAPTER,
+    VX2730_BIN_LAYOUT,
+    VX2730_BIN_SPEC,
+    VX2730BinLayout,
+    VX2730BinReader,
+    VX2730BinSpec,
+)
+
 _LEGACY_CLASS_MODULES = {
     ColumnMapping: "waveform_analysis.utils.formats.base",
     FormatReader: "waveform_analysis.utils.formats.base",
@@ -105,6 +117,9 @@ _LEGACY_CLASS_MODULES = {
     DAQAdapter: "waveform_analysis.utils.formats.adapter",
     VX2730Reader: "waveform_analysis.utils.formats.vx2730",
     VX2730Spec: "waveform_analysis.utils.formats.vx2730",
+    VX2730BinReader: "waveform_analysis.utils.formats.vx2730_bin",
+    VX2730BinSpec: "waveform_analysis.utils.formats.vx2730_bin",
+    VX2730BinLayout: "waveform_analysis.utils.formats.vx2730_bin",
     V1725Reader: "waveform_analysis.utils.formats.v1725",
     V1725Adapter: "waveform_analysis.utils.formats.v1725",
     V1725Spec: "waveform_analysis.utils.formats.v1725",
@@ -119,6 +134,8 @@ def ensure_builtin_formats_registered() -> None:
     register_format("v1725_bin", V1725Reader, V1725_SPEC)
     register_adapter(V1725_ADAPTER)
     register_adapter(VX2730_ADAPTER)
+    register_format("vx2730_bin", VX2730BinReader, VX2730_BIN_SPEC)
+    register_adapter(VX2730_BIN_ADAPTER)
 
 
 ensure_builtin_formats_registered()
@@ -155,6 +172,13 @@ __all__ = [
     "VX2730_LAYOUT",
     "VX2730_SPEC",
     "VX2730Spec",
+    # VX2730 CoMPASS BIN 适配器
+    "VX2730BinLayout",
+    "VX2730BinReader",
+    "VX2730BinSpec",
+    "VX2730_BIN_ADAPTER",
+    "VX2730_BIN_LAYOUT",
+    "VX2730_BIN_SPEC",
     # V1725 adapter
     "V1725Reader",
     "V1725Adapter",

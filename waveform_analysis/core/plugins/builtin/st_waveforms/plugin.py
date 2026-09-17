@@ -1067,6 +1067,11 @@ class WaveformsPlugin(Plugin):
 
         if isinstance(daq_adapter, str):
             daq_adapter = daq_adapter.lower()
+        if daq_adapter == "vx2730_bin":
+            raise ValueError(
+                "st_waveforms is not supported for vx2730_bin; "
+                "use records / wave_pool (input_source='raw_files') instead"
+            )
 
         # ========== 文件级并行配置 ==========
         if n_jobs is None:
