@@ -234,6 +234,21 @@ I/O 不能视为 waveform 的重复计算。memmap 存储直接写入连续 ndar
 `tobytes()` 创建同等大小的 Python 临时副本。性能诊断应分别记录 Plugin compute 与 cache-save
 时间，避免把存储带宽、压缩或 checksum 成本误判为算法回归。
 
+### 6.1.2 写入锁与替换边界
+
+Memmap 的 `save_stream` / `save_memmap`、Context 的 generator 缓存写入和 `delete`
+使用同一 key 的文件锁。锁文件在解锁后保留，避免已打开旧 inode 的等待者与新进入者锁住不同
+文件；临时二进制文件在释放锁之前清理。读取不存在的 run/key 不创建目录。
+
+二进制和 metadata 分别通过 `os.replace` 替换，避免先删除旧文件产生的缺失窗口；这不构成两个
+文件的联合事务。独立 `save_metadata`、`finalize_save` 与 DataFrame 写入不自动取得该锁，
+调用者不能据此假定所有存储格式都支持并发覆盖。`delete` 当前删除二进制与 metadata，保留
+锁文件，也不负责回收残留的压缩或 DataFrame 数据文件。
+
+`clear_cache_for(..., clear_disk=False)` 会移除选定 run 的内存结果和指向该对象的同名 Context
+属性；另一 run 仍使用的共享对象及用户替换的属性会保留。调用方或 Accessor 自己持有的引用不受
+影响，释放 Python 引用也不保证分配器立即归还 RSS。这是显式清理，不是自动内存预算或淘汰策略。
+
 ### 6.2 失效矩阵
 
 | 变化 | 正常行为 | 失败时的表现 |

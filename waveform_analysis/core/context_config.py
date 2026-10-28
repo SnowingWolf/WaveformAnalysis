@@ -429,8 +429,49 @@ class ContextConfigDomain:
             print(resolved.summary(verbose=verbose))
             print()
 
-    def prepare_request(self, run_id: str, data_name: str) -> None:
+    def prepare_request(self, run_id: str, data_name: str) -> bool:
+        """Prepare a request; return whether it must bypass memory cache."""
         self.raise_if_removed_data_name(data_name)
+        if self.ctx._cache_readonly:
+            return self.prepare_readonly_request(run_id, data_name)
         self.sync_custom_config_json(run_id, data_name)
         self.ctx._last_run_id = run_id
         self.maybe_invalidate_run_config_cache(run_id)
+        return False
+
+    def prepare_readonly_request(self, run_id: str, data_name: str) -> bool:
+        """Check run-config freshness without changing cache files or state."""
+        self.ctx._last_run_id = run_id
+        pending = [data_name]
+        visited = set()
+        while pending:
+            name = pending.pop()
+            if name in visited or name not in self.ctx._plugins:
+                continue
+            visited.add(name)
+            plugin = self.ctx._plugins[name]
+            if getattr(plugin, "uses_run_config", False):
+                break
+            pending.extend(self.ctx._plugin_domain.get_dependency_names(plugin, run_id=run_id))
+        else:
+            return False
+
+        # run_config is not part of lineage. Its persisted state is therefore
+        # required, and memory results cannot prove their per-result freshness.
+        # Reload the disk entry after verifying state instead of trusting them.
+        current_hash, _config_path = self.compute_run_config_hash(run_id)
+        state_path = self.get_run_config_hash_state_path(run_id)
+        if current_hash is None or not os.path.isfile(state_path):
+            raise FileNotFoundError(
+                f"Readonly cache freshness cannot be verified for run_id={run_id!r}, "
+                f"data_name={data_name!r}: run_config hash state is unavailable."
+            )
+        with open(state_path, encoding="utf-8") as fh:
+            state = json.load(fh)
+        previous_hash = state.get("run_config_hash") if isinstance(state, dict) else None
+        if previous_hash != current_hash:
+            raise FileNotFoundError(
+                f"Readonly cache is stale or unverified for run_id={run_id!r}, "
+                f"data_name={data_name!r}: run_config hash does not match persisted state."
+            )
+        return True

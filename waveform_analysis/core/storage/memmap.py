@@ -203,8 +203,6 @@ class MemmapStorage:
                 run_id = "default"
 
         root = os.path.join(self.work_dir, run_id, self.data_subdir)
-        os.makedirs(root, exist_ok=True)
-
         bin_path = os.path.join(root, f"{key}.bin")
         meta_path = os.path.join(root, f"{key}.json")
         lock_path = os.path.join(root, f"{key}.lock")
@@ -240,6 +238,7 @@ class MemmapStorage:
         Returns file descriptor on success, None on timeout.
         """
         with self._timeit("storage.acquire_lock"):
+            os.makedirs(os.path.dirname(lock_path), exist_ok=True)
             start_time = time.time()
             attempt = 0
 
@@ -278,7 +277,7 @@ class MemmapStorage:
             return None
 
     def _release_lock(self, fd: int | None, lock_path: str):
-        """释放锁并关闭文件描述符"""
+        """Release the descriptor while retaining the shared lock-file inode."""
         if fd is not None:
             try:
                 fcntl.flock(fd, fcntl.LOCK_UN)
@@ -297,25 +296,17 @@ class MemmapStorage:
             except Exception as e:
                 logger.error(f"Unexpected error closing fd for {lock_path}: {e}", exc_info=True)
 
-        # 清理锁文件（尽力而为）
-        try:
-            if os.path.exists(lock_path):
-                os.remove(lock_path)
-        except (PermissionError, OSError) as e:
-            # 文件可能已被删除或权限不足
-            logger.debug(f"Could not remove lock file {lock_path}: {e}")
-        except Exception as e:
-            logger.warning(f"Unexpected error removing lock file {lock_path}: {e}")
+        # Other contenders may already have this inode open. Unlinking it would
+        # let new contenders lock a different inode for the same cache key.
 
     def save_metadata(self, key: str, metadata: dict[str, Any], run_id: str | None = None):
         """Atomically save metadata for a key."""
         _, meta_path, _ = self._get_paths(key, run_id)
+        os.makedirs(os.path.dirname(meta_path), exist_ok=True)
         tmp_meta_path = meta_path + ".tmp"
         with open(tmp_meta_path, "w") as f:
             json.dump(metadata, f, default=str)
-        if os.path.exists(meta_path):
-            os.remove(meta_path)
-        os.rename(tmp_meta_path, meta_path)
+        os.replace(tmp_meta_path, meta_path)
 
     def finalize_save(
         self,
@@ -332,9 +323,7 @@ class MemmapStorage:
 
         if total_count > 0:
             # Atomic rename for binary file
-            if os.path.exists(bin_path):
-                os.remove(bin_path)
-            os.rename(tmp_bin_path, bin_path)
+            os.replace(tmp_bin_path, bin_path)
 
             # Apply compression if enabled
             compressed = False
@@ -490,20 +479,22 @@ class MemmapStorage:
                         )
                 raise e
             finally:
-                self._release_lock(lock_fd, lock_path)
-                # Remove temp file if it still exists (shouldn't happen on success)
-                if os.path.exists(tmp_bin_path):
-                    try:
-                        os.remove(tmp_bin_path)
-                    except (PermissionError, OSError) as cleanup_err:
-                        logger.warning(
-                            f"Failed to remove lingering temp file {tmp_bin_path}: {cleanup_err}"
-                        )
-                    except Exception as cleanup_err:
-                        logger.error(
-                            f"Unexpected error removing temp file {tmp_bin_path}: {cleanup_err}",
-                            exc_info=True,
-                        )
+                try:
+                    # Clean up while still holding the lock, before another writer starts.
+                    if os.path.exists(tmp_bin_path):
+                        try:
+                            os.remove(tmp_bin_path)
+                        except (PermissionError, OSError) as cleanup_err:
+                            logger.warning(
+                                f"Failed to remove lingering temp file {tmp_bin_path}: {cleanup_err}"
+                            )
+                        except Exception as cleanup_err:
+                            logger.error(
+                                f"Unexpected error removing temp file {tmp_bin_path}: {cleanup_err}",
+                                exc_info=True,
+                            )
+                finally:
+                    self._release_lock(lock_fd, lock_path)
 
     def save_memmap(
         self,
@@ -817,9 +808,17 @@ class MemmapStorage:
     def delete(self, key: str, run_id: str | None = None):
         """Delete data and metadata for a key."""
         bin_path, meta_path, lock_path = self._get_paths(key, run_id)
-        for p in [bin_path, meta_path, lock_path]:
-            if os.path.exists(p):
-                os.remove(p)
+        if not os.path.isdir(os.path.dirname(lock_path)):
+            return
+        lock_fd = self._acquire_lock(lock_path)
+        if lock_fd is None:
+            raise RuntimeError(f"Could not acquire lock for {key} after timeout.")
+        try:
+            for path in (bin_path, meta_path):
+                if os.path.exists(path):
+                    os.remove(path)
+        finally:
+            self._release_lock(lock_fd, lock_path)
 
     def list_keys(self, run_id: str | None = None) -> list[str]:
         """

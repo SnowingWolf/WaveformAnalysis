@@ -33,6 +33,11 @@ flowchart LR
 节点，Storage 复用或保存结果，最后由调用方或 Accessor 读取正式产物。插件实例可以被多个 run
 复用，因此插件内部的每一次数据访问都必须显式带上 `run_id`。
 
+批量处理若指定 `storage_dir_strategy="readonly"`，Context 只返回有效缓存，未命中时报告错误，
+不会执行缺失的插件或消费可能继续计算的惰性流。该策略不改变 Plugin 的输出契约或 lineage，
+也不约束回调直接执行文件 I/O。具体缓存与配置有效性要求见
+[批量处理说明](../features/context/BATCH_PROCESSOR.md)。
+
 ## Plugin 身份与输出契约
 
 最小插件由四个互相配合的声明组成：`provides` 标识产物，`depends_on` 标识输入，`version` 标识

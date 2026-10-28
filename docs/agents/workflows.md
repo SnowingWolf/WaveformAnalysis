@@ -380,9 +380,11 @@ python scripts/performance_regression_check.py --base HEAD
 ```
 
 ### 口径
-1. 固定小样本数据，保证可重复
-2. 默认目标插件：`st_waveforms, hit, df, events`
-3. 默认阈值：平均耗时 `+10%`、平均峰值内存 `+15%` 以上判定回归
+1. 固定小型合成输入，两侧使用同一当前 harness 和独立 Python 子进程，报告实际源码与解释器来源。
+2. 默认目标插件：`st_waveforms, hit, hit_threshold, df, df_events`；默认重复 5 次，比较中位数。
+3. 默认耗时回归阈值为 `+10%`；`tracemalloc` 峰值内存须同时增长 `+15%` 和超过 `1 MB` 才判定回归。该指标不等于进程峰值 RSS。
+4. 基准不可用、目标缺失或样本无效时退出 `2`，不得回退为当前版本与自身比较；有效比较无回归退出 `0`，有回归退出 `1`。
+5. 真实数据的性能结论须另用固定切片，分别记录首次编译、热计算、缓存读取和进程峰值内存；不得由小型合成检查推断全 run 提速。
 
 ## Workflow: release_artifact_sync
 

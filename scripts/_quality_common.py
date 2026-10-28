@@ -2,6 +2,7 @@
 """Shared helpers for agent quality checks."""
 
 from collections.abc import Iterable
+import math
 from pathlib import Path
 from statistics import median
 import tempfile
@@ -113,9 +114,13 @@ def run_smoke_chain() -> dict[str, object]:
         }
 
 
-def benchmark_hot_targets(targets: Iterable[str], repeats: int = 3) -> dict[str, dict[str, float]]:
+def benchmark_hot_targets(targets: Iterable[str], repeats: int = 3) -> dict[str, dict[str, object]]:
     """Benchmark target plugins on deterministic small dataset."""
     targets = list(targets)
+    if not targets:
+        raise ValueError("no benchmark targets specified")
+    if repeats < 1:
+        raise ValueError("benchmark repeats must be positive")
     samples: dict[str, list[tuple[float, float]]] = {name: [] for name in targets}
 
     for _ in range(repeats):
@@ -128,30 +133,28 @@ def benchmark_hot_targets(targets: Iterable[str], repeats: int = 3) -> dict[str,
 
                 run_id = "run_smoke_001"
                 tracemalloc.start()
-                t0 = time.perf_counter()
-                _ = ctx.get_data(run_id, target)
-                elapsed = time.perf_counter() - t0
-                _current, peak = tracemalloc.get_traced_memory()
-                tracemalloc.stop()
+                try:
+                    t0 = time.perf_counter()
+                    _ = ctx.get_data(run_id, target)
+                    elapsed = time.perf_counter() - t0
+                    _current, peak = tracemalloc.get_traced_memory()
+                finally:
+                    tracemalloc.stop()
+
+                if not math.isfinite(elapsed) or elapsed <= 0:
+                    raise ValueError(f"invalid benchmark elapsed time for {target}: {elapsed}")
+                if not math.isfinite(peak) or peak < 0:
+                    raise ValueError(f"invalid benchmark peak memory for {target}: {peak}")
 
                 samples[target].append((elapsed, peak / (1024.0 * 1024.0)))
 
-    out: dict[str, dict[str, float]] = {}
+    out: dict[str, dict[str, object]] = {}
     for target, vals in samples.items():
-        if not vals:
-            out[target] = {
-                "avg_time_sec": 0.0,
-                "max_time_sec": 0.0,
-                "avg_peak_mem_mb": 0.0,
-                "max_peak_mem_mb": 0.0,
-                "median_time_sec": 0.0,
-                "median_peak_mem_mb": 0.0,
-            }
-            continue
-
         times = [x[0] for x in vals]
         mems = [x[1] for x in vals]
         out[target] = {
+            "sample_count": len(vals),
+            "samples": [{"time_sec": elapsed, "peak_mem_mb": peak} for elapsed, peak in vals],
             "avg_time_sec": sum(times) / float(len(times)),
             "max_time_sec": max(times),
             "avg_peak_mem_mb": sum(mems) / float(len(mems)),

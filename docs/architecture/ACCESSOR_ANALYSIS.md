@@ -322,22 +322,35 @@ Context 包含内存结果、resolved config 缓存、run config 缓存、性能
 
 #### 11.1 当前代码行为
 
-| `storage_dir_strategy` | 当前并行行为 | 稳定性说明 |
+| `storage_dir_strategy` | 行为 | 稳定性说明 |
 | --- | --- | --- |
 | `shared` | 保留 Context 原存储目录 | 已实现；并发写安全取决于 Storage |
 | `per_worker` | 每次任务尝试创建临时 `batch_cache_*` 目录 | 已实现，任务结束可清理 |
-| `readonly` | 当前与 `per_worker` 走同一临时目录分支 | **名称未形成强制只读契约** |
+| `readonly` | 保留原目录，`Context.get_data` 仅返回有效缓存 | 串行与并行均生效；未命中报错，不计算或写入缓存 |
 
-串行模式下，非 `shared` 策略当前会被忽略并回退为 `shared`。因此不能根据参数名假设
-`readonly` 已禁止计算或写入；需要真正只读语义的调用方目前应在执行前验证目标缓存，并避免把该
-名称作为安全边界。
+串行模式下只有 `per_worker` 会被忽略并回退为 `shared`。`readonly` 不创建临时目录，
+`clean_temp_cache` 对它无影响；缓存缺失、lineage 不匹配或缓存不可用时记录 `FileNotFoundError`。
+目标未命中时不会通过计算依赖来补齐结果，惰性内存流也不会被消费。
+
+普通目标可使用已经物化且 lineage 有效的内存结果。clone/factory 默认不复制内存结果，
+因此只有原 Context 内存中的结果不能自动供并行 worker 使用。若目标或其依赖声明
+`uses_run_config`，只读请求要求当前配置与已有 `_run_config_state.json` 一致，并重新读取磁盘缓存；
+状态缺失或变化时明确失败，既不删除旧缓存，也不更新配置状态或配置快照。
+
+该策略要求使用正式 `Context`，任务结束、失败或取消时恢复临时只读模式。`process_func` 中经
+`Context.get_data` 访问数据同样受约束，`clear_cache_for` 的磁盘删除也会被拒绝；回调直接调用
+Storage、文件 I/O、自定义 factory、插件自定义 hook 和日志处理器的外部副作用仍由调用方负责，
+这不是任意 Python 回调的安全沙箱。自定义 Storage 的读取方法也必须遵守无写入契约。
 
 ```mermaid
 flowchart TD
     STRATEGY{storage_dir_strategy}
     STRATEGY -->|shared| EXISTING[使用原 storage_dir]
     STRATEGY -->|per_worker| TEMP[创建 batch_cache 临时目录]
-    STRATEGY -->|readonly 当前行为| TEMP
+    STRATEGY -->|readonly| READ[从原目录读取有效缓存]
+    READ --> HIT{缓存命中?}
+    HIT -->|是| RESULT[返回缓存结果]
+    HIT -->|否| ERROR[报告缓存未命中，不计算]
     TEMP --> RUN[执行任务]
     RUN --> CLEAN{clean_temp_cache}
     CLEAN -->|true| DELETE[清理临时目录]
@@ -392,7 +405,7 @@ Context 做其他请求。
 | --- | --- |
 | `continue` | 记录失败，继续其他 run |
 | `stop` | 记录当前失败，取消/跳过尚未开始的任务 |
-| `raise` | 重新抛出异常并终止调用 |
+| `raise` | 串行重新抛出异常；并行抛出包含原错误类型和消息的 `RuntimeError` |
 
 已开始的并发任务可能无法瞬时停止，因此 `stop` 或取消后仍需根据 `meta` 判断哪些任务 success、failed、
 cancelled 或 skipped，不能只看结果字典长度。
@@ -421,7 +434,7 @@ cancelled 或 skipped，不能只看结果字典长度。
 | 进程模式启动失败 | 工厂、Plugin 或回调不可序列化 | `create_context_factory` 与自定义函数定义位置 |
 | run 之间状态串扰 | worker 共享了可变 Context 或共享外部全局对象 | 每任务 Context 和 Plugin 实例 |
 | 缓存写入冲突 | `shared` Storage 不支持当前并发写模式 | 存储目录、原子写和锁行为 |
-| `readonly` 仍发生计算 | 当前实现未强制只读，只切换临时目录 | 实际 `_apply_storage_dir_strategy` 行为 |
+| `readonly` 报缓存未命中 | 目标未缓存、lineage 不匹配、内存结果未传给 worker，或 run_config 状态无法证明有效 | 原缓存目录、错误消息和配置状态 |
 | 重试后结果重复 | 自定义回调存在非幂等外部副作用 | callback 的写入与去重策略 |
 | 汇总缺少部分 run | `stop`、取消或失败只记录在 `meta/errors` | `ordered_run_ids` 与每个状态 |
 
@@ -429,11 +442,10 @@ cancelled 或 skipped，不能只看结果字典长度。
 
 以下内容尚不应写成稳定保证：
 
-1. `readonly` 的强制只读语义和预检行为；
-2. 配置网格的跨配置全局调度与资源配额；
-3. 分布式执行器、远程队列和跨主机缓存协调；
-4. 正式的跨 run 数据产物与 lineage 模型；
-5. 失败恢复点、断点续跑和幂等外部副作用协议。
+1. 配置网格的跨配置全局调度与资源配额；
+2. 分布式执行器、远程队列和跨主机缓存协调；
+3. 正式的跨 run 数据产物与 lineage 模型；
+4. 失败恢复点、断点续跑和幂等外部副作用协议。
 
 ### 17. 批量维护检查
 
@@ -441,7 +453,7 @@ cancelled 或 skipped，不能只看结果字典长度。
 2. 并发任务使用独立 Context；共享 Storage 的并发语义经过测试。
 3. retry 仅处理明确异常类型，自定义回调说明幂等性。
 4. 汇总保留失败和 skipped 项，不把缺失当作空结果。
-5. 文档将当前实现与未来设计分开，尤其不把 `readonly` 名称写成已实现保证。
+5. `readonly` 的缓存读取保证与回调、factory 和外部副作用边界保持明确。
 
 参见[系统架构与数据流](ARCHITECTURE.md)了解 Context 边界，参见
 [插件执行链与缓存](PLUGIN_DAG_LINEAGE_CACHE.md)了解每个单 run 任务的结果身份。

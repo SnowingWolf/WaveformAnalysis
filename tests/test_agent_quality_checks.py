@@ -89,6 +89,15 @@ def test_performance_regression_check_cli_runs(tmp_path):
     assert "comparison" in payload
     assert "hit_threshold" in payload["before"]
     assert "hit_threshold" in payload["after"]
+    assert payload["comparison"]["valid"]
+    for side in ("base", "current"):
+        source = payload["provenance"][side]
+        assert len(source["commit"]) == 40
+        assert Path(source["executable"]).resolve() == Path(sys.executable).resolve()
+        assert Path(source["module_paths"]["waveform_analysis"]).is_relative_to(
+            Path(source["checkout"]) / "waveform_analysis"
+        )
+    assert payload["provenance"]["base"]["harness"] == payload["provenance"]["current"]["harness"]
 
 
 def test_performance_regression_check_defaults_to_five_repeats(monkeypatch):
@@ -97,18 +106,36 @@ def test_performance_regression_check_defaults_to_five_repeats(monkeypatch):
 
     repeats_seen = {}
 
+    source = {
+        "commit": "0" * 40,
+        "dirty": False,
+        "checkout": str(PROJECT_ROOT),
+        "executable": sys.executable,
+        "module_paths": {"waveform_analysis": str(PROJECT_ROOT / "waveform_analysis/__init__.py")},
+    }
+
     def fake_run_base(base, targets, repeats):
         repeats_seen["base"] = repeats
-        return {}, ""
+        return {}, source
 
     def fake_run_current(targets, repeats):
         repeats_seen["current"] = repeats
-        return {}
+        return {}, source
 
-    def fake_compare(base_report, current_report, time_threshold_pct, mem_threshold_pct):
+    def fake_compare(
+        base_report,
+        current_report,
+        time_threshold_pct,
+        mem_threshold_pct,
+        expected_targets,
+        expected_repeats,
+    ):
+        assert expected_repeats == 5
         return {
             "rows": [],
             "regressions": [],
+            "errors": [],
+            "valid": True,
             "time_threshold_pct": time_threshold_pct,
             "mem_threshold_pct": mem_threshold_pct,
         }
@@ -144,6 +171,8 @@ def test_performance_compare_uses_median_and_ignores_sub_megabyte_noise(monkeypa
 
     before = {
         "target": {
+            "sample_count": 1,
+            "samples": [{"time_sec": 1.0, "peak_mem_mb": 0.08}],
             "avg_time_sec": 1.0,
             "max_time_sec": 1.0,
             "avg_peak_mem_mb": 0.08,
@@ -154,6 +183,8 @@ def test_performance_compare_uses_median_and_ignores_sub_megabyte_noise(monkeypa
     }
     after = {
         "target": {
+            "sample_count": 1,
+            "samples": [{"time_sec": 0.99, "peak_mem_mb": 0.12}],
             "avg_time_sec": 1.2,
             "max_time_sec": 1.2,
             "avg_peak_mem_mb": 0.12,

@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 from typing import Any
 
 import numpy as np
@@ -244,17 +245,32 @@ class ContextCacheDomain:
         for name in data_names:
             if clear_memory:
                 key = (run_id, name)
-                if key in self.ctx._results:
-                    del self.ctx._results[key]
-                    if key in self.ctx._results_lineage:
-                        del self.ctx._results_lineage[key]
-                    memory_count += 1
-                    count += 1
-                    if verbose:
-                        print(f"  ✓ 已清理内存缓存: ({run_id}, {name})")
-                    self.ctx.logger.debug("Cleared memory cache for (%s, %s)", run_id, name)
-                elif verbose:
-                    print(f"  - 内存缓存不存在: ({run_id}, {name})")
+                with self.ctx._data_lock:
+                    if key in self.ctx._results:
+                        value = self.ctx._results.pop(key)
+                        self.ctx._results_lineage.pop(key, None)
+                        # _set_data also exposes non-generator results as attributes.
+                        # Keep replacements and aliases still used by another run.
+                        attributes = vars(self.ctx)
+                        if (
+                            re.match(r"^[a-zA-Z_]\w*$", name)
+                            and name not in self.ctx._RESERVED_NAMES
+                            and not hasattr(type(self.ctx), name)
+                            and name in attributes
+                            and attributes[name] is value
+                            and not any(
+                                cached_name == name and cached_value is value
+                                for (_, cached_name), cached_value in self.ctx._results.items()
+                            )
+                        ):
+                            del attributes[name]
+                        memory_count += 1
+                        count += 1
+                        if verbose:
+                            print(f"  ✓ 已清理内存缓存: ({run_id}, {name})")
+                        self.ctx.logger.debug("Cleared memory cache for (%s, %s)", run_id, name)
+                    elif verbose:
+                        print(f"  - 内存缓存不存在: ({run_id}, {name})")
 
                 if name in {"records", "wave_pool"}:
                     removed = self._clear_internal_records_bundle_cache(run_id, verbose=verbose)

@@ -1,0 +1,675 @@
+{
+  "input_policy": "Only the single completed 6MB b1 file; no b0 or full-run scanning/hashing; one independent directory per experiment.",
+  "budgets": {
+    "worker_seconds": 60,
+    "sampled_process_tree_rss_stop_bytes": 1073741824,
+    "sample_interval_seconds": 0.02,
+    "caveat": "sampled watchdog, not a strict cgroup memory ceiling"
+  },
+  "experiments": [
+    {
+      "name": "records",
+      "label": "records only, before memory cleanup fix",
+      "directory": "/tmp/wa-system-baseline-records-20261029-01",
+      "watchdog": {
+        "returncode": 0,
+        "limit_exceeded": null,
+        "peak_sampled_process_tree_rss_bytes": 375066624,
+        "peak_sampled_process_tree_threads": 33,
+        "wall_seconds_including_imports": 5.724297826993279,
+        "sample_interval_seconds": 0.02
+      },
+      "first_seconds": 1.3558787440415472,
+      "warm_median_seconds": 0.26004114910028875,
+      "cache_map_median_seconds": 0.001142751076258719,
+      "cache_touch_compare_median_seconds": 0.0029255319386720657,
+      "cleanup": {
+        "public_arrays_still_alive": [
+          "records",
+          "wave_pool"
+        ],
+        "public_result_keys_remaining": [],
+        "note": "Weak references observe Python object retention; allocator RSS may remain high after release."
+      },
+      "source_metadata_stable": true,
+      "input_before": {
+        "path": "/mnt/data/TPC/run7_Xe/00700/RAW/run7_Xe_20260912_120118_00700_raw_b1_seg0.bin",
+        "size_bytes": 6095288,
+        "mtime_ns": 1789188264463491460
+      },
+      "input_after": {
+        "path": "/mnt/data/TPC/run7_Xe/00700/RAW/run7_Xe_20260912_120118_00700_raw_b1_seg0.bin",
+        "size_bytes": 6095288,
+        "mtime_ns": 1789188264463491460
+      },
+      "runtime": {
+        "python": "/home/wxy/anaconda3/envs/pyroot-kernel/bin/python",
+        "version": "3.12.4",
+        "numpy": "2.2.6",
+        "numba": "0.62.1",
+        "numba_threads": 1,
+        "thread_env": {
+          "OMP_NUM_THREADS": "1",
+          "OPENBLAS_NUM_THREADS": "1",
+          "MKL_NUM_THREADS": "1",
+          "NUMBA_NUM_THREADS": "1",
+          "NUMEXPR_NUM_THREADS": "1",
+          "VECLIB_MAXIMUM_THREADS": "1",
+          "BLIS_NUM_THREADS": "1"
+        },
+        "affinity_cpu_count": 192
+      },
+      "workload_config": null,
+      "output_counts": {
+        "records": 32625,
+        "wave_pool": 2686790
+      },
+      "native_lineage_config": {
+        "records": {
+          "daq_adapter": "v1725",
+          "records_part_size": 250000,
+          "v1725_part_size": 10000,
+          "keep_on_disk": true,
+          "memory_budget_gb": 0.25,
+          "dt": 4,
+          "baseline_samples": null,
+          "input_source": "raw_files"
+        }
+      },
+      "equivalence_limitations": [
+        "First call includes JIT but no OS/NAS page-cache flush; this is not cold physical I/O.",
+        "Recomputation includes source reads and task-local product writes; it is not compute-only timing.",
+        "One b1 file does not exercise file fan-out or establish representative b0 peak physics.",
+        "Process-tree RSS is sampled; brief peaks between samples may be missed.",
+        "Exact only within this workload/config; cross-source hit outputs are not equivalent, as comparison.json shows."
+      ]
+    },
+    {
+      "name": "hit",
+      "label": "implicit auto -> padded st_waveforms",
+      "directory": "/tmp/wa-system-baseline-hit-20261029-01",
+      "watchdog": {
+        "returncode": 0,
+        "limit_exceeded": null,
+        "peak_sampled_process_tree_rss_bytes": 870092800,
+        "peak_sampled_process_tree_threads": 31,
+        "wall_seconds_including_imports": 7.218765448080376,
+        "sample_interval_seconds": 0.02
+      },
+      "first_seconds": 2.293497969978489,
+      "warm_median_seconds": 1.0372371220728382,
+      "cache_map_median_seconds": 0.0016857120208442211,
+      "cache_touch_compare_median_seconds": 0.004136222996748984,
+      "cleanup": {
+        "public_arrays_still_alive": [],
+        "public_result_keys_remaining": [],
+        "note": "Weak references observe Python object retention; allocator RSS may remain high after release."
+      },
+      "source_metadata_stable": true,
+      "input_before": {
+        "path": "/mnt/data/TPC/run7_Xe/00700/RAW/run7_Xe_20260912_120118_00700_raw_b1_seg0.bin",
+        "size_bytes": 6095288,
+        "mtime_ns": 1789188264463491460
+      },
+      "input_after": {
+        "path": "/mnt/data/TPC/run7_Xe/00700/RAW/run7_Xe_20260912_120118_00700_raw_b1_seg0.bin",
+        "size_bytes": 6095288,
+        "mtime_ns": 1789188264463491460
+      },
+      "runtime": {
+        "python": "/home/wxy/anaconda3/envs/pyroot-kernel/bin/python",
+        "version": "3.12.4",
+        "numpy": "2.2.6",
+        "numba": "0.62.1",
+        "numba_threads": 1,
+        "thread_env": {
+          "OMP_NUM_THREADS": "1",
+          "OPENBLAS_NUM_THREADS": "1",
+          "MKL_NUM_THREADS": "1",
+          "NUMBA_NUM_THREADS": "1",
+          "NUMEXPR_NUM_THREADS": "1",
+          "VECLIB_MAXIMUM_THREADS": "1",
+          "BLIS_NUM_THREADS": "1"
+        },
+        "affinity_cpu_count": 192,
+        "native_threadpools": [
+          {
+            "user_api": "blas",
+            "internal_api": "openblas",
+            "num_threads": 1,
+            "prefix": "libscipy_openblas",
+            "version": "0.3.29",
+            "threading_layer": "pthreads",
+            "architecture": "SkylakeX"
+          },
+          {
+            "user_api": "blas",
+            "internal_api": "openblas",
+            "num_threads": 1,
+            "prefix": "libopenblas",
+            "version": "0.3.27",
+            "threading_layer": "pthreads",
+            "architecture": "Cooperlake"
+          }
+        ]
+      },
+      "workload_config": null,
+      "output_counts": {
+        "records": 32625,
+        "wave_pool": 2686790,
+        "hit_threshold": 55554
+      },
+      "native_lineage_config": {
+        "hit_threshold": {
+          "threshold": 10.0,
+          "use_filtered": false,
+          "wave_source": "auto",
+          "left_extension": 2,
+          "right_extension": 2,
+          "dt": 4,
+          "channel_config": null,
+          "backend": "auto",
+          "chunk_parallel": false,
+          "n_workers": 1,
+          "parallel_chunk_size": 50000,
+          "parallel_min_records": 50000,
+          "streaming_chunk_size": 10000,
+          "asymmetry_cut_enabled": true,
+          "channel_role_cut_enabled": false
+        },
+        "direct_dependencies": [
+          "st_waveforms"
+        ],
+        "upstream": {
+          "st_waveforms": {
+            "daq_adapter": "v1725",
+            "wave_length": null,
+            "dt": 4,
+            "use_upstream_baseline": false,
+            "baseline_samples": null
+          }
+        }
+      },
+      "equivalence_limitations": [
+        "First call includes JIT but no OS/NAS page-cache flush; this is not cold physical I/O.",
+        "Recomputation includes source reads and task-local product writes; it is not compute-only timing.",
+        "One b1 file does not exercise file fan-out or establish representative b0 peak physics.",
+        "Process-tree RSS is sampled; brief peaks between samples may be missed.",
+        "Exact only within this workload/config; cross-source hit outputs are not equivalent, as comparison.json shows."
+      ]
+    },
+    {
+      "name": "hit-records",
+      "label": "records with asymmetry selection",
+      "directory": "/tmp/wa-system-baseline-hit-records-20261029-01",
+      "watchdog": {
+        "returncode": 0,
+        "limit_exceeded": null,
+        "peak_sampled_process_tree_rss_bytes": 379379712,
+        "peak_sampled_process_tree_threads": 29,
+        "wall_seconds_including_imports": 4.072324777022004,
+        "sample_interval_seconds": 0.02
+      },
+      "first_seconds": 1.5100794220343232,
+      "warm_median_seconds": 0.29952561808750033,
+      "cache_map_median_seconds": 0.0018336609937250614,
+      "cache_touch_compare_median_seconds": 0.002982833073474467,
+      "cleanup": {
+        "public_arrays_still_alive": [],
+        "public_result_keys_remaining": [],
+        "note": "Weak references observe Python object retention; allocator RSS may remain high after release."
+      },
+      "source_metadata_stable": true,
+      "input_before": {
+        "path": "/mnt/data/TPC/run7_Xe/00700/RAW/run7_Xe_20260912_120118_00700_raw_b1_seg0.bin",
+        "size_bytes": 6095288,
+        "mtime_ns": 1789188264463491460
+      },
+      "input_after": {
+        "path": "/mnt/data/TPC/run7_Xe/00700/RAW/run7_Xe_20260912_120118_00700_raw_b1_seg0.bin",
+        "size_bytes": 6095288,
+        "mtime_ns": 1789188264463491460
+      },
+      "runtime": {
+        "python": "/home/wxy/anaconda3/envs/pyroot-kernel/bin/python",
+        "version": "3.12.4",
+        "numpy": "2.2.6",
+        "numba": "0.62.1",
+        "numba_threads": 1,
+        "thread_env": {
+          "OMP_NUM_THREADS": "1",
+          "OPENBLAS_NUM_THREADS": "1",
+          "MKL_NUM_THREADS": "1",
+          "NUMBA_NUM_THREADS": "1",
+          "NUMEXPR_NUM_THREADS": "1",
+          "VECLIB_MAXIMUM_THREADS": "1",
+          "BLIS_NUM_THREADS": "1"
+        },
+        "affinity_cpu_count": 192,
+        "native_threadpools": [
+          {
+            "user_api": "blas",
+            "internal_api": "openblas",
+            "num_threads": 1,
+            "prefix": "libscipy_openblas",
+            "version": "0.3.29",
+            "threading_layer": "pthreads",
+            "architecture": "SkylakeX"
+          },
+          {
+            "user_api": "blas",
+            "internal_api": "openblas",
+            "num_threads": 1,
+            "prefix": "libopenblas",
+            "version": "0.3.27",
+            "threading_layer": "pthreads",
+            "architecture": "Cooperlake"
+          }
+        ]
+      },
+      "workload_config": {
+        "data_root": "/mnt/data/TPC/run7_Xe",
+        "daq_adapter": "v1725",
+        "show_progress": false,
+        "enable_plugin_parallelism": false,
+        "records": {
+          "n_jobs": 1,
+          "channel_workers": 1,
+          "channel_executor": "thread",
+          "keep_on_disk": true,
+          "memory_budget_gb": 0.25,
+          "v1725_part_size": 10000
+        },
+        "hit_threshold": {
+          "wave_source": "records",
+          "n_workers": 1,
+          "chunk_parallel": false
+        },
+        "peaklet_waveforms": {
+          "n_workers": 1
+        },
+        "auto_extract_epoch": true,
+        "epoch_extraction_strategy": "auto",
+        "epoch_filename_patterns": null
+      },
+      "output_counts": {
+        "records": 32625,
+        "wave_pool": 2686790,
+        "hit_threshold": 4
+      },
+      "native_lineage_config": {
+        "hit_threshold": {
+          "threshold": 10.0,
+          "use_filtered": false,
+          "wave_source": "records",
+          "left_extension": 2,
+          "right_extension": 2,
+          "dt": 4,
+          "channel_config": null,
+          "backend": "auto",
+          "chunk_parallel": false,
+          "n_workers": 1,
+          "parallel_chunk_size": 50000,
+          "parallel_min_records": 50000,
+          "streaming_chunk_size": 10000,
+          "asymmetry_cut_enabled": true,
+          "channel_role_cut_enabled": false
+        },
+        "direct_dependencies": [
+          "records",
+          "wave_pool",
+          "records_asymmetry_mask"
+        ],
+        "upstream": {
+          "records": {
+            "daq_adapter": "v1725",
+            "records_part_size": 250000,
+            "v1725_part_size": 10000,
+            "keep_on_disk": true,
+            "memory_budget_gb": 0.25,
+            "dt": 4,
+            "baseline_samples": null,
+            "input_source": "raw_files"
+          },
+          "wave_pool": {
+            "daq_adapter": "v1725",
+            "records_part_size": 250000,
+            "v1725_part_size": 100000,
+            "keep_on_disk": null,
+            "memory_budget_gb": 50.0,
+            "dt": 4,
+            "baseline_samples": null,
+            "input_source": "raw_files"
+          },
+          "records_asymmetry_mask": {
+            "asymmetry_cut_min": 0.7,
+            "asymmetry_polarity_mode": "auto"
+          }
+        }
+      },
+      "equivalence_limitations": [
+        "First call includes JIT but no OS/NAS page-cache flush; this is not cold physical I/O.",
+        "Recomputation includes source reads and task-local product writes; it is not compute-only timing.",
+        "One b1 file does not exercise file fan-out or establish representative b0 peak physics.",
+        "Process-tree RSS is sampled; brief peaks between samples may be missed.",
+        "Exact only within this workload/config; cross-source hit outputs are not equivalent, as comparison.json shows."
+      ]
+    },
+    {
+      "name": "hit-matched-records",
+      "label": "records without asymmetry selection",
+      "directory": "/tmp/wa-system-baseline-hit-matched-records-20261029-01",
+      "watchdog": {
+        "returncode": 0,
+        "limit_exceeded": null,
+        "peak_sampled_process_tree_rss_bytes": 376668160,
+        "peak_sampled_process_tree_threads": 27,
+        "wall_seconds_including_imports": 4.248103750986047,
+        "sample_interval_seconds": 0.02
+      },
+      "first_seconds": 1.2562873379793018,
+      "warm_median_seconds": 0.46514856501016766,
+      "cache_map_median_seconds": 0.001701252069324255,
+      "cache_touch_compare_median_seconds": 0.003542382037267089,
+      "cleanup": {
+        "public_arrays_still_alive": [],
+        "public_result_keys_remaining": [],
+        "note": "Weak references observe Python object retention; allocator RSS may remain high after release."
+      },
+      "source_metadata_stable": true,
+      "input_before": {
+        "path": "/mnt/data/TPC/run7_Xe/00700/RAW/run7_Xe_20260912_120118_00700_raw_b1_seg0.bin",
+        "size_bytes": 6095288,
+        "mtime_ns": 1789188264463491460
+      },
+      "input_after": {
+        "path": "/mnt/data/TPC/run7_Xe/00700/RAW/run7_Xe_20260912_120118_00700_raw_b1_seg0.bin",
+        "size_bytes": 6095288,
+        "mtime_ns": 1789188264463491460
+      },
+      "runtime": {
+        "python": "/home/wxy/anaconda3/envs/pyroot-kernel/bin/python",
+        "version": "3.12.4",
+        "numpy": "2.2.6",
+        "numba": "0.62.1",
+        "numba_threads": 1,
+        "thread_env": {
+          "OMP_NUM_THREADS": "1",
+          "OPENBLAS_NUM_THREADS": "1",
+          "MKL_NUM_THREADS": "1",
+          "NUMBA_NUM_THREADS": "1",
+          "NUMEXPR_NUM_THREADS": "1",
+          "VECLIB_MAXIMUM_THREADS": "1",
+          "BLIS_NUM_THREADS": "1"
+        },
+        "affinity_cpu_count": 192,
+        "native_threadpools": [
+          {
+            "user_api": "blas",
+            "internal_api": "openblas",
+            "num_threads": 1,
+            "prefix": "libscipy_openblas",
+            "version": "0.3.29",
+            "threading_layer": "pthreads",
+            "architecture": "SkylakeX"
+          },
+          {
+            "user_api": "blas",
+            "internal_api": "openblas",
+            "num_threads": 1,
+            "prefix": "libopenblas",
+            "version": "0.3.27",
+            "threading_layer": "pthreads",
+            "architecture": "Cooperlake"
+          }
+        ]
+      },
+      "workload_config": {
+        "data_root": "/mnt/data/TPC/run7_Xe",
+        "daq_adapter": "v1725",
+        "show_progress": false,
+        "enable_plugin_parallelism": false,
+        "records": {
+          "n_jobs": 1,
+          "channel_workers": 1,
+          "channel_executor": "thread",
+          "keep_on_disk": true,
+          "memory_budget_gb": 0.25,
+          "v1725_part_size": 10000
+        },
+        "hit_threshold": {
+          "wave_source": "records",
+          "asymmetry_cut_enabled": false,
+          "n_workers": 1,
+          "chunk_parallel": false
+        },
+        "st_waveforms": {
+          "use_upstream_baseline": true
+        },
+        "peaklet_waveforms": {
+          "n_workers": 1
+        },
+        "auto_extract_epoch": true,
+        "epoch_extraction_strategy": "auto",
+        "epoch_filename_patterns": null
+      },
+      "output_counts": {
+        "records": 32625,
+        "wave_pool": 2686790,
+        "hit_threshold": 25886
+      },
+      "native_lineage_config": {
+        "hit_threshold": {
+          "threshold": 10.0,
+          "use_filtered": false,
+          "wave_source": "records",
+          "left_extension": 2,
+          "right_extension": 2,
+          "dt": 4,
+          "channel_config": null,
+          "backend": "auto",
+          "chunk_parallel": false,
+          "n_workers": 1,
+          "parallel_chunk_size": 50000,
+          "parallel_min_records": 50000,
+          "streaming_chunk_size": 10000,
+          "asymmetry_cut_enabled": false,
+          "channel_role_cut_enabled": false
+        },
+        "direct_dependencies": [
+          "records",
+          "wave_pool"
+        ],
+        "upstream": {
+          "records": {
+            "daq_adapter": "v1725",
+            "records_part_size": 250000,
+            "v1725_part_size": 10000,
+            "keep_on_disk": true,
+            "memory_budget_gb": 0.25,
+            "dt": 4,
+            "baseline_samples": null,
+            "input_source": "raw_files"
+          },
+          "wave_pool": {
+            "daq_adapter": "v1725",
+            "records_part_size": 250000,
+            "v1725_part_size": 100000,
+            "keep_on_disk": null,
+            "memory_budget_gb": 50.0,
+            "dt": 4,
+            "baseline_samples": null,
+            "input_source": "raw_files"
+          }
+        }
+      },
+      "equivalence_limitations": [
+        "First call includes JIT but no OS/NAS page-cache flush; this is not cold physical I/O.",
+        "Recomputation includes source reads and task-local product writes; it is not compute-only timing.",
+        "One b1 file does not exercise file fan-out or establish representative b0 peak physics.",
+        "Process-tree RSS is sampled; brief peaks between samples may be missed.",
+        "Exact only within this workload/config; cross-source hit outputs are not equivalent, as comparison.json shows."
+      ]
+    },
+    {
+      "name": "hit-matched-matrix",
+      "label": "matrix upstream baseline attempt, failed dependency",
+      "directory": "/tmp/wa-system-baseline-hit-matched-matrix-20261029-01",
+      "watchdog": {
+        "returncode": 1,
+        "limit_exceeded": null,
+        "peak_sampled_process_tree_rss_bytes": 355250176,
+        "peak_sampled_process_tree_threads": 3,
+        "wall_seconds_including_imports": 2.111737911007367,
+        "sample_interval_seconds": 0.02
+      },
+      "input_before": {
+        "path": "/mnt/data/TPC/run7_Xe/00700/RAW/run7_Xe_20260912_120118_00700_raw_b1_seg0.bin",
+        "size_bytes": 6095288,
+        "mtime_ns": 1789188264463491460
+      },
+      "input_after": null,
+      "workload_config": {
+        "hit_threshold.wave_source": "st_waveforms",
+        "hit_threshold.asymmetry_cut_enabled": false,
+        "st_waveforms.use_upstream_baseline": true
+      },
+      "output_counts": null,
+      "equivalence_limitations": [
+        "Failed before hit computation: Missing dependency hit_threshold -> st_waveforms -> baseline. Source snapshot and log retained. No timing/equivalence claim."
+      ]
+    }
+  ],
+  "cross_source_comparisons": [
+    {
+      "left": "matrix_auto",
+      "right": "records_asymmetry",
+      "left_rows": 55554,
+      "right_rows": 4,
+      "dtype_equal": true,
+      "entire_payload_exact": false,
+      "same_event_hit_key": [
+        "timestamp",
+        "board",
+        "channel",
+        "edge_start",
+        "edge_end"
+      ],
+      "left_key_unique": true,
+      "right_key_unique": true,
+      "common_hit_keys": 3,
+      "field_equal_for_common_keys": {
+        "position": true,
+        "edge_start": true,
+        "edge_end": true,
+        "width": true,
+        "dt": true,
+        "timestamp": true,
+        "board": true,
+        "channel": true,
+        "record_id": false
+      },
+      "field_mismatches_for_common_keys": {
+        "position": 0,
+        "edge_start": 0,
+        "edge_end": 0,
+        "width": 0,
+        "dt": 0,
+        "timestamp": 0,
+        "board": 0,
+        "channel": 0,
+        "record_id": 3
+      }
+    },
+    {
+      "left": "matrix_auto",
+      "right": "records_no_asymmetry",
+      "left_rows": 55554,
+      "right_rows": 25886,
+      "dtype_equal": true,
+      "entire_payload_exact": false,
+      "same_event_hit_key": [
+        "timestamp",
+        "board",
+        "channel",
+        "edge_start",
+        "edge_end"
+      ],
+      "left_key_unique": true,
+      "right_key_unique": true,
+      "common_hit_keys": 22765,
+      "field_equal_for_common_keys": {
+        "position": true,
+        "edge_start": true,
+        "edge_end": true,
+        "width": true,
+        "dt": true,
+        "timestamp": true,
+        "board": true,
+        "channel": true,
+        "record_id": false
+      },
+      "field_mismatches_for_common_keys": {
+        "position": 0,
+        "edge_start": 0,
+        "edge_end": 0,
+        "width": 0,
+        "dt": 0,
+        "timestamp": 0,
+        "board": 0,
+        "channel": 0,
+        "record_id": 20584
+      }
+    },
+    {
+      "left": "records_asymmetry",
+      "right": "records_no_asymmetry",
+      "left_rows": 4,
+      "right_rows": 25886,
+      "dtype_equal": true,
+      "entire_payload_exact": false,
+      "same_event_hit_key": [
+        "timestamp",
+        "board",
+        "channel",
+        "edge_start",
+        "edge_end"
+      ],
+      "left_key_unique": true,
+      "right_key_unique": true,
+      "common_hit_keys": 4,
+      "field_equal_for_common_keys": {
+        "position": true,
+        "edge_start": true,
+        "edge_end": true,
+        "width": true,
+        "dt": true,
+        "timestamp": true,
+        "board": true,
+        "channel": true,
+        "record_id": true
+      },
+      "field_mismatches_for_common_keys": {
+        "position": 0,
+        "edge_start": 0,
+        "edge_end": 0,
+        "width": 0,
+        "dt": 0,
+        "timestamp": 0,
+        "board": 0,
+        "channel": 0,
+        "record_id": 0
+      }
+    }
+  ],
+  "conclusion": "Not equivalent; timing/RSS differences are different-workload observations, not an accepted speedup. Matching st_waveforms.use_upstream_baseline=True failed before hit computation because the native contract requires a baseline producer absent from the standard plugin set.",
+  "tests": {
+    "command": "/home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m pytest -q --no-cov tests/test_system_workload_benchmark.py",
+    "result": "6 passed"
+  },
+  "review": {
+    "reviewer": "root",
+    "decision": "Accept bounded measurement evidence; no cross-source speedup or global concurrency change.",
+    "post_review_formatting": "Black formatted the final benchmark script; no algorithm changes."
+  }
+}

@@ -108,6 +108,7 @@ def _create_context_from_spec(spec: dict[str, Any]) -> Context:
         stats_mode=spec.get("stats_mode", "off"),
         stats_log_file=spec.get("stats_log_file"),
     )
+    ctx._cache_readonly = spec.get("cache_readonly", False)
 
     storage_spec = spec.get("storage")
     if storage_spec and isinstance(ctx.storage, MemmapStorage):
@@ -289,6 +290,8 @@ class Context:
             >>> ctx = Context(stats_mode='detailed', stats_log_file='./logs/plugins.log')
         """
         self._plugins: dict[str, Any] = {}
+        # BatchProcessor scopes this flag to cache-only requests.
+        self._cache_readonly = False
 
         self.profiler = Profiler()
         self.config = config or {}
@@ -446,6 +449,7 @@ class Context:
             stats_mode=stats_mode if self.enable_stats else "off",
             stats_log_file=stats_log_file,
         )
+        new_ctx._cache_readonly = self._cache_readonly
 
         if isinstance(self.storage, MemmapStorage) and isinstance(new_ctx.storage, MemmapStorage):
             _apply_memmap_settings(new_ctx.storage, self._build_memmap_storage_spec())
@@ -522,6 +526,7 @@ class Context:
 
         return {
             "config": _safe_copy_config(self.config),
+            "cache_readonly": self._cache_readonly,
             "storage_dir": self.storage_dir,
             "plugin_dirs": list(self.plugin_dirs),
             "stats_mode": stats_mode if self.enable_stats else "off",
@@ -894,9 +899,15 @@ class Context:
             **kwargs: Additional arguments passed to plugins
         """
         self._validate_get_data_output(output)
-        self._config_domain.prepare_request(run_id, data_name)
+        require_disk_cache = self._config_domain.prepare_request(run_id, data_name)
         # 1. Check memory cache
-        val = self._get_data_from_memory(run_id, data_name)
+        val = None if require_disk_cache else self._get_data_from_memory(run_id, data_name)
+        if self._cache_readonly and (
+            isinstance(val, Iterator | OneTimeGenerator) or hasattr(val, "__next__")
+        ):
+            # A cached stream can still compute or save when consumed. Only
+            # materialized memory results are usable in a cache-only request.
+            val = None
         if val is not None:
             # Memory cache hit at top level - record stats if enabled
             if self.stats_collector and self.stats_collector.is_enabled():
@@ -915,6 +926,13 @@ class Context:
                     self.stats_collector.start_execution(data_name, run_id)
                     self.stats_collector.end_execution(data_name, success=True, cache_hit=True)
                 return self._coerce_get_data_output(run_id, data_name, data, output)
+
+        if self._cache_readonly:
+            raise FileNotFoundError(
+                f"Readonly cache miss for run_id={run_id!r}, data_name={data_name!r}; "
+                "a materialized, valid cache entry is required. "
+                "Plugin computation and cache writes are disabled."
+            )
 
         # 3. Resolve plan and compute needed steps (cache-aware)
         plan = self._execution_domain.resolve_execution_plan(run_id, data_name)
@@ -1040,6 +1058,8 @@ class Context:
             >>> # 只清理内存缓存
             >>> ctx.clear_cache_for("run_001", "df", clear_disk=False)
         """
+        if self._cache_readonly and clear_disk:
+            raise PermissionError("Cannot clear disk cache during a readonly batch task")
         return self._cache_domain.clear_cache_for(
             run_id,
             data_name=data_name,

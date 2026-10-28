@@ -679,39 +679,19 @@ class ContextExecutionDomain:
                 yield from []
             except Exception as e:
                 self.ctx.logger.error("Error saving %s to cache: %s", data_name, str(e))
-                if os.path.exists(tmp_bin_path):
-                    try:
-                        os.remove(tmp_bin_path)
-                    except (PermissionError, OSError) as cleanup_err:
-                        self.ctx.logger.warning(
-                            "Failed to remove temporary file %s after error: %s",
-                            tmp_bin_path,
-                            cleanup_err,
-                        )
-                    except Exception as cleanup_err:
-                        self.ctx.logger.error(
-                            "Unexpected error removing temp file %s: %s",
-                            tmp_bin_path,
-                            cleanup_err,
-                            exc_info=True,
-                        )
                 raise
             finally:
-                self.ctx.storage._release_lock(lock_fd, lock_path)
-                if os.path.exists(tmp_bin_path):
-                    try:
-                        os.remove(tmp_bin_path)
-                    except (PermissionError, OSError) as cleanup_err:
-                        self.ctx.logger.debug(
-                            "Failed to remove lingering temp file %s: %s",
-                            tmp_bin_path,
-                            cleanup_err,
-                        )
-                    except Exception as cleanup_err:
-                        self.ctx.logger.warning(
-                            "Unexpected error removing temp file %s: %s",
-                            tmp_bin_path,
-                            cleanup_err,
-                        )
+                try:
+                    if os.path.exists(tmp_bin_path):
+                        try:
+                            os.remove(tmp_bin_path)
+                        except OSError as cleanup_err:
+                            self.ctx.logger.warning(
+                                "Failed to remove temporary file %s: %s",
+                                tmp_bin_path,
+                                cleanup_err,
+                            )
+                finally:
+                    self.ctx.storage._release_lock(lock_fd, lock_path)
 
         return wrapper()
