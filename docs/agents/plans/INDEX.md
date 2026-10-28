@@ -21,7 +21,7 @@ links and readers; edit the task record and rerun
 | `run00601-full-chain-performance` | `failed` | `modify_plugin` | `strict` | `staged` | `—` | `docs/agents/runs/current/run00601-full-chain-performance/task.yaml` |
 | `run00601-records-buffer-8m` | `completed` | `modify_plugin` | `strict` | `staged` | `—` | `docs/agents/runs/current/run00601-records-buffer-8m/task.yaml` |
 | `run00601-records-strategy-shootout` | `failed` | `modify_plugin` | `strict` | `staged` | `—` | `docs/agents/runs/current/run00601-records-strategy-shootout/task.yaml` |
-| `system-hardening-20261029` | `reviewing` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/system-hardening-20261029/task.yaml` |
+| `system-hardening-20261029` | `completed` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/system-hardening-20261029/task.yaml` |
 | `v1725-merged-parts-cleanup` | `completed` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/v1725-merged-parts-cleanup/task.yaml` |
 | `v1725-records-performance-g1` | `reviewing` | `modify_plugin` | `strict` | `staged` | `—` | `docs/agents/runs/current/v1725-records-performance-g1/task.yaml` |
 | `vx2730-bin-adapter-20260917` | `completed` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/vx2730-bin-adapter-20260917/task.yaml` |

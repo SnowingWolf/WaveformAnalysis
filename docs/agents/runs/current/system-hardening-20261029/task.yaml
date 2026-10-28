@@ -4,7 +4,7 @@ metadata:
   id: system-hardening-20261029
   generation: 5
   created_at: '2026-10-28T17:37:02Z'
-  updated_at: '2026-10-28T18:02:00Z'
+  updated_at: '2026-10-28T18:02:22Z'
 spec:
   goal: 落实缓存并发正确性、性能基准可信度和批量只读语义；建立有界性能基线并审查内存与并发收益。
   route: modify_code
@@ -79,7 +79,7 @@ spec:
       conditions
     commit: root only, scoped after review and gates
 status:
-  state: reviewing
+  state: completed
   transitions:
   - from: created
     to: planning
@@ -211,6 +211,11 @@ status:
     at: '2026-10-28T18:02:00Z'
     actor: executor.code
     condition: rework_execution_report_ready
+  - from: reviewing
+    to: completed
+    at: '2026-10-28T18:02:22Z'
+    actor: reviewer
+    condition: all_blocking_gates_pass
   plan_sha256: 43f0529fbcb9cba00d02b78e963748ddba7a88a142aa354220c657a53649f164
   execution:
     summary: Five gpt-6.1-sol/xhigh executors delivered scoped fixes and bounded measurements;
@@ -336,6 +341,9 @@ status:
       workload and confirm physics selection and baseline contracts.
   approval: {}
   handoff:
-    commit_status: uncommitted
-    reason: Root review and gates passed; scoped implementation commit follows, then
-      lifecycle closure records its hash.
+    commit_status: committed
+    commit_hash: a14b116b84b7bdb649f0418ddac82f0105951f8f
+    summary: Implementation, tests, documentation and bounded workload evidence committed
+      after root review; all required commit hooks passed. Lifecycle closure commit
+      follows.
+    reviewer: root

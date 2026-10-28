@@ -107,7 +107,7 @@ active_plans:
   task_file: docs/agents/runs/current/run00601-records-strategy-shootout/task.yaml
   legacy_plan: docs/agents/runs/current/run00601-records-strategy-shootout/legacy-plan.md
 - task_id: system-hardening-20261029
-  state: reviewing
+  state: completed
   route: modify_code
   workflow_cost: strict
   workflow_shape: staged
