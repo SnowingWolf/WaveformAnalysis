@@ -74,9 +74,6 @@ class ContextConfigDomain:
     def get_config(self, plugin: Plugin, name: str) -> Any:
         return self.get_config_value(plugin, name).value
 
-    def resolve_config_value(self, plugin: Plugin, name: str) -> Any:
-        return self.get_config(plugin, name)
-
     def resolve_adapter_name_for_plugin(
         self,
         plugin: Plugin,

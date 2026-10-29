@@ -166,6 +166,8 @@ print(resolved.to_dict())
 | `ctx.get_config_value(plugin, name)` | 同时读取值、来源和原始键名 | 调试优先级、alias 或 adapter 推断 |
 | `ctx.get_resolved_config(plugin)` | 获取插件完整的解析配置 | 生成配置快照、比较 lineage |
 | `ctx.show_resolved_config(plugin, verbose=True)` | 打印按来源分组的配置 | 人工检查最终生效值 |
+| `ctx.list_plugin_configs(plugin_name, verbose=False)` | 返回选项定义与当前值字典 | 检查默认值、类型和修改状态 |
+| `ctx.show_config(data_name)` | 展示插件选项表；省略名称时展示全局配置分组 | 交互式查看配置概览 |
 
 显式配置可以在创建 Context 时传入，也可以用 `ctx.set_config(config)` 更新；传入
 `plugin_name="record_scale"` 时，更新只写入该插件的配置块。更新后 Context 会清除配置和相关性能

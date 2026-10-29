@@ -908,24 +908,16 @@ class Context:
             # A cached stream can still compute or save when consumed. Only
             # materialized memory results are usable in a cache-only request.
             val = None
+        # 2. Check disk cache (memmap)
+        # Only check if it's a plugin-provided data
+        if val is None and data_name in self._plugins:
+            key = self.key_for(run_id, data_name)
+            val = self._load_from_disk_with_check(run_id, data_name, key)
         if val is not None:
-            # Memory cache hit at top level - record stats if enabled
             if self.stats_collector and self.stats_collector.is_enabled():
                 self.stats_collector.start_execution(data_name, run_id)
                 self.stats_collector.end_execution(data_name, success=True, cache_hit=True)
             return self._coerce_get_data_output(run_id, data_name, val, output)
-
-        # 2. Check disk cache (memmap)
-        # Only check if it's a plugin-provided data
-        if data_name in self._plugins:
-            key = self.key_for(run_id, data_name)
-            data = self._load_from_disk_with_check(run_id, data_name, key)
-            if data is not None:
-                # Disk cache hit at top level - record stats if enabled
-                if self.stats_collector and self.stats_collector.is_enabled():
-                    self.stats_collector.start_execution(data_name, run_id)
-                    self.stats_collector.end_execution(data_name, success=True, cache_hit=True)
-                return self._coerce_get_data_output(run_id, data_name, data, output)
 
         if self._cache_readonly:
             raise FileNotFoundError(
@@ -1629,6 +1621,57 @@ class Context:
             return base_note + "（默认值）"
         return base_note
 
+    @staticmethod
+    def _config_option_metadata(option) -> dict[str, Any]:
+        return {
+            "default": option.default,
+            "type": (
+                option.type.__name__
+                if hasattr(option.type, "__name__")
+                else str(option.type) if option.type else "Any"
+            ),
+            "help": option.help,
+            "track": option.track,
+        }
+
+    def _config_option_row(
+        self, plugin_name, option_name, info, show_current_values, show_full_help
+    ) -> dict[str, Any]:
+        is_default = info.get("is_default", True) if show_current_values else None
+        return {
+            "plugin": plugin_name,
+            "option": option_name,
+            "type": info.get("type", "Any"),
+            "default": self._format_display_value(info.get("default"), 60),
+            "current": (
+                self._format_display_value(info.get("current_value"), 60)
+                if show_current_values
+                else None
+            ),
+            "status": ("默认" if is_default else "已修改") if show_current_values else None,
+            "help": (
+                info.get("help", "")
+                if show_full_help
+                else self._format_display_value(info["help"], 80) if "help" in info else ""
+            ),
+            "track": info.get("track", True),
+            "_is_default": is_default,
+        }
+
+    @staticmethod
+    def _config_options_frame(rows, show_current_values: bool):
+        import pandas as pd
+
+        frame = pd.DataFrame(rows)
+        if frame.empty:
+            return frame
+        order = ["_is_default", "plugin", "option"] if show_current_values else ["plugin", "option"]
+        return (
+            frame.sort_values(by=order)
+            .set_index(["plugin", "option"])
+            .drop(columns=["_is_default"])
+        )
+
     def _style_options_table(self, df_display, show_current_values: bool):
         def _highlight_modified(row):
             styles = [""] * len(row)
@@ -1658,7 +1701,7 @@ class Context:
         plugin_name: str | None = None,
         show_current_values: bool = True,
         verbose: bool = True,
-        as_dataframe: bool = True,  # 新增：是否用 DataFrame 展示
+        as_dataframe: bool = True,
         show_full_help: bool = False,
     ):
         """
@@ -1672,7 +1715,6 @@ class Context:
         Returns:
             默认仍返回 result dict；
             如果 as_dataframe=True 且 verbose=True，会额外显示 DataFrame；
-            如果你想拿到 DataFrame 对象，可以把最后两行的 return 改成 return result, df_plugins, df_options
         """
 
         result: dict[str, Any] = {}
@@ -1701,21 +1743,12 @@ class Context:
             }
 
             for opt_name, option in plugin.options.items():
-                opt_info = {
-                    "default": option.default,
-                    "type": (
-                        option.type.__name__
-                        if hasattr(option.type, "__name__")
-                        else str(option.type) if option.type else "Any"
-                    ),
-                    "help": option.help,
-                    "track": option.track,
-                }
+                opt_info = self._config_option_metadata(option)
 
                 # 获取当前配置值
                 if show_current_values:
                     try:
-                        current_value = self._config_domain.resolve_config_value(plugin, opt_name)
+                        current_value = self._config_domain.get_config(plugin, opt_name)
                         opt_info["current_value"] = current_value
                         opt_info["is_default"] = current_value == option.default
                     except KeyError:
@@ -1766,47 +1799,12 @@ class Context:
             df_plugins = df_plugins.set_index("plugin")
 
             # 2) 选项明细表（MultiIndex：plugin / option）
-            option_rows = []
-            for pname, info in result.items():
-                for opt_name, opt in info["options"].items():
-                    default_raw = opt.get("default", None)
-                    current_raw = opt.get("current_value", None) if show_current_values else None
-                    is_default = opt.get("is_default", True) if show_current_values else None
-                    status = "默认" if is_default or is_default is None else "已修改"
-                    option_rows.append(
-                        {
-                            "plugin": pname,
-                            "option": opt_name,
-                            "type": opt.get("type", "Any"),
-                            "default": self._format_display_value(default_raw, 60),
-                            "current": (
-                                self._format_display_value(current_raw, 60)
-                                if show_current_values
-                                else None
-                            ),
-                            "status": status if show_current_values else None,
-                            "help": (
-                                opt.get("help", "")
-                                if show_full_help
-                                else self._format_display_value(opt.get("help", ""), 80)
-                            ),
-                            "track": opt.get("track", True),
-                            "_is_default": is_default,
-                            "_default_raw": default_raw,
-                            "_current_raw": current_raw,
-                        }
-                    )
-
-            df_options = pd.DataFrame(option_rows)
-            if not df_options.empty:
-                if show_current_values:
-                    df_options = df_options.sort_values(
-                        by=["_is_default", "plugin", "option"],
-                        ascending=[True, True, True],
-                    )
-                else:
-                    df_options = df_options.sort_values(by=["plugin", "option"])
-                df_options = df_options.set_index(["plugin", "option"])
+            option_rows = [
+                self._config_option_row(pname, opt_name, opt, show_current_values, show_full_help)
+                for pname, info in result.items()
+                for opt_name, opt in info["options"].items()
+            ]
+            df_options = self._config_options_frame(option_rows, show_current_values)
 
             # 展示
             if display is not None:
@@ -1817,11 +1815,7 @@ class Context:
                 if df_options.empty:
                     print("该插件没有配置选项。")
                 else:
-                    df_display = df_options.drop(
-                        columns=["_is_default", "_default_raw", "_current_raw"]
-                    )
-
-                    styler = self._style_options_table(df_display, show_current_values)
+                    styler = self._style_options_table(df_options, show_current_values)
                     display(styler)
             else:
                 print("\n📦 插件概览")
@@ -1831,13 +1825,7 @@ class Context:
                 if df_options.empty:
                     print("该插件没有配置选项。")
                 else:
-                    fallback = df_options.drop(
-                        columns=["_is_default", "_default_raw", "_current_raw"]
-                    )
-                    print(fallback.to_string())
-
-            # 如果你希望函数直接把 DF 返回出去，把下面这行改成：
-            # return result, df_plugins, df_options
+                    print(df_options.to_string())
 
         return result
 
@@ -1980,37 +1968,14 @@ class Context:
                 plugin = self._plugins.get(plugin_name)
                 for key, value in configs.items():
                     option = plugin.options.get(key) if plugin else None
-                    default_raw = option.default if option else None
-                    is_default = value == default_raw if option else False
-                    status = "默认" if is_default else "已修改"
+                    info = self._config_option_metadata(option) if option else {}
+                    info["current_value"] = value
+                    info["is_default"] = value == option.default if option else False
                     option_rows.append(
-                        {
-                            "plugin": plugin_name,
-                            "option": key,
-                            "type": (
-                                option.type.__name__
-                                if option and hasattr(option.type, "__name__")
-                                else str(option.type) if option and option.type else "Any"
-                            ),
-                            "default": self._format_display_value(default_raw, 60),
-                            "current": self._format_display_value(value, 60),
-                            "status": status,
-                            "help": (
-                                option.help
-                                if (option and show_full_help)
-                                else self._format_display_value(option.help, 80) if option else ""
-                            ),
-                            "track": option.track if option else True,
-                            "_is_default": is_default,
-                        }
+                        self._config_option_row(plugin_name, key, info, True, show_full_help)
                     )
 
-            df_plugin = pd.DataFrame(option_rows)
-            df_plugin = df_plugin.sort_values(
-                by=["_is_default", "plugin", "option"], ascending=[True, True, True]
-            )
-            df_plugin = df_plugin.set_index(["plugin", "option"])
-            df_display = df_plugin.drop(columns=["_is_default"])
+            df_display = self._config_options_frame(option_rows, show_current_values=True)
 
             print("\n⚙️ 插件特定配置")
             if display is not None:
@@ -2063,11 +2028,6 @@ class Context:
                 )
             else:
                 print(df_unused.to_string())
-
-    def _delete_disk_cache(
-        self, key: str, run_id: str | None = None, data_name: str | None = None
-    ) -> int:
-        return self._cache_domain.delete_disk_cache(key, run_id=run_id, data_name=data_name)
 
     # ===========================
     # 时间范围查询
@@ -2526,13 +2486,11 @@ class Context:
             >>> issues = ctx.diagnose_cache(auto_fix=True, dry_run=False)
         """
 
-        from waveform_analysis.core.storage.cache_analyzer import CacheAnalyzer
         from waveform_analysis.core.storage.cache_diagnostics import (
             CacheDiagnostics,
         )
 
-        analyzer = CacheAnalyzer(self)
-        analyzer.scan(verbose=False)
+        analyzer = self.analyze_cache(verbose=False)
 
         diag = CacheDiagnostics(analyzer)
         issues = diag.diagnose(run_id=run_id, verbose=verbose)
@@ -2584,11 +2542,9 @@ class Context:
             >>> # 导出统计
             >>> stats = ctx.cache_stats(export_path='cache_stats.json')
         """
-        from waveform_analysis.core.storage.cache_analyzer import CacheAnalyzer
         from waveform_analysis.core.storage.cache_statistics import CacheStatsCollector
 
-        analyzer = CacheAnalyzer(self)
-        analyzer.scan(verbose=False)
+        analyzer = self.analyze_cache(verbose=False)
 
         collector = CacheStatsCollector(analyzer)
         stats = collector.collect(run_id=run_id)

@@ -14,6 +14,17 @@ Context 未显式传入 `storage_dir` 时，默认将缓存和处理产物写入
 持久化状态和磁盘结果，否则明确报缓存不可用。普通调用仍遵循现有配置同步与失效规则。
 详见[批量处理的缓存目录策略](BATCH_PROCESSOR.md)。
 
+## 查看配置
+
+`ctx.list_plugin_configs(plugin_name, verbose=False)` 返回选项元数据和当前值的字典；
+默认开启展示时，还会输出插件概览与选项表。`show_current_values=False` 仅列出选项定义，
+`show_full_help=True` 保留完整帮助文本。
+
+`ctx.show_config(data_name)` 复用插件选项表；不传 `data_name` 时则按全局、插件特定、
+Context 自身和未使用配置分组展示。两种视图共用选项格式、排序和高亮规则，
+但全局视图展示显式配置，选项清单中的当前值经过配置解析。
+需要追踪生效值来源时，使用 `ctx.show_resolved_config(plugin)`。
+
 ## 配置优先级
 
 配置生效顺序为：

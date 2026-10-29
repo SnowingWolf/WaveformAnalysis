@@ -9,6 +9,11 @@
 Context 负责统一协调插件注册、依赖解析、lineage 与缓存复用；具体产物仍由单一 Plugin 发布，
 组合查询由 Accessor 完成。
 
+公开的 Context 方法保留显式签名，配置、缓存、执行和时间操作分别委派给内部 domain；
+这些入口与 domain 实现承担不同职责。内存和磁盘命中共用统计记录及输出转换出口。
+缓存管理工具中，`diagnose_cache()` 和 `cache_stats()` 复用 `analyze_cache()` 的扫描入口，
+仍先扫描全部缓存，再按各自的 `run_id` 参数过滤诊断或统计结果。
+
 除非显式传入 `storage_dir`，Context 默认把缓存和处理产物写入当前目录下的 `./wa_data/`；
 `data_root` 只用于定位原始 DAQ 数据，默认值为 `DAQ`。因此原始输入与可重建的缓存产物不会因为
 默认配置而混在同一个目录中。
