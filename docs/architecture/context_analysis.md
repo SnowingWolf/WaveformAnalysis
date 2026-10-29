@@ -1,8 +1,11 @@
 # Context 模块现状总结与架构分析
 
-> 生成日期：2026-07-11
+> 初始分析日期：2026-07-11；API 决策同步：2026-10-29
 > 模块路径：`waveform_analysis/core/context.py`
 > 分析范围：Context 主模块及相关 domain 子模块
+> 本文的规模统计和性能推测保留初始分析口径，不作为当前接口清单或性能测量结果。
+> 当前 API 分层与已确认精简见 [Context API 优化计划](context_api_optimization_plan.md)，
+> 用户迁移示例见[配置管理](../features/context/CONFIGURATION.md#context-api-迁移)。
 
 ---
 
@@ -57,7 +60,7 @@ Context 模块采用 **Domain-Driven Design** 思想，将职责划分到四个�
 - load_from_disk_with_check()          # 带验证的磁盘加载
 - is_disk_cache_valid()                # 验证缓存有效性
 - clear_cache_for()                    # 清理缓存
-- clear_performance_caches()           # 清理性能缓存
+- invalidate_planning_caches()         # 内部缓存域：失效规划、lineage 与缓存键
 ```
 
 #### 2.1.2 ContextConfigDomain（配置域）
@@ -201,7 +204,7 @@ key = f"{run_id}-{data_name}-{lineage_hash[:8]}"
 | 插件管理 | 5 | 6.7% | 注册、发现、查询 |
 | 血缘与依赖分析 | 2 | 2.7% | plot_lineage、analyze_dependencies |
 | 展示与查询 | 4 | 5.3% | show_config、list_provided_data 等 |
-| 分析与诊断 | 4 | 5.3% | preview_execution、help、quickstart |
+| 分析与诊断 | 4 | 5.3% | 初始统计；当前入口包含 preview_execution 与 help |
 | 克隆与复制 | 1 | 1.3% | clone、create_context_factory |
 | **内部实现方法** | 30 | 40% | 内部逻辑模块 |
 | 内部缓存/存储 | 11 | 14.7% | 存储后端封装、磁盘操作 |
@@ -360,19 +363,24 @@ ctx.show_config("waveforms")           # 通过 show_config
 ctx.list_plugin_configs("waveforms")  # 专门的配置列表方法
 ```
 
-**建议**：明确分工
-- `show_config(data_name=None)` → 显示全局配置汇总
-- `list_plugin_configs(plugin_name)` → 显示单个插件的配置清单
+**当前分工**：
+- `show_config()` 显示全局配置汇总，`run_name` 可用于标注缓存目录。
+- `show_config(data_name)` 保留指定插件展示，委托 `list_plugin_configs()`。
+- `list_plugin_configs(plugin_name)` 显示单个插件的配置清单。
+- `show_resolved_config(plugin_name)` 展示解析后的配置与来源。
 
 #### 🟡 多个缓存清理接口
 
 ```python
-ctx.clear_cache_for(run_id, data_name)           # 清理指定缓存
-ctx.clear_performance_caches()                   # 清理性能缓存
-ctx.clear_config_cache()                         # 清理配置缓存
+ctx.clear_cache_for(run_id, data_name)           # 清理指定 run 的产物缓存
+ctx.set_config({'threshold': 15}, plugin_name='hit_threshold')  # 自动失效相关内部缓存
 ```
 
-**建议**：统一接口或更清晰的层级关系
+**本轮决策**：公开缓存维护入口已精简；原 `clear_config_cache()` 与
+`clear_performance_caches()` 删除，内部通过 `_clear_config_cache()` 与
+`_invalidate_planning_caches()` 维护。用户修改配置应调用 `set_config()`，无需手动失效。
+`profiling_summary` 属性同步删除，使用 `ctx.profiler.summary()`。
+`get_lineage(data_name)` 的循环检测状态留在内部，依赖分析不再接受未使用的 `run_id`。
 
 ### 5.2 未使用或低使用率的函数
 
@@ -385,7 +393,7 @@ ctx.clear_config_cache()                         # 清理配置缓存
 3. `get_performance_report()` - 仅在启用 stats 时有用
 4. `analyze_dependencies()` - 是高级功能，不是日常使用
 
-**建议**：评估是否需要保留，或增强其功能性
+**当前边界**：以上 API 均保留。仓库调用频率不能代表外部用户依赖，不据此增加删除范围。
 
 ### 5.3 性能瓶颈点
 
@@ -650,7 +658,7 @@ ctx.show_cache_status(
 ### 10.3 发展方向
 
 **短期 (1-3 个月)**：
-- 统一缓存管理接口，减少 API 复杂度
+- 按已确认范围精简内部缓存维护入口，保留产物清理与诊断 API
 - 增强缓存状态监控和可观测性
 - 改进错误处理一致性
 
@@ -689,7 +697,9 @@ ctx.diagnose_cache(run_id)                  # 缓存诊断
 
 # === 执行控制 ===
 ctx.preview_execution(run_id, data_name)    # 预览执行计划
-ctx.analyze_dependencies(data_name)         # 依赖分析
+ctx.analyze_dependencies(data_name)         # 依赖分析，不传 run_id
+ctx.get_lineage(data_name)                  # lineage，不传递归状态
+print(ctx.profiler.summary())               # profiler 摘要
 
 # === 时间查询 ===
 ctx.time_range(run_id, data_name, ...)      # 时间范围查询

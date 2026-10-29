@@ -800,10 +800,9 @@ _PARAMETER_HELP = {
     "show_config": "是否显示解析后的配置。",
     "show_usage": "是否显示每项配置的使用位置。",
     "show_full_help": "是否显示完整帮助文本。",
-    "run_name": "仅用于展示的运行名称。",
+    "run_name": "在 show_config 的全局配置视图中标注缓存目录使用的运行名。",
     "show_cache": "是否显示缓存命中状态。",
     "verbose": "输出详细程度。",
-    "_visited": "内部循环检测状态；调用方无需传递。",
     "downstream": "是否同时清理下游产物。",
     "clear_memory": "是否清理内存缓存。",
     "clear_disk": "是否清理磁盘缓存。",
@@ -913,6 +912,13 @@ _CALLABLE_RETURNS = {
 _CALLABLE_NOTES = {
     "Context": ("Context 无状态；数据访问必须显式传入 `run_id`。",),
     "register": ("插件行为变更后应升级插件版本，以保证缓存 lineage 失效。",),
+    "set_config": ("通过此入口更新配置会自动失效解析配置与规划缓存，无需手动清理内部缓存。",),
+    "show_config": ("`run_name` 是受支持的展示参数；仅在全局视图中标注缓存目录。",),
+    "get_lineage": ("只接收 `data_name`；递归状态由内部维护。",),
+    "analyze_dependencies": (
+        "分析 Context 的依赖图与累计性能信息，不接收 `run_id`。",
+        "查看特定 run 的缓存命中与执行计划时使用 `preview_execution(run_id, data_name)`。",
+    ),
     "get_data": ("请求会按需解析依赖并复用有效缓存。",),
     "preview_execution": ("只分析元数据，不执行插件或加载 run 数据。",),
     "plot_lineage": ("`mermaid` 返回文本；`labview` 和 `plotly` 返回图形对象。",),
@@ -937,6 +943,9 @@ _CALLABLE_NOTES = {
 _CALLABLE_EXAMPLES = {
     "Context": """ctx = Context(config={\"data_root\": \"DAQ\", \"daq_adapter\": \"vx2730\"})\nctx.register(*profiles.cpu_default())""",
     "get_data": """peaks = ctx.get_data(\"run_001\", \"peaks\")""",
+    "show_config": """ctx.show_config()\nctx.show_config(run_name=\"run_001\")""",
+    "analyze_dependencies": """analysis = ctx.analyze_dependencies(\"peaks\", include_performance=True)\nprint(analysis.summary())""",
+    "get_lineage": """lineage = ctx.get_lineage(\"peaks\")""",
     "preview_execution": """plan = ctx.preview_execution(\"run_001\", \"peaks\")""",
     "plot_lineage": """figure = ctx.plot_lineage(\"peaks\", kind=\"plotly\", show_virtual_plugins=False)""",
     "clear_cache_for": """ctx.clear_cache_for(\"run_001\", \"peaks\", downstream=True)""",
@@ -1051,7 +1060,6 @@ _CONTEXT_GROUP_RULES: tuple[tuple[str, str, str, tuple[str, ...]], ...] = (
             "analyze_dependencies",
             "help",
             "get_performance_report",
-            "clear_performance_caches",
         ),
     ),
     (
@@ -1060,7 +1068,6 @@ _CONTEXT_GROUP_RULES: tuple[tuple[str, str, str, tuple[str, ...]], ...] = (
         "缓存 key 由 run、代码、版本、配置和输出契约决定。",
         (
             "clear_cache_for",
-            "clear_config_cache",
             "analyze_cache",
             "diagnose_cache",
             "cache_stats",
@@ -1105,9 +1112,7 @@ _CONTEXT_DESCRIPTIONS: dict[str, str] = {
     "analyze_dependencies": "分析上游、下游与性能信息。",
     "help": "返回结构化帮助文档。",
     "get_performance_report": "获取插件性能统计报告。",
-    "clear_performance_caches": "清除所有性能优化缓存。",
     "clear_cache_for": "清理指定 run 的缓存。",
-    "clear_config_cache": "清除配置缓存。",
     "analyze_cache": "生成缓存状态分析。",
     "diagnose_cache": "诊断缓存问题，默认 dry-run。",
     "cache_stats": "汇总缓存统计。",
@@ -1126,6 +1131,60 @@ def _method_description(name: str) -> str:
 
 
 _CONTEXT_NARRATIVE_SECTIONS = (
+    ContentDocumentationSection(
+        anchor="api-migration",
+        title="Context API 迁移",
+        blocks=(
+            DocumentationContentBlock(
+                kind="paragraph",
+                text=(
+                    "配置更新统一使用 `set_config()`，它会自动失效解析配置、lineage、缓存键与执行计划。"
+                    "指定 run 的产物清理仍使用 `clear_cache_for(run_id, data_name)`。"
+                    "内部缓存维护由 Context 管理，私有 helper 不属于用户 API。"
+                ),
+            ),
+            DocumentationContentBlock(
+                kind="table",
+                table_headers=("原调用", "当前写法"),
+                table_rows=(
+                    (
+                        "`clear_config_cache()` / `clear_performance_caches()`",
+                        "通过 `set_config(...)` 更新配置；删除手动维护调用",
+                    ),
+                    ("`ctx.profiling_summary`", "`ctx.profiler.summary()`"),
+                    ("`get_lineage(data_name, _visited=...)`", "`get_lineage(data_name)`"),
+                    (
+                        "`analyze_dependencies(..., run_id=...)`",
+                        "删除 `run_id`；run/cache 预览使用 `preview_execution(run_id, data_name)`",
+                    ),
+                    (
+                        "`show_config(run_name=...)`",
+                        "保持此写法；`run_name` 受支持，不发出弃用警告",
+                    ),
+                ),
+            ),
+            DocumentationContentBlock(
+                kind="paragraph",
+                text=(
+                    "直接使用 `DependencyAnalyzer.analyze()` 时也应删除未使用的 `run_id` 参数。"
+                    "`show_config` 的 `run_name` 只标注全局配置视图的缓存目录，不能替代数据访问的 `run_id`。"
+                    "详细迁移示例见配置管理指南。"
+                ),
+            ),
+            DocumentationContentBlock(
+                kind="code",
+                language="python",
+                code=(
+                    "# 修改配置时自动失效相关内部缓存\n"
+                    'ctx.set_config({"threshold": 15}, plugin_name="hit_threshold")\n'
+                    'ctx.show_config(run_name="run_001")\n'
+                    'lineage = ctx.get_lineage("peaks")\n'
+                    'analysis = ctx.analyze_dependencies("peaks", include_performance=True)\n'
+                    "print(ctx.profiler.summary())"
+                ),
+            ),
+        ),
+    ),
     ContentDocumentationSection(
         anchor="execution-framework",
         title="Context、ExecutorManager 与处理工作流",

@@ -185,8 +185,11 @@ flowchart TD
 | `register` / 覆盖注册 | 清该 `provides` 的谱系/hash/key 缓存与计划缓存 |
 | `clear_cache_for(run_id, name, downstream=True)` | 清内存 `_results`，可选删磁盘，沿下游递归 |
 | 节点重算后级联失效 | 逐下游 pop 谱系/键缓存，再用新鲜谱系复查磁盘，失败的加入执行集重算 |
-| `clear_performance_caches` | 全清性能缓存 dict |
-| 配置变化（`set_config`） | 清 resolved config 与性能缓存 |
+| 内部 `_invalidate_planning_caches()` | 由缓存域的 `invalidate_planning_caches()` 清理规划、lineage 与键缓存 |
+| 配置变化（`set_config`） | 自动清 resolved config、运行配置与规划缓存；无需用户手动维护 |
+
+用户通过 `set_config()` 更新配置，通过 `clear_cache_for()` 清理指定运行的产物。
+内部 `_clear_config_cache()` 与 `_invalidate_planning_caches()` 不属于公开 API。
 
 级联失效的意义：上游谱系变化后，仅清上游自身缓存不够——下游的缓存里内嵌旧上游身份。必须沿 DAG 对
 每个下游失效并用新鲜谱系复查，才能避免命中基于旧身份的磁盘结果。

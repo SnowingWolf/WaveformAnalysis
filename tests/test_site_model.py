@@ -194,6 +194,57 @@ def test_site_model_preserves_rich_reference_content_and_accessor_classification
     )
 
 
+def test_context_reference_exposes_supported_api_and_migration():
+    model = build_site_model(Path(__file__).parents[1])
+    context = next(page for page in model["contexts"] if page["slug"] == "context")
+    members = {member["name"]: member for group in context["groups"] for member in group["members"]}
+
+    assert (
+        not {
+            "clear_config_cache",
+            "clear_performance_caches",
+            "profiling_summary",
+            "_clear_config_cache",
+            "_invalidate_planning_caches",
+        }
+        & members.keys()
+    )
+    assert [item["name"] for item in members["get_lineage"]["parameters"]] == ["data_name"]
+    assert [item["name"] for item in members["analyze_dependencies"]["parameters"]] == [
+        "target_name",
+        "include_performance",
+    ]
+    assert "run_name" in {item["name"] for item in members["show_config"]["parameters"]}
+    assert "run_id" not in {item["name"] for item in members["show_config"]["parameters"]}
+    assert "show_config(run_name=" in members["show_config"]["example"]
+    migration = next(section for section in context["sections"] if section["id"] == "api-migration")
+    text = json.dumps(migration, ensure_ascii=False)
+    assert all(
+        name in text
+        for name in ("set_config", "clear_cache_for", "ctx.profiler.summary()", "preview_execution")
+    )
+
+
+def test_site_fixture_uses_current_context_and_migration_guides():
+    root = Path(__file__).parents[1]
+    model = build_site_model(root)
+    fixture = json.loads((root / "docs/site-next/fixture/site-model.v1.json").read_text())
+    current_context = next(page for page in model["contexts"] if page["slug"] == "context")
+    fixture_context = next(page for page in fixture["contexts"] if page["slug"] == "context")
+    assert fixture_context == current_context
+    affected = {
+        "/features/context/CONFIGURATION/",
+        "/features/context/DEPENDENCY_ANALYSIS_GUIDE/",
+        "/architecture/plugin-cache-architecture/",
+        "/architecture/plugin-dag-lineage-cache/",
+        "/plugins/overview/",
+    }
+    current_guides = {page["route"]: page for page in model["guides"]}
+    fixture_guides = {page["route"]: page for page in fixture["guides"]}
+    for route in affected:
+        assert fixture_guides[route] == current_guides[route]
+
+
 def test_site_model_meets_pre_next_rich_content_coverage_baseline():
     project_root = Path(__file__).parents[1]
     model = build_site_model(project_root)

@@ -8,6 +8,7 @@ links and readers; edit the task record and rerun
 <!-- BEGIN GENERATED: current_task_registry -->
 | task_id | state | route | cost | shape | condition | record |
 | --- | --- | --- | --- | --- | --- | --- |
+| `context-api-retirement-20261029` | `completed` | `retire_compat` | `strict` | `staged` | `—` | `docs/agents/runs/current/context-api-retirement-20261029/task.yaml` |
 | `context-dedup-20261029` | `completed` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/context-dedup-20261029/task.yaml` |
 | `corner-hist-bincount-optimization` | `completed` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/corner-hist-bincount-optimization/task.yaml` |
 | `docs-build-skill` | `reviewing` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/docs-build-skill/task.yaml` |

@@ -1,4 +1,7 @@
+import ast
+import inspect
 from pathlib import Path
+import re
 
 import pytest
 
@@ -160,3 +163,34 @@ sections:
 def test_frontmatter_must_be_a_mapping():
     with pytest.raises(ValueError, match="frontmatter must be a mapping"):
         parse_frontmatter("---\n- invalid\n---\nbody\n")
+
+
+def test_context_migration_guide_examples_match_public_signatures():
+    from waveform_analysis import Context
+
+    root = Path(__file__).parents[1]
+    manifest = load_guide_manifest(root / "docs/site-guides.yaml")
+    guides = {
+        page.route: page.source
+        for section in manifest.sections
+        for page in section.pages
+        if page.source is not None
+    }
+    guide = guides["/features/context/CONFIGURATION/"]
+    source = guide.read_text(encoding="utf-8")
+    migration = source.split("## Context API 迁移", 1)[1].split("## 相关文档", 1)[0]
+    calls = []
+    for example in re.findall(r"```python\n(.*?)```", migration, re.DOTALL):
+        for node in ast.walk(ast.parse(example)):
+            if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
+                continue
+            if not isinstance(node.func.value, ast.Name) or node.func.value.id != "ctx":
+                continue
+            name = node.func.attr
+            signature = inspect.signature(getattr(Context, name))
+            signature.bind(None, *node.args, **{kw.arg: kw.value for kw in node.keywords})
+            calls.append(name)
+
+    assert set(calls) == {"set_config", "get_lineage", "analyze_dependencies", "preview_execution"}
+    assert "ctx.profiler.summary()" in migration
+    assert "不会发出弃用警告" in source

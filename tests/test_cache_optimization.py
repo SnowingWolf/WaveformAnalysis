@@ -310,7 +310,7 @@ class TestCacheOptimization:
         assert "adapter_info" in cold_lineage
         assert "adapter_info" not in cold_lineage["depends_on"]["stable_source"]
 
-        ctx.clear_performance_caches()
+        ctx._invalidate_planning_caches()
         ctx.get_lineage("stable_source")
         warm_lineage = ctx.get_lineage("stable_target")
         warm_key = ctx.key_for("run_stable", "stable_target")
@@ -586,7 +586,7 @@ class TestCacheOptimization:
         lineage2 = ctx.get_lineage("data")
         assert lineage2["plugin_version"] == "2.0.0"
 
-    def test_clear_performance_caches(self):
+    def test_invalidate_planning_caches(self):
         """测试清除性能缓存"""
 
         class SimplePlugin(Plugin):
@@ -609,7 +609,7 @@ class TestCacheOptimization:
         assert ctx._execution_plan_cache
 
         # 清除缓存
-        ctx.clear_performance_caches()
+        ctx._invalidate_planning_caches()
 
         assert not ctx._lineage_cache
         assert not ctx._key_cache
@@ -650,7 +650,7 @@ class TestCacheOptimization:
         first_time = time.perf_counter() - start
 
         # 清除缓存重新测试
-        ctx.clear_performance_caches()
+        ctx._invalidate_planning_caches()
 
         # 第二次调用（使用缓存）
         start = time.perf_counter()

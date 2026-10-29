@@ -425,7 +425,7 @@ class ContextCacheDomain:
         while len(self.ctx._key_cache) > max_entries:
             self.ctx._key_cache.pop(next(iter(self.ctx._key_cache)), None)
 
-    def clear_performance_caches(self) -> None:
+    def invalidate_planning_caches(self) -> None:
         """Clear execution/lineage/key caches used for cache planning."""
         self.ctx._execution_plan_cache.clear()
         self.ctx._lineage_cache.clear()
@@ -447,7 +447,7 @@ class ContextCacheDomain:
             # Keep Context initialization/import topology independent of the
             # optional hit-merge bundle.
             pass
-        self.ctx.logger.debug("Performance caches cleared")
+        self.ctx.logger.debug("Planning caches invalidated")
 
     def invalidate_caches_for(self, data_name: str) -> None:
         """Invalidate cached plans/hash keys affected by a data name."""

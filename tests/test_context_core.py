@@ -73,7 +73,6 @@ def test_context_config(tmp_path):
 
     # Override config
     ctx.set_config({"multiplier": 10})
-    ctx.clear_config_cache()
     # Use a completely different run_id to avoid any memory cache issues
     data = ctx.get_data("run_new", "config_data")
     assert data[0]["val"] == 10
@@ -436,7 +435,6 @@ def test_context_namespaced_config(tmp_path):
 
     # Test nested dict style
     ctx.set_config({"plugin_a": {"opt": 100}})
-    ctx.clear_config_cache()
     assert ctx.get_data("run2", "plugin_a")[0] == 100
 
 

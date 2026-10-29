@@ -170,9 +170,13 @@ print(resolved.to_dict())
 | `ctx.show_config(data_name)` | 展示插件选项表；省略名称时展示全局配置分组 | 交互式查看配置概览 |
 
 显式配置可以在创建 Context 时传入，也可以用 `ctx.set_config(config)` 更新；传入
-`plugin_name="record_scale"` 时，更新只写入该插件的配置块。更新后 Context 会清除配置和相关性能
-缓存，下次读取时重新解析。配置值经过 `Option` 的类型、choices、范围、单位和自定义校验；旧名称
+`plugin_name="record_scale"` 时，更新只写入该插件的配置块。更新后 Context 自动失效解析配置、运行配置和
+规划缓存（lineage、缓存键与执行计划），下次读取时重新解析。配置值经过 `Option` 的类型、choices、范围、单位和自定义校验；旧名称
 alias 如果存在，会先规范化为当前选项名。
+
+配置使用者应调用 `set_config()`，无需直接调用内部缓存维护方法。旧的公开配置/规划缓存维护入口
+已移除，具体迁移见[配置管理](../features/context/CONFIGURATION.md#context-api-迁移)。
+`show_config(run_name=...)` 仍受支持，`run_name` 仅标注全局配置视图的缓存目录。
 
 ```python
 from waveform_analysis.plugins import Option, option, takes_config

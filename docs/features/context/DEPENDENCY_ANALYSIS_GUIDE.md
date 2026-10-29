@@ -191,15 +191,18 @@ enable_global_load_balancing(
 def analyze_dependencies(
     self,
     target_name: str,
-    include_performance: bool = True,
-    run_id: Optional[str] = None
+    include_performance: bool = True
 ) -> DependencyAnalysisResult
 ```
 
 参数：
 - `target_name`: 目标数据名称
 - `include_performance`: 是否包含性能数据（需要 `stats_mode='basic'` 或 `'detailed'`）
-- `run_id`: 保留参数，当前未使用
+
+此接口分析 Context 中注册的依赖图和累计性能信息，不接收 `run_id`。
+直接调用 `DependencyAnalyzer.analyze(target_name, include_performance=True)` 时也不传 `run_id`。
+旧代码应删除该未使用参数；需要检查特定 run 的缓存和执行计划时，使用
+`ctx.preview_execution(run_id, data_name)`。
 
 ### DependencyAnalysisResult 属性
 

@@ -258,7 +258,6 @@ class DependencyAnalyzer:
         self,
         target_name: str,
         include_performance: bool = True,
-        run_id: str | None = None,
     ) -> DependencyAnalysisResult:
         """
         执行依赖分析
@@ -266,7 +265,6 @@ class DependencyAnalyzer:
         Args:
             target_name: 目标数据名称
             include_performance: 是否包含性能数据分析
-            run_id: 可选的 run_id（暂未使用，为未来扩展预留）
 
         Returns:
             DependencyAnalysisResult: 分析结果

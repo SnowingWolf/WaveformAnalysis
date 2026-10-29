@@ -1051,8 +1051,6 @@ class BatchProcessor:
             if context_factory is None:
                 ctx = self.context
                 ctx.set_config(config, plugin_name=plugin_name)
-                if hasattr(ctx, "clear_performance_caches"):
-                    ctx.clear_performance_caches()
 
                 batch = self.process_runs(
                     run_ids=run_ids,
@@ -1075,8 +1073,6 @@ class BatchProcessor:
                 def _config_factory(config=config) -> Any:
                     ctx = context_factory()
                     ctx.set_config(config, plugin_name=plugin_name)
-                    if hasattr(ctx, "clear_performance_caches"):
-                        ctx.clear_performance_caches()
 
                     return ctx
 

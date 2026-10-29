@@ -140,8 +140,6 @@ class Context:
             "analyze_dependencies",
             "clear_cache",
             "clear_cache_for",
-            "clear_config_cache",
-            "clear_performance_caches",
             "config",
             "get_data",
             "get_config",
@@ -156,7 +154,6 @@ class Context:
             "logger",
             "plot_lineage",
             "preview_execution",
-            "profiling_summary",
             "register",
             "resolve_dependencies",
             "run_plugin",
@@ -806,7 +803,6 @@ class Context:
             show_usage: 是否显示配置项被哪些插件使用（仅在显示全局配置时有效）
             show_full_help: 是否显示完整 help 文本（默认截断）
             run_name: 可选，显示缓存目录时使用的运行名（仅全局配置视图）。
-                       已弃用，请使用 run_id 代替。此参数将在未来版本中移除。
 
         Examples:
             >>> # 显示全局配置，包含配置项使用情况
@@ -818,27 +814,14 @@ class Context:
             >>> # 显示全局配置，但不显示使用情况
             >>> ctx.show_config(show_usage=False)
 
-            >>> # 推荐方式：使用 run_id
-            >>> run_id = 'run_001'
-            >>> ctx.get_data(run_id, 'peaks')
-            >>> ctx.show_config(run_id=run_id)
+            >>> # 显示指定运行的缓存目录
+            >>> ctx.show_config(run_name='run_001')
 
         关联说明：
             - 若 data_name 指定为插件名，会直接调用 list_plugin_configs 来展示该插件的“配置项清单”。
             - 若 data_name 未指定，则展示“当前配置汇总”（全局/插件特定/未使用）。
-
-        .. deprecated:: 0.2.0
-            `run_name` 参数已弃用，请使用 `run_id` 代替。这是为了统一术语，`run_id` 是系统中的
-            唯一标识符，而 `run_name` 是容易引起混淆的旧术语。
         """
 
-        if run_name is not None:
-            warnings.warn(
-                "The 'run_name' parameter is deprecated. Use 'run_id' instead for consistency. "
-                "'run_name' will be removed in a future version.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
         if data_name and data_name in self._plugins:
             # 显示特定插件的配置
             self.list_plugin_configs(
@@ -999,14 +982,11 @@ class Context:
         """List all data types provided by registered plugins."""
         return list(self._plugins.keys())
 
-    def clear_performance_caches(self):
+    def _invalidate_planning_caches(self):
         """
-        Clear all performance optimization caches.
-
-        Should be called when plugins are registered/unregistered or
-        when plugin configurations change.
+        Invalidate execution plans, lineage, and cache keys after configuration changes.
         """
-        self._cache_domain.clear_performance_caches()
+        self._cache_domain.invalidate_planning_caches()
 
     def key_for(self, run_id: str, data_name: str) -> str:
         """
@@ -1086,7 +1066,7 @@ class Context:
 
         return list(seen)
 
-    def clear_config_cache(self):
+    def _clear_config_cache(self):
         """Clear cached validated configurations."""
         self._resolved_config_cache.clear()
 
@@ -1378,11 +1358,6 @@ class Context:
                 f"Unsupported visualization kind: {kind}. Supported: 'labview', 'mermaid', 'plotly'"
             )
 
-    @property
-    def profiling_summary(self) -> str:
-        """Return a summary of the profiling data."""
-        return self.profiler.summary()
-
     def get_performance_report(self, plugin_name: str | None = None, format: str = "text") -> Any:
         """
         获取插件性能统计报告
@@ -1433,16 +1408,13 @@ class Context:
         else:
             return self.stats_collector.generate_report(format=format)
 
-    def analyze_dependencies(
-        self, target_name: str, include_performance: bool = True, run_id: str | None = None
-    ):
+    def analyze_dependencies(self, target_name: str, include_performance: bool = True):
         """
         分析插件依赖关系，识别关键路径、并行机会和性能瓶颈
 
         Args:
             target_name: 目标数据名称
             include_performance: 是否包含性能数据分析（需要stats_mode='basic'或'detailed'）
-            run_id: 可选的run_id，用于获取特定运行的性能数据（暂未使用，为未来扩展预留）
 
         Returns:
             DependencyAnalysisResult: 分析结果对象
@@ -1469,28 +1441,21 @@ class Context:
         from waveform_analysis.core.data.dependency_analysis import DependencyAnalyzer
 
         analyzer = DependencyAnalyzer(self)
-        return analyzer.analyze(
-            target_name=target_name, include_performance=include_performance, run_id=run_id
-        )
+        return analyzer.analyze(target_name=target_name, include_performance=include_performance)
 
-    def get_lineage(self, data_name: str, _visited: set | None = None) -> dict[str, Any]:
+    def get_lineage(self, data_name: str) -> dict[str, Any]:
         """
         Get the lineage (recipe) for a data type. Uses caching for performance optimization.
 
         Args:
             data_name: The name of the data type for which to retrieve the lineage.
-            _visited: Internal parameter used to track visited data names during recursion to detect and handle circular dependencies. Defaults to None.
 
         Returns:
             A dictionary representing the lineage of the specified data type.
 
         """
-        top_level = _visited is None
-        visited = set() if _visited is None else _visited
-        lineage = self._get_base_lineage(data_name, visited)
-        if top_level:
-            return self._augment_adapter_info(lineage)
-        return lineage
+        lineage = self._get_base_lineage(data_name, set())
+        return self._augment_adapter_info(lineage)
 
     def _get_base_lineage(self, data_name: str, visited: set[str]) -> dict[str, Any]:
         """Build lineage without top-level adapter metadata.

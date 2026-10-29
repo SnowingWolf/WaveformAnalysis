@@ -161,8 +161,8 @@ DAQ adapter 的解释信息由 Context 仅附加在顶层 lineage。递归上游
 `run_name` 和 `run_id` 在常见目录布局中可以是同一个字符串，但不要把它们当作同一个 API
 参数。Context 不保存隐式当前 run，每次数据访问都必须显式传入 `run_id`。
 
-`ctx.show_config(run_name=...)` 中的 `run_name` 是保留的兼容参数，仅用于配置展示时标注缓存目录，
-并会发出 deprecation warning；它不替代数据 API 的 `run_id`。
+`ctx.show_config(run_name=...)` 中的 `run_name` 是受支持的公开参数，仅用于全局配置视图中标注缓存目录，
+不会发出弃用警告；它不替代数据 API 的 `run_id`。
 
 **使用示例**：
 
@@ -174,11 +174,41 @@ waveform_process_args = ['--run-name', run_name]
 # Context 数据访问标识
 run_id = run_name
 ctx.get_data(run_id, 'peaks')
-# 兼容的配置展示参数（会显示 deprecation warning）
+# 配置展示参数：标注该运行的缓存目录
 ctx.show_config(run_name=run_name)
 ```
 
 这样既能保持 DAQ/CLI 的数据集命名，又能让每次 Context 数据访问的作用域清晰可见。
+
+## Context API 迁移
+
+以下公开入口与冗余参数已移除，旧调用需要直接更新：
+
+| 原调用 | 当前写法与语义 |
+| --- | --- |
+| `ctx.clear_config_cache()` | 删除手动清理调用；通过 `ctx.set_config(...)` 更新配置，自动失效解析配置与规划缓存。 |
+| `ctx.clear_performance_caches()` | 删除手动维护调用；规划、lineage 与缓存键的失效由 Context 内部维护。 |
+| `ctx.profiling_summary` | 使用 `ctx.profiler.summary()` 获取 profiler 摘要。 |
+| `ctx.get_lineage(data_name, _visited=...)` | 使用 `ctx.get_lineage(data_name)`；循环检测状态只在内部递归中维护。 |
+| `ctx.analyze_dependencies(..., run_id=...)` | 删除未使用的 `run_id`，保留目标名称和 `include_performance`。 |
+| `DependencyAnalyzer.analyze(..., run_id=...)` | 同样删除未使用的 `run_id`。 |
+
+```python
+# 更新配置时自动失效相关内部缓存，不要直接修改 ctx.config 后手动清理
+ctx.set_config({'threshold': 15}, plugin_name='hit_threshold')
+
+# lineage 与依赖分析不需要运行标识
+lineage = ctx.get_lineage('peaks')
+analysis = ctx.analyze_dependencies('peaks', include_performance=True)
+print(ctx.profiler.summary())
+
+# 检查特定 run 的缓存状态和执行计划
+plan = ctx.preview_execution('run_001', 'peaks')
+```
+
+`clear_cache_for(run_id, data_name)` 仍是清理指定运行产物的公开入口，与内部规划缓存失效职责不同。
+`_clear_config_cache()` 和 `_invalidate_planning_caches()` 仅供内部维护，不作为迁移后的用户调用。
+`show_config()`、`show_config(data_name)` 和 `show_config(run_name=...)` 均保留。
 
 ## 相关文档
 

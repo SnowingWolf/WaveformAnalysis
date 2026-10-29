@@ -42,8 +42,8 @@ class ContextConfigDomain:
         else:
             self.ctx.config.update(config)
 
-        self.ctx.clear_config_cache()
-        self.ctx.clear_performance_caches()
+        self.ctx._clear_config_cache()
+        self.ctx._invalidate_planning_caches()
         self.ctx._run_config_cache.clear()
         self.ctx._run_config_hash_loaded.clear()
 

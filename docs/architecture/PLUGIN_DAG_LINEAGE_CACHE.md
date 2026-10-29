@@ -169,6 +169,9 @@ Context 按需从 `waveform_analysis.visualization` 加载 lineage renderer，�
 
 #### 5.1 结果身份的组成
 
+用户通过 `ctx.get_lineage(data_name)` 查询 lineage；公共签名只接收数据名称。
+循环检测与递归状态由私有 `_get_base_lineage()` 管理，不由调用方传递。
+
 默认 lineage 是可序列化配方，包含 Plugin 类、version、描述、受跟踪配置和递归上游 lineage；
 存在时还会加入规范化 dtype、`output_schema`、已验证 spec hash 和顶层 adapter 信息。Context 递归缓存
 不含 adapter 信息的基础 lineage，并只在顶层补充一次，所以首次查询、缓存后查询及不同遍历顺序具有
@@ -255,6 +258,11 @@ Memmap 的 `save_stream` / `save_memmap`、Context 的 generator 缓存写入和
 影响，释放 Python 引用也不保证分配器立即归还 RSS。这是显式清理，不是自动内存预算或淘汰策略。
 
 ### 6.2 失效矩阵
+
+配置更新统一通过 `ctx.set_config(...)`，自动失效解析配置、运行配置、lineage、缓存键与执行计划。
+内部维护入口不再作为公开 API；无需在配置修改后手动清理规划缓存。
+指定 run 的产物清理继续使用 `clear_cache_for(run_id, data_name)`，迁移细节见
+[配置管理](../features/context/CONFIGURATION.md#context-api-迁移)。
 
 | 变化 | 正常行为 | 失败时的表现 |
 | --- | --- | --- |

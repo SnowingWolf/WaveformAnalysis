@@ -599,7 +599,7 @@ class TestIntegration:
         cold = ctx.get_lineage(data_name)
         cold_key = ctx.key_for("run_lineage", data_name)
 
-        ctx.clear_performance_caches()
+        ctx._invalidate_planning_caches()
         warm = ctx.get_lineage(data_name)
         warm_key = ctx.key_for("run_lineage", data_name)
 
