@@ -4,7 +4,7 @@ metadata:
   id: context-dedup-20261029
   generation: 1
   created_at: '2026-10-29T06:22:10Z'
-  updated_at: '2026-10-29T06:28:44Z'
+  updated_at: '2026-10-29T06:29:31Z'
 spec:
   goal: 精简 Context 重复实现和无用私有转发，保持公开 API、缓存与配置展示行为。
   route: modify_code
@@ -58,7 +58,7 @@ spec:
     risk_level: low
     evidence: Only list_plugin_configs calls alias; preserve domain dispatch.
 status:
-  state: reviewing
+  state: completed
   transitions:
   - from: created
     to: planning
@@ -76,6 +76,10 @@ status:
     to: reviewing
     at: '2026-10-29T06:28:44Z'
     actor: executor.code
+  - from: reviewing
+    to: completed
+    at: '2026-10-29T06:29:31Z'
+    actor: reviewer
   plan_sha256: 1bdcde5794f3b62e3b1f0a315ce50537104184f3baad489c9ee425c3da8e0157
   execution:
     summary: Consolidated duplicate option metadata/rows/sorting and cache-hit handling;
@@ -151,6 +155,8 @@ status:
       because three shared formatting helpers replace duplicated blocks.
   approval: {}
   handoff:
-    commit_status: pending
-    summary: Reviewed changes ready for scoped commit; lifecycle closure follows successful
-      commit hooks.
+    commit_status: committed
+    commit_hash: 1c8162a5e0c6bc572eb4bd9aa2e00211c89f17af
+    summary: Reviewed Context simplification, 200 passing regressions and unchanged
+      public signatures committed; all commit hooks passed. This closure record follows
+      in a scoped documentation commit.

@@ -3,7 +3,7 @@ generated_by: scripts/render_agent_docs.py
 source: docs/agents/runs/current/*/task.yaml
 active_plans:
 - task_id: context-dedup-20261029
-  state: reviewing
+  state: completed
   route: modify_code
   workflow_cost: strict
   workflow_shape: staged
