@@ -4,7 +4,7 @@ metadata:
   id: adapter-contracts-20261030
   generation: 4
   created_at: '2026-10-30T08:30:39Z'
-  updated_at: '2026-10-30T08:59:05Z'
+  updated_at: '2026-10-30T09:00:51Z'
 spec:
   goal: 修复DAQ适配器通道契约、元数据缓存和分卷处理；文档作为最后统一更新的明确待办。
   route: retire_compat
@@ -488,6 +488,10 @@ status:
     - BIN anchored continuation semantics and corrupt-file rejection
     - Cache invalidation versions/manifests and unchanged fields/units
     - Deferred documentation completion, generated export and accurate migration examples
+    commit:
+      status: committed
+      sha: 6cc7a40b13138018db9eb27223bdc039434ee1d9
+      pre_commit_hooks: PASS Ruff, Black25, whitespace, EOF, YAML and added-file-size checks
   review:
     reviewer: adapter_review (gpt-6.1-sol/high), independent read-only blocking review
     reviewer_actor: reviewer
@@ -528,8 +532,16 @@ status:
     scope_changed: false
   approval: {}
   handoff:
-    commit_status: uncommitted
-    reason: Independent blocking review is in progress; root will make the scoped implementation commit
-      after approval, then record its SHA in a closure commit.
-    pending_action: Scoped commit after reviewer approval
-    verification: git status --short and git diff --stat inspected; no out-of-scope dirty files.
+    commit_status: committed
+    commit_sha: 6cc7a40b13138018db9eb27223bdc039434ee1d9
+    summary: Reviewed implementation, tests, final documentation and packaged export committed. Documentation
+      TODO completed after source stabilization. This handoff record is closed in a separate scoped task-record
+      commit.
+    verification:
+    - 355 behavioral tests, 34 documentation tests, 6 TypeScript tests PASS
+    - Post-hook affected guide tests 14 PASS
+    - Fresh isolated documentation build run02 and targeted packaged HTML checks PASS
+    - Independent adapter_review approved generation4/current plan; no blocking findings
+    - Pre-commit hooks all PASS
+    - git status --short and git diff --stat inspected; no unrelated pending changes
+    evidence_directory: /tmp/wa-adapter-contracts-20261030-01
