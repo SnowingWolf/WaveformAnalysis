@@ -9,7 +9,7 @@
 """
 
 import hashlib
-import importlib
+import importlib.util
 import logging
 import os
 from pathlib import Path
@@ -75,11 +75,17 @@ class PluginHotReloader:
 
         # 获取插件信息
         plugin = self.context._plugins[plugin_name]
+        selected_class = plugin_class or plugin.__class__
+        if selected_class.__module__ in {"__main__", "__mp_main__"}:
+            raise ValueError(
+                "Hot reload requires an importable plugin module; "
+                f"'{selected_class.__module__}' is not supported"
+            )
 
         if plugin_path is None:
             # 尝试从插件类获取路径
             try:
-                plugin_module = sys.modules[plugin.__class__.__module__]
+                plugin_module = sys.modules[selected_class.__module__]
                 plugin_path = plugin_module.__file__
             except Exception as e:
                 self.logger.warning(f"Cannot determine plugin path for '{plugin_name}': {e}")
@@ -90,7 +96,8 @@ class PluginHotReloader:
                 "path": plugin_path,
                 "mtime": os.path.getmtime(plugin_path),
                 "hash": self._compute_file_hash(plugin_path),
-                "plugin_class": plugin_class or plugin.__class__,
+                "module_name": selected_class.__module__,
+                "class_name": selected_class.__name__,
             }
             self.logger.info(f"Watching plugin '{plugin_name}' at {plugin_path}")
         else:
@@ -134,37 +141,33 @@ class PluginHotReloader:
 
         info = self.watched_plugins[plugin_name]
         path = info["path"]
+        module_name = info["module_name"]
+        previous_module = sys.modules.get(module_name)
 
         try:
-            # 重载模块
-            module_name = self._get_module_name(path)
-            if module_name in sys.modules:
-                module = sys.modules[module_name]
-                importlib.reload(module)
-                self.logger.info(f"Reloaded module: {module_name}")
-            else:
-                # 导入新模块
-                spec = importlib.util.spec_from_file_location(module_name, path)
-                module = importlib.util.module_from_spec(spec)
-                sys.modules[module_name] = module
-                spec.loader.exec_module(module)
-                self.logger.info(f"Loaded module: {module_name}")
+            # 保留包身份以支持相对导入；直接编译源代码，避免同秒同尺寸编辑命中旧 .pyc。
+            current_mtime = os.path.getmtime(path)
+            source = Path(path).read_bytes()
+            spec = importlib.util.spec_from_file_location(module_name, path)
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[module_name] = module
+            exec(compile(source, path, "exec"), module.__dict__)
 
-            # 获取新的插件类
-            plugin_class = info.get("plugin_class")
-            if plugin_class is None:
-                # 尝试从模块中找到Plugin子类
-                for attr_name in dir(module):
-                    attr = getattr(module, attr_name)
-                    if isinstance(attr, type) and issubclass(attr, Plugin) and attr != Plugin:
-                        plugin_class = attr
-                        break
-
-            if plugin_class is None:
-                raise ValueError(f"Cannot find Plugin class in {path}")
+            # 必须选取新模块中的同名类，不能复用旧类或误选其他 Plugin。
+            plugin_class = getattr(module, info["class_name"])
+            if (
+                not isinstance(plugin_class, type)
+                or not issubclass(plugin_class, Plugin)
+                or plugin_class is Plugin
+            ):
+                raise TypeError(f"'{info['class_name']}' in {path} is not a Plugin subclass")
 
             # 创建新插件实例
             new_plugin = plugin_class()
+            if new_plugin.provides != plugin_name:
+                raise ValueError(
+                    f"Reloaded plugin provides '{new_plugin.provides}', expected '{plugin_name}'"
+                )
 
             # 重新注册插件(允许覆盖)
             # 注意：register_plugin 会自动调用 _invalidate_caches_for 清除性能缓存
@@ -179,12 +182,16 @@ class PluginHotReloader:
                 )
 
             # 更新监控信息
-            info["mtime"] = os.path.getmtime(path)
-            info["hash"] = self._compute_file_hash(path)
+            info["mtime"] = current_mtime
+            info["hash"] = hashlib.md5(source).hexdigest()
 
             self.logger.info(f"Successfully reloaded plugin '{plugin_name}'")
 
         except Exception as e:
+            if previous_module is None:
+                sys.modules.pop(module_name, None)
+            else:
+                sys.modules[module_name] = previous_module
             self.logger.error(f"Failed to reload plugin '{plugin_name}': {e}")
             raise
 
@@ -239,11 +246,6 @@ class PluginHotReloader:
         with open(path, "rb") as f:
             hasher.update(f.read())
         return hasher.hexdigest()
-
-    def _get_module_name(self, path: str) -> str:
-        """从文件路径获取模块名"""
-        path = Path(path)
-        return f"hot_reload_{path.stem}_{int(time.time())}"
 
 
 @export

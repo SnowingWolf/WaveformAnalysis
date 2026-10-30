@@ -2,6 +2,8 @@
 测试插件超时控制功能
 """
 
+from concurrent.futures import ThreadPoolExecutor
+import platform
 import time
 
 import pytest
@@ -131,6 +133,53 @@ class TestTimeoutManager:
 
         result = manager.run_with_timeout(func_with_args, 5.0, 1, 2, c=4)
         assert result == 7
+
+    @pytest.mark.skipif(platform.system() not in ["Linux", "Darwin"], reason="Unix signals")
+    @pytest.mark.parametrize("style", ["function", "context", "decorator"])
+    def test_worker_thread_rejects_signal_timeout_before_body(self, style):
+        manager = TimeoutManager()
+        calls = []
+
+        def body():
+            calls.append("executed")
+
+        def invoke():
+            if style == "context":
+                with manager.timeout_context(0.05):
+                    body()
+            elif style == "decorator":
+                with_timeout(0.05)(body)()
+            else:
+                manager.run_with_timeout(body, 0.05)
+
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            with pytest.raises(NotImplementedError, match="main thread"):
+                executor.submit(invoke).result(timeout=5)
+        assert calls == []
+        assert manager.get_timeout_stats() == {}
+
+    @pytest.mark.parametrize("timeout", [None, 0, -1])
+    def test_worker_thread_without_timeout(self, timeout):
+        manager = TimeoutManager()
+
+        def invoke():
+            with manager.timeout_context(timeout):
+                return manager.run_with_timeout(lambda: "done", timeout)
+
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            assert executor.submit(invoke).result(timeout=5) == "done"
+
+    @pytest.mark.skipif(platform.system() not in ["Linux", "Darwin"], reason="Unix signals")
+    def test_context_signal_setup_error_is_not_masked(self, monkeypatch):
+        import signal
+
+        def fail_signal_setup(*args):
+            raise ValueError("signal setup failed")
+
+        monkeypatch.setattr(signal, "signal", fail_signal_setup)
+        with pytest.raises(ValueError, match="signal setup failed"):
+            with TimeoutManager().timeout_context(0.05):
+                pytest.fail("body must not run if signal setup fails")
 
 
 class TestTimeoutDecorator:

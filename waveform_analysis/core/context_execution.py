@@ -214,6 +214,11 @@ class ContextExecutionDomain:
     def execute_plugin_compute(
         self, plugin: Plugin, name: str, run_id: str, input_size_mb: float | None, kwargs: dict
     ) -> Any:
+        if plugin.timeout is not None:
+            raise NotImplementedError(
+                f"Plugin.timeout is not supported by Context execution "
+                f"(plugin '{name}', timeout={plugin.timeout!r}); use timeout=None."
+            )
         if self.ctx.stats_collector and self.ctx.stats_collector.is_enabled():
             self.ctx.stats_collector.start_execution(name, run_id, input_size_mb=input_size_mb)
 

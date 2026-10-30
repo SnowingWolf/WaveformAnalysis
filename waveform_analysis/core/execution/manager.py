@@ -168,27 +168,46 @@ class ExecutorManager:
             max_workers = self._default_max_workers
 
         key = f"{name}_{executor_type}_{max_workers}"
+        self._release_executor(key, wait=wait)
 
+    def _release_executor(
+        self, key: str, wait: bool = True, expected_executor: Executor | None = None
+    ):
+        executor = None
         with self._executor_lock:
+            if expected_executor is not None and self._executors.get(key) is not expected_executor:
+                return
             if key in self._executor_refs:
                 self._executor_refs[key] -= 1
                 if self._executor_refs[key] <= 0:
-                    self._shutdown_executor(key, wait=wait)
+                    executor = self._detach_executor(key)
+        if executor is not None:
+            executor.shutdown(wait=wait)
+
+    def _detach_executor(self, key: str) -> Executor | None:
+        """摘除注册信息；调用方必须持有 _executor_lock。"""
+        executor = self._executors.pop(key, None)
+        if executor is not None:
+            del self._executor_configs[key]
+            del self._executor_refs[key]
+        return executor
 
     def _shutdown_executor(self, key: str, wait: bool = True):
         """关闭指定执行器"""
-        if key in self._executors:
-            executor = self._executors[key]
+        with self._executor_lock:
+            executor = self._detach_executor(key)
+        if executor is not None:
             executor.shutdown(wait=wait)
-            del self._executors[key]
-            del self._executor_configs[key]
-            del self._executor_refs[key]
 
     def shutdown_all(self, wait: bool = True):
         """关闭所有执行器"""
         with self._executor_lock:
-            for key in list(self._executors.keys()):
-                self._shutdown_executor(key, wait=wait)
+            executors = list(self._executors.values())
+            self._executors.clear()
+            self._executor_configs.clear()
+            self._executor_refs.clear()
+        for executor in executors:
+            executor.shutdown(wait=wait)
 
     def shutdown_executor(
         self,
@@ -203,9 +222,7 @@ class ExecutorManager:
 
         key = f"{name}_{executor_type}_{max_workers}"
 
-        with self._executor_lock:
-            if key in self._executors:
-                self._shutdown_executor(key, wait=wait)
+        self._shutdown_executor(key, wait=wait)
 
     @contextmanager
     def executor(
@@ -228,12 +245,15 @@ class ExecutorManager:
         参数:
             wait_on_exit: 退出时是否等待执行器关闭
         """
+        if max_workers is None:
+            max_workers = self._default_max_workers
         executor = self.get_executor(name, executor_type, max_workers, reuse, **kwargs)
         try:
             yield executor
         finally:
             if reuse:
-                self.release_executor(name, executor_type, max_workers, wait=wait_on_exit)
+                key = f"{name}_{executor_type}_{max_workers}"
+                self._release_executor(key, wait=wait_on_exit, expected_executor=executor)
             else:
                 executor.shutdown(wait=wait_on_exit)
 
@@ -486,6 +506,9 @@ def parallel_map(
             estimated_task_size=10*1024*1024  # 10MB per task
         )
     """
+    if not iterable:
+        return []
+
     # 自动检测进度配置（优先级：progress_callback > 函数配置 > 线程配置）
     progress_config = None
     tracker = None
@@ -639,6 +662,9 @@ def parallel_apply(
             estimated_task_size=5*1024*1024  # 5MB per task
         )
     """
+    if not args_list:
+        return []
+
     # 自动检测进度配置（优先级：progress_callback > 函数配置 > 线程配置）
     progress_config = None
     tracker = None

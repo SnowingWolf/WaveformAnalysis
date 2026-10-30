@@ -121,6 +121,18 @@ scaled = ctx.get_data("run_001", "record_scale")
 实现。严格的 `require_spec=True` 还会要求插件提供有效的 `spec()` 或 `SPEC`，适合在插件集成和
 发布前检查时使用。注册覆盖或插件版本变化会清理相关执行计划、lineage 和配置缓存。
 
+开发模式的 `PluginHotReloader` 要求插件定义于可导入模块；`watch_plugin()` 会拒绝
+`__main__` 或 `__mp_main__` 中的类并抛出 `ValueError`，避免重新执行脚本入口。
+它按监控类的模块名和类名，从重新加载的模块中取得新类，
+校验 `provides` 与监控产物一致后实例化并注册。显式 `plugin_class` 同样按其模块名和类名选择
+新类。只有注册成功，才更新监控记录中的文件状态；失败会保留待更新状态，以便后续重试。
+`reload_plugin()` 会抛出加载或注册异常，批量或自动重载会记录失败并继续检查其他插件。
+代码行为发生变化时仍须按版本策略更新 `version`。
+
+`Plugin.timeout` 默认应保持 `None`；Context 需要计算时会明确拒绝非 `None` 的值，
+目前不支持逐插件强制超时。独立函数超时的线程与平台限制见
+[超时支持边界](../architecture/ARCHITECTURE.md#超时支持边界)。
+
 配置项可以通过类属性 `options`、`@option` 或 `@takes_config` 声明。
 
 ### 配置优先级与来源

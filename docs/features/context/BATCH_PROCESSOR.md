@@ -214,6 +214,9 @@ def process_runs(
 `context_factory` 可选：thread 模式会自动使用 `ctx.clone()`，process 模式建议使用
 `ctx.create_context_factory()`。
 
+显式提供 `context_factory` 时，串行执行也会在每个 run 的每次尝试前调用工厂，使用其返回的
+Context；重试不会复用上一次尝试的 Context。该规则也适用于 `process_func`。
+
 返回结构：
 
 ```python
@@ -287,6 +290,14 @@ def process_runs_with_config_grid(
 ) -> Dict[str, Any]
 ```
 
+每组配置通过 `set_config(config, plugin_name=plugin_name)` 应用到实际执行的 Context，串行、
+线程和进程模式遵循相同规则。显式工厂先创建 Context，再应用本组配置；进程模式仍要求工厂、
+插件类和配置内容可 pickle。未提供工厂的串行扫描直接更新 `BatchProcessor` 持有的 Context，
+各组配置按顺序应用，扫描后保留最后一次更新的配置。
+
+`storage_dir_strategy` 同样适用于配置扫描。`tmp_cache=True` 是临时缓存的快捷选项，不能与
+`storage_dir_strategy="readonly"` 同时使用，否则抛出 `ValueError`。
+
 返回结构：
 
 ```python
@@ -324,8 +335,10 @@ def process_runs_with_config_grid(
    但要求工厂函数和任务参数可 pickle。
 
 4. **缓存目录策略**
-   `storage_dir_strategy="shared"` 使用共享缓存目录；`"per_worker"` 为并行任务准备临时缓存目录，
-   串行时忽略该策略。`"readonly"` 在串行和并行时都读取原缓存目录，`Context.get_data` 未命中
+   `storage_dir_strategy="shared"` 使用任务 Context 的缓存目录；`"per_worker"` 为每次任务尝试
+   准备临时缓存目录，包括显式提供工厂的串行任务。串行且没有工厂时，`"per_worker"` 会记录
+   warning 并退回 `"shared"`。`"readonly"` 在串行和并行时都保留任务 Context 的原缓存目录，
+   `Context.get_data` 未命中
    有效缓存时报告 `FileNotFoundError`，不会计算目标或依赖，也不会写缓存、配置快照或配置状态。
    它不创建临时目录，`clean_temp_cache` 不影响该策略。
 

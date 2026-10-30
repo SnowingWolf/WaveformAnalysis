@@ -151,7 +151,7 @@
         "heading": 133,
         "list": 9,
         "mermaid": 1,
-        "note": 1,
+        "note": 2,
         "paragraph": 87,
         "table": 37
       },
@@ -1848,8 +1848,8 @@
       "route": "/plugins/overview/",
       "title": "插件系统与模板 API",
       "source": "docs/plugins/PLUGIN_SYSTEM_OVERVIEW.md",
-      "source_sha256": "3162ccde297cd758b295d00ffa63d62cb0092c6b86ec2c0eb01f1c44bcc1968e",
-      "model_fingerprint": "a03688bbbf74903a8fa2ac3ef05879c1ed38108e6d46b6ca99b72de01be266d2",
+      "source_sha256": "1b672ad4765ec443408eb9e8dec8361c6228d32d5b70c98ad2968a9240449f0b",
+      "model_fingerprint": "18a2b17b7d10a451aa904d2f0140d0c9c757896f9325a31bb9a4600b1bb45568",
       "block_types": [
         "paragraph",
         "heading",
@@ -1866,6 +1866,8 @@
         "heading",
         "paragraph",
         "code",
+        "paragraph",
+        "paragraph",
         "paragraph",
         "paragraph",
         "paragraph",
@@ -2039,8 +2041,8 @@
         "paragraph"
       ],
       "content_counts": {
-        "paragraph": 92,
-        "link": 5,
+        "paragraph": 94,
+        "link": 6,
         "code": 27,
         "table": 8,
         "list": 18
@@ -2695,8 +2697,8 @@
       "route": "/architecture/plugin-dag-lineage-cache/",
       "title": "插件执行链与缓存",
       "source": "docs/architecture/PLUGIN_DAG_LINEAGE_CACHE.md",
-      "source_sha256": "0116d456bc106b02eb89a36b5117204acf8bbd7d3c06695ae4f9d88b6b5993e5",
-      "model_fingerprint": "ffc4849b69d29bc141cb2fb5a416042bb17a03161a7966750117f92ee5b9a998",
+      "source_sha256": "09c4298ae0632d557878053474b29ab091e3648ea7808a152cfc095ff2f4144d",
+      "model_fingerprint": "673e878427c5f09e8c19dbd179b10211469f0e864083fec4016ed1cb160a01c1",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -2734,6 +2736,7 @@
         "paragraph",
         "table",
         "paragraph",
+        "paragraph",
         "heading",
         "paragraph",
         "heading",
@@ -2769,8 +2772,8 @@
         "list"
       ],
       "content_counts": {
-        "paragraph": 30,
-        "link": 5,
+        "paragraph": 31,
+        "link": 6,
         "code": 8,
         "table": 4,
         "list": 3
@@ -2780,8 +2783,8 @@
       "route": "/architecture/system/",
       "title": "系统架构与数据流",
       "source": "docs/architecture/ARCHITECTURE.md",
-      "source_sha256": "2da80de457fd80e94ffb95e909dfb75103ecaf615ba6d06cc37d67309513d9fb",
-      "model_fingerprint": "41a535ab6cc15fc46227c559a41e40573fc3fa4a5ca398457cad803278804c97",
+      "source_sha256": "b430575d8074a06b6bf23ecfec46596f23ea7c1d54017d3e041c936055e1b3d7",
+      "model_fingerprint": "5c1732cd686bd34e2f4ff8882bcf8abe388c90c81f0d94d9894cc7bb6f41cf71",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -2830,6 +2833,10 @@
         "table",
         "paragraph",
         "heading",
+        "paragraph",
+        "paragraph",
+        "paragraph",
+        "heading",
         "code",
         "paragraph",
         "heading",
@@ -2840,7 +2847,7 @@
         "list"
       ],
       "content_counts": {
-        "paragraph": 20,
+        "paragraph": 23,
         "link": 6,
         "code": 8,
         "table": 7,
@@ -3051,8 +3058,8 @@
       "route": "/features/context/BATCH_PROCESSOR/",
       "title": "BatchProcessor - 多运行批量处理",
       "source": "docs/features/context/BATCH_PROCESSOR.md",
-      "source_sha256": "904fd3fab481f6d8242f0261d9b3b50b013cc03935f9965889e4996f818e2c98",
-      "model_fingerprint": "1cbc54f5753a4f99bdfcba953f1b1067890e131c826f2382a4117f5ab90638fc",
+      "source_sha256": "09aa0ed4b66b7c380d456d246138de6fd9eab75a42ac0a635631c4b80756a8e4",
+      "model_fingerprint": "bb1755d8ed95376490a064563692516034ea9884381a0ed9f0b048b2967ab7ff",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -3096,6 +3103,7 @@
         "code",
         "paragraph",
         "paragraph",
+        "paragraph",
         "code",
         "paragraph",
         "table",
@@ -3106,6 +3114,8 @@
         "paragraph",
         "heading",
         "code",
+        "paragraph",
+        "paragraph",
         "paragraph",
         "code",
         "paragraph",
@@ -3132,7 +3142,7 @@
         "paragraph"
       ],
       "content_counts": {
-        "paragraph": 31,
+        "paragraph": 34,
         "link": 3,
         "code": 17,
         "table": 1,
@@ -3143,9 +3153,10 @@
       "route": "/features/context/CONFIGURATION/",
       "title": "配置管理",
       "source": "docs/features/context/CONFIGURATION.md",
-      "source_sha256": "7cba644f200f410324613433d9c48f386058844ef0fb35ad93cbf46a84d30d43",
-      "model_fingerprint": "904b906ce250687221f2d02854d2303c25a6c6009819ee8803e7ee10f184f552",
+      "source_sha256": "634c6a4fcfd6d9bf354b6d7a6a943ea91e4f7ed7eb6714bfd9d09842f5220247",
+      "model_fingerprint": "9c238ea6d6230a9c94a996b5152639d1a4ef9aca7264fca9b1668d019ae2f8fd",
       "block_types": [
+        "paragraph",
         "paragraph",
         "paragraph",
         "paragraph",
@@ -3202,8 +3213,8 @@
         "list"
       ],
       "content_counts": {
-        "paragraph": 30,
-        "link": 3,
+        "paragraph": 31,
+        "link": 4,
         "code": 4,
         "table": 1,
         "list": 8
@@ -4182,8 +4193,8 @@
       "route": "/development/plugin-development/PLUGIN_SPEC_GUIDE/",
       "title": "PluginSpec 与 ConfigField 高级指南",
       "source": "docs/development/plugin-development/PLUGIN_SPEC_GUIDE.md",
-      "source_sha256": "26ad95f5c051f92e13991928b2756b7c07eabee1a796a7b4c795784703920aea",
-      "model_fingerprint": "2b590524e645ad2be0b351e2cd07f52ef285d3d819f89d6b7b3daa9c82f35a4c",
+      "source_sha256": "38318377ea264a234f7f87c48a0b4a52f559d444540e32f8251f36567de9fa12",
+      "model_fingerprint": "786398ae5e3f33ac6b0611db8c4f8ca7e2c410a449479b3a9afe581bc9a0a0ab",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -4213,6 +4224,7 @@
         "heading",
         "paragraph",
         "list",
+        "paragraph",
         "paragraph",
         "paragraph",
         "paragraph",
@@ -4284,8 +4296,8 @@
         "paragraph"
       ],
       "content_counts": {
-        "paragraph": 32,
-        "link": 8,
+        "paragraph": 33,
+        "link": 9,
         "code": 17,
         "table": 5,
         "list": 4

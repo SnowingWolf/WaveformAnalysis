@@ -216,6 +216,8 @@ sequenceDiagram
 `(name, executor_type, max_workers)` 区分的执行器，支持 `thread` 与 `process` 两类池；
 `get_executor()` 以上下文管理器形式取得并在退出时释放引用，`parallel_map()` 和
 `parallel_apply()` 在此基础上提供保持输入顺序的批量结果、进度回调和可选负载均衡。
+两者接收空列表时直接返回 `[]`，不创建执行器。释放引用或批量关闭执行器时，先在注册表锁内
+移除对应记录，再在锁外调用 `shutdown()`；等待中的任务仍可查询或申请执行器。
 
 ```python
 from waveform_analysis.core.execution import get_config, get_executor
@@ -238,6 +240,20 @@ with get_executor("waveform-loading", **config) as executor:
 因此，worker 数、进度显示和负载均衡不会单独创建新的数据产物身份。排查并行问题时依次检查
 `preview_execution()`、resolved config、执行器状态（`list_executors()` / `get_stats()`）和
 缓存 lineage；不要通过改变 `run_id`、共享 Context 或直接操作 `_executor_refs` 来规避错误。
+
+### 超时支持边界
+
+`Plugin.timeout` 默认是 `None`。Context 暂不支持逐插件超时控制：需要执行 `compute()` 时，
+任何非 `None` 值（包括 `0`）都会在计算前触发 `NotImplementedError`；已有有效缓存仍可读取。
+串行请求直接报告该异常，并行 DAG 调度可能将其包装为执行失败的 `RuntimeError`。
+
+独立函数可使用 `TimeoutManager.run_with_timeout()` 或 `with_timeout` 装饰器。Unix 使用
+`SIGALRM`，正数超时只允许在主线程使用；工作线程会明确抛出 `NotImplementedError`，
+`timeout_context()` 也遵循这一限制。`None` 或非正数表示不启用独立函数超时。
+
+Windows 的 `run_with_timeout()` 使用后台线程并限制等待时间，超时后抛出 `PluginTimeoutError`
+并发出 warning，线程仍可能继续执行；`timeout_context()` 在 Windows 不提供执行中断。
+这些接口均不提供逐插件进程隔离或强制终止线程。
 
 ## 4. 数据流与访问层
 

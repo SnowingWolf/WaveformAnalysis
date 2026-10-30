@@ -1289,7 +1289,20 @@ _CONTEXT_NARRATIVE_SECTIONS = (
                     "IO 密集型任务通常选 `thread`，CPU 密集型任务通常选 `process`；进程任务的函数、参数和 `Context` 工厂必须可 pickle。",
                     "复用执行器必须保持稳定的名称、类型和 `max_workers`；推荐使用 `with get_executor(...)`，不要依赖内部 `_executor_refs`。",
                     "多个 run 不共享可变 Context；使用 `BatchProcessor` 的 `context_factory` 或显式 `ctx.clone()`，让每个 run 的缓存和错误边界可追踪。",
+                    "显式 `context_factory` 在串行模式也为每个 run 的每次尝试创建 Context；配置扫描先创建 Context，再应用本组配置，并保留所选缓存策略。",
+                    "`parallel_map()` / `parallel_apply()` 的空列表输入直接返回 `[]`，不创建执行器；执行器的阻塞关闭在注册表锁外进行。",
                     "worker 数、进度条和负载均衡属于资源策略；只有改变输出内容、字段或选择的配置才应通过 Plugin `track` 进入 lineage。",
+                ),
+            ),
+            DocumentationContentBlock(
+                kind="note",
+                tone="important",
+                title="超时支持边界",
+                text=(
+                    "`Plugin.timeout` 默认为 `None`。Context 需要执行 `compute()` 时拒绝任何非 `None` 值，"
+                    "计算前抛出 `NotImplementedError`；有效缓存命中仍可读取，并行 DAG 可能将异常包装为 `RuntimeError`。"
+                    "独立 `TimeoutManager` / `with_timeout` 在 Unix 仅支持主线程的正数超时；"
+                    "Windows 的函数超时只限制等待时间，不能终止后台线程，`timeout_context()` 不提供执行中断。"
                 ),
             ),
             DocumentationContentBlock(

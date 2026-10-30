@@ -225,7 +225,7 @@ def test_context_reference_exposes_supported_api_and_migration():
     )
 
 
-def test_site_fixture_uses_current_context_and_migration_guides():
+def test_site_fixture_uses_current_context_and_contract_guides():
     root = Path(__file__).parents[1]
     model = build_site_model(root)
     fixture = json.loads((root / "docs/site-next/fixture/site-model.v1.json").read_text())
@@ -237,6 +237,9 @@ def test_site_fixture_uses_current_context_and_migration_guides():
         "/features/context/DEPENDENCY_ANALYSIS_GUIDE/",
         "/architecture/plugin-cache-architecture/",
         "/architecture/plugin-dag-lineage-cache/",
+        "/architecture/system/",
+        "/development/plugin-development/PLUGIN_SPEC_GUIDE/",
+        "/features/context/BATCH_PROCESSOR/",
         "/plugins/overview/",
     }
     current_guides = {page["route"]: page for page in model["guides"]}

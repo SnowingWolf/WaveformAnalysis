@@ -109,6 +109,61 @@ def test_readonly_reads_original_cache_or_reports_miss(tmp_path, mode, method, c
         assert result["meta"]["run_1"]["status"] == "failed"
 
 
+@pytest.mark.parametrize("mode", ["serial", "thread", "process"])
+@pytest.mark.parametrize("explicit_factory", [False, True])
+@pytest.mark.parametrize("cache_state", ["valid", "missing", "changed_lineage"])
+def test_config_grid_preserves_readonly(tmp_path, mode, explicit_factory, cache_state):
+    ctx = Context(storage_dir=str(tmp_path / "cache"))
+    ctx.register(CacheOnlyDataPlugin)
+    if cache_state != "missing":
+        _seed_cache(ctx)
+    before = _snapshot(tmp_path)
+    config = {"scale": 2 if cache_state == "changed_lineage" else 1}
+
+    result = BatchProcessor(ctx).process_runs_with_config_grid(
+        ["run_1"],
+        "readonly_data",
+        "readonly_data",
+        [config],
+        max_workers=1 if mode == "serial" else 2,
+        executor_type="process" if mode == "process" else "thread",
+        context_factory=ctx.create_context_factory() if explicit_factory else None,
+        storage_dir_strategy="readonly",
+        show_progress=False,
+        jupyter_mode=True,
+    )
+
+    assert _snapshot(tmp_path) == before
+    assert not ctx._cache_readonly
+    batch = result["results"][0]["batch"]
+    if cache_state == "valid":
+        assert batch["errors"] == {}
+        assert batch["results"]["run_1"][0]["value"] == 42
+    else:
+        assert batch["results"] == {}
+        assert batch["errors"]["run_1"]["type"] == "FileNotFoundError"
+        assert "Readonly cache miss" in batch["errors"]["run_1"]["message"]
+
+
+def test_config_grid_rejects_tmp_cache_with_readonly(tmp_path):
+    ctx = Context(storage_dir=str(tmp_path))
+    ctx.register(CacheOnlyDataPlugin)
+    before = _snapshot(tmp_path)
+    with pytest.raises(ValueError, match="tmp_cache.*readonly"):
+        BatchProcessor(ctx).process_runs_with_config_grid(
+            ["run_1"],
+            "readonly_data",
+            "readonly_data",
+            [{}],
+            max_workers=1,
+            storage_dir_strategy="readonly",
+            tmp_cache=True,
+            show_progress=False,
+            jupyter_mode=True,
+        )
+    assert _snapshot(tmp_path) == before
+
+
 def test_readonly_rejects_changed_lineage_and_missing_dependencies(tmp_path):
     ctx = Context(storage_dir=str(tmp_path))
     ctx.register(CacheOnlyDataPlugin, MissingDependencyPlugin)

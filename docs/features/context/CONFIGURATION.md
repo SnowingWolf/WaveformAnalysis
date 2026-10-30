@@ -14,6 +14,12 @@ Context 未显式传入 `storage_dir` 时，默认将缓存和处理产物写入
 持久化状态和磁盘结果，否则明确报缓存不可用。普通调用仍遵循现有配置同步与失效规则。
 详见[批量处理的缓存目录策略](BATCH_PROCESSOR.md)。
 
+`Plugin.timeout` 是插件执行属性，不是 `ctx.set_config()` 配置项。当前 Context 只支持
+`timeout=None`：需要进入该插件的 `compute()` 时，非 `None` 值会触发 `NotImplementedError`。
+该属性值不进入 lineage，也不改变缓存身份；命中有效缓存时仍可读取已有结果。
+检查发生在该插件的计算入口，上游依赖可能已经执行。详见
+[超时支持边界](../../architecture/ARCHITECTURE.md#超时支持边界)。
+
 ## 查看配置
 
 `ctx.list_plugin_configs(plugin_name, verbose=False)` 返回选项元数据和当前值的字典；

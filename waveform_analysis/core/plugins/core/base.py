@@ -342,7 +342,8 @@ class Plugin(abc.ABC):
     version: str = "0.0.0"
     is_side_effect: bool = False
     uses_run_config: bool = False
-    timeout: float | None = None  # Plugin execution timeout in seconds (None = no timeout)
+    # Reserved: Context execution rejects non-None values before calling compute.
+    timeout: float | None = None
 
     # Metadata for tracking
     _registered_from_module: str | None = None

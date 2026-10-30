@@ -160,6 +160,11 @@ Context 先解析目标的依赖顺序，再计算各节点当前缓存键。执
 `preview_execution(run_id, target)` 使用同类依赖与缓存判断，但不执行目标。它适合在大规模运行前
 确认动态分支、缓存命中和预计重算范围。
 
+`Plugin.timeout` 是执行属性，不是 `set_config()` 配置项，其值不进入 lineage 或缓存身份。
+Context 当前只支持 `timeout=None`；非 `None` 值在该插件的 `compute()` 入口触发
+`NotImplementedError`，有效缓存命中仍可正常读取。此时上游依赖可能已经执行，不能将该检查
+视为整张 DAG 执行前的校验。平台与独立函数限制见[超时支持边界](ARCHITECTURE.md#超时支持边界)。
+
 ## 5. Lineage
 
 Context 按需从 `waveform_analysis.visualization` 加载 lineage renderer，避免普通数据处理

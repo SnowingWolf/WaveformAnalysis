@@ -11,6 +11,7 @@ from concurrent.futures import (
     wait,
 )
 from contextlib import contextmanager
+from functools import partial
 import logging
 import shutil
 import tempfile
@@ -32,6 +33,14 @@ def _build_error_info(exc: Exception) -> dict[str, str]:
         "message": str(exc),
         "traceback": traceback.format_exc(),
     }
+
+
+def _create_configured_context(
+    context_factory: Callable[[], Any], config: dict[str, Any], plugin_name: str
+) -> Any:
+    context = context_factory()
+    context.set_config(config, plugin_name=plugin_name)
+    return context
 
 
 def _apply_storage_dir_strategy(context: Any, strategy: str) -> str | None:
@@ -236,7 +245,7 @@ class BatchProcessor:
             run_ids: 运行ID列表
             data_name: 要处理的数据名称
             max_workers: 最大并行工作进程数
-            context_factory: 并行时为每个任务创建独立 Context 的工厂函数
+            context_factory: 为每个任务及重试创建独立 Context 的工厂函数
                 - thread 模式可自动使用 ctx.clone()
                 - process 模式会尝试 ctx.create_context_factory()
             executor_type: 执行器类型 ("thread" 或 "process")
@@ -299,7 +308,7 @@ class BatchProcessor:
             use_parallel = False
             max_workers = 1
 
-        if not use_parallel and storage_dir_strategy == "per_worker":
+        if not use_parallel and context_factory is None and storage_dir_strategy == "per_worker":
             self.logger.warning("storage_dir_strategy is ignored in serial mode; using 'shared'.")
             storage_dir_strategy = "shared"
 
@@ -423,10 +432,13 @@ class BatchProcessor:
                     while True:
                         attempts += 1
                         try:
+                            context = (
+                                context_factory() if context_factory is not None else self.context
+                            )
                             with _task_storage_scope(
-                                self.context, storage_dir_strategy, clean_temp_cache
+                                context, storage_dir_strategy, clean_temp_cache
                             ):
-                                data = self.context.get_data(run_id, data_name)
+                                data = context.get_data(run_id, data_name)
                             _record_outcome(
                                 run_id,
                                 data,
@@ -677,7 +689,7 @@ class BatchProcessor:
             run_ids: 运行ID列表
             func: 处理函数 func(context, run_id) -> result
             max_workers: 最大并行工作进程数
-            context_factory: 并行时为每个任务创建独立 Context 的工厂函数
+            context_factory: 为每个任务及重试创建独立 Context 的工厂函数
                 - thread 模式可自动使用 ctx.clone()
                 - process 模式会尝试 ctx.create_context_factory()
             executor_type: 执行器类型 ("thread" 或 "process")
@@ -728,7 +740,7 @@ class BatchProcessor:
             use_parallel = False
             max_workers = 1
 
-        if not use_parallel and storage_dir_strategy == "per_worker":
+        if not use_parallel and context_factory is None and storage_dir_strategy == "per_worker":
             self.logger.warning("storage_dir_strategy is ignored in serial mode; using 'shared'.")
             storage_dir_strategy = "shared"
 
@@ -824,10 +836,13 @@ class BatchProcessor:
                     while True:
                         attempts += 1
                         try:
+                            context = (
+                                context_factory() if context_factory is not None else self.context
+                            )
                             with _task_storage_scope(
-                                self.context, storage_dir_strategy, clean_temp_cache
+                                context, storage_dir_strategy, clean_temp_cache
                             ):
-                                data = func(self.context, run_id)
+                                data = func(context, run_id)
                             _record_outcome(
                                 run_id,
                                 data,
@@ -1016,7 +1031,7 @@ class BatchProcessor:
             plugin_name: 目标插件名称
             configs: 配置列表（每个元素为 dict）
             max_workers: 最大并行工作进程数
-            context_factory: 并行时为每个任务创建独立 Context 的工厂函数
+            context_factory: 为每个任务及重试创建独立 Context 的工厂函数
                 - thread 模式可自动使用 ctx.clone()
                 - process 模式会尝试 ctx.create_context_factory()
             executor_type: 执行器类型 ("thread" 或 "process")
@@ -1041,6 +1056,10 @@ class BatchProcessor:
             context_factory = self._resolve_context_factory(context_factory, executor_type)
 
         if tmp_cache:
+            if storage_dir_strategy == "readonly":
+                raise ValueError(
+                    "tmp_cache=True is incompatible with storage_dir_strategy='readonly'"
+                )
             storage_dir_strategy = "per_worker"
             if context_factory is None:
                 self.logger.warning(
@@ -1058,7 +1077,7 @@ class BatchProcessor:
                     max_workers=1,
                     context_factory=None,
                     executor_type=executor_type,
-                    storage_dir_strategy="shared",
+                    storage_dir_strategy=storage_dir_strategy,
                     clean_temp_cache=clean_temp_cache,
                     show_progress=show_progress,
                     on_error=on_error,
@@ -1070,17 +1089,15 @@ class BatchProcessor:
                 )
             else:
 
-                def _config_factory(config=config) -> Any:
-                    ctx = context_factory()
-                    ctx.set_config(config, plugin_name=plugin_name)
-
-                    return ctx
+                config_factory = partial(
+                    _create_configured_context, context_factory, config, plugin_name
+                )
 
                 batch = self.process_runs(
                     run_ids=run_ids,
                     data_name=data_name,
                     max_workers=max_workers,
-                    context_factory=_config_factory,
+                    context_factory=config_factory,
                     executor_type=executor_type,
                     storage_dir_strategy=storage_dir_strategy,
                     clean_temp_cache=clean_temp_cache,

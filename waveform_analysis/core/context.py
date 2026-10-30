@@ -772,7 +772,6 @@ class Context:
             >>> # 获取插件并修改属性
             >>> plugin = ctx.get_plugin('waveforms')
             >>> plugin.save_when = 'always'
-            >>> plugin.timeout = 300
             >>>
             >>> # 链式调用
             >>> ctx.get_plugin('st_waveforms').save_when = 'never'

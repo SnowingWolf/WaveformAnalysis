@@ -34,6 +34,14 @@ active_plans:
   condition: —
   task_file: docs/agents/runs/current/docs-build-skill/task.yaml
   legacy_plan: docs/agents/runs/current/docs-build-skill/legacy-plan.md
+- task_id: execution-correctness-20261030
+  state: completed
+  route: modify_code
+  workflow_cost: strict
+  workflow_shape: staged
+  condition: —
+  task_file: docs/agents/runs/current/execution-correctness-20261030/task.yaml
+  legacy_plan: docs/agents/runs/current/execution-correctness-20261030/legacy-plan.md
 - task_id: get-data-output-unification
   state: planning
   route: modify_code
