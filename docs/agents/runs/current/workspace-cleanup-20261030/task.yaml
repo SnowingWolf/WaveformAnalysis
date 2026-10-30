@@ -4,7 +4,7 @@ metadata:
   id: workspace-cleanup-20261030
   generation: 2
   created_at: '2026-10-30T09:38:38Z'
-  updated_at: '2026-10-30T09:48:21Z'
+  updated_at: '2026-10-30T09:49:36Z'
 spec:
   goal: 整理仓库根目录：可逆归档历史预览、报告和本地开发产物，保留数据与环境。
   route: generate_docs
@@ -46,12 +46,10 @@ spec:
     - tools/
     - docs/agents/runs/current/workspace-cleanup-20261030/task.yaml
   acceptance_criteria:
-  - Root loose previews/reports and idle local artifacts archived with a reversible
-    manifest.
-  - No raw acquisition data, analysis outputs, installed Python environment, credentials
-    or active runtime dependencies modified.
-  - Tracked HTML documents retain their content/resources and existing references
-    remain discoverable.
+  - Root loose previews/reports and idle local artifacts archived with a reversible manifest.
+  - No raw acquisition data, analysis outputs, installed Python environment, credentials or active runtime
+    dependencies modified.
+  - Tracked HTML documents retain their content/resources and existing references remain discoverable.
   - No permanent deletion; only already-empty directories removed.
   - Required documentation checks and scoped commit completed.
   required_gates:
@@ -71,13 +69,12 @@ spec:
     reviewer: 'adapter_review: gpt-6.1-sol/high, independent read-only archive review'
   authorization:
     source: 当前目录下很乱, 能帮我清理一下吗
-    decision: Proceed with reversible root-directory organization. Archive historical
-      and local artifacts, preserve scientific data/results and runtime environments.
+    decision: Proceed with reversible root-directory organization. Archive historical and local artifacts,
+      preserve scientific data/results and runtime environments.
   scope_out:
-  - No changes to source algorithms, public APIs, plugin versions, packaged docs or
-    dependency versions.
-  - No deletion of raw data, analysis outputs/caches, Python environments, credentials,
-    Git metadata or active tool configuration.
+  - No changes to source algorithms, public APIs, plugin versions, packaged docs or dependency versions.
+  - No deletion of raw data, analysis outputs/caches, Python environments, credentials, Git metadata or
+    active tool configuration.
   - No permanent deletion of files and no recursive scan/hash of acquisition datasets.
   execution_policy:
     mode: Same-filesystem rename into archive; rmdir only for verified empty trees.
@@ -106,13 +103,12 @@ spec:
     - setup.py
     - uv.lock
     - waveform_analysis.egg-info
-    checks: Metadata/inode preservation for moves and protected roots; HTML relative
-      resources and archive links; independent Next dependency resolution; import
-      smoke; doc sync/anchor/manifest gates.
+    checks: Metadata/inode preservation for moves and protected roots; HTML relative resources and archive
+      links; independent Next dependency resolution; import smoke; doc sync/anchor/manifest gates.
     commit: Commit tracked archive moves, README, ignore rule and task record only.
   workflow_escalation:
-    reason: Final scope check identified omitted standard task record; correct scope
-      and use staged independent review.
+    reason: Final scope check identified omitted standard task record; correct scope and use staged independent
+      review.
     code_scope_changed: false
     additional_data_operations: false
 status:
@@ -154,10 +150,9 @@ status:
   plan_sha256: 5fe972ad12b0fad190ac1d5b818fe9e68f383e23b9e1580ffa2592feb50b85fd
   execution:
     executor_role: executor.docs
-    summary: Root visible entries reduced from 46 to 25. Archived 21 artifact roots
-      by reversible same-filesystem rename; removed only six already-empty directories.
-      Preserved data/results, Python environment, credential/configuration roots and
-      current documentation dependencies.
+    summary: Root visible entries reduced from 46 to 25. Archived 21 artifact roots by reversible same-filesystem
+      rename; removed only six already-empty directories. Preserved data/results, Python environment,
+      credential/configuration roots and current documentation dependencies.
     changed_paths:
     - .gitignore
     - archive/README.md
@@ -173,14 +168,12 @@ status:
     - plugin_restructure_preview.html
     - s1_s2_pairing_visualization.html
     actions_taken:
-    - Moved 3 self-contained HTML previews into archive/previews and historical benchmark
-      JSON into archive/reports.
+    - Moved 3 self-contained HTML previews into archive/previews and historical benchmark JSON into archive/reports.
     - Grouped 17 ignored local dependency/build/test/scratch artifacts under archive/local/workspace-cleanup-20261030-01;
       saved source/destination and metadata in manifest.json.
-    - Added archive navigation README and a root-specific ignore rule for local-only
-      archive payloads.
-    - Verified app and tools contain only empty directories, then removed six empty
-      directories using rmdir.
+    - Added archive navigation README and a root-specific ignore rule for local-only archive payloads.
+    - Verified app and tools contain only empty directories, then removed six empty directories using
+      rmdir.
     local_manifest: archive/local/workspace-cleanup-20261030-01/manifest.json
     reversible_moves:
     - source: docs_unification_preview.html
@@ -227,28 +220,26 @@ status:
       destination: archive/local/workspace-cleanup-20261030-01/diagnose_output.log
     verification:
       archive_inventory: PASS 21 moves, source/destination metadata recorded
-      metadata_preserved: PASS root inode/size/mtime of all 21 moved entries; 4 small
-        tracked files compared exactly with base Git blobs
+      metadata_preserved: PASS root inode/size/mtime of all 21 moved entries; 4 small tracked files compared
+        exactly with base Git blobs
       protected_paths: 'PASS 22 protected roots: writable roots retain identity; .git/.agents/.codex/.aws
         protected by sandbox read-only mounts'
-      relative_resources: PASS all three HTML pages have no relative external resource
-        dependencies; archive README links resolve
+      relative_resources: PASS all three HTML pages have no relative external resource dependencies; archive
+        README links resolve
       dependency_resolution: PASS 6 Next dependencies resolve to the same docs/site-next/node_modules
         paths before/after cleanup
       import_smoke: PASS waveform_analysis, Context and 3 builtin adapters/specs
       doc_sync: PASS task-scoped check
       doc_anchors: PASS zero errors/warnings
-      scope: PASS 13 tracked/untracked change paths; zero out-of-scope paths; no source/test/site
-        implementation changes
-      inline_review: PASS no permanent file deletion, local payloads ignored, protected
-        data excluded, archive restores possible
+      scope: PASS 13 tracked/untracked change paths; zero out-of-scope paths; no source/test/site implementation
+        changes
+      inline_review: PASS no permanent file deletion, local payloads ignored, protected data excluded,
+        archive restores possible
       diff_check: PASS
     commands_run:
     - Plan and execution manifest under /tmp/wa-workspace-cleanup-20261030-01
-    - 'archive-verification-final.log: metadata, exact small-document comparisons,
-      links and Python imports'
-    - 'next-dependencies-before.txt vs next-dependencies-after.txt: 6 identical resolver
-      paths'
+    - 'archive-verification-final.log: metadata, exact small-document comparisons, links and Python imports'
+    - 'next-dependencies-before.txt vs next-dependencies-after.txt: 6 identical resolver paths'
     - WAVEFORM_PYTHON=<pyroot> scripts/check_doc_sync.sh --task <task.yaml>
     - python scripts/check_doc_anchors.py --check-sync --task <task.yaml> --base HEAD
     - python scripts/agent_workflow.py validate workspace-cleanup-20261030 --strict
@@ -262,27 +253,32 @@ status:
     - /tmp/wa-workspace-cleanup-20261030-01/doc-anchors-final.log
     - /tmp/wa-workspace-cleanup-20261030-01/scope-review.json
     not_executed_and_why:
-    - 'No numerical test suite or full documentation rebuild: source algorithms, public
-      contracts, site source and packaged output unchanged.'
-    - 'No dataset/NAS content hashes or recursive data scans: only bounded artifact
-      metadata and 4 small tracked document byte comparisons needed.'
+    - 'No numerical test suite or full documentation rebuild: source algorithms, public contracts, site
+      source and packaged output unchanged.'
+    - 'No dataset/NAS content hashes or recursive data scans: only bounded artifact metadata and 4 small
+      tracked document byte comparisons needed.'
     verification_notes:
-    - Read-only sandbox mount inode metadata can vary across exec contexts; final
-      check verifies read-only mount protection for these roots rather than treating
-      transient mount identity as a data modification.
-    - Task record omitted in initial scope metadata was included through generation2
-      replan; escalated to independent staged final review.
+    - Read-only sandbox mount inode metadata can vary across exec contexts; final check verifies read-only
+      mount protection for these roots rather than treating transient mount identity as a data modification.
+    - Task record omitted in initial scope metadata was included through generation2 replan; escalated
+      to independent staged final review.
     open_risks:
     - Local archive stays on this filesystem and does not reclaim disk space.
     - Root Node tool project has moved with its dependencies; restore the package.json/package-lock.json/node_modules
       trio to use those old root-local commands. Current docs app dependencies unchanged.
-    - Raw DAQ data, analysis outputs/caches, Python environment and installed package
-      metadata remain at their existing paths.
+    - Raw DAQ data, analysis outputs/caches, Python environment and installed package metadata remain
+      at their existing paths.
     requested_review_focus:
     - Reversible move inventory and excluded data/runtime roots
     - Exact archived document preservation and discoverability
     - Ignored local dependencies not included in commit
     - No source code changes and scoped verification sufficient
+    commit:
+      status: committed
+      sha: c609220542e1c70ea0a31b58984071a6ce016454
+      pre_commit_hooks: PASS whitespace, EOF, YAML and added-file-size; Ruff/Black skipped because no
+        Python implementation files changed.
+      git_rename_detection: All four historical document moves R100, unchanged content.
   review:
     reviewer: 'adapter_review: gpt-6.1-sol/high, independent read-only review'
     reviewer_actor: reviewer
@@ -297,10 +293,9 @@ status:
       inline_review: PASS
       reviewer: PASS
     blocking_findings: []
-    summary: Independent review verified all 21 reversible moves, 4 preserved tracked
-      document contents, HTML resources/archive navigation, ignored local payloads
-      with zero tracked entries, protected data/runtime roots and no source/test/site
-      implementation changes. Scoped commit approved.
+    summary: Independent review verified all 21 reversible moves, 4 preserved tracked document contents,
+      HTML resources/archive navigation, ignored local payloads with zero tracked entries, protected data/runtime
+      roots and no source/test/site implementation changes. Scoped commit approved.
     residual_risks:
     - Archive remains on the same filesystem and does not reclaim disk space.
     - Using the former root Node tool commands requires restoring package.json/package-lock.json/node_modules.
@@ -314,7 +309,14 @@ status:
     scope_changed: false
   approval: {}
   handoff:
-    commit_status: uncommitted
-    reason: Independent review approved; root is preparing the scoped archive/documentation
-      commit and will record its SHA in the final handoff.
+    commit_status: committed
+    commit_sha: c609220542e1c70ea0a31b58984071a6ce016454
+    summary: Workspace organization reviewed and committed. Root visible entries 46 -> 25; 21 artifact
+      roots archived reversibly and only six empty directories removed. No data, analysis output, Python
+      environment or current docs dependency changes.
+    archive_navigation: archive/README.md
     local_artifact_manifest: archive/local/workspace-cleanup-20261030-01/manifest.json
+    evidence_directory: /tmp/wa-workspace-cleanup-20261030-01
+    verification: All required gates PASS; independent reviewer approved; git status --short and git diff
+      --stat checked; local archive ignored and no unrelated changes.
+    closure: This record update is committed separately after the implementation SHA is known.
