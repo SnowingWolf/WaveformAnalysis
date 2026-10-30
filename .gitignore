@@ -159,6 +159,9 @@ results/
 plots/
 figures/
 
+# Reversible local workspace archives (dependencies, test output, scratch files)
+/archive/local/
+
 # Strax data and cache
 strax_data/
 _side_effects/

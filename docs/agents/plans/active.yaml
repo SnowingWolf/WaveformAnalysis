@@ -242,3 +242,11 @@ active_plans:
   condition: FirefoxHeadlessEnvironmentBlocked
   task_file: docs/agents/runs/current/waveform-version-sync-20260902/task.yaml
   legacy_plan: docs/agents/runs/current/waveform-version-sync-20260902/legacy-plan.md
+- task_id: workspace-cleanup-20261030
+  state: completed
+  route: generate_docs
+  workflow_cost: light
+  workflow_shape: staged
+  condition: —
+  task_file: docs/agents/runs/current/workspace-cleanup-20261030/task.yaml
+  legacy_plan: docs/agents/runs/current/workspace-cleanup-20261030/legacy-plan.md
