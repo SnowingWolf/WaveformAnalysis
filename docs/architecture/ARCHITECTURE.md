@@ -140,7 +140,14 @@ flowchart TD
 5. Plugin option 默认值。
 
 adapter 当前可推断采样率、采样间隔、时间戳单位和原始时间戳模式等硬件相关 option。adapter 只
-提供推断值，显式配置始终可以覆盖它。
+提供推断值，显式配置始终可以覆盖它。`AdapterInfo` 不保存全局元数据缓存；未知 adapter 名称
+返回 `None`，已注册对象的元数据异常直接传播。自定义 adapter 应先注册再创建 Context；同名替换格式
+规范后须新建 Context，注册表变动不会通知已有 Context 或失效其配置与 lineage。
+
+文件发现的组键仅表达目录布局，硬件通道以事件内的 `(board, channel)` 为准。
+`load_channel` 和 `load_channel_generator` 必须显式传入关键字 `board`；`load_all_channels`
+返回以 `(board, channel)` 为键的原始数组字典，仅包含实际有记录的通道。原始加载保留读取器 dtype
+和原生时间戳，物理单位归一发生在显式转换或 records bundle 构建阶段。
 
 ### 2.4 查看最终值与来源
 

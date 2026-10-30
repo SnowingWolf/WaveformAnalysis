@@ -2,869 +2,212 @@
 
 ## 概述
 
-DAQ 适配器系统是一个灵活的框架，用于统一处理不同 DAQ（数据采集）设备的数据格式。它解决了不同设备产生不同文件格式、目录结构、时间戳单位等问题。
+DAQ 适配器负责原始文件发现、格式解析和硬件元数据描述。`DAQAdapter` 组合 `FormatSpec`、
+`FormatReader` 与 `DirectoryLayout`，插件通过全局 `daq_adapter` 选择输入解释。
+规范导入入口为 `waveform_analysis.acquisition.formats`；旧 `waveform_analysis.utils.formats`
+继续指向同一对象与注册表，并保留原有 `__module__` 身份。
 
 ## 快速开始
 
 ### 使用默认 VX2730 格式
 
 ```python
-from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins.builtin.cpu import (
-    RawFilesPlugin, WaveformsPlugin
-)
+from waveform_analysis import Context
+from waveform_analysis.plugins import profiles
 
-# 初始化（默认使用 VX2730 格式）
 ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
-ctx.register(RawFilesPlugin())
-ctx.register(WaveformsPlugin())
-
-# 获取数据（自动使用 VX2730 配置）
-st_waveforms = ctx.get_data('run_001', 'st_waveforms')
+ctx.register(*profiles.cpu_default())
+records = ctx.get_data("run_001", "records")
+wave_pool = ctx.get_data("run_001", "wave_pool")
 ```
+
+`records` 保存事件元数据，`wave_pool` 保存连续采样点。访问波形使用
+`waveform_analysis.core.data.records_view(ctx, run_id)`，以 `record_id` 查询。
 
 ### 显式指定适配器
 
-```python
-# 为所有插件设置适配器（全局配置）
-ctx.set_config({'daq_adapter': 'vx2730'})
-
-# 或者为特定插件设置
-ctx.set_config({'daq_adapter': 'vx2730'}, plugin_name='raw_files')
-ctx.set_config({'daq_adapter': 'vx2730'}, plugin_name='waveforms')
-ctx.set_config({'daq_adapter': 'vx2730'}, plugin_name='st_waveforms')
-```
+推荐全局配置 `daq_adapter`，避免同一链路混用输入格式。自定义 adapter 应先注册再创建 Context。
+显式插件配置优先于 adapter 推断，adapter 推断优先于插件默认值。
 
 ## 核心架构
 
 ### 三层架构
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                    DAQAdapter                           │
-│  (完整适配器 - 提供统一的高层接口)                        │
-│  - scan_run()      扫描运行目录                          │
-│  - load_channel()  加载通道数据                          │
-│  - extract_and_convert()  提取并转换数据                 │
-└─────────────────────────────────────────────────────────┘
-                    ↓ 组合
-        ┌───────────────────────┬───────────────────────┐
-        ↓                       ↓                       ↓
-┌───────────────┐      ┌────────────────┐     ┌────────────────┐
-│ FormatReader  │      │ DirectoryLayout│     │  FormatSpec    │
-│ (文件读取器)   │      │ (目录结构)      │     │  (格式规范)     │
-│               │      │                │     │                │
-│ - read_file() │      │ - get_raw_path│     │ - columns      │
-│ - read_files()│      │ - group_files │     │ - timestamp_unit│
-└───────────────┘      └────────────────┘     │ - delimiter    │
-                                              └────────────────┘
-```
+| 组件 | 职责 |
+| --- | --- |
+| `FormatSpec` | 列映射、采样率、原生时间戳单位与语义、文件格式信息 |
+| `FormatReader` | 读取单文件、文件序列与分块数据，提取字段 |
+| `DirectoryLayout` | 构造运行目录、匹配文件并按布局分组、排序分卷 |
+| `DAQAdapter` | 组合以上组件，按记录中的硬件键提供原始数据访问 |
 
 ## 核心组件详解
 
 ### 1. FormatSpec (格式规范)
 
-**作用**: 描述 DAQ 数据文件的格式特征
-
-**包含信息**:
-- **ColumnMapping**: CSV 列映射
-  - `board`: BOARD 列索引 (板卡编号)
-  - `channel`: CHANNEL 列索引 (通道编号)
-  - `timestamp`: TIMETAG 列索引 (时间戳)
-  - `samples_start`: 波形数据起始列
-  - `baseline_start/end`: 基线计算范围
-
-- **TimestampUnit**: 时间戳单位
-  - `PICOSECONDS` (ps) - 1e-12 秒
-  - `NANOSECONDS` (ns) - 1e-9 秒
-  - `MICROSECONDS` (us) - 1e-6 秒
-  - `MILLISECONDS` (ms) - 1e-3 秒
-  - `SECONDS` (s)
-
-- **文件格式参数**:
-  - `delimiter`: CSV 分隔符 (如 `;` 或 `,`)
-  - `header_rows_first_file`: 首文件头部行数
-  - `header_rows_other_files`: 其他文件头部行数
-  - `file_pattern`: 文件匹配模式 (如 `*CH*.CSV`)
-
-- **采样参数**:
-  - `expected_samples`: 预期采样点数 (如 800)
-  - `sampling_rate_hz`: 采样率 (如 500 MHz)
-
-**示例 - VX2730**:
-```python
-VX2730_SPEC = FormatSpec(
-    name="vx2730_csv",
-    columns=ColumnMapping(
-        board=0,           # 第 0 列是 BOARD
-        channel=1,         # 第 1 列是 CHANNEL
-        timestamp=2,       # 第 2 列是 TIMETAG
-        samples_start=7,   # 第 7 列开始是波形数据
-        baseline_start=7,  # 前 40 个采样点用于基线
-        baseline_end=47,
-    ),
-    timestamp_unit=TimestampUnit.PICOSECONDS,  # 时间戳单位是 ps
-    delimiter=";",                              # 分号分隔
-    header_rows_first_file=2,                   # 首文件跳过 2 行
-    expected_samples=800,                       # 800 个采样点
-    sampling_rate_hz=500e6,                     # 500 MHz
-)
-```
+`ColumnMapping` 描述二维数组中的 board、channel、timestamp 和 samples 列。
+`timestamp_unit` 与 `raw_timestamp_mode` 共同解释原生时间戳；不能只凭数值大小推断单位。
+例如 V1725 使用 `SAMPLE_INDEX`，必须结合采样间隔换算。
 
 ### 2. FormatReader (格式读取器)
 
-**作用**: 根据 FormatSpec 读取和解析文件
+CSV/BIN 输出二维数组，V1725 输出带 `board`、`channel`、`timestamp`、`baseline`、`trunc`、
+`wave` 的结构化数组，其中 `baseline` 为 float64、`wave` 为 object。原始读取保留这些格式差异。
+`normalize_timestamp_to_ps()` 或 `extract_and_convert()` 是显式转换接口；加载方法不隐式换算时间戳。
 
-**核心方法**:
-- `read_file(file_path)`: 读取单个文件
-- `read_files(file_paths)`: 读取并堆叠多个文件
-- `read_files_generator(file_paths)`: 生成器模式读取（大数据）
-- `extract_columns(data)`: 从原始数据提取各列
-- `convert_timestamp_to_ps(timestamps)`: 时间戳单位转换
+### 3. DirectoryLayout (目录布局)
 
-**工作流程**:
-```
-CSV 文件
-    ↓ read_file()
-原始 NumPy 数组 (n_events × n_columns)
-    ↓ extract_columns()
-结构化数据字典:
-  - board: [0, 0, 0, ...]
-  - channel: [0, 0, 0, ...]
-  - timestamp: [1000, 2000, 3000, ...]  (原始单位)
-  - samples: [[100.1, 100.2, ...], ...]  (波形数据)
-  - baseline: [100.15, 100.18, ...]      (计算的基线)
-    ↓ convert_timestamp_to_ps()
-  - timestamp: [1000000, 2000000, ...]   (转换为 ps)
-```
-
-**示例 - VX2730Reader**:
-```python
-class VX2730Reader(FormatReader):
-    def read_file(self, file_path, is_first_file=True):
-        # 根据 spec.header_rows_first_file 跳过头部
-        skiprows = self.spec.header_rows_first_file if is_first_file else 0
-
-        # 使用 spec.delimiter 读取 CSV
-        df = pd.read_csv(
-            file_path,
-            delimiter=self.spec.delimiter,
-            skiprows=skiprows,
-            header=None
-        )
-        return df.values
-```
-
-### 3. DirectoryLayout (目录结构)
-
-**作用**: 描述数据文件的目录组织方式
-
-**包含信息**:
-- `raw_subdir`: 原始数据子目录名 (如 `"RAW"`)
-- `file_pattern`: 文件匹配模式 (如 `"*CH*.CSV"`)
-- `channel_pattern`: 通道号提取正则表达式
-
-**目录结构示例**:
-```
-DAQ/                          # data_root
-├── run_001/                  # run_name
-│   ├── RAW/                  # raw_subdir
-│   │   ├── CH0_0.CSV        # 通道 0, 文件 0
-│   │   ├── CH0_1.CSV        # 通道 0, 文件 1
-│   │   ├── CH1_0.CSV        # 通道 1, 文件 0
-│   │   └── CH1_1.CSV        # 通道 1, 文件 1
-│   └── processed/
-└── run_002/
-    └── RAW/
-```
-
-**核心方法**:
-- `get_raw_path(data_root, run_name)`: 获取原始数据目录
-  ```python
-  # 返回: DAQ/run_001/RAW
-  ```
-- `group_files_by_channel(raw_path)`: 按通道分组文件
-  ```python
-  # 返回: {
-  #   0: [Path('CH0_0.CSV'), Path('CH0_1.CSV')],
-  #   1: [Path('CH1_0.CSV'), Path('CH1_1.CSV')],
-  # }
-  ```
+`scan_run(data_root, run_name)` 返回 `dict[int, list[Path]]`，组键只表达文件布局。
+一个文件组可以包含多个板卡或通道，不能将组键、文件名或列表位置当作物理通道。
+`scan_run_detailed()` 另保留路径、文件名与索引信息。
 
 ### 4. DAQAdapter (完整适配器)
 
-**作用**: 组合上述三个组件，提供统一的高层接口
-
-**核心方法**:
-
-#### 扫描和发现
 ```python
-# 扫描运行目录，返回按通道分组的文件
-channel_files = adapter.scan_run("DAQ", "run_001")
-# 返回: {0: [Path(...), ...], 1: [Path(...), ...]}
+from waveform_analysis.acquisition.formats import get_adapter
+
+adapter = get_adapter("vx2730_bin")
+file_groups = adapter.scan_run("DAQ", "run_001")
+raw = adapter.load_channel("DAQ", "run_001", channel=1, board=0)
+for chunk in adapter.load_channel_generator(
+    "DAQ", "run_001", channel=1, chunk_size=10, board=0
+):
+    print(len(chunk))
+all_raw = adapter.load_all_channels("DAQ", "run_001", show_progress=False)
+raw_0_1 = all_raw[(0, 1)]
 ```
 
-#### 加载数据
-```python
-# 加载单个通道
-data = adapter.load_channel("DAQ", "run_001", channel=0)
-# 返回: NumPy 数组 (n_events × n_columns)
+公开加载签名：
 
-# 加载所有通道
-all_data = adapter.load_all_channels("DAQ", "run_001")
-# 返回: [ch0_data, ch1_data, ...]
+```text
+load_channel(data_root, run_name, channel, show_progress=False, *, board)
+load_channel_generator(data_root, run_name, channel, chunk_size=10, *, board)
+load_all_channels(data_root, run_name, *, show_progress=False)
 ```
 
-#### 提取和转换
-```python
-# 提取列并转换时间戳为 ps
-extracted = adapter.extract_and_convert(data)
-# 返回: {
-#   'board': array([0, 0, ...]),
-#   'channel': array([0, 0, ...]),
-#   'timestamp': array([1000000, 2000000, ...]),  # ps
-#   'samples': array([[100.1, ...], ...]),
-#   'baseline': array([100.15, ...]),
-# }
-```
+两个单通道接口均要求显式关键字 `board`，并按事件内容的 `(board, channel)` 筛选。
+所有加载方法保持读取器 dtype、二维或结构化布局、原生时间戳和通道内读取顺序。
+`load_all_channels()` 返回 `dict[tuple[int, int], np.ndarray]`，不接受 `n_channels`，不填充缺失通道。
 
-## 适配器在数据流中的作用
+| 输入情况 | 单通道加载 / 生成器 | 全通道加载 |
+| --- | --- | --- |
+| 目录不存在 | `FileNotFoundError` | `FileNotFoundError` |
+| 空运行或没有匹配硬件通道 | `ValueError`（生成器在迭代时抛出） | 空运行返回 `{}` |
+| 有记录 | 原始数组 / 非空原始数组块 | 仅包含实际有记录的硬件键 |
 
-### 完整数据流
+`chunk_size` 必须为正，并传给读取器；CSV 可按文件分批，BIN 按读取器事件块分批。生成器耗尽所有候选文件仍无匹配记录时抛出 `ValueError`。
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│ 1. 原始 DAQ 文件                                             │
-│    CH0_0.CSV, CH0_1.CSV, CH1_0.CSV, ...                    │
-└─────────────────────────────────────────────────────────────┘
-                    ↓ DAQAdapter.scan_run()
-┌─────────────────────────────────────────────────────────────┐
-│ 2. 文件分组                                                  │
-│    {0: [CH0_0.CSV, CH0_1.CSV], 1: [CH1_0.CSV, ...]}       │
-└─────────────────────────────────────────────────────────────┘
-                    ↓ DAQAdapter.load_channel()
-┌─────────────────────────────────────────────────────────────┐
-│ 3. 原始 NumPy 数组                                           │
-│    array([[0, 0, 1000, ..., 100.1, 100.2, ...],            │
-│           [0, 0, 2000, ..., 100.3, 100.4, ...]])           │
-└─────────────────────────────────────────────────────────────┘
-                    ↓ DAQAdapter.extract_and_convert()
-┌─────────────────────────────────────────────────────────────┐
-│ 4. 结构化数据字典                                            │
-│    {'board': [...], 'channel': [...],                      │
-│     'timestamp': [...], 'samples': [...]}                  │
-└─────────────────────────────────────────────────────────────┘
-                    ↓ WaveformStruct (使用 FormatSpec)
-┌─────────────────────────────────────────────────────────────┐
-│ 5. 结构化数组 (RECORD_DTYPE)                                │
-│    array([(100.15, nan, 1000000, 800, 0, [100.1, ...]),   │
-│           (100.18, nan, 2000000, 800, 0, [100.3, ...])],   │
-│          dtype=[('baseline', 'f8'),                         │
-│                 ('baseline_upstream', 'f8'),                │
-│                 ('timestamp', 'i8'), ...])                  │
-└─────────────────────────────────────────────────────────────┘
-                    ↓ 后续插件处理
-┌─────────────────────────────────────────────────────────────┐
-│ 6. 特征提取、Hit 检测、事件重建等                            │
-└─────────────────────────────────────────────────────────────┘
-```
+## 数据流程
 
-## 适配器的具体应用位置
+正式原始输入链路为 `raw_files -> records / wave_pool -> records_view`。
+`raw_files` 保持 `list[list[str]]` 文件组 schema；其组键语义不等同于硬件通道。
+共享 records bundle 按格式解析输入，生成带硬件键的元数据表和对应波形池，并归一时间戳。
 
-### 1. RawFilesPlugin (原始文件扫描)
-
-**位置**: `waveform_analysis/core/plugins/builtin/cpu/raw_files.py`
-
-**作用**: 使用适配器扫描目录，获取文件列表
-
-```python
-class RawFilesPlugin(Plugin):
-    provides = "raw_files"
-
-    def compute(self, context, run_id, **kwargs):
-        daq_adapter = context.get_config(self, "daq_adapter")
-        adapter = get_adapter(daq_adapter)
-
-        # 使用适配器扫描目录
-        channel_files = adapter.scan_run(data_root, run_id)
-
-        # 返回按通道分组的文件路径
-        return [[str(f) for f in files] for files in channel_files.values()]
-```
-
-### 2. WaveformsPlugin (波形加载)
-
-**位置**: `waveform_analysis/core/plugins/builtin/cpu/waveforms.py`
-
-**作用**: 使用适配器读取文件，加载波形数据
-
-```python
-class WaveformsPlugin(Plugin):
-    provides = "waveforms"
-    depends_on = ["raw_files"]
-
-    def compute(self, context, run_id, **kwargs):
-        raw_files = context.get_data(run_id, "raw_files")
-        daq_adapter = context.get_config(self, "daq_adapter")
-        adapter = get_adapter(daq_adapter)
-
-        waveforms = []
-        for channel_files in raw_files:
-            # 使用适配器的 FormatReader 读取文件
-            data = adapter.format_reader.read_files(channel_files)
-            waveforms.append(data)
-
-        return waveforms
-```
-
-### 3. StWaveformsPlugin (波形结构化)
-
-**位置**: `waveform_analysis/core/plugins/builtin/cpu/st_waveforms.py`
-
-**作用**: 使用适配器的 FormatSpec 配置 WaveformStruct
-
-```python
-class StWaveformsPlugin(Plugin):
-    provides = "st_waveforms"
-    depends_on = ["waveforms"]
-
-    def compute(self, context, run_id, **kwargs):
-        waveforms = context.get_data(run_id, "waveforms")
-        daq_adapter = context.get_config(self, "daq_adapter")
-
-        # 从适配器获取格式规范
-        config = WaveformStructConfig.from_adapter(daq_adapter)
-
-        # 使用格式规范创建 WaveformStruct
-        # FormatSpec 告诉 WaveformStruct:
-        # - 哪一列是 timestamp
-        # - 哪些列是 baseline 计算范围
-        # - 时间戳单位是什么
-        # - 波形数据从哪一列开始
-        waveform_struct = WaveformStruct(waveforms, config=config)
-
-        return waveform_struct.structure_waveforms()
-```
-
-### 4. WaveformStruct (核心处理)
-
-**位置**: `waveform_analysis/core/processing/waveform_struct.py`
-
-**作用**: 使用 FormatSpec 的列映射和单位信息
-
-```python
-def _structure_waveform(self, waves, ...):
-    # 从配置获取列映射
-    cols = self.config.format_spec.columns
-
-    # 使用列映射提取数据
-    timestamps = waves[:, cols.timestamp].astype(np.int64)
-    baseline_vals = np.mean(
-        waves[:, cols.baseline_start:cols.baseline_end],
-        axis=1
-    )
-    wave_data = waves[:, cols.samples_start:cols.samples_end]
-
-    # 使用时间戳单位转换
-    timestamp_scale = self.config.format_spec.get_timestamp_scale_to_ps()
-    timestamps = timestamps * timestamp_scale
-
-    # 填充结构化数组
-    waveform_structured["baseline"] = baseline_vals
-    waveform_structured["timestamp"] = timestamps
-    waveform_structured["wave"] = wave_data
-```
+`st_waveforms` 是 VX2730 CSV 和 V1725 支持的结构化产物，CoMPASS BIN 不支持此产物。
+V1725 与 CoMPASS BIN 的 records bundle 均仅支持 `input_source="raw_files"`，
+不能改为 `input_source="st_waveforms"`。具体输入路由见
+[插件适配器行为](ADAPTER_PLUGIN_BEHAVIOR.md)。
 
 ## 内置适配器
 
 ### 1. VX2730 适配器
 
-**设备**: CAEN VX2730 数字化仪
-
-**格式特点**:
-- 文件格式: CSV (分号分隔)
-- 时间戳单位: 皮秒 (ps)
-- 采样率: 500 MHz
-- 采样点数: 800
-- 列布局: `BOARD;CHANNEL;TIMETAG;...;SAMPLES[7:]`
-- 目录结构: `DAQ/{run_name}/RAW/*.CSV`
-
-**使用**:
-```python
-from waveform_analysis.utils.formats import get_adapter
-
-adapter = get_adapter("vx2730")
-data = adapter.load_channel("DAQ", "run_001", channel=0)
-```
+`vx2730`：CoMPASS CSV，分号分隔，500 MHz，时间戳为 ps；默认匹配 `RAW/*.CSV`。
+输出二维原始数组，以 `FormatSpec.columns` 解释元数据和采样列。
+即使文件名包含 `CH<n>`，硬件筛选仍读取事件的 board/channel 列。
 
 ### 2. V1725 适配器
 
-**设备**: CAEN V1725 数字化仪 (DAW_DEMO 二进制格式)
+`v1725`：DAW_DEMO 二进制 `RAW/*.bin`，250 MHz，原生时间戳为 sample index。
+结构化原始数组保留每条记录的板卡和通道；显式换算为 ps 时使用采样间隔。
+规范分卷按整数索引排序，例如 `seg0, seg2, seg10`，不会按字符串排列为 `seg0, seg10, seg2`。
 
-**格式特点**:
-- 文件格式: 二进制 (.bin)
-- 时间戳单位: 纳秒 (ns)
-- 采样率: 250 MHz
-- 文件模式: `*.bin`
-- 目录结构: `{run_name}/RAW/*.bin`
-- 特殊处理: 多通道数据存储在单个 .bin 文件中
+### 3. VX2730 CoMPASS BIN 适配器
 
-**二进制格式解析**:
-- Event Header (16 bytes): 包含通道掩码
-- Channel Header (12 bytes): 时间戳、基线、截断标志
-- Waveform Data: int16 数组
+`vx2730_bin`：CoMPASS 二进制列表，默认匹配 `RAW/*.BIN`，扩展名大小写不敏感；
+500 MHz，输出二维 int64 原始数组，原生时间戳为 ps。
+同一文件可包含多个硬件通道，分组 0 也不意味着物理通道 0。
 
-**使用**:
-```python
-adapter = get_adapter("v1725")
-data = adapter.load_channel(".", "run_001", channel=0)
-```
+读取、计数和流式读取共用分卷解析规则：
+
+- 每卷自身有有效头部时独立解析并重置布局，包括间隔、反序输入和不同头部的文件。
+- 无头续卷只能继承同目录、同命名 family 的已知连续前卷布局，数据偏移为 0。
+  `name.BIN` 和 `name_0.BIN` 都表示第 0 卷；有头子集可从任意 N 卷锚定 N+1。
+- 空中间卷仅在已建立布局且索引连续时推进锚点；空首卷不能建立布局。
+- 损坏头部、事件截断和不一致的波形长度直接报错，不尝试静默降级解析。
+
+`format_reader.count_total_rows()` 使用文件大小、头部和首事件 `n_samples` 验证布局与对齐，
+不是逐事件完整性检查。实际读取还会校验后续事件的 `n_samples`。
 
 ## 自定义适配器
 
 ### 创建自定义适配器的步骤
 
-#### 1. 定义格式规范
 ```python
-from waveform_analysis.utils.formats import (
-    FormatSpec, ColumnMapping, TimestampUnit
+from waveform_analysis import Context
+from waveform_analysis.acquisition.formats import (
+    ColumnMapping, DAQAdapter, DirectoryLayout, FormatSpec,
+    GenericCSVReader, TimestampUnit, register_adapter,
 )
 
-MY_SPEC = FormatSpec(
-    name="my_daq_csv",
-    columns=ColumnMapping(
-        board=0,
-        channel=1,
-        timestamp=3,      # 时间戳在第 3 列
-        samples_start=10, # 波形从第 10 列开始
-        baseline_start=10,
-        baseline_end=50,
-    ),
-    timestamp_unit=TimestampUnit.NANOSECONDS,  # 纳秒
-    delimiter=",",                              # 逗号分隔
-    header_rows_first_file=1,
-    expected_samples=1000,
-    sampling_rate_hz=1e9,  # 1 GHz
+spec = FormatSpec(
+    name="my_csv",
+    columns=ColumnMapping(board=0, channel=1, timestamp=3, samples_start=10),
+    timestamp_unit=TimestampUnit.NANOSECONDS,
+    delimiter=",",
+    sampling_rate_hz=500e6,
 )
-```
-
-#### 2. 创建读取器（可选，使用通用读取器）
-```python
-from waveform_analysis.utils.formats import GenericCSVReader
-
-reader = GenericCSVReader(MY_SPEC)
-```
-
-#### 3. 定义目录布局
-```python
-from waveform_analysis.utils.formats import DirectoryLayout
-
-MY_LAYOUT = DirectoryLayout(
-    name="my_daq",
-    raw_subdir="data",           # 原始数据在 data/ 子目录
-    file_pattern="ch*.csv",      # 文件名模式
-    channel_pattern=r"ch(\d+)",  # 从文件名提取通道号
+layout = DirectoryLayout(
+    name="my_layout", raw_subdir="data",
+    file_glob_pattern="*.csv", channel_regex=r"channel(\d+)",
 )
+register_adapter(DAQAdapter("my_adapter", GenericCSVReader(spec), layout))
+ctx = Context(config={"data_root": "DAQ", "daq_adapter": "my_adapter"})
 ```
 
-#### 4. 创建并注册适配器
-```python
-from waveform_analysis.utils.formats import DAQAdapter, register_adapter
-
-my_adapter = DAQAdapter(
-    name="my_daq",
-    format_reader=reader,
-    directory_layout=MY_LAYOUT,
-)
-
-register_adapter(my_adapter)
-```
-
-#### 5. 使用自定义适配器
-```python
-from waveform_analysis.utils.formats import get_adapter
-
-adapter = get_adapter("my_daq")
-data = adapter.load_channel("data_root", "run_001", channel=0)
-```
-
-## 适配器的优势
-
-### 1. 解耦设备依赖
-- WaveformStruct 不再硬编码 VX2730 的列索引
-- 可以轻松支持新的 DAQ 设备
-- 修改格式不需要改动核心代码
-
-### 2. 统一接口
-- 所有 DAQ 设备使用相同的 API
-- 插件代码与具体设备无关
-- 便于测试和维护
-
-### 3. 灵活配置
-- 通过配置文件切换不同设备
-- 支持同一设备的不同版本
-- 可以动态注册新格式
-
-### 4. 自动单位转换
-- 自动处理不同的时间戳单位
-- 统一转换为内部标准单位 (ps 或 ns)
-- 避免单位错误
-
-### 5. 目录结构抽象
-- 支持不同的目录组织方式
-- 自动扫描和分组文件
-- 处理复杂的文件命名规则
+实际文件必须符合列映射和头部配置。注册表是进程内状态，新进程需重新注册自定义格式。
 
 ## 配置示例
 
 ### 在 Context 中使用
+
 ```python
-from waveform_analysis.core.context import Context
-
-ctx = Context()
-
-# 配置使用 VX2730 适配器
-ctx.set_config({
-    "daq_adapter": "vx2730",
-    "data_root": "DAQ",
-})
-
-# 所有插件自动使用 VX2730 格式
-st_waveforms = ctx.get_data("run_001", "st_waveforms")
+print(ctx.get_adapter_info())
+ctx.show_resolved_config("records")  # 需先注册对应插件
 ```
+
+`AdapterInfo.from_adapter(name)` 与 `get_adapter_info(name)` 每次读取当前注册对象，复用
+`AdapterInfo.from_adapter_object(adapter)` 提取逻辑，不保存全局元数据缓存。
+未知名称返回 `None`；已注册对象的元数据错误直接传播。
 
 ### 切换到不同设备
-```python
-# 只需修改配置，无需改动代码
-ctx.set_config({
-    "daq_adapter": "v1725",  # 切换到 V1725
-    "data_root": ".",
-})
 
-# 相同的代码，不同的设备
-st_waveforms = ctx.get_data("run_001", "st_waveforms")
-```
-
-## WaveformStruct 解耦
-
-### 背景
-
-在 2026-01 版本之前，`WaveformStruct` 类硬编码了 VX2730 的列索引：
-
-```python
-# 旧代码（硬编码）
-wave_data = waves[:, 7:]              # 假设波形从列 7 开始
-baseline = np.mean(waves[:, 7:47])    # 假设基线范围是列 7-47
-board = waves[:, 0]                   # 假设 BOARD 在列 0
-channel = waves[:, 1]                 # 假设 CHANNEL 在列 1
-timestamp = waves[:, 2]               # 假设时间戳在列 2
-```
-
-这导致无法支持其他 DAQ 格式。
-
-### 解耦方案
-
-现在 `WaveformStruct` 通过 `WaveformStructConfig` 配置类从 `FormatSpec` 读取列索引：
-
-```python
-# 新代码（配置驱动）
-cols = self.config.format_spec.columns
-wave_data = waves[:, cols.samples_start:cols.samples_end]
-baseline = np.mean(waves[:, cols.baseline_start:cols.baseline_end])
-board = waves[:, cols.board]
-channel = waves[:, cols.channel]
-timestamp = waves[:, cols.timestamp]
-```
-
-### 使用方式
-
-#### 方式 1: 默认（向后兼容）
-
-```python
-# 无配置，默认使用 VX2730
-struct = WaveformStruct(waveforms)
-```
-
-#### 方式 2: 从适配器创建
-
-```python
-# 从已注册的适配器创建
-struct = WaveformStruct.from_adapter(waveforms, "vx2730")
-```
-
-#### 方式 3: 自定义配置
-
-```python
-# 使用自定义配置
-config = WaveformStructConfig(format_spec=custom_spec)
-struct = WaveformStruct(waveforms, config=config)
-```
-
-#### 方式 4: 在插件中使用
-
-```python
-# 通过 Context 配置
-ctx.set_config({'daq_adapter': 'vx2730'}, plugin_name='st_waveforms')
-st_waveforms = ctx.get_data('run_001', 'st_waveforms')
-```
-
-### 动态 ST_WAVEFORM_DTYPE
-
-`WaveformStruct` 现在支持动态波形长度：
-
-```python
-from waveform_analysis.core.processing.dtypes import create_record_dtype
-
-# 创建不同长度的 dtype
-dtype_800 = create_record_dtype(800)   # VX2730 标准长度
-dtype_1000 = create_record_dtype(1000) # 自定义长度
-dtype_1600 = create_record_dtype(1600) # 更长的波形
-
-# 使用配置自动创建
-config = WaveformStructConfig(format_spec=custom_spec, wave_length=1000)
-dtype = config.get_record_dtype()  # 自动创建 1000 点的 dtype
-```
+替换同名 adapter 的格式规范后，应新建 Context。注册表不会通知已有 Context 或失效其配置与 lineage，
+不支持对既有 Context 热替换格式。正常配置变更仍通过 `ctx.set_config(...)` 完成。
 
 ## 最佳实践
 
-### 1. 一致性原则
-
-在整个数据流中使用相同的 `daq_adapter`：
-
-```python
-# ✅ 推荐：全局配置
-ctx.set_config({'daq_adapter': 'vx2730'})
-
-# ❌ 不推荐：混用不同适配器
-ctx.set_config({'daq_adapter': 'vx2730'}, plugin_name='raw_files')
-ctx.set_config({'daq_adapter': 'custom'}, plugin_name='st_waveforms')  # 不一致！
-```
-
-### 2. 优先使用全局配置
-
-```python
-# ✅ 推荐：全局配置，简洁明了
-ctx.set_config({'daq_adapter': 'vx2730'})
-
-# ⚠️ 可用但繁琐：插件特定配置
-ctx.set_config({'daq_adapter': 'vx2730'}, plugin_name='raw_files')
-ctx.set_config({'daq_adapter': 'vx2730'}, plugin_name='waveforms')
-ctx.set_config({'daq_adapter': 'vx2730'}, plugin_name='st_waveforms')
-```
-
-### 3. 验证适配器
-
-在使用自定义适配器前，先验证格式：
-
-```python
-from waveform_analysis.utils.formats import get_adapter
-
-# 获取适配器
-adapter = get_adapter('my_daq')
-
-# 验证格式规范
-print(f"格式名称: {adapter.format_spec.name}")
-print(f"列映射: {adapter.format_spec.columns}")
-print(f"时间戳单位: {adapter.format_spec.timestamp_unit}")
-
-# 测试文件扫描
-files = adapter.scan_run("DAQ", "test_run")
-print(f"找到 {len(files)} 个通道")
-
-# 测试数据加载
-if files:
-    data = adapter.load_channel(files[0])
-    print(f"加载了 {len(data)} 个事件")
-    print(f"数据形状: {data.shape}")
-```
-
-### 4. 文档化自定义格式
-
-为自定义适配器创建文档：
-
-```python
-"""
-自定义 DAQ 适配器: MyDAQ
-
-格式特点:
-- 分隔符: 逗号
-- 时间戳单位: 纳秒
-- 采样点数: 1000
-- 列布局:
-  - 列 0: BOARD
-  - 列 1: CHANNEL
-  - 列 3: TIMESTAMP
-  - 列 10-1009: 波形数据
-
-目录结构:
-- 数据目录: DATA/
-- 文件命名: channel_0.csv, channel_1.csv, ...
-
-使用示例:
-    ctx.set_config({'daq_adapter': 'my_daq'})
-    st_waveforms = ctx.get_data('run_001', 'st_waveforms')
-"""
-```
-
-### 5. 测试自定义适配器
-
-创建单元测试验证适配器：
-
-```python
-import pytest
-from waveform_analysis.utils.formats import get_adapter
-
-def test_my_daq_adapter():
-    """测试自定义 DAQ 适配器"""
-    adapter = get_adapter('my_daq')
-
-    # 测试格式规范
-    assert adapter.format_spec.name == 'my_daq'
-    assert adapter.format_spec.expected_samples == 1000
-
-    # 测试文件扫描
-    files = adapter.scan_run("test_data", "my_daq_run")
-    assert len(files) == 2
-
-    # 测试数据加载
-    data = adapter.load_channel(files[0])
-    assert data.shape[1] >= 1010  # 至少包含元数据 + 1000 个采样点
-```
+硬件唯一键始终使用 `(board, channel)`，配置文件推荐写作 `"board:channel"`。
+`channel_metadata` 只保存硬件事实或兼容信息，不决定插件行为。
+校验文件发现、原始读取和正式 records/wave_pool 三个层次，不能只凭文件计数判断数据完整性。
 
 ## 故障排除
 
-### 问题 1: 适配器未找到
+缺目录与无匹配记录是不同错误，先检查 `adapter.get_raw_path(data_root, run_name)` 和事件硬件键。
+不要将 `scan_run()` 返回的文件组数量描述为真实通道数量。
+排查时间戳异常时检查 `timestamp_unit`、`raw_timestamp_mode` 与采样率，而非猜测数量级。
 
-**错误信息**:
-```
-ValueError: Adapter 'my_daq' not found. Available adapters: ['vx2730']
-```
+## API 迁移
 
-**解决方案**:
-```python
-# 确保已注册适配器
-from waveform_analysis.utils.formats import register_adapter, list_adapters
+| 旧调用 | 当前调用 |
+| --- | --- |
+| `load_channel(root, run, channel)` | `load_channel(root, run, channel, board=board)` |
+| `load_channel_generator(root, run, channel)` | `load_channel_generator(root, run, channel, board=board)` |
+| `load_all_channels(..., n_channels=N)` 及列表下标 | 删除 `n_channels`，使用字典键 `(board, channel)`，显式处理缺失键 |
+| `get_adapter_info(..., use_cache=...)` | 删除 `use_cache` 参数 |
+| `clear_adapter_info_cache()` | 删除清理调用；同名格式替换后新建 Context |
 
-# 检查已注册的适配器
-print(list_adapters())
+## 相关文档
 
-# 注册你的适配器
-register_adapter(my_adapter)
-```
-
-### 问题 2: 列索引错误
-
-**错误信息**:
-```
-IndexError: index 10 is out of bounds for axis 1 with size 8
-```
-
-**解决方案**:
-```python
-# 检查你的数据文件实际列数
-import pandas as pd
-df = pd.read_csv("your_file.csv", sep=';', header=1)
-print(f"实际列数: {len(df.columns)}")
-
-# 调整 ColumnMapping
-columns = ColumnMapping(
-    board=0,
-    channel=1,
-    timestamp=2,
-    samples_start=7,  # 确保不超过实际列数
-    baseline_start=7,
-    baseline_end=min(47, len(df.columns))  # 不超过实际列数
-)
-```
-
-### 问题 3: 时间戳单位不匹配
-
-**症状**: 时间戳值异常大或异常小
-
-**解决方案**:
-```python
-# 检查你的数据文件中的时间戳值
-df = pd.read_csv("your_file.csv", sep=';', header=1)
-print(f"时间戳范围: {df.iloc[:, 2].min()} - {df.iloc[:, 2].max()}")
-
-# 根据数值范围选择合适的单位
-# 如果值在 1e12 量级 → ps
-# 如果值在 1e9 量级 → ns
-# 如果值在 1e6 量级 → us
-# 如果值在 1e3 量级 → ms
-# 如果值在 1-1000 → s
-
-from waveform_analysis.utils.formats.base import TimestampUnit
-spec = FormatSpec(
-    ...,
-    timestamp_unit=TimestampUnit.NS  # 根据实际情况选择
-)
-```
-
-### 问题 4: 波形长度不匹配
-
-**错误信息**:
-```
-ValueError: could not broadcast input array from shape (1000,) into shape (800,)
-```
-
-**解决方案**:
-```python
-# 方案 1: 指定正确的波形长度
-config = WaveformStructConfig(
-    format_spec=custom_spec,
-    wave_length=1000  # 匹配实际波形长度
-)
-
-# 方案 2: 让系统自动检测
-# WaveformStruct 会自动使用实际波形长度创建动态 dtype
-struct = WaveformStruct(waveforms, config=config)
-st_waveforms = struct.structure_waveforms()  # 自动适配
-```
-
-### 问题 5: 文件扫描失败
-
-**症状**: `scan_run()` 返回空列表
-
-**解决方案**:
-```python
-# 检查目录布局配置
-layout = DirectoryLayout(
-    raw_subdir="RAW",           # 确保子目录名称正确
-    file_pattern="*.csv",       # 确保文件扩展名正确
-    channel_regex=r"CH(\d+)",   # 确保正则表达式匹配文件名
-    recursive=False
-)
-
-# 手动测试文件扫描
-import os
-import re
-data_dir = "DAQ/run_001/RAW"
-files = [f for f in os.listdir(data_dir) if f.endswith('.csv')]
-print(f"找到的文件: {files}")
-
-# 测试正则表达式
-pattern = re.compile(r"CH(\d+)")
-for f in files:
-    match = pattern.search(f)
-    if match:
-        print(f"文件 {f} 匹配通道 {match.group(1)}")
-```
-
-## 总结
-
-适配器系统通过三层架构（FormatSpec + FormatReader + DirectoryLayout）提供了灵活、可扩展的 DAQ 数据处理框架。它在数据流的最前端工作，负责：
-
-1. **文件发现**: 扫描目录，按通道分组文件
-2. **数据读取**: 根据格式规范读取和解析文件
-3. **单位转换**: 统一时间戳和其他物理量的单位
-4. **数据提取**: 从原始数据中提取各个字段
-5. **配置传递**: 将格式信息传递给 WaveformStruct
-
-这使得整个系统可以轻松支持不同的 DAQ 设备，而无需修改核心处理逻辑。
-
-## 更新历史
-
-- **2026-01**: 初始版本，WaveformStruct DAQ 解耦
-- **2026-01**: 添加 VX2730 适配器说明
-- **2026-01**: 添加自定义适配器示例和故障排除
+- [适配器与插件行为](ADAPTER_PLUGIN_BEHAVIOR.md)
+- [配置与适配器推断](../../features/context/CONFIGURATION.md#适配器推断)
+- [数据产物与波形访问](../../architecture/DATA_PRODUCTS.md)

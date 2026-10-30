@@ -180,7 +180,14 @@ Context 按需从 `waveform_analysis.visualization` 加载 lineage renderer，�
 默认 lineage 是可序列化配方，包含 Plugin 类、version、描述、受跟踪配置和递归上游 lineage；
 存在时还会加入规范化 dtype、`output_schema`、已验证 spec hash 和顶层 adapter 信息。Context 递归缓存
 不含 adapter 信息的基础 lineage，并只在顶层补充一次，所以首次查询、缓存后查询及不同遍历顺序具有
-相同身份。Plugin 可用 `get_lineage(context, *, dependency_resolver=None)` 补充自身构建语义，并应使用
+相同身份。adapter 元数据提取不使用全局缓存；同名注册表替换不会通知既有 Context，
+因此必须在替换格式规范后新建 Context，避免复用旧配置或 lineage。
+
+V1725 分卷顺序按整数索引排列（如 `seg0, seg2, seg10`），此读取解释变更由 `raw_files` 的
+`0.0.3` 版本沿上游 lineage 传播至 `st_waveforms`；无需为未变更的结构化算法单独升级版本。
+`records` 与 `wave_pool` 的共享原始输入路径版本均为 `0.17.0`，旧 bundle 缓存随对应 lineage 失效。
+
+Plugin 可用 `get_lineage(context, *, dependency_resolver=None)` 补充自身构建语义，并应使用
 传入的 resolver 构造上游；旧的单参数 hook 仍兼容。
 
 ```mermaid

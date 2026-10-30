@@ -23,7 +23,7 @@ Examples:
     >>> channel_files = adapter.scan_run("DAQ", "run_001")
     >>>
     >>> # 加载通道数据
-    >>> data = adapter.load_channel("DAQ", "run_001", channel=0)
+    >>> data = adapter.load_channel("DAQ", "run_001", channel=0, board=0)
     >>>
     >>> # 提取并转换时间戳
     >>> extracted = adapter.extract_and_convert(data)

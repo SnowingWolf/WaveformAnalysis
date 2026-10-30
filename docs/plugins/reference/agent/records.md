@@ -5,7 +5,7 @@ profile: "agent"
 provides: "records"
 plugin_class: "RecordsPlugin"
 module: "waveform_analysis.core.plugins.builtin.records.plugin"
-version: "0.16.0"
+version: "0.17.0"
 summary: "Build records (event index table) from the shared internal records bundle."
 depends_on: []
 declared_depends_on: []
@@ -17,7 +17,7 @@ output_kind: "structured_array"
 execution_kind: "static"
 narrative_source: "source"
 narrative_source_reason: null
-source_fingerprint: "76b3e9a8abf2803683c45e6e8c7396758d7c56865224102e121826746aa9804b"
+source_fingerprint: "e63f19a71081f947d969afefab9f5f7aa9f12097699cb134ee116bf01b3121ac"
 generated: true
 ---
 # records
@@ -29,14 +29,14 @@ RecordsPlugin 是分析链最底层的基础插件，把共享的 RecordsBundle 
 
 records 是绝大多数 records-backed 产物的源头：波形池的切片访问、通道角色掩码、不对称性筛选、滤波波形池与 peaklet 波形还原等都从 records 的行结构与字段约定取得语义。该插件不重复读取原始波形，而是复用同一份内存或磁盘 bundle（单分片直接 memmap records_path，多分片仅合并元数据视图），保证整条链共享一致的记录视图。
 
-插件通过 `_RecordsBundlePluginBase` 共享配置源，并支持 `input_source` 在 raw_files 与 st_waveforms 之间切换（V1725 仅支持 raw_files）；`resolve_depends_on` 按所选输入源动态声明上游依赖。
+插件通过 `_RecordsBundlePluginBase` 共享配置源，并支持 `input_source` 在 raw_files 与 st_waveforms 之间切换（V1725 与 VX2730 BIN 仅支持 raw_files）；`resolve_depends_on` 按所选输入源动态声明上游依赖。
 
 | Item | Value |
 | --- | --- |
 | Provides | `records` |
 | Plugin Class | `RecordsPlugin` |
 | Module | `waveform_analysis.core.plugins.builtin.records.plugin` |
-| Version | `0.16.0` |
+| Version | `0.17.0` |
 | Category | 记录处理 |
 | Output Container | `structured_array` |
 | Execution Mode | `static` |
@@ -45,7 +45,7 @@ records 是绝大多数 records-backed 产物的源头：波形池的切片访�
 | Timeout | `none` |
 | Side Effect | no |
 | Narrative Source | `source` |
-| Source Fingerprint | `76b3e9a8abf2803683c45e6e8c7396758d7c56865224102e121826746aa9804b` |
+| Source Fingerprint | `e63f19a71081f947d969afefab9f5f7aa9f12097699cb134ee116bf01b3121ac` |
 
 ### Dependencies
 
@@ -78,7 +78,7 @@ records 是绝大多数 records-backed 产物的源头：波形池的切片访�
 | `memory_budget_gb` | `float` | `50.0` | - | yes | no | 内存驻留 records bundle 的内存预算（GB）。 |
 | `dt` | `int` | `None` | - | yes | no | 采样间隔（ns），写回 records.dt；缺省取适配器采样率或 1ns。 |
 | `baseline_samples` | `any` | `None` | - | yes | no | 基线范围：int（距适配器起始的采样数）或 (start, end) 元组，相对 samples_start。 |
-| `input_source` | `str` | `raw_files` | - | yes | no | records bundle 输入源：'raw_files' 或 'st_waveforms'（V1725 仅支持 'raw_files'）。 |
+| `input_source` | `str` | `raw_files` | - | yes | no | records bundle 输入源：'raw_files' 或 'st_waveforms'（V1725 与 VX2730 BIN 仅支持 'raw_files'）。 |
 ## Output
 
 structured_array output with fields: timestamp, pid, board, channel, baseline, baseline_upstream, polarity, record_id, ....
@@ -127,7 +127,7 @@ result = ctx.get_data("run_001", "records")
 ### Failure Modes
 
 - 所选 `input_source` 非 'raw_files'/'st_waveforms' 时抛出 `ValueError`。
-- V1725 使用 `input_source='st_waveforms'` 时抛出 `ValueError`（不支持该组合）。
+- V1725 或 VX2730 BIN 使用 `input_source='st_waveforms'` 时抛出 `ValueError`（不支持该组合）。
 - 上游 `raw_files` 数据缺失（非 list）时由共享 bundle 构建逻辑抛出 `ValueError`。
 - 多分片 bundle 的元数据视图只合并 records、不合并 wave_pool，若下游误按 records 行取波形会越界——属消费方契约错误，本插件不单独拦截。
 ### Downstream Impact

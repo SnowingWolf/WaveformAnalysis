@@ -791,7 +791,7 @@ class V1725Adapter(DAQAdapter):
         """
         raw_path = self.get_raw_path(data_root, run_name)
         if not raw_path.exists():
-            return {}
+            raise FileNotFoundError(f"目录不存在: {raw_path}")
 
         files = self.directory_layout.list_files(raw_path)
         if not files:
@@ -805,9 +805,16 @@ class V1725Adapter(DAQAdapter):
                 board_groups[board_id] = []
             board_groups[board_id].append(file_path)
 
-        # 按文件名排序（确保 seg0, seg1, seg2... 顺序）
+        def file_sort_key(path: Path) -> tuple[str, int, str]:
+            match = re.fullmatch(r"(.+_raw_b\d+)_seg(\d+)\.bin", path.name)
+            if match:
+                return match.group(1), int(match.group(2)), path.name
+            # Legacy and independent files retain their filename order.
+            return path.name, -1, path.name
+
+        # 同一板卡的分卷按整数 segment 排序（seg0, seg2, seg10）。
         for board_id in board_groups:
-            board_groups[board_id].sort()
+            board_groups[board_id].sort(key=file_sort_key)
 
         return board_groups
 

@@ -5,7 +5,7 @@ profile: "agent"
 provides: "wave_pool"
 plugin_class: "WavePoolPlugin"
 module: "waveform_analysis.core.plugins.builtin.wave_pool.plugin"
-version: "0.16.0"
+version: "0.17.0"
 summary: "Build wave_pool from the shared internal records bundle."
 depends_on: []
 declared_depends_on: []
@@ -17,7 +17,7 @@ output_kind: "array"
 execution_kind: "static"
 narrative_source: "source"
 narrative_source_reason: null
-source_fingerprint: "b27cf6646b8dfd80ebb9a78a7d2c6ef5ab0721f80678582b90c0c59ffc22c93d"
+source_fingerprint: "eb7a864df29fd959536190599d75be6cb4e797ce321299ec171af3006280d774"
 generated: true
 ---
 # wave_pool
@@ -36,7 +36,7 @@ WavePoolPlugin 把共享 RecordsBundle 中的原始 ADC 波形样本暴露为正
 | Provides | `wave_pool` |
 | Plugin Class | `WavePoolPlugin` |
 | Module | `waveform_analysis.core.plugins.builtin.wave_pool.plugin` |
-| Version | `0.16.0` |
+| Version | `0.17.0` |
 | Category | 波形处理 |
 | Output Container | `array` |
 | Execution Mode | `static` |
@@ -45,7 +45,7 @@ WavePoolPlugin 把共享 RecordsBundle 中的原始 ADC 波形样本暴露为正
 | Timeout | `none` |
 | Side Effect | no |
 | Narrative Source | `source` |
-| Source Fingerprint | `b27cf6646b8dfd80ebb9a78a7d2c6ef5ab0721f80678582b90c0c59ffc22c93d` |
+| Source Fingerprint | `eb7a864df29fd959536190599d75be6cb4e797ce321299ec171af3006280d774` |
 
 ### Dependencies
 
@@ -78,7 +78,7 @@ WavePoolPlugin 把共享 RecordsBundle 中的原始 ADC 波形样本暴露为正
 | `memory_budget_gb` | `float` | `50.0` | - | yes | no | Memory budget in GB for in-memory records bundle materialization. |
 | `dt` | `int` | `None` | - | yes | no | 采样间隔（ns），写回 records.dt；缺省取适配器采样率或 1ns。 |
 | `baseline_samples` | `any` | `None` | - | yes | no | 基线范围（int 或 (start, end)），在 bundle 构建时同步用于 records。 |
-| `input_source` | `str` | `raw_files` | - | yes | no | records bundle 输入源：raw_files 或 st_waveforms（V1725 仅支持 raw_files）。 |
+| `input_source` | `str` | `raw_files` | - | yes | no | records bundle 输入源：raw_files 或 st_waveforms（V1725 与 VX2730 BIN 仅支持 raw_files）。 |
 ## Output
 
 array output with fields: value.

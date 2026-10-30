@@ -83,6 +83,14 @@ ctx.set_config(
 Adapter registry 的规范入口是 `waveform_analysis.acquisition.formats`；旧的
 `waveform_analysis.utils.formats` 与其共享同一 registry 和对象身份。
 
+自定义 adapter 必须在创建 `Context` 前注册。`AdapterInfo.from_adapter(name)` 与
+`get_adapter_info(name)` 每次从当前注册对象提取元数据，不使用进程级元数据缓存；按名称入口复用
+`AdapterInfo.from_adapter_object(adapter)`。未知名称返回 `None`，已注册对象的元数据错误直接传播。
+`use_cache` 参数和 `clear_adapter_info_cache` 函数及其导出已删除，调用方应移除这些参数和清理调用。
+
+注册表替换不会通知已有 Context，也不会自动失效其配置或 lineage。若以同名 adapter 替换了格式规范，
+应在注册完成后创建新的 Context，再请求数据；不支持既有 Context 的注册表热替换。
+
 当前可推断的典型值包括：
 
 - `sampling_rate_hz`

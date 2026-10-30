@@ -40,7 +40,6 @@ _LAZY_EXPORTS: dict[str, _LazyExport] = {
     # Adapter
     "AdapterInfo": (".adapter_info", "AdapterInfo"),
     "get_adapter_info": (".adapter_info", "get_adapter_info"),
-    "clear_adapter_info_cache": (".adapter_info", "clear_adapter_info_cache"),
     # 解析器
     "ConfigResolver": (".resolver", "ConfigResolver"),
     "RUN_NUMBER_PATTERN": (".run_config", "RUN_NUMBER_PATTERN"),
@@ -66,7 +65,6 @@ __all__ = [
     # Adapter
     "AdapterInfo",
     "get_adapter_info",
-    "clear_adapter_info_cache",
     # 解析器
     "ConfigResolver",
     "RUN_NUMBER_PATTERN",

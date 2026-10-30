@@ -1,6 +1,6 @@
 provides: raw_files
 plugin_class: RawFileNamesPlugin
-version: 0.0.2
+version: 0.0.3
 depends_on: []
 third_party_dependencies: []
 plugin_dependencies: []

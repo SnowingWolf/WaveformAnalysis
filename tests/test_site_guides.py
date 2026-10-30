@@ -1,4 +1,5 @@
 import ast
+import importlib
 import inspect
 from pathlib import Path
 import re
@@ -194,3 +195,31 @@ def test_context_migration_guide_examples_match_public_signatures():
     assert set(calls) == {"set_config", "get_lineage", "analyze_dependencies", "preview_execution"}
     assert "ctx.profiler.summary()" in migration
     assert "不会发出弃用警告" in source
+
+
+@pytest.mark.parametrize("filename", ["ADAPTER_SYSTEM_GUIDE.md", "ADAPTER_PLUGIN_BEHAVIOR.md"])
+def test_adapter_guide_loading_examples_match_hardware_key_signatures(filename):
+    from waveform_analysis.acquisition.formats import DAQAdapter
+
+    root = Path(__file__).parents[1]
+    source = (root / "docs/plugins/reference" / filename).read_text(encoding="utf-8")
+    calls = []
+    for example in re.findall(r"```python\n(.*?)```", source, re.DOTALL):
+        for node in ast.walk(ast.parse(example)):
+            if isinstance(node, ast.ImportFrom):
+                module = importlib.import_module(node.module)
+                for imported in node.names:
+                    assert hasattr(module, imported.name), (node.module, imported.name)
+            if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
+                continue
+            if not isinstance(node.func.value, ast.Name) or node.func.value.id != "adapter":
+                continue
+            name = node.func.attr
+            if not name.startswith("load_"):
+                continue
+            signature = inspect.signature(getattr(DAQAdapter, name))
+            signature.bind(None, *node.args, **{kw.arg: kw.value for kw in node.keywords})
+            if name != "load_all_channels":
+                assert "board" in {kw.arg for kw in node.keywords}
+            calls.append(name)
+    assert set(calls) == {"load_channel", "load_channel_generator", "load_all_channels"}

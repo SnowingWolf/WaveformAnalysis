@@ -19,6 +19,7 @@ class WavePoolPlugin(_RecordsBundlePluginBase):
     """Expose wave_pool as a formal plugin output backed by RecordsBundle."""
 
     provides = "wave_pool"
+    version = "0.17.0"
     lineage_virtual = True
     depends_on = []
     description = "Build wave_pool from the shared internal records bundle."
@@ -50,7 +51,7 @@ class WavePoolPlugin(_RecordsBundlePluginBase):
             "keep_on_disk": "是否保持 bundle 磁盘驻留；None 时 V1725 默认 True、其余适配器默认 False。",
             "dt": "采样间隔（ns），写回 records.dt；缺省取适配器采样率或 1ns。",
             "baseline_samples": "基线范围（int 或 (start, end)），在 bundle 构建时同步用于 records。",
-            "input_source": "records bundle 输入源：raw_files 或 st_waveforms（V1725 仅支持 raw_files）。",
+            "input_source": "records bundle 输入源：raw_files 或 st_waveforms（V1725 与 VX2730 BIN 仅支持 raw_files）。",
         },
         "failure_modes": [
             "`RecordsBundleRef` 为多分片且未合并为单分片视图时，`_wave_pool_from_bundle` 抛出 `ValueError`（wave_pool 要求单分片 memmap 视图）。",

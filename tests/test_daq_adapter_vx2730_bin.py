@@ -7,6 +7,7 @@ from tests.daq_adapter_helpers import make_vx2730_bin_bytes
 from tests.utils import FakeContext
 from waveform_analysis.core.plugins.builtin.records import RecordsPlugin
 from waveform_analysis.core.plugins.builtin.st_waveforms.plugin import WaveformsPlugin
+from waveform_analysis.core.plugins.builtin.wave_pool.plugin import WavePoolPlugin
 from waveform_analysis.core.processing.records_builder import build_records_from_raw_files
 from waveform_analysis.utils.formats import (
     VX2730_BIN_LAYOUT,
@@ -36,6 +37,12 @@ def _events(n: int, *, n_samples: int = 4, channel: int = 0, board: int = 0) -> 
 def _write(path, events, **kwargs):
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(make_vx2730_bin_bytes(events, **kwargs))
+    return path
+
+
+def _write_continuation(path, events, **kwargs):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(make_vx2730_bin_bytes(events, **kwargs)[2:])
     return path
 
 
@@ -152,6 +159,180 @@ class TestVX2730BinReader:
         with pytest.raises(ValueError):
             VX2730BinReader(events_per_chunk=0)
 
+    @pytest.mark.parametrize("first_name", ["run.BIN", "run_0.BIN", "CH0_0.BIN"])
+    def test_headerless_continuation_all_read_modes(self, tmp_path, first_name):
+        stem = first_name.removesuffix(".BIN").removesuffix("_0")
+        events = _events(5)
+        paths = [
+            _write(tmp_path / first_name, events[:2]),
+            _write_continuation(tmp_path / f"{stem}_1.BIN", events[2:]),
+        ]
+        reader = VX2730BinReader(events_per_chunk=2)
+        expected = reader.read_file(_write(tmp_path / "expected.BIN", events))
+
+        np.testing.assert_array_equal(reader.read_files(paths), expected)
+        np.testing.assert_array_equal(np.vstack(list(reader.read_files_generator(paths))), expected)
+        assert reader.count_total_rows(paths) == 5
+
+        dtype = np.dtype([("timestamp", "<i8"), ("samples", "<i8", (4,))])
+
+        def structurizer(chunk, output, offset):
+            output["timestamp"][offset : offset + len(chunk)] = chunk[:, 2]
+            output["samples"][offset : offset + len(chunk)] = chunk[:, 7:]
+            return len(chunk)
+
+        streamed = reader.read_files_streaming(paths, dtype, tmp_path / "out.dat", structurizer)
+        np.testing.assert_array_equal(streamed["timestamp"], expected[:, 2])
+        np.testing.assert_array_equal(streamed["samples"], expected[:, 7:])
+
+    def test_headerless_read_file_requires_stream_context(self, tmp_path):
+        path = _write_continuation(tmp_path / "run_1.BIN", _events(2))
+        with pytest.raises(ValueError, match="Invalid VX2730 BIN header"):
+            VX2730BinReader().read_file(path, is_first_file=False)
+
+    @pytest.mark.parametrize("mode", ["full", "generator", "count"])
+    @pytest.mark.parametrize("failure", ["header", "truncated", "samples", "order", "gap"])
+    def test_continuation_validation(self, tmp_path, mode, failure):
+        first = _write(tmp_path / "run.BIN", _events(1))
+        second = _write_continuation(tmp_path / "run_1.BIN", _events(2))
+        match = ""
+        if failure == "header":
+            second.write_bytes(b"\x00\x00" + second.read_bytes())
+            match = "Invalid VX2730 BIN header"
+        elif failure == "truncated":
+            second.write_bytes(second.read_bytes()[:-1])
+            match = "trailing bytes"
+        elif failure == "samples":
+            _write_continuation(second, _events(2, n_samples=5))
+            match = "waveform length"
+        elif failure == "gap":
+            second = second.rename(tmp_path / "run_2.BIN")
+            match = "segment order"
+        paths = [second, first] if failure == "order" else [first, second]
+        if failure == "order":
+            match = "Invalid VX2730 BIN header"
+        reader = VX2730BinReader()
+        with pytest.raises(ValueError, match=match):
+            if mode == "full":
+                reader.read_files(paths)
+            elif mode == "generator":
+                list(reader.read_files_generator(paths))
+            else:
+                reader.count_total_rows(paths)
+
+    def test_independent_headers_can_change_within_named_family(self, tmp_path):
+        paths = [
+            _write(tmp_path / "run.BIN", _events(1)),
+            _write(tmp_path / "run_1.BIN", _events(1), header=0xCAEF),
+            _write_continuation(tmp_path / "run_2.BIN", _events(1), header=0xCAEF),
+        ]
+        assert len(VX2730BinReader().read_files(paths)) == 3
+
+    @pytest.mark.parametrize("names", [["run_1.BIN", "run_2.BIN"], ["run_2.BIN", "run.BIN"]])
+    def test_independent_headers_allow_subsets_gaps_and_reverse_order(self, tmp_path, names):
+        paths = [_write(tmp_path / name, _events(1)) for name in names]
+        reader = VX2730BinReader()
+        assert len(reader.read_files(paths)) == 2
+        assert reader.count_total_rows(paths) == 2
+        assert sum(len(chunk) for chunk in reader.read_files_generator(paths)) == 2
+
+    @pytest.mark.parametrize("stem", ["run", "acquisition_20261030"])
+    def test_headed_subset_can_anchor_continuation(self, tmp_path, stem):
+        paths = [
+            _write(tmp_path / f"{stem}_1.BIN", _events(1)),
+            _write_continuation(tmp_path / f"{stem}_2.BIN", _events(1)),
+        ]
+        assert len(VX2730BinReader().read_files(paths)) == 2
+
+    @pytest.mark.parametrize("other", ["CH1_1.BIN", "other/CH0_1.BIN", "other_run_1.BIN"])
+    def test_header_not_inherited_across_streams(self, tmp_path, other):
+        first = _write(tmp_path / "CH0_0.BIN", _events(1))
+        second = _write_continuation(tmp_path / other, _events(1, channel=1, board=1))
+        with pytest.raises(ValueError, match="Invalid VX2730 BIN header"):
+            VX2730BinReader().read_files([first, second])
+
+    def test_interleaved_streams_keep_their_own_header(self, tmp_path):
+        paths = [
+            _write(tmp_path / "CH0_0.BIN", _events(1), header=0xCAED),
+            _write(tmp_path / "CH1_0.BIN", _events(1, channel=1), header=0xCAEF),
+            _write_continuation(tmp_path / "CH0_1.BIN", _events(1)),
+            _write_continuation(tmp_path / "CH1_1.BIN", _events(1, channel=1), header=0xCAEF),
+        ]
+        data = VX2730BinReader().read_files(paths)
+        np.testing.assert_array_equal(data[:, 1], [0, 1, 0, 1])
+        assert VX2730BinReader().count_total_rows(paths) == 4
+
+    def test_numeric_run_name_can_anchor_continuation(self, tmp_path):
+        paths = [
+            _write(tmp_path / "run_20261030.BIN", _events(1)),
+            _write_continuation(tmp_path / "run_20261030_1.BIN", _events(1)),
+        ]
+        assert VX2730BinReader().count_total_rows(paths) == 2
+
+    def test_count_only_reads_layout_metadata(self, tmp_path, monkeypatch):
+        events = _events(2)
+        events[1]["n_samples"] = 5
+        paths = [_write(tmp_path / "run.BIN", events)]
+
+        def forbid_memmap(*args, **kwargs):
+            pytest.fail("count_total_rows must not map event or waveform payloads")
+
+        monkeypatch.setattr(np, "memmap", forbid_memmap)
+        # Later event lengths are checked by actual reads, not a metadata-only count.
+        assert VX2730BinReader().count_total_rows(paths) == 2
+
+    def test_header_only_anchor_cannot_establish_headerless_layout(self, tmp_path):
+        paths = [
+            _write(tmp_path / "run.BIN", []),
+            _write_continuation(tmp_path / "run_1.BIN", _events(1)),
+        ]
+        with pytest.raises(ValueError, match="No event layout established"):
+            VX2730BinReader().count_total_rows(paths)
+
+    def test_empty_intermediate_segment_preserves_established_layout(self, tmp_path):
+        first = _write(tmp_path / "run.BIN", _events(1))
+        empty = tmp_path / "run_1.BIN"
+        empty.touch()
+        last = _write_continuation(tmp_path / "run_2.BIN", _events(2))
+        paths = [first, empty, last]
+        reader = VX2730BinReader()
+        assert reader.count_total_rows(paths) == 3
+        assert len(reader.read_files(paths)) == 3
+        assert sum(len(chunk) for chunk in reader.read_files_generator(paths)) == 3
+
+    def test_empty_first_segment_cannot_establish_layout(self, tmp_path):
+        first = tmp_path / "run.BIN"
+        first.touch()
+        second = _write_continuation(tmp_path / "run_1.BIN", _events(1))
+        with pytest.raises(ValueError, match="Invalid VX2730 BIN header"):
+            VX2730BinReader().count_total_rows([first, second])
+
+    def test_valid_header_with_damaged_payload_never_uses_offset_zero(self, tmp_path):
+        first = _write(tmp_path / "run.BIN", _events(1))
+        second = _write(tmp_path / "run_1.BIN", _events(2))
+        second.write_bytes(second.read_bytes()[:-2])
+        with pytest.raises(ValueError, match="trailing bytes"):
+            VX2730BinReader().count_total_rows([first, second])
+
+    def test_headerless_continuation_without_waveform(self, tmp_path):
+        events = _events(3)
+        paths = [
+            _write(tmp_path / "run.BIN", events[:1], header=0xCAE5),
+            _write_continuation(tmp_path / "run_1.BIN", events[1:], header=0xCAE5),
+        ]
+        reader = VX2730BinReader()
+        data = reader.read_files(paths)
+        assert data.shape == (3, 7)
+        assert reader.count_total_rows(paths) == 3
+        np.testing.assert_array_equal(data[:, 2], [event["timestamp"] for event in events])
+
+    def test_oversized_sample_count_is_rejected_before_dtype_allocation(self, tmp_path):
+        events = _events(1)
+        events[0]["n_samples"] = 2**32 - 1
+        path = _write(tmp_path / "run.BIN", events)
+        with pytest.raises(ValueError, match="Truncated VX2730 BIN waveform length"):
+            VX2730BinReader().count_total_rows([path])
+
 
 class TestVX2730BinLayout:
     def test_groups_and_natural_order(self, tmp_path):
@@ -183,6 +364,32 @@ class TestVX2730BinLayout:
 
 
 class TestVX2730BinRecords:
+    def test_records_and_wave_pool_plugins_read_headerless_segments(self, tmp_path):
+        events = _events(5, n_samples=60, board=1, channel=3)
+        paths = [
+            _write(tmp_path / "CH3_0.BIN", events[:2]),
+            _write_continuation(tmp_path / "CH3_1.BIN", events[2:]),
+        ]
+        records_plugin = RecordsPlugin()
+        pool_plugin = WavePoolPlugin()
+        ctx = FakeContext(
+            config={"daq_adapter": "vx2730_bin"},
+            data={"raw_files": [[str(path) for path in paths]]},
+            plugins={"records": records_plugin, "wave_pool": pool_plugin},
+        )
+        records = records_plugin.compute(ctx, "continuation")
+        pool = pool_plugin.compute(ctx, "continuation")
+        assert len(records) == len(events)
+        assert np.all(records["board"] == 1)
+        assert np.all(records["channel"] == 3)
+        assert np.all(records["dt"] == 2)
+        np.testing.assert_array_equal(
+            records["timestamp"], [event["timestamp"] for event in events]
+        )
+        for rec, event in zip(records, events, strict=True):
+            start = int(rec["wave_offset"])
+            np.testing.assert_array_equal(pool[start : start + 60], event["samples"])
+
     def test_build_records_from_raw_files(self, tmp_path):
         n_samples = 60
         events = _events(5, n_samples=n_samples)

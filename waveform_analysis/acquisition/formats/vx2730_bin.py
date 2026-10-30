@@ -24,7 +24,7 @@ Examples:
     >>> from waveform_analysis.utils.formats import get_adapter
     >>> adapter = get_adapter("vx2730_bin")
     >>> channel_files = adapter.scan_run("DAQ", "run_001")
-    >>> data = adapter.load_channel("DAQ", "run_001", channel=0)
+    >>> data = adapter.load_channel("DAQ", "run_001", channel=0, board=0)
 """
 
 from collections.abc import Iterator
@@ -60,20 +60,6 @@ _N_META_COLUMNS = 7
 # ============================================================================
 
 
-def _read_header(path: Path) -> int | None:
-    """读取并校验文件头；文件为空时返回 None。"""
-    with path.open("rb") as handle:
-        raw = handle.read(_HEADER_SIZE)
-    if len(raw) == 0:
-        return None
-    if len(raw) < _HEADER_SIZE:
-        raise ValueError(f"VX2730 BIN file too short for header: {path}")
-    header = int.from_bytes(raw, byteorder="little")
-    if header >> 4 != _HEADER_MAGIC:
-        raise ValueError(f"Invalid VX2730 BIN header 0x{header:04X} in {path}; expected 0xCAEx")
-    return header
-
-
 def _event_dtype(header: int, n_samples: int) -> np.dtype:
     """根据文件头各位构造单个事件的 packed 结构化 dtype。"""
     fields: list[tuple] = [
@@ -95,21 +81,25 @@ def _event_dtype(header: int, n_samples: int) -> np.dtype:
     return np.dtype(fields)
 
 
-def _resolve_event_dtype(path: Path, header: int, file_size: int) -> np.dtype:
+def _resolve_event_dtype(
+    path: Path, header: int, file_size: int, data_offset: int = _HEADER_SIZE
+) -> np.dtype:
     """确定文件的事件 dtype，并校验文件大小与事件大小对齐。"""
     n_samples = 0
     if header & _HAS_WAVEFORM:
         prefix = _event_dtype(header & ~_HAS_WAVEFORM, 0)
         # wave_code (u1) 之后是 n_samples (u4)
-        n_offset = _HEADER_SIZE + prefix.itemsize + 1
+        n_offset = data_offset + prefix.itemsize + 1
         if file_size < n_offset + 4:
-            raise ValueError(f"Truncated VX2730 BIN event at byte offset {_HEADER_SIZE} in {path}")
+            raise ValueError(f"Truncated VX2730 BIN event at byte offset {data_offset} in {path}")
         with path.open("rb") as handle:
             handle.seek(n_offset)
             n_samples = int.from_bytes(handle.read(4), byteorder="little")
+        if n_samples > (file_size - n_offset - 4) // 2:
+            raise ValueError(f"Truncated VX2730 BIN waveform length {n_samples} in {path}")
 
     dtype = _event_dtype(header, n_samples)
-    payload = file_size - _HEADER_SIZE
+    payload = file_size - data_offset
     remainder = payload % dtype.itemsize
     if remainder:
         n_complete = payload // dtype.itemsize
@@ -119,6 +109,81 @@ def _resolve_event_dtype(path: Path, header: int, file_size: int) -> np.dtype:
             "file is truncated or record length is not constant"
         )
     return dtype
+
+
+@dataclass(frozen=True)
+class _BinFile:
+    path: Path
+    header: int
+    data_offset: int
+    dtype: np.dtype
+    n_events: int
+
+
+def _iter_bin_files(file_paths: list[str | Path]) -> Iterator[_BinFile]:
+    """Resolve explicit split streams without interpreting waveform payloads.
+
+    Headerless ``name_N.BIN`` files inherit only from an already read ``N-1``
+    segment of the same exact stem and directory. ``name.BIN`` is segment zero.
+    A valid own header always starts a fresh layout, including for input subsets.
+    """
+    paths = [Path(p).resolve() for p in file_paths]
+    members = {(p.parent, p.stem, p.suffix.lower()) for p in paths}
+    roots = set()
+    for path in paths:
+        match = re.fullmatch(r"(.+)_(\d+)", path.stem)
+        if match and (path.parent, match[1], path.suffix.lower()) in members:
+            roots.add((path.parent, match[1], path.suffix.lower()))
+    streams: dict[tuple[Path, str], tuple[int, int, np.dtype | None]] = {}
+    for path in paths:
+        match = re.fullmatch(r"(.+)_(\d+)", path.stem)
+        stem, index = path.stem, 0
+        if match and (path.parent, path.stem, path.suffix.lower()) not in roots:
+            base, number = match.groups()
+            stem, index = base, int(number)
+        key = (path.parent, stem)
+        previous = streams.get(key)
+        if not path.exists():
+            logger.warning("文件不存在: %s", path)
+            continue
+        file_size = path.stat().st_size
+        if file_size == 0:
+            if previous is not None and index == previous[0] + 1:
+                streams[key] = (index, previous[1], previous[2])
+            continue
+        with path.open("rb") as handle:
+            raw = handle.read(_HEADER_SIZE)
+        if len(raw) < _HEADER_SIZE:
+            raise ValueError(f"VX2730 BIN file too short for header: {path}")
+        candidate = int.from_bytes(raw, byteorder="little")
+        has_header = candidate >> 4 == _HEADER_MAGIC
+        if not has_header and (
+            previous is None
+            or (previous[2] is not None and file_size % previous[2].itemsize == _HEADER_SIZE)
+        ):
+            raise ValueError(
+                f"Invalid VX2730 BIN header 0x{candidate:04X} in {path}; expected 0xCAEx"
+            )
+        if has_header:
+            header = candidate
+            data_offset = _HEADER_SIZE
+        else:
+            last_index, header, previous_dtype = previous
+            if index != last_index + 1:
+                raise ValueError(f"Invalid VX2730 BIN segment order for {path}")
+            if previous_dtype is None:
+                raise ValueError(f"No event layout established for VX2730 BIN continuation {path}")
+            data_offset = 0
+        if file_size == data_offset:
+            streams[key] = (index, header, None)
+            continue
+        dtype = _resolve_event_dtype(path, header, file_size, data_offset)
+        if not has_header and previous[2] != dtype:
+            raise ValueError(f"Inconsistent VX2730 BIN waveform length in continuation {path}")
+        streams[key] = (index, header, dtype)
+        yield _BinFile(
+            path, header, data_offset, dtype, (file_size - data_offset) // dtype.itemsize
+        )
 
 
 def _events_to_raw_array(events: np.ndarray, header: int) -> np.ndarray:
@@ -282,31 +347,30 @@ class VX2730BinReader(FormatReader):
             raise ValueError("events_per_chunk must be positive")
         self.events_per_chunk = int(events_per_chunk)
 
-    def _iter_raw_chunks(self, file_path: str | Path) -> Iterator[np.ndarray]:
-        path = Path(file_path)
-        if not path.exists():
-            logger.warning("文件不存在: %s", path)
-            return
-        header = _read_header(path)
-        if header is None:
-            logger.debug("跳过空文件: %s", path)
-            return
-        file_size = path.stat().st_size
-        if file_size == _HEADER_SIZE:
-            return
-
-        dtype = _resolve_event_dtype(path, header, file_size)
-        n_events = (file_size - _HEADER_SIZE) // dtype.itemsize
-        events = np.memmap(path, dtype=dtype, mode="r", offset=_HEADER_SIZE, shape=(n_events,))
+    def _iter_raw_chunks(self, source: _BinFile) -> Iterator[np.ndarray]:
+        events = np.memmap(
+            source.path,
+            dtype=source.dtype,
+            mode="r",
+            offset=source.data_offset,
+            shape=(source.n_events,),
+        )
         try:
-            for start in range(0, n_events, self.events_per_chunk):
-                yield _events_to_raw_array(events[start : start + self.events_per_chunk], header)
+            for start in range(0, source.n_events, self.events_per_chunk):
+                yield _events_to_raw_array(
+                    events[start : start + self.events_per_chunk], source.header
+                )
         finally:
             del events
 
     def read_file(self, file_path: str | Path, is_first_file: bool = True) -> np.ndarray:
+        """Read an independent file; headerless segments require ``read_files`` context."""
         _ = is_first_file
-        chunks = list(self._iter_raw_chunks(file_path))
+        chunks = [
+            chunk
+            for source in _iter_bin_files([file_path])
+            for chunk in self._iter_raw_chunks(source)
+        ]
         if not chunks:
             return np.array([]).reshape(0, 0)
         return chunks[0] if len(chunks) == 1 else np.vstack(chunks)
@@ -322,7 +386,7 @@ class VX2730BinReader(FormatReader):
         parse_engine: str | None = "auto",
     ) -> np.ndarray:
         _ = (show_progress, chunksize, n_jobs, use_process_pool, parse_engine)
-        chunks = [chunk for fp in file_paths for chunk in self._iter_raw_chunks(fp)]
+        chunks = list(self.read_files_generator(file_paths))
         if not chunks:
             return np.array([]).reshape(0, 0)
         widths = {chunk.shape[1] for chunk in chunks}
@@ -346,25 +410,17 @@ class VX2730BinReader(FormatReader):
         ``chunk_size`` 等 CSV 相关参数仅为接口兼容而接收。
         """
         _ = (chunk_size, chunksize, n_jobs, use_process_pool, parse_engine, show_progress)
-        for file_path in file_paths:
-            for chunk in self._iter_raw_chunks(file_path):
+        for source in _iter_bin_files(file_paths):
+            for chunk in self._iter_raw_chunks(source):
                 if chunk.size:
                     yield chunk
 
     def count_total_rows(self, file_paths: list[str | Path]) -> int:
-        """根据文件大小计算事件总数（不读取波形）。"""
-        total = 0
-        for file_path in file_paths:
-            path = Path(file_path)
-            if not path.exists():
-                continue
-            header = _read_header(path)
-            file_size = path.stat().st_size
-            if header is None or file_size == _HEADER_SIZE:
-                continue
-            dtype = _resolve_event_dtype(path, header, file_size)
-            total += (file_size - _HEADER_SIZE) // dtype.itemsize
-        return total
+        """按相同分卷规则计数，仅检查文件头、首事件长度和大小对齐。
+
+        不扫描波形或后续事件；逐事件采样数一致性由实际读取验证。
+        """
+        return sum(source.n_events for source in _iter_bin_files(file_paths))
 
     def read_files_streaming(
         self,

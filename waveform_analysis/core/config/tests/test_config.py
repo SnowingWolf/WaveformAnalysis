@@ -293,10 +293,10 @@ class TestAdapterInfo:
 class TestGetAdapterInfo:
     """get_adapter_info 函数测试"""
 
-    def test_cached_lookup(self):
+    def test_repeated_lookup(self):
         info1 = get_adapter_info("vx2730")
         info2 = get_adapter_info("vx2730")
-        assert info1 is info2  # 应该是同一个缓存对象
+        assert info1 == info2
 
     def test_nonexistent_adapter(self):
         info = get_adapter_info("nonexistent")

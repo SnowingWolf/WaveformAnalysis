@@ -58,42 +58,18 @@ class AdapterInfo:
             >>> info.sampling_rate_hz
             500000000.0
         """
-        try:
-            from waveform_analysis.acquisition.formats import (
-                get_adapter,
-                is_adapter_registered,
-            )
+        from waveform_analysis.acquisition.formats import (
+            get_adapter,
+            is_adapter_registered,
+        )
 
-            if not is_adapter_registered(adapter_name):
-                return None
-
-            adapter = get_adapter(adapter_name)
-            spec = adapter.format_spec
-
-            # 计算采样间隔
-            sampling_rate = spec.sampling_rate_hz or 500e6  # 默认 500 MHz
-            dt_ns = int(1e9 / sampling_rate)  # 纳秒
-            dt_ps = int(1e12 / sampling_rate)  # 皮秒
-
-            # 获取原生时间戳元数据
-            timestamp_unit = spec.timestamp_unit.value if spec.timestamp_unit else "ps"
-            raw_timestamp_mode = (
-                spec.raw_timestamp_mode.value if spec.raw_timestamp_mode else "unit"
-            )
-
-            return cls(
-                name=adapter_name,
-                sampling_rate_hz=sampling_rate,
-                timestamp_unit=timestamp_unit,
-                raw_timestamp_mode=raw_timestamp_mode,
-                dt_ns=dt_ns,
-                dt_ps=dt_ps,
-            )
-        except Exception:
+        if not is_adapter_registered(adapter_name):
             return None
 
+        return cls.from_adapter_object(get_adapter(adapter_name))
+
     @classmethod
-    def from_adapter_object(cls, adapter) -> Optional["AdapterInfo"]:
+    def from_adapter_object(cls, adapter) -> "AdapterInfo":
         """从 DAQAdapter 对象创建 AdapterInfo
 
         Args:
@@ -102,30 +78,25 @@ class AdapterInfo:
         Returns:
             AdapterInfo 实例
         """
-        try:
-            spec = adapter.format_spec
+        spec = adapter.format_spec
 
-            # 计算采样间隔
-            sampling_rate = spec.sampling_rate_hz or 500e6
-            dt_ns = int(1e9 / sampling_rate)
-            dt_ps = int(1e12 / sampling_rate)
+        # 计算采样间隔
+        sampling_rate = spec.sampling_rate_hz or 500e6
+        dt_ns = int(1e9 / sampling_rate)
+        dt_ps = int(1e12 / sampling_rate)
 
-            # 获取原生时间戳元数据
-            timestamp_unit = spec.timestamp_unit.value if spec.timestamp_unit else "ps"
-            raw_timestamp_mode = (
-                spec.raw_timestamp_mode.value if spec.raw_timestamp_mode else "unit"
-            )
+        # 获取原生时间戳元数据
+        timestamp_unit = spec.timestamp_unit.value if spec.timestamp_unit else "ps"
+        raw_timestamp_mode = spec.raw_timestamp_mode.value if spec.raw_timestamp_mode else "unit"
 
-            return cls(
-                name=adapter.name,
-                sampling_rate_hz=sampling_rate,
-                timestamp_unit=timestamp_unit,
-                raw_timestamp_mode=raw_timestamp_mode,
-                dt_ns=dt_ns,
-                dt_ps=dt_ps,
-            )
-        except Exception:
-            return None
+        return cls(
+            name=adapter.name,
+            sampling_rate_hz=sampling_rate,
+            timestamp_unit=timestamp_unit,
+            raw_timestamp_mode=raw_timestamp_mode,
+            dt_ns=dt_ns,
+            dt_ps=dt_ps,
+        )
 
     def to_dict(self) -> dict[str, Any]:
         """转换为字典
@@ -170,32 +141,14 @@ class AdapterInfo:
         )
 
 
-# 预定义的 adapter 信息（用于快速查找，避免重复解析）
-_ADAPTER_INFO_CACHE: dict[str, AdapterInfo] = {}
-
-
 @export
-def get_adapter_info(adapter_name: str, use_cache: bool = True) -> AdapterInfo | None:
-    """获取 adapter 信息（带缓存）
+def get_adapter_info(adapter_name: str) -> AdapterInfo | None:
+    """从当前注册的 adapter 获取推断信息
 
     Args:
         adapter_name: adapter 名称
-        use_cache: 是否使用缓存
 
     Returns:
         AdapterInfo 实例或 None
     """
-    if use_cache and adapter_name in _ADAPTER_INFO_CACHE:
-        return _ADAPTER_INFO_CACHE[adapter_name]
-
-    info = AdapterInfo.from_adapter(adapter_name)
-    if info and use_cache:
-        _ADAPTER_INFO_CACHE[adapter_name] = info
-
-    return info
-
-
-@export
-def clear_adapter_info_cache() -> None:
-    """清除 adapter 信息缓存"""
-    _ADAPTER_INFO_CACHE.clear()
+    return AdapterInfo.from_adapter(adapter_name)

@@ -21,7 +21,7 @@ Examples:
     >>> from waveform_analysis.utils.formats import get_adapter
     >>> adapter = get_adapter("vx2730")
     >>> channel_files = adapter.scan_run("DAQ", "run_001")
-    >>> data = adapter.load_channel("DAQ", "run_001", channel=0)
+    >>> data = adapter.load_channel("DAQ", "run_001", channel=0, board=0)
 
     使用格式读取器:
     >>> from waveform_analysis.utils.formats import get_format_reader

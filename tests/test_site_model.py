@@ -104,11 +104,11 @@ def test_site_model_v1_uses_real_plugin_and_guide_facts_without_html():
     assert all(guide["summary"] != "---" for guide in model["guides"])
 
     records = next(plugin for plugin in model["plugins"] if plugin["provides"] == "records")
-    assert records["version"] == "0.16.0"
+    assert records["version"] == "0.17.0"
     assert records["dependsOn"][0] == "raw_files"
     assert records["fields"]
     wave_pool = next(plugin for plugin in model["plugins"] if plugin["provides"] == "wave_pool")
-    assert wave_pool["version"] == "0.16.0"
+    assert wave_pool["version"] == "0.17.0"
     assert json.dumps(model, ensure_ascii=False).find("<html") < 0
     assert SITE_MODEL_SCHEMA_PATH.is_file()
     assert len(model["source_indexes"]) == 11
@@ -232,7 +232,16 @@ def test_site_fixture_uses_current_context_and_contract_guides():
     current_context = next(page for page in model["contexts"] if page["slug"] == "context")
     fixture_context = next(page for page in fixture["contexts"] if page["slug"] == "context")
     assert fixture_context == current_context
+    assert next(page for page in fixture["contexts"] if page["slug"] == "adapter") == next(
+        page for page in model["contexts"] if page["slug"] == "adapter"
+    )
+    for provides in ("raw_files", "records", "wave_pool"):
+        assert next(page for page in fixture["plugins"] if page["provides"] == provides) == next(
+            page for page in model["plugins"] if page["provides"] == provides
+        )
     affected = {
+        "/plugins/reference/ADAPTER_SYSTEM_GUIDE/",
+        "/plugins/reference/ADAPTER_PLUGIN_BEHAVIOR/",
         "/features/context/CONFIGURATION/",
         "/features/context/DEPENDENCY_ANALYSIS_GUIDE/",
         "/architecture/plugin-cache-architecture/",
@@ -485,3 +494,21 @@ def test_markdown_nested_lists_keep_starts_links_continuations_and_boundaries():
     assert blocks[3]["list_tree"]["start"] == 0
     assert blocks[4]["list_tree"]["ordered"] is False
     assert sections[1]["title"] == "Next"
+
+
+def test_adapter_reference_exposes_hardware_key_contract_and_migration():
+    model = build_site_model(Path(__file__).parents[1])
+    adapter = next(page for page in model["contexts"] if page["slug"] == "adapter")
+    members = {member["name"]: member for group in adapter["groups"] for member in group["members"]}
+    assert {"get_adapter_vx2730", "get_adapter_vx2730_bin", "get_adapter_v1725"} <= members.keys()
+    for name in ("load_channel", "load_channel_generator"):
+        member = members[f"DAQAdapter.{name}"]
+        assert "board" in {parameter["name"] for parameter in member["parameters"]}
+        assert "board=0" in member["example"]
+        assert "原生时间戳" in member["returns"]
+    all_channels = members["DAQAdapter.load_all_channels"]
+    assert "n_channels" not in {parameter["name"] for parameter in all_channels["parameters"]}
+    assert "(board, channel)" in all_channels["returns"]
+    assert "不填充缺失键" in " ".join(all_channels["notes"])
+    info_notes = " ".join(members["Context.get_adapter_info"]["notes"])
+    assert "clear_adapter_info_cache" in info_notes and "新建 Context" in info_notes

@@ -2,614 +2,102 @@
 
 ## 概述
 
-当前插件系统通过 `daq_adapter` 配置参数支持不同的 DAQ 设备。主要有两个内置适配器：[^source]
-- **VX2730**: CSV 格式，每通道多文件
-- **V1725**: 二进制格式，单文件多通道
-
-插件系统在不同阶段对这两个适配器有不同的处理逻辑。
-
----
+全局 `daq_adapter` 支持三个内置格式：`vx2730`（CSV）、`vx2730_bin`（CoMPASS BIN）和
+`v1725`（DAW_DEMO 二进制）。文件发现的分组与事件内的硬件通道是两个层次，真实唯一键为
+`(board, channel)`。完整接口与迁移见 [DAQ 适配器系统详解](ADAPTER_SYSTEM_GUIDE.md)。
 
 ## 数据流对比
 
-### VX2730 数据流（标准流程）
+正式分析入口使用 `raw_files -> records / wave_pool`，通过 `records_view(ctx, run_id)` 访问波形。
+共享 records bundle 完成原始解析、时间戳归一和元数据/波形池对齐，`records` 与 `wave_pool`
+复用同一 bundle。原始 adapter 加载接口保留读取器的 dtype 与原生时间戳。
 
-```
-原始文件结构:
-DAQ/run_001/RAW/
-├── CH0_0.CSV    ← 通道 0, 文件 0
-├── CH0_1.CSV    ← 通道 0, 文件 1
-├── CH1_0.CSV    ← 通道 1, 文件 0
-└── CH1_1.CSV    ← 通道 1, 文件 1
+| 阶段 | vx2730 | vx2730_bin | v1725 |
+| --- | --- | --- | --- |
+| 文件 | `RAW/*.CSV` | `RAW/*.BIN`，扩展名大小写不敏感 | `RAW/*.bin` |
+| 原始数组 | 二维数组 | 二维 int64 数组 | 含 board/channel 的结构化数组 |
+| 原生时间戳 | ps | ps | sample index，需结合 250 MHz 采样率 |
+| `raw_files` | 文件组列表 | 文件组列表，可单文件多通道 | 文件组列表，可单文件多通道 |
+| 正式输出 | `records` + `wave_pool` | `records` + `wave_pool` | `records` + `wave_pool` |
+| bundle 输入源 | `raw_files` 或 `st_waveforms` | 仅 `raw_files` | 仅 `raw_files` |
 
-↓ RawFilesPlugin (使用 VX2730 适配器扫描)
-
-raw_files = [
-    ['CH0_0.CSV', 'CH0_1.CSV'],  # 通道 0
-    ['CH1_0.CSV', 'CH1_1.CSV'],  # 通道 1
-]
-
-↓ WaveformsPlugin (标准 CSV 读取)
-
-waveforms = [
-    np.array([[...], [...]]),  # 通道 0 数据
-    np.array([[...], [...]]),  # 通道 1 数据
-]
-
-↓ StWaveformsPlugin (使用 VX2730 FormatSpec)
-
-st_waveforms = structured_array_all  # RECORD_DTYPE (单个数组，channel 区分通道)
-```
-
-### V1725 数据流（特殊处理）
-
-```
-原始文件结构:
-run_001/RAW/
-└── wave_0.bin    ← 单个文件包含所有通道
-
-↓ RawFilesPlugin (使用 V1725 适配器扫描)
-
-raw_files = [
-    ['wave_0.bin'],  # 通道 0 (实际文件相同)
-    ['wave_0.bin'],  # 通道 1 (实际文件相同)
-    ['wave_0.bin'],  # 通道 2 (实际文件相同)
-]
-注意: 所有通道指向同一个文件！
-
-↓ WaveformsPlugin (V1725 特殊处理)
-
-# 检测到 v1725，执行特殊逻辑:
-# 1. 合并所有文件路径
-# 2. 去重（因为都是同一个文件）
-# 3. 使用 V1725Reader 读取二进制
-# 4. 返回未分割的结构化数组
-
-waveforms = structured_array (单个数组，包含所有通道)
-# dtype: [('channel', 'i2'), ('timestamp', 'i8'),
-#         ('baseline', 'i4'), ('trunc', 'b1'), ('wave', 'O')]
-
-↓ StWaveformsPlugin (需要按通道分割输入)
-
-# 问题: V1725 返回的是单个数组，不是按通道分组的列表
-# 需要特殊处理！
-```
-
----
-
-## 插件行为详解
+## 各插件行为
 
 ### 1. RawFilesPlugin - 文件扫描
 
-**作用**: 扫描目录，返回按通道分组的文件列表
+`raw_files` 仍输出 `list[list[str]]`；schema 没有改为硬件键字典。
+`adapter.scan_run()` 的字典组键由文件布局决定，不保证是物理通道；文件路径本身也不决定 board/channel。
+V1725 分卷按整数索引排序（`seg0, seg2, seg10`）。
 
-#### VX2730 行为
-```python
-# 配置
-daq_adapter = "vx2730"
+### 2. WaveformsPlugin - 原始波形加载
 
-# 执行
-adapter = get_adapter("vx2730")
-channel_files = adapter.scan_run("DAQ", "run_001")
-# 返回: {0: [Path('CH0_0.CSV'), Path('CH0_1.CSV')],
-#        1: [Path('CH1_0.CSV'), Path('CH1_1.CSV')]}
-
-# 转换为列表
-raw_files = [
-    ['DAQ/run_001/RAW/CH0_0.CSV', 'DAQ/run_001/RAW/CH0_1.CSV'],
-    ['DAQ/run_001/RAW/CH1_0.CSV', 'DAQ/run_001/RAW/CH1_1.CSV'],
-]
-```
-
-**关键点**:
-- 每个通道有独立的文件列表
-- 文件按索引排序
-- 使用 VX2730_LAYOUT 的文件模式 `*CH*.CSV`
-
-#### V1725 行为
-```python
-# 配置
-daq_adapter = "v1725"
-
-# 执行
-adapter = get_adapter("v1725")
-channel_files = adapter.scan_run(".", "run_001")
-
-# V1725Adapter.scan_run() 特殊逻辑:
-# 1. 尝试标准扫描（按通道分组）
-# 2. 如果失败或为空，回退到单文件模式
-# 3. 将所有 .bin 文件分配给通道 0
-
-# 返回: {0: [Path('wave_0.bin')]}
-
-# 转换为列表（假设有 3 个通道）
-raw_files = [
-    ['run_001/RAW/wave_0.bin'],  # 通道 0
-    [],                           # 通道 1 (空)
-    [],                           # 通道 2 (空)
-]
-```
-
-**关键点**:
-- V1725 的 .bin 文件包含所有通道数据
-- 适配器无法从文件名判断通道
-- 默认将文件分配给通道 0
-- 其他通道为空列表
-
----
-
-### 2. WaveformsPlugin - 波形加载
-
-**作用**: 读取文件，提取波形数据
-
-#### VX2730 行为（标准流程）
-```python
-# 输入
-raw_files = [
-    ['CH0_0.CSV', 'CH0_1.CSV'],
-    ['CH1_0.CSV', 'CH1_1.CSV'],
-]
-
-# 执行标准 CSV 读取
-from waveform_analysis.core.processing.loader import get_waveforms
-
-waveforms = get_waveforms(
-    raw_filess=raw_files,
-    daq_adapter="vx2730",
-    ...
-)
-
-# 内部流程:
-# 1. 对每个通道并行处理
-# 2. 每个通道内，并行读取多个 CSV 文件
-# 3. 使用 pandas 读取 CSV (分号分隔)
-# 4. 堆叠为 NumPy 数组
-
-# 返回
-waveforms = [
-    np.array([[0, 0, 1000, ..., 100.1, 100.2, ...],  # 通道 0
-              [0, 0, 2000, ..., 100.3, 100.4, ...]]),
-    np.array([[0, 1, 1000, ..., 99.8, 99.9, ...],    # 通道 1
-              [0, 1, 2000, ..., 100.0, 100.1, ...]]),
-]
-# 形状: List[np.ndarray], 每个数组 (n_events, n_columns)
-```
-
-**关键点**:
-- 返回列表，每个元素是一个通道的数据
-- 每个通道的数据是 2D NumPy 数组
-- 列索引对应 VX2730_SPEC 的 ColumnMapping
-
-#### V1725 行为（特殊处理）
-```python
-# 输入
-raw_files = [
-    ['wave_0.bin'],
-    [],
-    [],
-]
-
-# 检测到 v1725，执行特殊逻辑
-if daq_adapter == "v1725":
-    adapter = get_adapter("v1725")
-
-    # 1. 合并所有文件路径
-    files = []
-    for group in raw_files:
-        if group:
-            files.extend(group)
-    # files = ['wave_0.bin']
-
-    # 2. 去重（因为可能多个通道指向同一文件）
-    seen = set()
-    file_list = []
-    for path in files:
-        if path not in seen:
-            seen.add(path)
-            file_list.append(path)
-    # file_list = ['wave_0.bin']
-
-    # 3. 使用 V1725Reader 读取二进制
-    data = adapter.format_reader.read_files(file_list)
-
-    # 4. 返回未分割的结构化数组
-    return data
-
-# 返回
-waveforms = np.array([
-    (0, 1000, 100, False, array([...])),  # 通道 0, 事件 0
-    (0, 2000, 101, False, array([...])),  # 通道 0, 事件 1
-    (1, 1000, 99, False, array([...])),   # 通道 1, 事件 0
-    (1, 2000, 100, False, array([...])),  # 通道 1, 事件 1
-    (2, 1000, 98, False, array([...])),   # 通道 2, 事件 0
-], dtype=[('channel', 'i2'), ('timestamp', 'i8'),
-          ('baseline', 'i4'), ('trunc', 'b1'), ('wave', 'O')])
-# 形状: np.ndarray (单个结构化数组，包含所有通道)
-```
-
-**关键点**:
-- **不返回列表，返回单个结构化数组**
-- 所有通道的数据混合在一起
-- 通过 `channel` 字段区分通道
-- `wave` 字段是 object 类型（可变长度）
-
----
+CSV 与 CoMPASS BIN 读取器返回二维原始数组。V1725 读取器返回结构化数组，其字段为
+`board`、`channel`、`timestamp`、`baseline`（float64）、`trunc`、`wave`（object）。
+这些原始差异由格式读取器和后续结构化/records bundle 路径解释，不能用旧的 boardless dtype 或
+按 `range(n_channels)` 补空数组来描述当前硬件身份。
 
 ### 3. StWaveformsPlugin - 波形结构化
 
-**作用**: 将原始数据转换为 RECORD_DTYPE 结构化数组
+`st_waveforms` 使用适配器格式元数据解释原始输入；VX2730 CSV 和 V1725 支持此产物，
+CoMPASS BIN 明确拒绝 `st_waveforms`。V1725 与 CoMPASS BIN 的 records bundle 均明确拒绝
+`input_source="st_waveforms"`，须使用默认的原始文件路径。
 
-#### VX2730 行为（标准流程）
+### 4. RecordsPlugin / WavePoolPlugin - 正式分析入口
+
 ```python
-# 输入
-waveforms = [
-    np.array([[0, 0, 1000, ..., 100.1, 100.2, ...]]),  # 通道 0
-    np.array([[0, 1, 1000, ..., 99.8, 99.9, ...]]),    # 通道 1
-]
+from waveform_analysis import Context
+from waveform_analysis.plugins import profiles
+from waveform_analysis.core.data import records_view
 
-# 执行
-config = WaveformStructConfig.from_adapter("vx2730")
-# config.format_spec = VX2730_SPEC
-# - columns.timestamp = 2
-# - columns.baseline_start = 7
-# - columns.baseline_end = 47
-# - columns.samples_start = 7
-# - timestamp_unit = PICOSECONDS
-
-waveform_struct = WaveformStruct(waveforms, config=config)
-st_waveforms = waveform_struct.structure_waveforms()
-
-# 内部处理:
-# 1. 对每个通道调用 _structure_waveform()
-# 2. 使用 columns 提取各列:
-#    - timestamp = waves[:, 2]
-#    - baseline = mean(waves[:, 7:47])
-#    - wave = waves[:, 7:]
-# 3. 转换时间戳单位: ps -> ps (scale = 1.0)
-# 4. 填充 RECORD_DTYPE
-
-# 返回
-st_waveforms = np.array([
-    (100.15, nan, 1000000, 800, 0, [100.1, 100.2, ...]),
-    (100.18, nan, 2000000, 800, 0, [100.3, 100.4, ...]),
-    (99.85, nan, 1000000, 800, 1, [99.8, 99.9, ...]),
-    (100.02, nan, 2000000, 800, 1, [100.0, 100.1, ...]),
-], dtype=RECORD_DTYPE)
+ctx = Context(config={"data_root": "DAQ", "daq_adapter": "v1725"})
+ctx.register(*profiles.cpu_default())
+records = ctx.get_data("run_001", "records")
+wave_pool = ctx.get_data("run_001", "wave_pool")
+view = records_view(ctx, "run_001")
 ```
 
-**关键点**:
-- 输入是列表（原始波形按通道分组）
-- 输出是单个结构化数组
-- 通过 `channel` 字段区分通道
+`records` 中的 `wave_offset` 与 `event_length` 索引 `wave_pool`，两者须保持一致。
+板卡和通道取自事件元数据，不能用文件组编号或数组位置替代。
 
-#### V1725 行为（当前问题）
+## 适配器加载接口
+
 ```python
-# 输入（来自 WaveformsPlugin）
-waveforms = np.array([
-    (0, 1000, 100, False, array([...])),  # 通道 0
-    (1, 1000, 99, False, array([...])),   # 通道 1
-    (2, 1000, 98, False, array([...])),   # 通道 2
-], dtype=[('channel', 'i2'), ('timestamp', 'i8'), ...])
+from waveform_analysis.acquisition.formats import get_adapter
 
-# 问题: WaveformStruct 期望输入是 List[np.ndarray]
-# 但 V1725 返回的是单个结构化数组！
-
-# 当前代码会出错:
-waveform_struct = WaveformStruct(waveforms, config=config)
-# TypeError: 期望 List[np.ndarray]，得到 np.ndarray
-
-# 需要预处理: 按通道分割
-channels = {}
-for row in waveforms:
-    ch = row['channel']
-    if ch not in channels:
-        channels[ch] = []
-    channels[ch].append(row)
-
-# 转换为列表格式
-waveforms_list = [
-    np.array(channels.get(ch, []), dtype=waveforms.dtype)
-    for ch in range(max(channels.keys()) + 1)
-]
-
-# 然后才能传给 WaveformStruct
-waveform_struct = WaveformStruct(waveforms_list, config=config)
-st_waveforms = waveform_struct.structure_waveforms()
-# st_waveforms 为单个结构化数组，通过 channel 字段区分通道
+adapter = get_adapter("vx2730_bin")
+raw = adapter.load_channel("DAQ", "run_001", channel=2, board=1)
+chunks = adapter.load_channel_generator("DAQ", "run_001", channel=2, board=1)
+all_raw = adapter.load_all_channels("DAQ", "run_001")
+raw_1_2 = all_raw[(1, 2)]
 ```
 
-**关键点**:
-- **V1725 的输出格式与 WaveformStruct 的输入格式不匹配**
-- 需要额外的转换步骤
-- 当前代码可能缺少这个转换
+三个格式均按实际记录的 `(board, channel)` 筛选。`board` 是单通道接口的必需关键字；
+全通道接口返回硬件键字典，仅含实际有记录的通道，不再接受 `n_channels`。
+缺目录抛出 `FileNotFoundError`；空运行或无匹配记录时单通道接口抛出 `ValueError`，
+全通道接口在空运行返回 `{}`。生成器的错误在迭代时发生。
 
----
+## 分卷与完整性边界
 
-## 关键差异总结
+CoMPASS BIN 的读取、计数与流式读取共享头部/续卷解释规则。无头续卷须有同目录、同 family
+的已知连续前卷；有效自身头部会独立建立布局。`name.BIN` 与 `name_0.BIN` 都是第 0 卷。
+空首卷不能建立布局，已锚定的连续空中间卷才推进分卷状态；gap、反序和不同头部不触发静默回退。
+损坏或截断文件直接报错。
 
-### 数据结构差异
-
-| 阶段 | VX2730 | V1725 |
-|------|--------|-------|
-| **raw_files** | `List[List[str]]`<br>每通道独立文件列表 | `List[List[str]]`<br>所有通道指向同一文件 |
-| **waveforms** | `List[np.ndarray]`<br>每通道一个 2D 数组 | `np.ndarray`<br>单个结构化数组 |
-| **st_waveforms** | `np.ndarray`<br>单个结构化数组（`channel` 区分通道） | `np.ndarray`<br>单个结构化数组（`channel` 区分通道） |
-
-### 处理逻辑差异
-
-#### VX2730（标准流程）
-```python
-# 1. 扫描: 每通道独立文件
-raw_files = [['CH0_0.CSV', 'CH0_1.CSV'], ['CH1_0.CSV', 'CH1_1.CSV']]
-
-# 2. 加载: 并行读取 CSV
-waveforms = [ch0_array, ch1_array]
-
-# 3. 结构化: 直接处理
-st_waveforms = np.concatenate([ch0_structured, ch1_structured])
-# st_waveforms 为单个结构化数组，channel 字段区分通道
-```
-
-#### V1725（特殊处理）
-```python
-# 1. 扫描: 所有通道指向同一文件
-raw_files = [['wave.bin'], [], []]
-
-# 2. 加载: 特殊逻辑
-if daq_adapter == "v1725":
-    # 去重文件
-    # 读取二进制
-    # 返回单个结构化数组
-    waveforms = single_structured_array
-
-# 3. 结构化: 需要预处理
-# 按 channel 字段分割
-waveforms_list = split_by_channel(waveforms)
-st_waveforms = np.concatenate([ch0_structured, ch1_structured, ch2_structured])
-# st_waveforms 为单个结构化数组，channel 字段区分通道
-```
-
----
+计数检查文件大小、头部和首事件 `n_samples` 对齐，不是逐事件完整性证明。
+实际读取会进一步检查后续事件的波形长度。
 
 ## 适配器配置的影响
 
-### FormatSpec 的作用
+显式配置高于 adapter 推断，高于插件默认值。`AdapterInfo` 从当前注册对象提取采样率、时间戳单位、
+原生时间戳语义和采样间隔，不使用全局元数据缓存。未知名称返回 `None`，已注册元数据错误传播。
+注册必须先于 Context 创建；同名格式替换后新建 Context，不支持通知已有 Context 热替换。
 
-#### VX2730_SPEC
-```python
-FormatSpec(
-    name="vx2730_csv",
-    columns=ColumnMapping(
-        board=0,           # 第 0 列
-        channel=1,         # 第 1 列
-        timestamp=2,       # 第 2 列
-        samples_start=7,   # 第 7 列开始是波形
-        baseline_start=7,  # 前 40 个点计算基线
-        baseline_end=47,
-    ),
-    timestamp_unit=TimestampUnit.PICOSECONDS,  # ps
-    delimiter=";",
-    expected_samples=800,
-)
-```
+## 缓存与迁移
 
-**影响**:
-- WaveformStruct 知道从哪一列提取 timestamp
-- 知道用哪些列计算 baseline
-- 知道时间戳单位，自动转换
+`raw_files` 版本为 `0.0.3`，分卷排序变更沿 lineage 传递到下游 `st_waveforms`。
+共享原始输入路径的 `records` 与 `wave_pool` 版本均为 `0.17.0`。
+这里没有更改 `raw_files` schema 或原始数组 dtype。
 
-#### V1725_SPEC
-```python
-FormatSpec(
-    name="v1725_bin",
-    columns=ColumnMapping(),  # 空映射（二进制格式不需要）
-    timestamp_unit=TimestampUnit.NANOSECONDS,  # ns
-    file_pattern="*.bin",
-    expected_samples=None,  # 可变长度
-)
-```
-
-**影响**:
-- 不使用列映射（二进制格式已解析）
-- 时间戳单位是 ns，需要转换为 ps
-- 波形长度可变
-
----
-
-## 当前存在的问题
-
-### 问题 1: V1725 数据格式不匹配
-
-**现象**:
-```python
-# WaveformsPlugin 返回
-waveforms = np.ndarray (单个结构化数组)
-
-# StWaveformsPlugin 期望
-waveforms = List[np.ndarray] (列表)
-```
-
-**解决方案**:
-在 StWaveformsPlugin 中添加 V1725 检测和转换:
-```python
-def compute(self, context, run_id, **kwargs):
-    waveforms = context.get_data(run_id, "waveforms")
-    daq_adapter = context.get_config(self, "daq_adapter")
-
-    # V1725 特殊处理
-    if daq_adapter == "v1725":
-        # 检查是否是单个结构化数组
-        if isinstance(waveforms, np.ndarray) and waveforms.dtype.names:
-            # 按通道分割
-            waveforms = split_by_channel(waveforms)
-
-    # 标准处理
-    waveform_struct = WaveformStruct(waveforms, config=config)
-    ...
-```
-
-### 问题 2: V1725 的 baseline 字段类型不匹配
-
-**现象**:
-```python
-# V1725Reader 返回
-dtype = [('baseline', 'i4'), ...]  # int32
-
-# RECORD_DTYPE 期望
-dtype = [('baseline', 'f8'), ...]  # float64
-```
-
-**解决方案**:
-在转换时进行类型转换:
-```python
-waveforms_list[ch]['baseline'] = waveforms_list[ch]['baseline'].astype(np.float64)
-```
-
-### 问题 3: V1725 的 wave 字段是 object 类型
-
-**现象**:
-```python
-# V1725Reader 返回
-dtype = [('wave', 'O'), ...]  # object (可变长度)
-
-# RECORD_DTYPE 期望
-dtype = [('wave', 'f4', (800,)), ...]  # 固定长度 float32 数组
-```
-
-**解决方案**:
-需要将 object 数组转换为固定长度数组:
-```python
-# 确定最大长度
-max_len = max(len(w) for w in waveforms['wave'])
-
-# 创建固定长度数组
-fixed_waves = np.zeros((len(waveforms), max_len), dtype=np.float32)
-for i, w in enumerate(waveforms['wave']):
-    fixed_waves[i, :len(w)] = w
-```
-
----
-
-## 推荐的改进方案
-
-### 方案 1: 在 WaveformsPlugin 中统一输出格式
-
-**优点**: 所有适配器返回相同格式，下游插件无需特殊处理
-
-```python
-class WaveformsPlugin(Plugin):
-    def compute(self, context, run_id, **kwargs):
-        ...
-
-        if daq_adapter == "v1725":
-            # V1725 特殊处理
-            data = adapter.format_reader.read_files(file_list)
-
-            # 转换为标准格式: List[np.ndarray]
-            waveforms = self._convert_v1725_to_standard(data)
-            return waveforms
-
-        # 标准处理
-        return get_waveforms(...)
-
-    def _convert_v1725_to_standard(self, data):
-        """将 V1725 结构化数组转换为标准列表格式"""
-        channels = {}
-        for row in data:
-            ch = row['channel']
-            if ch not in channels:
-                channels[ch] = []
-            channels[ch].append(row)
-
-        max_ch = max(channels.keys())
-        return [
-            np.array(channels.get(ch, []), dtype=data.dtype)
-            for ch in range(max_ch + 1)
-        ]
-```
-
-### 方案 2: 创建 V1725 专用插件链
-
-**优点**: 清晰分离不同适配器的处理逻辑
-
-```python
-# V1725 专用插件
-class V1725WaveformsPlugin(Plugin):
-    provides = "waveforms"
-    depends_on = ["raw_files"]
-
-    def compute(self, context, run_id, **kwargs):
-        # V1725 特定逻辑
-        ...
-
-class V1725StWaveformsPlugin(Plugin):
-    provides = "st_waveforms"
-    depends_on = ["waveforms"]
-
-    def compute(self, context, run_id, **kwargs):
-        # V1725 特定的结构化逻辑
-        ...
-
-# 根据配置选择插件链
-from waveform_analysis.core.plugins import profiles
-
-if daq_adapter == "v1725":
-    plugins = v1725_plugins
-else:
-    plugins = profiles.cpu_default()
-```
-
-### 方案 3: 在适配器层统一接口
-
-**优点**: 适配器负责返回统一格式，插件完全无感知
-
-```python
-class V1725Adapter(DAQAdapter):
-    def load_all_channels(self, data_root, run_name, ...):
-        # 读取二进制文件
-        data = self.format_reader.read_files(...)
-
-        # 按通道分割，返回标准格式
-        return self._split_by_channel(data)
-
-    def _split_by_channel(self, data):
-        """将单个结构化数组分割为按通道分组的列表"""
-        ...
-```
-
----
-
-## 总结
-
-### 核心差异
-
-1. **文件组织**:
-   - VX2730: 每通道多文件
-   - V1725: 单文件多通道
-
-
-2. **数据格式**:
-   - VX2730: CSV 文本
-   - V1725: 二进制
-
-3. **输出结构**:
-   - **waveforms**:
-     - VX2730: `List[np.ndarray]` (每通道 2D 数组)
-     - V1725: `np.ndarray` (单个结构化数组)
-   - **st_waveforms**: `np.ndarray` (单个结构化数组，`channel` 区分通道)
-
-### 当前处理方式
-
-- **RawFilesPlugin**: 两者都使用适配器扫描，但 V1725 返回重复的文件路径
-- **WaveformsPlugin**: V1725 有特殊的 `if daq_adapter == "v1725"` 分支
-- **StWaveformsPlugin**: 若上游返回单个结构化数组，需先按通道分组再结构化
-
-### 建议
-
-推荐使用**方案 1**（在 WaveformsPlugin 中统一输出格式），因为：
-- 改动最小
-- 下游插件无需修改
-- 保持插件系统的一致性
-- 易于维护和扩展
-
-[^source]: 来源：`waveform_analysis/core/plugins/builtin/cpu/waveforms.py`、`waveform_analysis/utils/formats/base.py`。
+旧的 boardless 加载调用应补 `board=...`；全通道列表访问改为 `(board, channel)` 字典访问，
+并显式处理缺失键。`use_cache` 参数与 `clear_adapter_info_cache` 已删除。
+旧 `waveform_analysis.utils.formats` 别名和原有 `__module__` 身份继续保留。

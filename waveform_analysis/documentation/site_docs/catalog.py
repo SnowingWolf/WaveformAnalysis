@@ -1637,7 +1637,7 @@ RECORDS_VIEW_DOCUMENTATION_PAGE = CallableDocumentationPageSpec(
                             "`build_records_from_raw_files(...) -> RecordsBundle`",
                         ),
                         (
-                            '非 V1725，`input_source="st_waveforms"`',
+                            '非 V1725 且非 CoMPASS BIN，`input_source="st_waveforms"`',
                             "`st_waveforms`",
                             "`build_records_from_st_waveforms_sharded(...) -> RecordsBundle`",
                         ),
@@ -1669,9 +1669,9 @@ RECORDS_VIEW_DOCUMENTATION_PAGE = CallableDocumentationPageSpec(
                 DocumentationContentBlock(
                     kind="note",
                     tone="warning",
-                    title="V1725 限制",
+                    title="二进制格式输入限制",
                     text=(
-                        "V1725 使用专用二进制读取与分片合并路径，明确拒绝 "
+                        "V1725 使用专用二进制读取与分片合并路径；V1725 与 CoMPASS BIN 均拒绝 "
                         '`input_source="st_waveforms"`。'
                     ),
                 ),
@@ -1743,6 +1743,12 @@ _ADAPTER_PARAMETER_HELP = {
     "adapter_name": "已注册的 DAQ adapter 名称；未提供时从 `Context.config['daq_adapter']` 读取。",
     "plugin": "已注册插件实例或其 `provides` 名称。",
     "verbose": "是否显示每个配置值的来源与推断细节。",
+    "data_root": "原始数据根目录。",
+    "run_name": "运行名称。",
+    "channel": "事件元数据中的物理通道号，与 board 共同确定硬件身份。",
+    "board": "必需关键字参数，指定事件元数据中的板卡号。",
+    "chunk_size": "传给格式读取器的分块参数，必须为正；具体块大小由读取器决定。",
+    "show_progress": "是否显示读取进度。",
 }
 
 
@@ -1803,7 +1809,7 @@ ADAPTER_DOCUMENTATION_PAGE = CallableDocumentationPageSpec(
                 _adapter_callable_spec(
                     "list_adapters",
                     list_adapters,
-                    "列出当前进程已注册的 adapter 名称；导入 `waveform_analysis.acquisition.formats` 后内置 `vx2730` 与 `v1725` 可用。",
+                    "列出当前进程已注册的 adapter 名称；导入 `waveform_analysis.acquisition.formats` 后内置 `vx2730`、`vx2730_bin` 与 `v1725` 可用。",
                     returns="已注册 adapter 名称列表。",
                     example=(
                         "from waveform_analysis import Context\n"
@@ -1814,7 +1820,7 @@ ADAPTER_DOCUMENTATION_PAGE = CallableDocumentationPageSpec(
                         "assert adapter_name in list_adapters()\n\n"
                         "# 在请求插件产物前检查 DAQ 文件与通道发现结果。\n"
                         "adapter = get_adapter(adapter_name)\n"
-                        'channels = adapter.scan_run("DAQ", run_id)\n\n'
+                        'file_groups = adapter.scan_run("DAQ", run_id)\n\n'
                         'ctx = Context(config={"data_root": "DAQ", "daq_adapter": adapter_name})\n'
                         "ctx.register(*profiles.cpu_default())\n\n"
                         "# adapter 元数据与解析后的插件配置均可直接检查。\n"
@@ -1826,10 +1832,12 @@ ADAPTER_DOCUMENTATION_PAGE = CallableDocumentationPageSpec(
                 _adapter_callable_spec(
                     "Context.get_adapter_info",
                     Context.get_adapter_info,
-                    "读取当前 Context 选中的 adapter 的采样率、时间戳单位、原生时间戳语义与采样间隔。",
+                    "读取当前 Context 选中的 adapter 的采样率、时间戳单位、原生时间戳语义与采样间隔。未知名称返回 None，已注册对象的元数据异常传播。",
                     returns="`AdapterInfo`；未配置或名称未注册时返回 `None`。",
                     notes=(
                         "`daq_adapter` 应使用已注册 adapter 的名称，而不是 `DAQAdapter` 实例。",
+                        "AdapterInfo 元数据提取不使用全局缓存，按名称入口复用对象提取；use_cache 参数与 clear_adapter_info_cache 已删除。",
+                        "同名 adapter 规格替换后须新建 Context；注册表不会通知既有 Context 或自动失效其配置与 lineage。",
                         "在执行处理前先确认 `sampling_rate_hz`、`timestamp_unit` 与 `raw_timestamp_mode` 是否符合原始数据。",
                     ),
                     example=(
@@ -1846,7 +1854,7 @@ ADAPTER_DOCUMENTATION_PAGE = CallableDocumentationPageSpec(
                     returns="包含配置来源的 `ResolvedConfig`。",
                     notes=(
                         "传入字符串时，该插件必须已通过 `Context.register()` 注册。",
-                        "adapter 名称和解析结果会参与配置签名与缓存 lineage；更换 adapter 后应重新请求数据。",
+                        "adapter 名称和解析结果会参与配置签名与缓存 lineage；同名注册表格式替换后须新建 Context，已有 Context 不支持热替换。",
                     ),
                     example=(
                         'resolved = ctx.get_resolved_config("records")\n'
@@ -1942,6 +1950,53 @@ ADAPTER_DOCUMENTATION_PAGE = CallableDocumentationPageSpec(
                         ")"
                     ),
                 ),
+                _adapter_callable_spec(
+                    "DAQAdapter.scan_run",
+                    DAQAdapter.scan_run,
+                    "扫描运行目录并按文件布局分组；组键不是物理通道，缺目录抛出 FileNotFoundError。",
+                    returns="`dict[int, list[Path]]` 文件组；硬件身份以事件内的 board/channel 为准。",
+                    example='file_groups = adapter.scan_run("DAQ", "run_001")',
+                ),
+                _adapter_callable_spec(
+                    "DAQAdapter.load_channel",
+                    DAQAdapter.load_channel,
+                    "按事件中的 (board, channel) 加载原始数组，board 必须显式传入。",
+                    returns="保留读取器 dtype、布局与原生时间戳的 `np.ndarray`。",
+                    notes=(
+                        "所有内置格式均按真实事件元数据筛选，不依赖文件组编号。",
+                        "空运行或无匹配硬件通道抛出 ValueError；缺目录抛出 FileNotFoundError。",
+                        "旧 load_channel(root, run, channel) 调用须补 board=...。",
+                    ),
+                    example='raw = adapter.load_channel("DAQ", "run_001", channel=1, board=0)',
+                ),
+                _adapter_callable_spec(
+                    "DAQAdapter.load_channel_generator",
+                    DAQAdapter.load_channel_generator,
+                    "逐块筛选事件中的 (board, channel)，board 必须显式传入。",
+                    returns="只产生非空原始数组的 `Iterator[np.ndarray]`；保留 dtype 与原生时间戳。",
+                    notes=(
+                        "无匹配记录时在迭代耗尽候选文件后抛出 ValueError；缺目录抛出 FileNotFoundError。",
+                        "chunk_size 必须为正，具体分块方式由格式读取器决定。",
+                    ),
+                    example=(
+                        'for chunk in adapter.load_channel_generator("DAQ", "run_001", channel=1, board=0):\n'
+                        "    print(len(chunk))"
+                    ),
+                ),
+                _adapter_callable_spec(
+                    "DAQAdapter.load_all_channels",
+                    DAQAdapter.load_all_channels,
+                    "一次读取所有文件组，按真实硬件键返回原始数组字典。",
+                    returns="`dict[tuple[int, int], np.ndarray]`，键为 `(board, channel)`，空运行返回 `{}`。",
+                    notes=(
+                        "仅包含实际有记录的硬件通道，不填充缺失键；缺目录抛出 FileNotFoundError。",
+                        "不再接受 n_channels；旧列表访问须迁移到 (board, channel) 字典访问。",
+                    ),
+                    example=(
+                        'all_raw = adapter.load_all_channels("DAQ", "run_001")\n'
+                        "raw_0_1 = all_raw[(0, 1)]"
+                    ),
+                ),
             ),
         ),
         CallableDocumentationGroup(
@@ -1950,7 +2005,7 @@ ADAPTER_DOCUMENTATION_PAGE = CallableDocumentationPageSpec(
             description=(
                 "格式注册表管理 FormatReader 与 FormatSpec 的映射；"
                 "适配器注册表管理 DAQAdapter 实例。"
-                "utils/formats/__init__.py 在导入时自动注册内置格式 vx2730_csv 与 v1725_bin。"
+                "acquisition.formats 在导入时自动注册 vx2730_csv、vx2730_bin 与 v1725_bin。"
             ),
             members=(
                 _adapter_callable_spec(
@@ -1971,7 +2026,7 @@ ADAPTER_DOCUMENTATION_PAGE = CallableDocumentationPageSpec(
                     "注册完整的 DAQ 适配器实例到全局注册表；注册后通过其名称写入 Context 的 `daq_adapter` 配置。",
                     returns="无返回值。",
                     notes=(
-                        "自定义 adapter 应在创建 Context 和请求插件数据前注册。",
+                        "自定义 adapter 应在创建 Context 和请求插件数据前注册；同名规格替换后须新建 Context。",
                         "注册表是进程内状态；新的 Python 进程需要再次导入或注册自定义 adapter。",
                     ),
                     example=(
@@ -2004,7 +2059,7 @@ ADAPTER_DOCUMENTATION_PAGE = CallableDocumentationPageSpec(
                     example=(
                         "from waveform_analysis.acquisition.formats import get_adapter\n"
                         'adapter = get_adapter("vx2730")\n'
-                        'data = adapter.load_channel("DAQ", "run_001", channel=0)'
+                        'data = adapter.load_channel("DAQ", "run_001", channel=0, board=0)'
                     ),
                 ),
             ),
@@ -2014,6 +2069,7 @@ ADAPTER_DOCUMENTATION_PAGE = CallableDocumentationPageSpec(
             title="内置适配器",
             description=(
                 "vx2730: CAEN VX2730 数字化仪（CSV，分号分隔，500 MHz，ps）；"
+                "vx2730_bin: CoMPASS BIN（二维 int64 原始数组，500 MHz，ps）；"
                 "v1725: CAEN V1725 DAW_DEMO（二进制 .bin，sample index → ps，Numba 加速解析）。"
             ),
             members=(
@@ -2029,9 +2085,24 @@ ADAPTER_DOCUMENTATION_PAGE = CallableDocumentationPageSpec(
                     ),
                 ),
                 _adapter_callable_spec(
+                    "get_adapter_vx2730_bin",
+                    lambda: get_adapter("vx2730_bin"),
+                    "获取 CoMPASS BIN 适配器，扩展名大小写不敏感，支持单文件多通道及已锚定的连续无头续卷。",
+                    returns="VX2730 BIN `DAQAdapter` 实例。",
+                    notes=(
+                        "有效自身头部独立建立布局；无头续卷要求同目录、同 family 的连续前卷，偏移为 0。",
+                        "name.BIN 与 name_0.BIN 均为第 0 卷；空首卷不建立布局，连续空中间卷仅推进已有锚点。",
+                        "计数仅检查文件大小、头部与首事件 n_samples 对齐；实际读取检查后续事件长度，错误直接传播。",
+                    ),
+                    example=(
+                        'adapter = get_adapter("vx2730_bin")\n'
+                        'raw = adapter.load_channel("DAQ", "run_001", channel=1, board=0)'
+                    ),
+                ),
+                _adapter_callable_spec(
                     "get_adapter_v1725",
                     lambda: get_adapter("v1725"),
-                    "获取 V1725 适配器：解析多通道波形的 .bin 文件，sample index → ps，使用 Numba 加速。",
+                    "获取 V1725 适配器：保留原生 sample index 时间戳，规范 seg 分卷按整数索引排序（seg0, seg2, seg10）。",
                     returns="V1725 `DAQAdapter` 实例。",
                     example=(
                         "from waveform_analysis.acquisition.formats import get_adapter\n"

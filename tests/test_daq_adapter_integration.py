@@ -30,7 +30,7 @@ HEADER 2
         assert len(channel_files[0]) == 2
         assert len(channel_files[1]) == 2
 
-        data = adapter.load_channel(str(tmp_path), "run_001", channel=0)
+        data = adapter.load_channel(str(tmp_path), "run_001", channel=0, board=0)
         assert data.shape[0] == 2
 
         extracted = adapter.extract_and_convert(data)
