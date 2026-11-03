@@ -50,6 +50,13 @@ DAG 与 lineage 是协同关系：DAG 提供结果的计算结构，lineage 把�
 | `version` | 实现/行为身份 | 行为改变后主动失效旧结果 |
 | `output_dtype` / `output_schema` | 字段、类型和结构约束 | 契约变化需执行 schema 检查 |
 
+依赖可声明为 `("upstream", ">=1.0,<2.0")`。已注册 provider 的版本不满足约束时，consumer
+注册会抛出 `ValueError`。请求还会按 `run_id` 检查目标可达的版本约束，覆盖晚注册、provider
+替换和动态依赖，并在返回内存或磁盘缓存之前拒绝不兼容结果。成功验证按 run 和目标复用，注册、
+配置变更或清理缓存时失效；无约束的有效缓存不要求缺失的上游插件重新注册。
+显式约束要求可用的 `packaging`、合法版本及约束表达式，校验失败不会降为警告。
+旧的 `resolve_depends_on(context)` 签名仍受支持；解析函数内部的 `TypeError` 直接传播。
+
 ### 1.2 Plugin 内数据获取
 
 Plugin 通过 `context.get_data(run_id, name)` 读取正式上游，且 `name` 必须出现在静态或动态依赖中。

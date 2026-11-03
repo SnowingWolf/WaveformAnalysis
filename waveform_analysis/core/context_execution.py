@@ -93,6 +93,7 @@ class ContextExecutionDomain:
             self.ctx._in_progress[(run_id, data_name)] = True
 
     def resolve_execution_plan(self, run_id: str, data_name: str) -> list[str]:
+        self.ctx._plugin_domain.validate_request_versions(run_id, data_name)
         try:
             with self.ctx.profiler.timeit("context.resolve_dependencies"):
                 cache_key = (run_id, data_name)

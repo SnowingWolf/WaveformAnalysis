@@ -103,14 +103,18 @@ class EventPlugin(Plugin):
     输出:
     - events: 完整事件记录
 
-    v0.0.0 状态:
+    输入契约:
+    - selected 配对和位置表的 pair_id 必须唯一且成员完全一致
+    - 按 pair_id 对齐坐标及质量标志，输出保持 selected 配对顺序
+    - 重复、缺失或多余位置记录抛出 ValueError；双方空表返回空 EVENT_DTYPE
+
+    当前行为:
     - 仅建立数据结构和依赖关系
     - 基本特征从输入数据复制
     - 拓扑特征使用占位值（预留接口）
     - 质量评估使用简单阈值检查
 
     未来版本计划:
-    - v0.1.0: 基础特征提取和质量检查
     - v0.2.0: 拓扑特征计算（需要通道波形信息）
     - v0.3.0: 高级质量评估
     - v1.0.0: 完整的事件重建和分类
@@ -119,7 +123,7 @@ class EventPlugin(Plugin):
     provides = "events"
     depends_on = ["s1_s2_pairs", "position_reconstruction"]
     description = "Complete event reconstruction from S1-S2 pairs and position"
-    version = "0.0.3"
+    version = "0.1.0"
     save_when = "always"
     output_dtype = EVENT_DTYPE
 
@@ -168,6 +172,20 @@ class EventPlugin(Plugin):
         pairs = context.get_data(run_id, "s1_s2_pairs")
         positions = context.get_data(run_id, "position_reconstruction")
 
+        for name, values, required in (
+            ("s1_s2_pairs", pairs, {"pair_id", "selected"}),
+            ("position_reconstruction", positions, {"pair_id", "x", "y", "z", "r", "flags"}),
+        ):
+            if not isinstance(values, np.ndarray) or values.ndim != 1 or values.dtype.names is None:
+                raise ValueError(f"{name} must be a one-dimensional structured array")
+            missing_fields = required - set(values.dtype.names)
+            if missing_fields:
+                raise ValueError(f"{name} missing required fields: {sorted(missing_fields)}")
+            if values.dtype["pair_id"].kind not in "iu":
+                raise ValueError(f"{name}.pair_id must have an integer dtype")
+        if pairs.dtype["selected"].kind != "b":
+            raise ValueError("s1_s2_pairs.selected must have a boolean dtype")
+
         # 获取配置
         min_s1 = context.get_config(self, "min_s1")
         min_s2 = context.get_config(self, "min_s2")
@@ -177,9 +195,28 @@ class EventPlugin(Plugin):
         # 筛选已选定的配对
         selected_pairs = pairs[pairs["selected"]]
 
-        # 空数据处理
-        if len(selected_pairs) == 0 or len(positions) == 0:
+        pair_ids = selected_pairs["pair_id"]
+        position_ids = positions["pair_id"]
+        pair_order = np.argsort(pair_ids)
+        sorted_pair_ids = pair_ids[pair_order]
+        position_order = np.argsort(position_ids)
+        sorted_position_ids = position_ids[position_order]
+        for name, ids in (("selected pairs", sorted_pair_ids), ("positions", sorted_position_ids)):
+            if np.any(ids[1:] == ids[:-1]):
+                raise ValueError(f"{name} contains duplicate pair_id values")
+        if not np.array_equal(sorted_pair_ids, sorted_position_ids):
+            missing = np.setdiff1d(sorted_pair_ids, sorted_position_ids, assume_unique=True)
+            extra = np.setdiff1d(sorted_position_ids, sorted_pair_ids, assume_unique=True)
+            raise ValueError(
+                "position_reconstruction pair_id membership mismatch: "
+                f"missing={missing[:10].tolist()}, extra={extra[:10].tolist()}"
+            )
+        if len(selected_pairs) == 0:
             return np.zeros(0, dtype=EVENT_DTYPE)
+        if not np.array_equal(pair_order, position_order):
+            aligned_rows = np.empty_like(pair_order)
+            aligned_rows[pair_order] = position_order
+            positions = positions[aligned_rows]
 
         # 初始化结果数组
         n_events = len(selected_pairs)

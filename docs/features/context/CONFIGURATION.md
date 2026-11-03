@@ -14,6 +14,11 @@ Context 未显式传入 `storage_dir` 时，默认将缓存和处理产物写入
 持久化状态和磁盘结果，否则明确报缓存不可用。普通调用仍遵循现有配置同步与失效规则。
 详见[批量处理的缓存目录策略](BATCH_PROCESSOR.md)。
 
+请求会在读取缓存或计算前检查依赖的显式版本约束，检查结果按 run 和目标复用。
+`set_config()`、插件注册或覆盖、缓存清理，以及检测到 run 配置刷新时都会使该检查结果失效。
+这也覆盖 `get_run_config(refresh=True)` 和 readonly 请求确认外部已更新配置及持久状态的情况；
+readonly 仍只更新内存中的验证状态，不计算插件或改写磁盘缓存、配置快照和持久状态。
+
 `Plugin.timeout` 是插件执行属性，不是 `ctx.set_config()` 配置项。当前 Context 只支持
 `timeout=None`：需要进入该插件的 `compute()` 时，非 `None` 值会触发 `NotImplementedError`。
 该属性值不进入 lineage，也不改变缓存身份；命中有效缓存时仍可读取已有结果。

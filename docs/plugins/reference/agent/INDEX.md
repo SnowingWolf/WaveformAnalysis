@@ -34,7 +34,7 @@ result = ctx.get_data("run_001", "events")
 | [`df_events`](df_events.md) | `GroupedEventsPlugin` | `df` | `df` | - | `dataframe` | `static` | `source` | `0.0.1` |
 | [`df_paired`](df_paired.md) | `PairedEventsPlugin` | `df_events` | `df_events` | - | `dataframe` | `static` | `source` | `0.0.1` |
 | [`energy_reconstruction`](energy_reconstruction.md) | `EnergyReconstructionPlugin` | `s1_s2_pairs` | `s1_s2_pairs` | - | `structured_array` | `static` | `source` | `0.1.0` |
-| [`events`](events.md) | `EventPlugin` | `s1_s2_pairs`, `position_reconstruction` | `s1_s2_pairs`, `position_reconstruction` | - | `structured_array` | `static` | `source` | `0.0.3` |
+| [`events`](events.md) | `EventPlugin` | `s1_s2_pairs`, `position_reconstruction` | `s1_s2_pairs`, `position_reconstruction` | - | `structured_array` | `static` | `source` | `0.1.0` |
 | [`filtered_waveforms`](filtered_waveforms.md) | `FilteredWaveformsPlugin` | `st_waveforms` | `st_waveforms` | - | `structured_array` | `static` | `source` | `3.0.0` |
 | [`hit`](hit.md) | `HitFinderPlugin` | - | `records`, `wave_pool` | `use_filtered`, `wave_source` | `structured_array` | `static` | `source` | `3.0.0` |
 | [`hit_grouped`](hit_grouped.md) | `HitGroupedPlugin` | `hit_merged`, `hit_merged_components`, `hit_threshold` | `hit_merged`, `hit_merged_components`, `hit_threshold` | - | `dataframe` | `static` | `source` | `0.5.0` |
@@ -51,7 +51,7 @@ result = ctx.get_data("run_001", "events")
 | [`peaklet_waveforms`](peaklet_waveforms.md) | `PeakletWaveformPlugin` | - | `peaklets`, `peaklet_components`, `hit_merged`, `hit_merged_components`, `hit_threshold`, `records`, `wave_pool` | `clip_negative_signal`, `use_filtered` | `structured_array` | `static` | `source` | `2.2.1` |
 | [`peaklets`](peaklets.md) | `PeakletPlugin` | `hit_merged`, `peaklet_components` | `hit_merged`, `peaklet_components` | - | `structured_array` | `static` | `source` | `1.2.0` |
 | [`peaks`](peaks.md) | `PeaksPlugin` | `peaklets`, `peaklet_features` | `peaklets`, `peaklet_features` | - | `structured_array` | `static` | `source` | `5.1.0` |
-| [`position_reconstruction`](position_reconstruction.md) | `PositionReconstructionPlugin` | `s1_s2_pairs`, `peaklet_channels` | `s1_s2_pairs`, `peaklet_channels` | - | `structured_array` | `static` | `source` | `0.4.0` |
+| [`position_reconstruction`](position_reconstruction.md) | `PositionReconstructionPlugin` | `s1_s2_pairs`, `peaklet_channels` | `s1_s2_pairs`, `peaklet_channels` | - | `structured_array` | `static` | `source` | `0.4.1` |
 | [`raw_files`](raw_files.md) | `RawFileNamesPlugin` | - | - | - | `list` | `static` | `source` | `0.0.3` |
 | [`records`](records.md) | `RecordsPlugin` | - | `raw_files` | `daq_adapter`, `input_source` | `structured_array` | `static` | `source` | `0.17.0` |
 | [`records_asymmetry_mask`](records_asymmetry_mask.md) | `RecordsAsymmetryMaskPlugin` | `records`, `wave_pool` | `records`, `wave_pool` | - | `array` | `static` | `source` | `0.2.0` |

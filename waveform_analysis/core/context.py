@@ -882,6 +882,7 @@ class Context:
         """
         self._validate_get_data_output(output)
         require_disk_cache = self._config_domain.prepare_request(run_id, data_name)
+        self._plugin_domain.validate_request_versions(run_id, data_name)
         # 1. Check memory cache
         val = None if require_disk_cache else self._get_data_from_memory(run_id, data_name)
         if self._cache_readonly and (

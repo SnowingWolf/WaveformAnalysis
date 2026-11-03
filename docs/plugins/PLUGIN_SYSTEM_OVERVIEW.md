@@ -95,6 +95,10 @@ class RecordScalePlugin(Plugin):
 子类。注册阶段会调用 `Plugin.validate()`，并检查 `provides`、依赖格式、`Option`、`save_when`、
 `output_kind` 和输出 schema。
 
+带版本约束的依赖写为 `("upstream", ">=1.0,<2.0")`。已注册的上游不兼容时，注册会明确失败。
+晚注册、覆盖或按 run 变化的动态约束会在请求返回缓存或执行之前检查；显式约束无法验证时也会失败。
+兼容的检查结果会复用，并随注册、配置变更和缓存清理失效。
+
 ```python
 from waveform_analysis import Context
 from waveform_analysis.plugins import profiles
@@ -788,7 +792,8 @@ hit_threshold (v1.0.0) -> hit_merged (v1.2.0) -> hit_merged_features (v1.1.0)
 
 #### 依赖版本约束
 
-插件不直接声明依赖插件的版本约束。依赖关系通过 `provides` 名称解析，版本管理由缓存 lineage 自动处理。
+`depends_on` 和动态依赖均支持 `(provides, version_spec)` 元组，约束表达式采用 PEP 440。
+Context 检查上游版本是否满足约束；缓存 lineage 同时记录实际版本，两者共同约束结果复用。
 
 ### 升级 Checklist
 

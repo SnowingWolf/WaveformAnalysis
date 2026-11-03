@@ -39,7 +39,7 @@ print(preview)
 | [`df_events`](df_events.md) | `GroupedEventsPlugin` | 事件分析 | `df` | `dataframe` | `static` | `0.0.1` |
 | [`df_paired`](df_paired.md) | `PairedEventsPlugin` | 事件分析 | `df_events` | `dataframe` | `static` | `0.0.1` |
 | [`energy_reconstruction`](energy_reconstruction.md) | `EnergyReconstructionPlugin` | 其他 | `s1_s2_pairs` | `structured_array` | `static` | `0.1.0` |
-| [`events`](events.md) | `EventPlugin` | 事件分析 | `s1_s2_pairs`, `position_reconstruction` | `structured_array` | `static` | `0.0.3` |
+| [`events`](events.md) | `EventPlugin` | 事件分析 | `s1_s2_pairs`, `position_reconstruction` | `structured_array` | `static` | `0.1.0` |
 | [`filtered_waveforms`](filtered_waveforms.md) | `FilteredWaveformsPlugin` | 波形处理 | `st_waveforms` | `structured_array` | `static` | `3.0.0` |
 | [`hit`](hit.md) | `HitFinderPlugin` | 特征提取 | `records`, `wave_pool` | `structured_array` | `static` | `3.0.0` |
 | [`hit_grouped`](hit_grouped.md) | `HitGroupedPlugin` | 特征提取 | `hit_merged`, `hit_merged_components`, `hit_threshold` | `dataframe` | `static` | `0.5.0` |
@@ -56,7 +56,7 @@ print(preview)
 | [`peaklet_waveforms`](peaklet_waveforms.md) | `PeakletWaveformPlugin` | 峰构建 | `peaklets`, `peaklet_components`, `hit_merged`, `hit_merged_components`, `hit_threshold`, `records`, `wave_pool` | `structured_array` | `static` | `2.2.1` |
 | [`peaklets`](peaklets.md) | `PeakletPlugin` | 峰构建 | `hit_merged`, `peaklet_components` | `structured_array` | `static` | `1.2.0` |
 | [`peaks`](peaks.md) | `PeaksPlugin` | 特征提取 | `peaklets`, `peaklet_features` | `structured_array` | `static` | `5.1.0` |
-| [`position_reconstruction`](position_reconstruction.md) | `PositionReconstructionPlugin` | 其他 | `s1_s2_pairs`, `peaklet_channels` | `structured_array` | `static` | `0.4.0` |
+| [`position_reconstruction`](position_reconstruction.md) | `PositionReconstructionPlugin` | 其他 | `s1_s2_pairs`, `peaklet_channels` | `structured_array` | `static` | `0.4.1` |
 | [`raw_files`](raw_files.md) | `RawFileNamesPlugin` | 数据加载 | - | `list` | `static` | `0.0.3` |
 | [`records`](records.md) | `RecordsPlugin` | 记录处理 | `raw_files` | `structured_array` | `static` | `0.17.0` |
 | [`records_asymmetry_mask`](records_asymmetry_mask.md) | `RecordsAsymmetryMaskPlugin` | 记录处理 | `records`, `wave_pool` | `array` | `static` | `0.2.0` |

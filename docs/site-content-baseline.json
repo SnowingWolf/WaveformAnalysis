@@ -1853,8 +1853,8 @@
       "route": "/plugins/overview/",
       "title": "插件系统与模板 API",
       "source": "docs/plugins/PLUGIN_SYSTEM_OVERVIEW.md",
-      "source_sha256": "1b672ad4765ec443408eb9e8dec8361c6228d32d5b70c98ad2968a9240449f0b",
-      "model_fingerprint": "18a2b17b7d10a451aa904d2f0140d0c9c757896f9325a31bb9a4600b1bb45568",
+      "source_sha256": "f725ca8d733b76933e6cf2eec1b059926eba8a243d1f294a052c084e7c3bcf9e",
+      "model_fingerprint": "78e116fd43979d41300c923dced1ca9157c843a39db8117bdc5acff6432a5f80",
       "block_types": [
         "paragraph",
         "heading",
@@ -1869,6 +1869,7 @@
         "table",
         "paragraph",
         "heading",
+        "paragraph",
         "paragraph",
         "code",
         "paragraph",
@@ -2046,7 +2047,7 @@
         "paragraph"
       ],
       "content_counts": {
-        "paragraph": 94,
+        "paragraph": 95,
         "link": 6,
         "code": 27,
         "table": 8,
@@ -2509,8 +2510,8 @@
       "route": "/architecture/plugin-dag-lineage-cache/",
       "title": "插件执行链与缓存",
       "source": "docs/architecture/PLUGIN_DAG_LINEAGE_CACHE.md",
-      "source_sha256": "cc2a53418e1f3418891198927ce7dc2995a0e435e7e6d3d95beb9d07d5427a78",
-      "model_fingerprint": "958fb42f90e04276a58e6d1ce670f69f9b7f3e565b9cb124c028d3215839f9e3",
+      "source_sha256": "b725f1d508ddb3297e43a0f0715c26c0b95be01a14d3828f54a192093573b9a7",
+      "model_fingerprint": "2d8335ea26b7e925ef6da20f8579968365b88d706ca063eb5f82399c383fc971",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -2523,6 +2524,7 @@
         "heading",
         "paragraph",
         "table",
+        "paragraph",
         "heading",
         "paragraph",
         "code",
@@ -2586,7 +2588,7 @@
         "list"
       ],
       "content_counts": {
-        "paragraph": 33,
+        "paragraph": 34,
         "link": 6,
         "code": 8,
         "table": 4,
@@ -2968,9 +2970,10 @@
       "route": "/features/context/CONFIGURATION/",
       "title": "配置管理",
       "source": "docs/features/context/CONFIGURATION.md",
-      "source_sha256": "efef091be903ae0cecc711bfe1670922b9c2ba35afbd8462a01fbdfb58bd9357",
-      "model_fingerprint": "7433644e2b2028bf6127e94f25d8592d7625ebf39086ea3d5f56427cad147e9a",
+      "source_sha256": "6f410d0c23be5f762bddad601c3614338d09a2c46dd1a603ac83031cce1dd9b1",
+      "model_fingerprint": "91e8b943e63b5502d9f6c76d10e0c2d7ae192b538864f28a49f1899a6eb7a0e5",
       "block_types": [
+        "paragraph",
         "paragraph",
         "paragraph",
         "paragraph",
@@ -3030,7 +3033,7 @@
         "list"
       ],
       "content_counts": {
-        "paragraph": 33,
+        "paragraph": 34,
         "link": 4,
         "code": 4,
         "table": 1,

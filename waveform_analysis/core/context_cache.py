@@ -208,6 +208,7 @@ class ContextCacheDomain:
         verbose: bool = True,
     ) -> int:
         """Clear memory/disk cache entries for one or more data names."""
+        self.ctx._plugin_domain.invalidate_version_checks()
         count = 0
         memory_count = 0
         disk_count = 0
@@ -427,6 +428,7 @@ class ContextCacheDomain:
 
     def invalidate_planning_caches(self) -> None:
         """Clear execution/lineage/key caches used for cache planning."""
+        self.ctx._plugin_domain.invalidate_version_checks()
         self.ctx._execution_plan_cache.clear()
         self.ctx._lineage_cache.clear()
         self.ctx._lineage_hash_cache.clear()

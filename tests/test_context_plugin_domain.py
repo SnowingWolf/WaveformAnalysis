@@ -1,6 +1,7 @@
 import types
 
 import numpy as np
+import pytest
 
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.core.base import Plugin
@@ -40,6 +41,28 @@ class _LegacyDynamicPlugin(Plugin):
 
     def compute(self, context, run_id):
         return np.array([4])
+
+
+def test_dynamic_resolver_internal_typeerror_is_not_retried(tmp_path):
+    calls = []
+
+    class FailingResolver(Plugin):
+        provides = "failing_resolver"
+
+        def resolve_depends_on(self, context, run_id=None):
+            if run_id is not None:
+                calls.append(run_id)
+                raise TypeError("dynamic dependency resolution failed")
+            return []
+
+        def compute(self, context, run_id):
+            raise AssertionError("invalid dependencies must prevent compute")
+
+    ctx = Context(storage_dir=str(tmp_path))
+    ctx.register(FailingResolver)
+    with pytest.raises(TypeError, match="dynamic dependency resolution failed"):
+        ctx.get_data("run", "failing_resolver")
+    assert calls == ["run"]
 
 
 def test_context_uses_plugin_domain_without_legacy_registration_api(tmp_path):

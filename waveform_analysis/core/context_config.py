@@ -367,6 +367,8 @@ class ContextConfigDomain:
             except Exception as exc:
                 self.ctx.logger.warning("Failed to read run config '%s': %s", config_path, exc)
 
+        if cached_hash != current_hash:
+            self.ctx._plugin_domain.invalidate_version_checks()
         self.ctx._run_config_cache[run_id] = result
         self.ctx._run_config_hash_cache[run_id] = current_hash
         return result
@@ -471,4 +473,6 @@ class ContextConfigDomain:
                 f"Readonly cache is stale or unverified for run_id={run_id!r}, "
                 f"data_name={data_name!r}: run_config hash does not match persisted state."
             )
+        if self.ctx._run_config_hash_cache.get(run_id) != current_hash:
+            self.ctx._plugin_domain.invalidate_version_checks()
         return True
