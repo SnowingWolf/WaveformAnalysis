@@ -43,7 +43,7 @@ active_plans:
   task_file: docs/agents/runs/current/docs-build-skill/task.yaml
   legacy_plan: docs/agents/runs/current/docs-build-skill/legacy-plan.md
 - task_id: event-contract-hardening-20261103
-  state: reviewing
+  state: completed
   route: modify_plugin
   workflow_cost: strict
   workflow_shape: staged

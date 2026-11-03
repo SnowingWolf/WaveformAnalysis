@@ -13,7 +13,7 @@ links and readers; edit the task record and rerun
 | `context-dedup-20261029` | `completed` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/context-dedup-20261029/task.yaml` |
 | `corner-hist-bincount-optimization` | `completed` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/corner-hist-bincount-optimization/task.yaml` |
 | `docs-build-skill` | `reviewing` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/docs-build-skill/task.yaml` |
-| `event-contract-hardening-20261103` | `reviewing` | `modify_plugin` | `strict` | `staged` | `—` | `docs/agents/runs/current/event-contract-hardening-20261103/task.yaml` |
+| `event-contract-hardening-20261103` | `completed` | `modify_plugin` | `strict` | `staged` | `—` | `docs/agents/runs/current/event-contract-hardening-20261103/task.yaml` |
 | `execution-correctness-20261030` | `completed` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/execution-correctness-20261030/task.yaml` |
 | `get-data-output-unification` | `planning` | `modify_code` | `standard` | `staged` | `NeedsRevalidation` | `docs/agents/runs/current/get-data-output-unification/task.yaml` |
 | `hit-merged-peaklet-responsibility` | `planning` | `modify_code` | `standard` | `staged` | `NeedsRevalidation` | `docs/agents/runs/current/hit-merged-peaklet-responsibility/task.yaml` |
