@@ -2,6 +2,14 @@ version: 2
 generated_by: scripts/render_agent_docs.py
 source: docs/agents/runs/current/*/task.yaml
 active_plans:
+- task_id: acquisition-layout
+  state: completed
+  route: modify_code
+  workflow_cost: strict
+  workflow_shape: staged
+  condition: —
+  task_file: docs/agents/runs/current/acquisition-layout/task.yaml
+  legacy_plan: docs/agents/runs/current/acquisition-layout/legacy-plan.md
 - task_id: adapter-contracts-20261030
   state: completed
   route: retire_compat

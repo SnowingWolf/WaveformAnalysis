@@ -2604,9 +2604,10 @@
       "route": "/architecture/system/",
       "title": "系统架构与数据流",
       "source": "docs/architecture/ARCHITECTURE.md",
-      "source_sha256": "746ad17d37a0069197faa379f6dcb400db7a716c5db44e82f8472ed9a20d0445",
-      "model_fingerprint": "f31efd9df1c414c0e07be66c7e47d9c89f22d18e5539c47f388502097044fa18",
+      "source_sha256": "8c210dd1774262a871dec5940d8640ac6664bdf1bb68a60b718ecbaad5e48fb1",
+      "model_fingerprint": "8789f5d11eb6db34c066e03edffd5b66a2d8eec501bed023878f3fa9a8647c7f",
       "block_types": [
+        "paragraph",
         "paragraph",
         "paragraph",
         "heading",
@@ -2670,7 +2671,7 @@
         "list"
       ],
       "content_counts": {
-        "paragraph": 25,
+        "paragraph": 26,
         "link": 7,
         "code": 8,
         "table": 7,
@@ -3262,8 +3263,8 @@
       "route": "/features/utils/DAQ_ANALYZER_GUIDE/",
       "title": "📊 DAQ 运行分析器",
       "source": "docs/features/utils/DAQ_ANALYZER_GUIDE.md",
-      "source_sha256": "b9fe6d70f18d77211a51f90195b867f9183399a8f3d2ded378ac4d2acda07454",
-      "model_fingerprint": "d7da226c9a3b04671a8e7d840930871af2b2f8d5599c7e6be292470eaac48fbe",
+      "source_sha256": "54e47b866b33d19626e83c5648b62356a0f9d99bac3cd4417047b80bb37648b2",
+      "model_fingerprint": "79beea24b3f291f3947c557201c3279e35d2ccd6febf09ea868cfb99878c8fab",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -3612,8 +3613,8 @@
       "route": "/cli/WAVEFORM_PROCESS/",
       "title": "waveform-process 命令参考",
       "source": "docs/cli/WAVEFORM_PROCESS.md",
-      "source_sha256": "4161d9bb526fe5181ad4163ff2b43da00974be9755093513a31b9c3169c50d0b",
-      "model_fingerprint": "a9e50873e3009fe8e93c5efc6b10033ce767a9e73850b219eb773a8be9ab1087",
+      "source_sha256": "6b227b30ca7151d562b3da7097b6da468fc9948f50ba249f9c944ea4335b3556",
+      "model_fingerprint": "e5e97c7113b5869b25e39a7f59b1f50fb06d025f55a9fb5ddce848db41ae09bb",
       "block_types": [
         "paragraph",
         "paragraph",

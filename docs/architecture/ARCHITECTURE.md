@@ -5,6 +5,11 @@
 本文定义运行时组件、配置作用域和一次数据请求的完整路径。算法细节属于 Plugin 文档；本页固定
 Context、DAQ adapter、Plugin、Storage、Accessor、BatchProcessor 与全局 ExecutorManager 之间的所有权边界。
 
+采集入口按职责组织为 `waveform_analysis.acquisition.runs`（运行发现、文件组织与展示）、
+`acquisition.formats`（设备格式解释及适配）和 `acquisition.file_io`（通用 CSV 读取与批量调度）。
+设备专属解析留在 `formats` 的设备子包中；旧 `acquisition.daq`、`acquisition.readers`、
+`acquisition.io` 及相关 `utils` 路径保留为兼容入口，内部调用使用新的规范路径。
+
 ## 1. 系统边界
 
 WaveformAnalysis 以显式的 `(run_id, data_name)` 请求为起点。Context 不保存“当前 run”，Plugin
