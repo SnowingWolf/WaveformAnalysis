@@ -319,9 +319,12 @@ status:
     - First two sandboxed docs builds crashed in Node/TypeScript; third unsandboxed
       identical build succeeded. Cause not established.
     commit:
-      status: uncommitted
-      reason: Independent review approved; root now commits scoped stages with required
-        hooks
+      status: committed
+      shas: &id002
+      - 483bd30b99480769ef79be1b35dd28d1870a86f1
+      - 3ec285be9bfbe580a7eb0573e38e110aca5c4cd8
+      - a41f572347ce043b8cb8eb293a6cade6942ede9c
+      pre_commit_hooks: PASS all source and documentation stage hooks
   review:
     reviewer: acquisition_reviewer
     reviewer_actor: reviewer
@@ -347,6 +350,16 @@ status:
     completion_allowed: true
   approval: {}
   handoff:
-    commit_status: pending_scoped_commits
-    summary: Independent blocking review approved; source stages and documentation
-      will be committed separately, then exact SHAs recorded.
+    commit_status: committed
+    commit_shas: *id002
+    summary: Independent review approved; file_io, runs/consumers and docs/site committed
+      in three stages. This handoff update is a separate metadata commit. Follow-up
+      PR targets codex/adapter-layout while PR12 remains unmerged.
+    validation:
+    - 308 integration tests PASS; final file_io contract suite 45 PASS including fresh
+      absent optional imports
+    - '34 doc tests covered: 33 initially passed, one source baseline corrected and
+      its test passed'
+    - Fixed gates, docs/anchors, real external static build03, independent review
+      and commit hooks PASS
+    remaining_limitations: *id001
