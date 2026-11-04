@@ -97,7 +97,7 @@ from .vx2730 import (
 )
 
 # VX2730 CoMPASS 二进制适配器
-from .vx2730_bin import (
+from .vx2730.binary import (
     VX2730_BIN_ADAPTER,
     VX2730_BIN_LAYOUT,
     VX2730_BIN_SPEC,

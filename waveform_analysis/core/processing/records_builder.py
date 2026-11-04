@@ -2329,7 +2329,7 @@ def _build_v1725_records_part_from_waves(
     if not waves:
         return RecordsBundle(np.zeros(0, dtype=RECORDS_DTYPE), np.zeros(0, dtype=np.uint16))
 
-    from waveform_analysis.acquisition.formats.v1725_numba import (
+    from waveform_analysis.acquisition.formats.v1725.numba import (
         fill_v1725_records_metadata_parallel,
         fill_v1725_records_metadata_serial,
     )
@@ -2452,7 +2452,7 @@ def _build_v1725_records_part_from_array_batches(
     source_batch_indices = np.repeat(np.arange(len(batches), dtype=np.int32), row_counts)
 
     records = np.zeros(n_records, dtype=RECORDS_DTYPE)
-    from waveform_analysis.acquisition.formats.v1725_numba import (
+    from waveform_analysis.acquisition.formats.v1725.numba import (
         fill_v1725_records_metadata_serial,
     )
 

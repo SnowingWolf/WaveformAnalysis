@@ -12,12 +12,12 @@ import re
 
 import numpy as np
 
-from waveform_analysis.acquisition.formats.v1725_numba import parse_channel_headers_numba
 from waveform_analysis.core.foundation.utils import exporter
 
-from .adapter import DAQAdapter
-from .base import ColumnMapping, FormatReader, FormatSpec, RawTimestampMode, TimestampUnit
-from .directory import DirectoryLayout
+from ..adapter import DAQAdapter
+from ..base import ColumnMapping, FormatReader, FormatSpec, RawTimestampMode, TimestampUnit
+from ..directory import DirectoryLayout
+from .numba import parse_channel_headers_numba
 
 export, __all__ = exporter()
 
@@ -583,7 +583,7 @@ class V1725Reader(FormatReader):
         """
         import mmap
 
-        from waveform_analysis.acquisition.formats.v1725_numba import parse_v1725_events_mmap
+        from .numba import parse_v1725_events_mmap
 
         for file_path in file_paths:
             path = Path(file_path)
