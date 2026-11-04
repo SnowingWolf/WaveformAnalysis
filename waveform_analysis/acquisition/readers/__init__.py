@@ -1,29 +1,15 @@
-"""Lazy responsibility-oriented entry points for acquisition readers."""
+"""Compatibility aliases for generic file I/O."""
 
-from importlib import import_module
+import sys
 
-__all__ = [
-    "parse_and_stack_files",
-    "parse_files_generator",
-    "read_csv_polars",
-    "read_csv_pyarrow",
-    "read_files_polars",
-    "read_files_pyarrow",
-]
+from waveform_analysis._module_aliases import alias_module, register_module_aliases
 
-_MODULE_BY_NAME = {
-    "parse_and_stack_files": "orchestrator",
-    "parse_files_generator": "base_csv",
-    "read_csv_polars": "polars_backend",
-    "read_files_polars": "polars_backend",
-    "read_csv_pyarrow": "pyarrow_backend",
-    "read_files_pyarrow": "pyarrow_backend",
-}
-
-
-def __getattr__(name: str):
-    if name in _MODULE_BY_NAME:
-        value = getattr(import_module(f".{_MODULE_BY_NAME[name]}", __name__), name)
-        globals()[name] = value
-        return value
-    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
+register_module_aliases(
+    {
+        "waveform_analysis.acquisition.readers.base_csv": "waveform_analysis.acquisition.file_io.csv_pandas",
+        "waveform_analysis.acquisition.readers.polars_backend": "waveform_analysis.acquisition.file_io.csv_polars",
+        "waveform_analysis.acquisition.readers.pyarrow_backend": "waveform_analysis.acquisition.file_io.csv_pyarrow",
+        "waveform_analysis.acquisition.readers.orchestrator": "waveform_analysis.acquisition.file_io.orchestration",
+    }
+)
+sys.modules[__name__] = alias_module(__name__, "waveform_analysis.acquisition.file_io")
