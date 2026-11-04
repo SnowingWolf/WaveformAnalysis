@@ -390,6 +390,10 @@ class ContextCacheDomain:
 
     def is_disk_cache_valid(self, run_id: str, name: str, key: str) -> bool:
         """Check whether disk cache exists and lineage matches without loading data."""
+        base = self.ctx._published_cache
+        if base is not None and name in base.manifest["nodes"]:
+            base.validate_request(run_id, name)
+            return base.manifest["nodes"][name]["payload"] is not None
         return self._resolve_disk_cache_key(run_id, name, key) is not None
 
     def _record_cache_hit(self, run_id: str, name: str) -> None:
@@ -409,6 +413,10 @@ class ContextCacheDomain:
         self, run_id: str, name: str, *, require_disk_cache: bool = False
     ) -> Any | None:
         """Load a valid memory or disk result and record a single cache hit."""
+        base = self.ctx._published_cache
+        if base is not None and name in base.manifest["nodes"]:
+            base.validate_request(run_id, name)
+            return base.load(run_id, name)
         data = None if require_disk_cache else self.ctx._get_data_from_memory(run_id, name)
         if self.ctx._cache_readonly and (
             isinstance(data, Iterator | OneTimeGenerator) or hasattr(data, "__next__")
@@ -424,6 +432,10 @@ class ContextCacheDomain:
 
     def is_cache_hit(self, run_id: str, name: str, load: bool = False) -> bool:
         """Check memory/disk cache status. Optionally load disk cache into memory."""
+        base = self.ctx._published_cache
+        if base is not None and name in base.manifest["nodes"]:
+            base.validate_request(run_id, name)
+            return base.manifest["nodes"][name]["payload"] is not None
         if self.ctx._get_data_from_memory(run_id, name) is not None:
             return True
         if name not in self.ctx._plugins:

@@ -106,6 +106,14 @@ active_plans:
   condition: ReworkExecutionStarted
   task_file: docs/agents/runs/current/import-topology-optimization/task.yaml
   legacy_plan: docs/agents/runs/current/import-topology-optimization/legacy-plan.md
+- task_id: layered-cache-validation-20261104
+  state: reviewing
+  route: modify_code
+  workflow_cost: strict
+  workflow_shape: staged
+  condition: —
+  task_file: docs/agents/runs/current/layered-cache-validation-20261104/task.yaml
+  legacy_plan: docs/agents/runs/current/layered-cache-validation-20261104/legacy-plan.md
 - task_id: managed-workflow-mvp
   state: completed
   route: modify_code

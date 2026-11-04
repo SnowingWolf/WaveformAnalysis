@@ -1853,14 +1853,15 @@
       "route": "/plugins/overview/",
       "title": "插件系统与模板 API",
       "source": "docs/plugins/PLUGIN_SYSTEM_OVERVIEW.md",
-      "source_sha256": "f2158e225514c19c17e409572137d3791aa51c35864726deae73d1d7ad083967",
-      "model_fingerprint": "24de24d1d7ee47b287e511506e37676f2a2e32109e235f179b079511b698de82",
+      "source_sha256": "9890056c7c6b4cfc125fe9a69951aeaa5099983f94db7a95db4f660b41e3d752",
+      "model_fingerprint": "c32705e7fcd3159388614523aefdfb433db7d3431b12711b58d3e5810a768242",
       "block_types": [
         "paragraph",
         "heading",
         "paragraph",
         "code",
         "table",
+        "paragraph",
         "paragraph",
         "paragraph",
         "heading",
@@ -2048,8 +2049,8 @@
         "paragraph"
       ],
       "content_counts": {
-        "paragraph": 96,
-        "link": 6,
+        "paragraph": 97,
+        "link": 7,
         "code": 27,
         "table": 8,
         "list": 18
@@ -2515,8 +2516,8 @@
       "route": "/architecture/plugin-dag-lineage-cache/",
       "title": "插件执行链与缓存",
       "source": "docs/architecture/PLUGIN_DAG_LINEAGE_CACHE.md",
-      "source_sha256": "1020d4a549b4937fb418a32a8727de884d8b0f90c5a61e6dfddb7e078e58c768",
-      "model_fingerprint": "0a109d62a81da47ea08549d5c4770df3f0c4dc134fa11081fefbf3a5ebf61f92",
+      "source_sha256": "68e82d69350746ee7d4d1b8a9d496666d35f2ee9ee5e8538028f7323ea05c0da",
+      "model_fingerprint": "0443e9e476c9aa7282fb7de86e8880978ee8f0cb076f82e9c0770cb60a50ce44",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -2574,6 +2575,7 @@
         "heading",
         "code",
         "paragraph",
+        "paragraph",
         "heading",
         "paragraph",
         "heading",
@@ -2593,8 +2595,8 @@
         "list"
       ],
       "content_counts": {
-        "paragraph": 34,
-        "link": 6,
+        "paragraph": 35,
+        "link": 7,
         "code": 8,
         "table": 4,
         "list": 3
@@ -2976,9 +2978,10 @@
       "route": "/features/context/CONFIGURATION/",
       "title": "配置管理",
       "source": "docs/features/context/CONFIGURATION.md",
-      "source_sha256": "82d4668dc25047f417add060b5d8b1754e2a764541e2135990963ac3b8c7364b",
-      "model_fingerprint": "b9bc3b7bb9339c3890a3e1ebbf532d4af80a96ccaa5db6dc75f14d4315d42e4c",
+      "source_sha256": "f96ca124a632680f840e3637e9da9cf22acc243c1780810572f834cf143a7b3f",
+      "model_fingerprint": "7cac92fd871a2390e4569c749316366f904b02d035b7e1e327a34d3d3125088e",
       "block_types": [
+        "paragraph",
         "paragraph",
         "paragraph",
         "paragraph",
@@ -3040,8 +3043,8 @@
         "list"
       ],
       "content_counts": {
-        "paragraph": 35,
-        "link": 5,
+        "paragraph": 36,
+        "link": 6,
         "code": 4,
         "table": 1,
         "list": 8
@@ -4317,6 +4320,46 @@
         "table": 0,
         "list": 1
       }
+    },
+    {
+      "route": "/features/context/LAYERED_CACHE/",
+      "title": "分层缓存：共享基础产物与私人分析",
+      "source": "docs/features/context/LAYERED_CACHE.md",
+      "source_sha256": "b88160dabab4596a94ac4fe1014dda60b50805d28d741f1a1014cba83ff0d33c",
+      "model_fingerprint": "49339fd0f426fe6cb3b62caceb9d4f1a09cb6e968a0b222fbcf571927c828eee",
+      "block_types": [
+        "paragraph",
+        "table",
+        "heading",
+        "paragraph",
+        "code",
+        "paragraph",
+        "code",
+        "paragraph",
+        "heading",
+        "paragraph",
+        "code",
+        "paragraph",
+        "heading",
+        "list",
+        "heading",
+        "paragraph",
+        "paragraph",
+        "heading",
+        "paragraph",
+        "list",
+        "paragraph",
+        "heading",
+        "list",
+        "paragraph"
+      ],
+      "content_counts": {
+        "paragraph": 11,
+        "link": 3,
+        "code": 3,
+        "table": 1,
+        "list": 3
+      }
     }
   ],
   "source_indexes": [
@@ -4421,8 +4464,8 @@
       "route": "/features/",
       "source": "docs/features/README.md",
       "title": "功能特性",
-      "source_sha256": "ff1f92f0afced89fea8bca44ac5342c6f31156548ca62e7d5eebc30589dc673e",
-      "model_fingerprint": "c9698b58df5ec68784510c798a40a342955ca515528d3c66e793fc478a710225",
+      "source_sha256": "c91ddfc59717640c477476b405ac337cd6b363d7af4ea81192c150682a5e0dc2",
+      "model_fingerprint": "053cf846619cfc6b3510748b2693393a2dbb63e4bb643b6d53ca3a0d869fdd9b",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -4460,7 +4503,7 @@
       ],
       "content_counts": {
         "paragraph": 7,
-        "link": 50,
+        "link": 51,
         "code": 0,
         "table": 2,
         "list": 10
@@ -4471,8 +4514,8 @@
       "route": "/features/",
       "source": "docs/features/context/README.md",
       "title": "Context 功能",
-      "source_sha256": "48caccf697cd4590115c4280eae2a5d3da1bb9c8077e52177f01be5ba623b5f0",
-      "model_fingerprint": "b00bb78c127b9f30e42da068a4d5a0d18b0bb1108578a5217e7406634c8ef685",
+      "source_sha256": "739d18a601cea76765a1662ae36033d2a03ef63fb1a246f142a06d29d11a4760",
+      "model_fingerprint": "8f9719b3454b3ef719124b366b8b4a8e3428814d27aded947c85c09587ac8e0d",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -4485,7 +4528,7 @@
       ],
       "content_counts": {
         "paragraph": 2,
-        "link": 16,
+        "link": 17,
         "code": 0,
         "table": 1,
         "list": 2

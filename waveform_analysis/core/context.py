@@ -100,6 +100,7 @@ def _create_context_from_spec(spec: dict[str, Any]) -> Context:
     ctx = Context(
         config=config,
         storage_dir=spec.get("storage_dir"),
+        base=spec.get("base"),
         external_plugin_dirs=spec.get("plugin_dirs"),
         auto_discover_plugins=False,
         stats_mode=spec.get("stats_mode", "off"),
@@ -218,6 +219,7 @@ class Context:
         auto_discover_plugins: bool = False,
         stats_mode: str = "off",
         stats_log_file: str | None = None,
+        base: str | None = None,
     ) -> None:
         """
         Initialize Context.
@@ -253,6 +255,21 @@ class Context:
             >>> ctx = Context(stats_mode='detailed', stats_log_file='./logs/plugins.log')
         """
         self._plugins: dict[str, Any] = {}
+        self._published_cache = None
+        if base is not None:
+            if storage_backend is not None or (config or {}).get("plugin_backends"):
+                raise ValueError("Published base requires the default MemmapStorage backend")
+            if storage_dir is None:
+                raise ValueError("Published base requires an explicit private storage_dir")
+            if stats_log_file and os.path.commonpath(
+                [os.path.realpath(stats_log_file), os.path.realpath(base)]
+            ) == os.path.realpath(base):
+                raise ValueError("stats_log_file cannot write into published base")
+            if os.path.commonpath([os.path.realpath(base), os.path.realpath(storage_dir)]) in {
+                os.path.realpath(base),
+                os.path.realpath(storage_dir),
+            }:
+                raise ValueError("Published base and private storage_dir must not overlap")
         # BatchProcessor scopes this flag to cache-only requests.
         self._cache_readonly = False
 
@@ -382,6 +399,11 @@ class Context:
         self._plugin_domain = ContextPluginDomain(self)
         self._time_domain = ContextTimeDomain(self)
 
+        if base is not None:
+            from .published_cache import PublishedCache
+
+            self._published_cache = PublishedCache(self, base)
+
         # Registration invalidates caches, so discovery must run after every domain exists.
         self.plugin_dirs = external_plugin_dirs or []
         if auto_discover_plugins:
@@ -408,6 +430,7 @@ class Context:
             auto_discover_plugins=False,
             stats_mode=stats_mode if self.enable_stats else "off",
             stats_log_file=stats_log_file,
+            base=str(self._published_cache.base) if self._published_cache else None,
         )
         new_ctx._cache_readonly = self._cache_readonly
 
@@ -488,6 +511,7 @@ class Context:
             "config": _safe_copy_config(self.config),
             "cache_readonly": self._cache_readonly,
             "storage_dir": self.storage_dir,
+            "base": str(self._published_cache.base) if self._published_cache else None,
             "plugin_dirs": list(self.plugin_dirs),
             "stats_mode": stats_mode if self.enable_stats else "off",
             "stats_log_file": stats_log_file,
@@ -844,6 +868,10 @@ class Context:
             **kwargs: Additional arguments passed to plugins
         """
         self._validate_get_data_output(output)
+        if self._published_cache is not None:
+            protected = self._published_cache.validate_request(run_id, data_name)
+            if protected and self._published_cache.manifest["nodes"][data_name]["payload"] is None:
+                raise FileNotFoundError(f"Frozen published node {data_name!r} is not materialized")
         require_disk_cache = self._config_domain.prepare_request(run_id, data_name)
         self._plugin_domain.validate_request_versions(run_id, data_name)
         val = self._cache_domain.get_cached_data(
@@ -880,6 +908,12 @@ class Context:
             **kwargs,
         )
         return self._coerce_get_data_output(run_id, data_name, result, output)
+
+    def publish(self, run_id: str, targets: str | list[str], destination: str):
+        """Publish a frozen snapshot of materialized uncompressed ndarray targets."""
+        from .published_cache import publish
+
+        return publish(self, run_id, targets, destination)
 
     def _validate_get_data_output(self, output: str) -> None:
         if output not in {"native", "chunk_stream", "array"}:
@@ -2021,6 +2055,8 @@ class Context:
             >>> # 确认后再执行
             >>> data = ctx.get_data('run_001', 'signal_peaks')
         """
+        if self._published_cache is not None:
+            self._published_cache.validate_request(run_id, data_name)
         self._config_domain.prepare_request(run_id, data_name)
         # 检查数据名称是否存在
         if data_name not in self._plugins:
@@ -2037,6 +2073,13 @@ class Context:
 
         # 2. 计算本次实际需要执行的步骤（cache-aware）
         needed_set = self._execution_domain.compute_needed_set(run_id, data_name, execution_plan)
+        if self._published_cache is not None:
+            nodes = self._published_cache.manifest["nodes"]
+            missing = sorted(
+                name for name in needed_set if name in nodes and nodes[name]["payload"] is None
+            )
+            if missing:
+                raise FileNotFoundError(f"Frozen published node {missing[0]!r} is not materialized")
 
         # 3. 检查缓存状态
         cache_status = {}

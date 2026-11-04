@@ -257,6 +257,9 @@ flowchart TD
 当前缓存键包含 `run_id`、产物名称和 lineage 摘要。同名产物在不同 run 中不会共享键；同一 run
 中配置、version、输出契约或上游身份变化也会产生不同键。
 
+分层缓存另有发布快照和私人缓存的读取策略，并在复用之前验证冻结的上游身份；
+详见[分层缓存](../features/context/LAYERED_CACHE.md)。上图描述普通单目录模式。
+
 ### 6.1.1 大型波形池的持久化
 
 `peaklet_waveform_pool` 一类的大型连续数组仍须完整写入磁盘，才能在新 Context 中命中缓存；这段

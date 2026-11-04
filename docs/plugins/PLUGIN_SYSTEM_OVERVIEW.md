@@ -38,6 +38,10 @@ flowchart LR
 也不约束回调直接执行文件 I/O。具体缓存与配置有效性要求见
 [批量处理说明](../features/context/BATCH_PROCESSOR.md)。
 
+使用 `Context(base=已发布快照, storage_dir=私人目录)` 时，请求会先验证冻结的上游身份，
+共享产物只读，下游缺失产物可以计算并写入私人目录。生产者通过 `publish()` 创建新版本；
+具体发布前提、格式限制与示例见[分层缓存](../features/context/LAYERED_CACHE.md)。
+
 ## Plugin 身份与输出契约
 
 最小插件由四个互相配合的声明组成：`provides` 标识产物，`depends_on` 标识输入，`version` 标识

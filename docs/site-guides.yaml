@@ -96,6 +96,8 @@ sections:
         route: /features/context/BATCH_PROCESSOR/
       - source: docs/features/context/CONFIGURATION.md
         route: /features/context/CONFIGURATION/
+      - source: docs/features/context/LAYERED_CACHE.md
+        route: /features/context/LAYERED_CACHE/
       - source: docs/features/context/DEPENDENCY_ANALYSIS_GUIDE.md
         route: /features/context/DEPENDENCY_ANALYSIS_GUIDE/
       - source: docs/features/context/LINEAGE_VISUALIZATION_GUIDE.md
