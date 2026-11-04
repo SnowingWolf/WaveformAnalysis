@@ -21,7 +21,7 @@ links and readers; edit the task record and rerun
 | `hit-merged-profiler-run00600` | `completed` | `modify_plugin` | `standard` | `staged` | `—` | `docs/agents/runs/current/hit-merged-profiler-run00600/task.yaml` |
 | `hit-threshold-ragged-optimization` | `planning` | `modify_plugin` | `standard` | `staged` | `NeedsRevalidation` | `docs/agents/runs/current/hit-threshold-ragged-optimization/task.yaml` |
 | `import-topology-optimization` | `executing` | `modify_code` | `strict` | `staged` | `ReworkExecutionStarted` | `docs/agents/runs/current/import-topology-optimization/task.yaml` |
-| `layered-cache-validation-20261104` | `reviewing` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/layered-cache-validation-20261104/task.yaml` |
+| `layered-cache-validation-20261104` | `completed` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/layered-cache-validation-20261104/task.yaml` |
 | `managed-workflow-mvp` | `completed` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/managed-workflow-mvp/task.yaml` |
 | `peak-classification-test-plugin-20260917` | `—` | `modify_plugin` | `standard` | `staged` | `—` | `docs/agents/runs/current/peak-classification-test-plugin-20260917/task.yaml` |
 | `peaks-run00600-optimization` | `completed` | `modify_plugin` | `strict` | `staged` | `AllBlockingGatesPassed` | `docs/agents/runs/current/peaks-run00600-optimization/task.yaml` |

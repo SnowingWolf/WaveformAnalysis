@@ -4,7 +4,7 @@ metadata:
   id: layered-cache-validation-20261104
   generation: 1
   created_at: '2026-11-04T11:55:48Z'
-  updated_at: '2026-11-04T12:14:10Z'
+  updated_at: '2026-11-04T12:16:36Z'
 spec:
   goal: Implement a published immutable shared lower cache with private writable upper
     cache
@@ -43,7 +43,7 @@ spec:
     executor_role: executor.code
     reviewer_role: reviewer
 status:
-  state: reviewing
+  state: completed
   transitions:
   - from: created
     to: planning
@@ -65,6 +65,11 @@ status:
     at: '2026-11-04T12:14:10Z'
     actor: executor.code
     condition: execution_report_ready
+  - from: reviewing
+    to: completed
+    at: '2026-11-04T12:16:36Z'
+    actor: reviewer
+    condition: all_blocking_gates_pass
   plan_sha256: ca058edfceee7f1d83580b87dcbe63eb32939f3aa10680456d750d705f5f2211
   execution:
     summary: Implemented Context base/publish, frozen lower DAG with private upper
@@ -139,6 +144,68 @@ status:
       fixtures
     original_checkout: No writes by this task. Unrelated untracked docs/agents/runs/current/adapter-layout-20261104/
       appeared during work and is preserved.
-  review: {}
+  review:
+    task_id: layered-cache-validation-20261104
+    reviewer_actor: reviewer
+    workflow_cost: strict
+    workflow_shape: staged
+    plan_sha256: ca058edfceee7f1d83580b87dcbe63eb32939f3aa10680456d750d705f5f2211
+    decision: approved
+    gate_results:
+      targeted_tests:
+        status: PASS
+        detail: 'PASS: layered 26; core 155 passed, 1 skipped; site 20 and final fixture
+          2 passed'
+      generate_docs:
+        status: PASS
+        detail: 'PASS: auto and agent generation'
+      assess_change_impact:
+        status: PASS
+        detail: 'PASS: no plugin contract changes'
+      schema_compat_check:
+        status: PASS
+        detail: 'PASS: synthetic smoke events=12; dtype addition is test fixture'
+      doc_sync:
+        status: PASS
+        detail: PASS
+      doc_anchors:
+        status: PASS
+        detail: 'PASS: 0 errors, 0 warnings'
+      blocking_review:
+        status: PASS
+        detail: 'PASS: independent code, test, guide and final site artifact review'
+    blocking_findings: []
+    residual_risks:
+    - Caller must ensure producer completion and same-generation records and wave_pool;
+      locks guarantee a stable copy window, not historical batch identity.
+    - Only nonempty uncompressed non-object ndarray payloads in MemmapStorage are
+      supported; publication requires Linux renameat2.
+    - Metadata, lineage, schema and size validation do not prove payload byte integrity;
+      read-only files require external directory permission or mount controls.
+    - Initial publication creates copies; no general claim that total cache size is
+      less than raw data.
+    - Synthetic records_view and test fixtures were validated; no full real run 00196
+      publication or execution was performed.
+    follow_up_actions:
+    - Complete scoped implementation commit and handoff; preserve unrelated changes
+      in the original checkout.
+    evidence:
+      execution_record: docs/agents/runs/current/layered-cache-validation-20261104/task.yaml
+      tests: /tmp/wa-layered-cache-validation-20261104/layered-final.log
+      core: /tmp/wa-layered-cache-validation-20261104/core-regression-allowed.log
+      site: /tmp/wa-layered-cache-validation-20261104/site-tests-final.log
+      build: /tmp/waveform-doc-build/runs/layered-cache-validation-20261104-reviewed/report.json
+      example: /tmp/wa-layered-cache-validation-20261104/example-final/report.json
+      input_fingerprint: bb7e2c41af282b38440ce55a04b8b46ee98c25d682e19fd121bab97c17e4dcb7
+    prior_failures: Initial restricted worktree run failed to create default ./wa_data;
+      full core subset passed in an authorized writable environment. Earlier site
+      route failure fixed and rerun passed.
+    implementation_commit: 6b9b1ab70484e181cbe3b12ad7ef0a8c59cca239
   approval: {}
-  handoff: {}
+  handoff:
+    implementation_commit: 6b9b1ab70484e181cbe3b12ad7ef0a8c59cca239
+    branch: codex/layered-cache-validation
+    original_checkout: Unmodified by this task; unrelated adapter-layout task remains
+      untouched.
+    git_status: clean after implementation commit; final task closure commit follows
+    git_diff_stat: empty after implementation commit
