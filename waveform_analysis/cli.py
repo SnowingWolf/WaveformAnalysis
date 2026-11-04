@@ -10,7 +10,7 @@ from pathlib import Path
 import sys
 
 _LAZY_ATTRS = {
-    "DAQAnalyzer": ("waveform_analysis.acquisition.daq", "DAQAnalyzer"),
+    "DAQAnalyzer": ("waveform_analysis.acquisition.runs", "DAQAnalyzer"),
     "Context": ("waveform_analysis.core.context", "Context"),
     "profiles": ("waveform_analysis.core.plugins", "profiles"),
 }

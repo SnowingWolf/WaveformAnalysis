@@ -408,7 +408,7 @@ class VX2730Reader(FormatReader):
         Returns:
             所有文件数据垂直堆叠后的数组
         """
-        from waveform_analysis.acquisition.io import parse_and_stack_files
+        from waveform_analysis.acquisition.file_io import parse_and_stack_files
 
         if not file_paths:
             return np.array([]).reshape(0, 0)
@@ -445,7 +445,7 @@ class VX2730Reader(FormatReader):
         Yields:
             每个 chunk 的数据数组
         """
-        from waveform_analysis.acquisition.io import parse_and_stack_files
+        from waveform_analysis.acquisition.file_io import parse_and_stack_files
 
         if not file_paths:
             return
@@ -569,7 +569,7 @@ class VX2730Reader(FormatReader):
             ):
                 arr = self.read_file(fp, is_first_file=is_first)
             else:
-                from waveform_analysis.acquisition.io import parse_and_stack_files
+                from waveform_analysis.acquisition.file_io import parse_and_stack_files
 
                 skiprows = self._resolve_skiprows(Path(fp), is_first_file=is_first)
                 arr = parse_and_stack_files(

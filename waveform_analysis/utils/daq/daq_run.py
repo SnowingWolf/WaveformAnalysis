@@ -1,7 +1,7 @@
-"""Compatibility alias for :mod:`waveform_analysis.acquisition.daq.daq_run`."""
+"""Compatibility alias for :mod:`waveform_analysis.acquisition.runs.run`."""
 
 import sys
 
 from waveform_analysis._module_aliases import alias_module
 
-sys.modules[__name__] = alias_module(__name__, "waveform_analysis.acquisition.daq.daq_run")
+sys.modules[__name__] = alias_module(__name__, "waveform_analysis.acquisition.runs.run")
