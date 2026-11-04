@@ -162,8 +162,9 @@ status:
     - Moved Numba files use new compilation cache locations; first invocation may
       compile again
     commit:
-      status: uncommitted
-      reason: Awaiting independent blocking review; root will make scoped commit
+      status: committed
+      sha: f9dc87506880ff7bd9e777d05c9462f0aeead1ce
+      pre_commit_hooks: PASS
   review:
     reviewer: structure_reviewer
     reviewer_actor: reviewer
@@ -186,6 +187,7 @@ status:
     completion_allowed: true
   approval: {}
   handoff:
-    commit_status: pending_scoped_commit
-    summary: Independent review approved. Root commits this record together with the
-      reviewed source changes; final response supplies commit hash.
+    commit_status: committed
+    commit_sha: f9dc87506880ff7bd9e777d05c9462f0aeead1ce
+    summary: Reviewed source changes committed with all pre-commit hooks passing;
+      this final handoff update is recorded separately.
