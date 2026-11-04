@@ -93,21 +93,15 @@ class ContextExecutionDomain:
             self.ctx._in_progress[(run_id, data_name)] = True
 
     def resolve_execution_plan(self, run_id: str, data_name: str) -> list[str]:
-        self.ctx._plugin_domain.validate_request_versions(run_id, data_name)
-        try:
-            with self.ctx.profiler.timeit("context.resolve_dependencies"):
-                cache_key = (run_id, data_name)
-                if cache_key in self.ctx._execution_plan_cache:
-                    plan = self.ctx._execution_plan_cache[cache_key]
-                else:
-                    plan = self.ctx.resolve_dependencies(data_name, run_id=run_id)
-                    self.ctx._execution_plan_cache[cache_key] = plan
-            return plan
-        except ValueError:
-            val = self.ctx._get_data_from_memory(run_id, data_name)
-            if val is not None:
-                return []
-            raise
+        with self.ctx.profiler.timeit("context.resolve_dependencies"):
+            cache_key = (run_id, data_name)
+            if cache_key in self.ctx._execution_plan_cache:
+                self.ctx._plugin_domain.validate_request_versions(run_id, data_name)
+                plan = self.ctx._execution_plan_cache[cache_key]
+            else:
+                plan = self.ctx.resolve_dependencies(data_name, run_id=run_id)
+                self.ctx._execution_plan_cache[cache_key] = plan
+        return plan
 
     def compute_needed_set(
         self,
@@ -383,8 +377,7 @@ class ContextExecutionDomain:
     ) -> None:
         key = self.ctx.key_for(run_id, name)
         if not skip_cache_check:
-            _data, cache_hit = self.ctx._cache_manager.check_cache(run_id, name, key)
-            if cache_hit:
+            if self.ctx._cache_domain.get_cached_data(run_id, name) is not None:
                 if tracker and bar_name:
                     tracker.update(bar_name, n=1)
                 return
@@ -443,8 +436,7 @@ class ContextExecutionDomain:
                     # 串行执行路径（原有逻辑）
                     for name in plan:
                         if name not in needed_set:
-                            key = self.ctx.key_for(run_id, name)
-                            self.ctx._cache_manager.check_cache(run_id, name, key)
+                            self.ctx._cache_domain.get_cached_data(run_id, name)
                             if tracker and bar_name:
                                 tracker.update(bar_name, n=1)
                             continue
@@ -524,8 +516,7 @@ class ContextExecutionDomain:
                     # 当前层全部是缓存命中，跳过
                     for name in layer:
                         if name in plan and name not in needed_set:
-                            key = self.ctx.key_for(run_id, name)
-                            self.ctx._cache_manager.check_cache(run_id, name, key)
+                            self.ctx._cache_domain.get_cached_data(run_id, name)
                             if tracker and bar_name:
                                 tracker.update(bar_name, n=1)
                     continue
@@ -616,7 +607,7 @@ class ContextExecutionDomain:
         lineage: dict[str, Any] | None = None,
     ) -> Iterator:
         key = self.ctx.key_for(run_id, data_name)
-        bin_path, _meta_path, lock_path = self.ctx.storage._get_paths(key)
+        bin_path, _meta_path, lock_path = self.ctx.storage._get_paths(key, run_id=run_id)
         tmp_bin_path = bin_path + ".tmp"
 
         def wrapper() -> Iterator:
@@ -670,7 +661,7 @@ class ContextExecutionDomain:
                     pbar.close()
 
                 self.ctx.storage.finalize_save(
-                    key, total_count, dtype, extra_metadata={"lineage": lineage}
+                    key, total_count, dtype, extra_metadata={"lineage": lineage}, run_id=run_id
                 )
                 self.ctx._invalidate_storage_key_list_cache(self.ctx.storage, run_id)
                 self.ctx._invalidate_storage_key_list_cache(

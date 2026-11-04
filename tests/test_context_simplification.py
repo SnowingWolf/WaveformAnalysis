@@ -296,3 +296,62 @@ def test_cache_stats_scans_all_runs_then_filters_and_exports(
         )
     else:
         collector.export_stats.assert_not_called()
+
+
+@pytest.mark.parametrize("parallel", [False, True])
+@pytest.mark.parametrize("cache_source", ["memory", "disk"])
+def test_cached_dependency_is_loaded_once_in_execution_plan(tmp_path, parallel, cache_source):
+    calls = []
+
+    class Source(Plugin):
+        provides = "cached_source"
+        save_when = "always"
+        output_dtype = np.dtype([("value", "i4")])
+
+        def compute(self, context, run_id):
+            calls.append("source")
+            return np.array([(3,)], dtype=self.output_dtype)
+
+    class Left(Plugin):
+        provides = "cached_left"
+        depends_on = ["cached_source"]
+
+        def compute(self, context, run_id):
+            return np.array([1])
+
+    class Right(Plugin):
+        provides = "cached_right"
+        depends_on = ["cached_source"]
+
+        def compute(self, context, run_id):
+            return np.array([2])
+
+    class Target(Plugin):
+        provides = "cached_target"
+        depends_on = ["cached_left", "cached_right"]
+
+        def compute(self, context, run_id):
+            return np.array([4])
+
+    def make_context():
+        ctx = Context(
+            storage_dir=str(tmp_path),
+            stats_mode="basic",
+            config={"show_progress": False, "enable_plugin_parallelism": parallel},
+        )
+        ctx.register(Source, Left, Right, Target)
+        return ctx
+
+    writer = make_context()
+    writer.get_data("run_001", "cached_source")
+    if cache_source == "memory":
+        reader = writer
+        reader.stats_collector.reset()
+    else:
+        reader = make_context()
+
+    np.testing.assert_array_equal(reader.get_data("run_001", "cached_target"), [4])
+    assert calls == ["source"]
+    assert ("run_001", "cached_source") in reader._results
+    stats = reader.stats_collector.get_statistics("cached_source")["cached_source"]
+    assert (stats.total_calls, stats.cache_hits, stats.cache_misses) == (1, 1, 0)

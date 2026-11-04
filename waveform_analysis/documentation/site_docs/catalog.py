@@ -1141,12 +1141,19 @@ _CONTEXT_NARRATIVE_SECTIONS = (
                     "配置更新统一使用 `set_config()`，它会自动失效解析配置、lineage、缓存键与执行计划。"
                     "指定 run 的产物清理仍使用 `clear_cache_for(run_id, data_name)`。"
                     "内部缓存维护由 Context 管理，私有 helper 不属于用户 API。"
+                    "结果只保存在显式 run 的内存存储中，不再自动创建同名 Context 属性；"
+                    "用户普通属性不会被当作结果，也不会由缓存清理修改。"
                 ),
             ),
             DocumentationContentBlock(
                 kind="table",
                 table_headers=("原调用", "当前写法"),
                 table_rows=(
+                    ("`ctx.<data_name>`", "`ctx.get_data(run_id, data_name)`"),
+                    (
+                        "`RuntimeCacheManager`",
+                        "读取结果用 `get_data`（缺失时会计算）；只查计划与状态用 `preview_execution`",
+                    ),
                     (
                         "`clear_config_cache()` / `clear_performance_caches()`",
                         "通过 `set_config(...)` 更新配置；删除手动维护调用",

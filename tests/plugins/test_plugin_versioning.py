@@ -296,6 +296,74 @@ def test_unconstrained_cache_does_not_require_absent_provider(tmp_path):
     ctx._set_data("run", "version_target", np.array([17], dtype="i8"))
 
     np.testing.assert_array_equal(ctx.get_data("run", "version_target"), [17])
+    preview = ctx.preview_execution("run", "version_target", verbose=0)
+    assert "Missing dependency" in preview["error"]
+    assert "unregistered_source" in preview["error"]
+
+
+def test_execution_plan_validates_once_on_miss_and_again_on_hit(tmp_path, monkeypatch):
+    ctx = Context(storage_dir=str(tmp_path))
+    ctx.register(VersionSource, VersionTarget)
+    calls = []
+    validate = ctx._plugin_domain.validate_request_versions
+
+    def record_validation(run_id, target):
+        calls.append((run_id, target))
+        return validate(run_id, target)
+
+    monkeypatch.setattr(ctx._plugin_domain, "validate_request_versions", record_validation)
+    expected = ["version_source", "version_target"]
+    assert ctx._execution_domain.resolve_execution_plan("run", "version_target") == expected
+    assert calls == [("run", "version_target")]
+    assert ctx._execution_domain.resolve_execution_plan("run", "version_target") == expected
+    assert calls == [("run", "version_target"), ("run", "version_target")]
+
+
+def test_cached_execution_plan_cannot_bypass_invalidated_version_check(tmp_path):
+    requirement = {"value": ">=1.0.0"}
+
+    class ChangingTarget(VersionTarget):
+        def resolve_depends_on(self, context, run_id=None):
+            return [("version_source", requirement["value"])]
+
+    ctx = Context(storage_dir=str(tmp_path))
+    ctx.register(VersionSource, ChangingTarget)
+    np.testing.assert_array_equal(ctx.get_data("run", "version_target"), [2])
+    assert ("run", "version_target") in ctx._execution_plan_cache
+    requirement["value"] = ">=2.0.0"
+    ctx.clear_cache_for(
+        "run", "version_target", clear_memory=False, clear_disk=False, verbose=False
+    )
+
+    with pytest.raises(ValueError, match="requires 'version_source'.*>=2.0.0"):
+        ctx._execution_domain.resolve_execution_plan("run", "version_target")
+    preview = ctx.preview_execution("run", "version_target", verbose=0)
+    assert "requires 'version_source' >=2.0.0" in preview["error"]
+
+
+def test_resolve_dependencies_requires_seed_from_requested_run(tmp_path):
+    class SeededTarget(Plugin):
+        provides = "seeded_target"
+        depends_on = ["seed"]
+
+        def compute(self, context, run_id):
+            return context.get_data(run_id, "seed")
+
+    ctx = Context(storage_dir=str(tmp_path))
+    ctx.register(SeededTarget)
+    ctx._set_data("run_a", "seed", np.array([], dtype="i8"))
+    assert ctx.resolve_dependencies("seeded_target", run_id="run_a") == ["seeded_target"]
+    assert ctx.resolve_dependencies("seed", run_id="run_a") == []
+    with pytest.raises(ValueError, match="Missing dependency.*seed"):
+        ctx.resolve_dependencies("seeded_target", run_id="run_b")
+    with pytest.raises(ValueError, match="Missing dependency.*seed"):
+        ctx.resolve_dependencies("seeded_target")
+    ctx.clear_cache_for("run_a", "seed", clear_disk=False, verbose=False)
+    ctx.seed = np.array([1])
+    with pytest.raises(ValueError, match="Missing dependency.*seed"):
+        ctx.resolve_dependencies("seeded_target", run_id="run_a")
+    with pytest.raises(ValueError, match="No plugin registered for 'seed'"):
+        ctx.resolve_dependencies("seed", run_id="run_a")
 
 
 def test_constrained_invalid_provider_version_fails(tmp_path):
@@ -413,3 +481,5 @@ def test_version_checks_follow_run_config_refresh(tmp_path, refresh_mode):
         }
         assert after == before
         assert not ctx._cache_readonly
+        with pytest.raises(ValueError, match="requires 'version_source'.*>=2.0.0"):
+            ctx.get_data("run", "version_target")

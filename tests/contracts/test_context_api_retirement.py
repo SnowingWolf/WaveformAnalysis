@@ -1,5 +1,6 @@
 """Context API retirement must preserve configuration and cache behavior."""
 
+import importlib
 import inspect
 import warnings
 
@@ -7,6 +8,7 @@ import numpy as np
 import pytest
 
 from waveform_analysis import Context
+from waveform_analysis.core import storage
 from waveform_analysis.core.data.batch_processor import BatchProcessor
 from waveform_analysis.core.data.dependency_analysis import DependencyAnalyzer
 from waveform_analysis.plugins import Option, Plugin
@@ -52,11 +54,18 @@ def test_retired_context_members_are_absent(api_context):
     for name in ("clear_config_cache", "clear_performance_caches", "profiling_summary"):
         assert not hasattr(Context, name)
         assert not hasattr(api_context, name)
-        assert name not in Context._RESERVED_NAMES
 
     with api_context.profiler.timeit("api_task"):
         pass
     assert "api_task" in api_context.profiler.summary()
+
+
+def test_runtime_cache_manager_public_export_and_module_are_removed():
+    assert "RuntimeCacheManager" not in storage.__all__
+    assert not hasattr(storage, "RuntimeCacheManager")
+    with pytest.raises(ModuleNotFoundError) as exc_info:
+        importlib.import_module("waveform_analysis.core.storage.cache_manager")
+    assert exc_info.value.name == "waveform_analysis.core.storage.cache_manager"
 
 
 def test_context_signatures_expose_only_supported_parameters():

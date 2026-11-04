@@ -1853,8 +1853,8 @@
       "route": "/plugins/overview/",
       "title": "插件系统与模板 API",
       "source": "docs/plugins/PLUGIN_SYSTEM_OVERVIEW.md",
-      "source_sha256": "f725ca8d733b76933e6cf2eec1b059926eba8a243d1f294a052c084e7c3bcf9e",
-      "model_fingerprint": "78e116fd43979d41300c923dced1ca9157c843a39db8117bdc5acff6432a5f80",
+      "source_sha256": "f2158e225514c19c17e409572137d3791aa51c35864726deae73d1d7ad083967",
+      "model_fingerprint": "24de24d1d7ee47b287e511506e37676f2a2e32109e235f179b079511b698de82",
       "block_types": [
         "paragraph",
         "heading",
@@ -1869,6 +1869,7 @@
         "table",
         "paragraph",
         "heading",
+        "paragraph",
         "paragraph",
         "paragraph",
         "code",
@@ -2047,7 +2048,7 @@
         "paragraph"
       ],
       "content_counts": {
-        "paragraph": 95,
+        "paragraph": 96,
         "link": 6,
         "code": 27,
         "table": 8,
@@ -2441,8 +2442,8 @@
       "route": "/architecture/plugin-cache-architecture/",
       "title": "插件缓存架构",
       "source": "docs/architecture/PLUGIN_CACHE_ARCHITECTURE.md",
-      "source_sha256": "c4f668fa1e98476d41e9070878bf0a10f6733e140c85099200983845671a028a",
-      "model_fingerprint": "71b18fba0ed64be645475ac1f7aff64129e3029128829f3941a9f6806f3ac2bc",
+      "source_sha256": "42f074eb82fc64dd3abe5be19953482b5489aee83a28609c1fd9fbbd08b5cc03",
+      "model_fingerprint": "64a739c727438ffcfbf386b97b8d8438751df3b604812281212817d97aa5f996",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -2495,11 +2496,15 @@
         "paragraph",
         "heading",
         "paragraph",
+        "paragraph",
+        "paragraph",
+        "heading",
+        "paragraph",
         "heading",
         "list"
       ],
       "content_counts": {
-        "paragraph": 22,
+        "paragraph": 25,
         "link": 4,
         "code": 6,
         "table": 5,
@@ -2510,8 +2515,8 @@
       "route": "/architecture/plugin-dag-lineage-cache/",
       "title": "插件执行链与缓存",
       "source": "docs/architecture/PLUGIN_DAG_LINEAGE_CACHE.md",
-      "source_sha256": "b725f1d508ddb3297e43a0f0715c26c0b95be01a14d3828f54a192093573b9a7",
-      "model_fingerprint": "2d8335ea26b7e925ef6da20f8579968365b88d706ca063eb5f82399c383fc971",
+      "source_sha256": "1020d4a549b4937fb418a32a8727de884d8b0f90c5a61e6dfddb7e078e58c768",
+      "model_fingerprint": "0a109d62a81da47ea08549d5c4770df3f0c4dc134fa11081fefbf3a5ebf61f92",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -2599,8 +2604,8 @@
       "route": "/architecture/system/",
       "title": "系统架构与数据流",
       "source": "docs/architecture/ARCHITECTURE.md",
-      "source_sha256": "079657a4f02e2c91ba6b83d00361e3703ae8dc9a69df2aafd6c04d9e2f06e1b5",
-      "model_fingerprint": "72cf9527b4aec1e634552cb4bd3e155cf41e25aea663de7b4d18a97288915844",
+      "source_sha256": "746ad17d37a0069197faa379f6dcb400db7a716c5db44e82f8472ed9a20d0445",
+      "model_fingerprint": "f31efd9df1c414c0e07be66c7e47d9c89f22d18e5539c47f388502097044fa18",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -2612,6 +2617,7 @@
         "table",
         "heading",
         "list",
+        "paragraph",
         "heading",
         "paragraph",
         "heading",
@@ -2664,8 +2670,8 @@
         "list"
       ],
       "content_counts": {
-        "paragraph": 24,
-        "link": 6,
+        "paragraph": 25,
+        "link": 7,
         "code": 8,
         "table": 7,
         "list": 3
@@ -2970,8 +2976,8 @@
       "route": "/features/context/CONFIGURATION/",
       "title": "配置管理",
       "source": "docs/features/context/CONFIGURATION.md",
-      "source_sha256": "6f410d0c23be5f762bddad601c3614338d09a2c46dd1a603ac83031cce1dd9b1",
-      "model_fingerprint": "91e8b943e63b5502d9f6c76d10e0c2d7ae192b538864f28a49f1899a6eb7a0e5",
+      "source_sha256": "82d4668dc25047f417add060b5d8b1754e2a764541e2135990963ac3b8c7364b",
+      "model_fingerprint": "b9bc3b7bb9339c3890a3e1ebbf532d4af80a96ccaa5db6dc75f14d4315d42e4c",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -3029,12 +3035,13 @@
         "table",
         "code",
         "paragraph",
+        "paragraph",
         "heading",
         "list"
       ],
       "content_counts": {
-        "paragraph": 34,
-        "link": 4,
+        "paragraph": 35,
+        "link": 5,
         "code": 4,
         "table": 1,
         "list": 8

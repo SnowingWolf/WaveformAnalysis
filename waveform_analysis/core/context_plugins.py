@@ -247,10 +247,8 @@ class ContextPluginDomain:
                 if node in visited:
                     return
                 if node not in self.ctx._plugins:
-                    if not hasattr(self.ctx, node) or getattr(self.ctx, node) is None:
-                        results = getattr(self.ctx, "_results", {})
-                        if not any(key[1] == node for key in results):
-                            raise ValueError(f"No plugin registered for '{node}'")
+                    if run_id is None or self.ctx._get_data_from_memory(run_id, node) is None:
+                        raise ValueError(f"No plugin registered for '{node}'")
                     visited.add(node)
                     return
 
@@ -267,11 +265,6 @@ class ContextPluginDomain:
                 visiting_stack.pop()
                 visited.add(node)
                 plan.append(node)
-
-        if target not in self.ctx._plugins:
-            if hasattr(self.ctx, target) and getattr(self.ctx, target) is not None:
-                return []
-            raise ValueError(f"No plugin registered for '{target}'")
 
         visit(target)
         return plan

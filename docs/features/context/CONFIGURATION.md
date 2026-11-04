@@ -229,6 +229,12 @@ plan = ctx.preview_execution('run_001', 'peaks')
 `_clear_config_cache()` 和 `_invalidate_planning_caches()` 仅供内部维护，不作为迁移后的用户调用。
 `show_config()`、`show_config(data_name)` 和 `show_config(run_name=...)` 均保留。
 
+原先计算后自动出现的 `ctx.<data_name>` 已退役，改用 `ctx.get_data(run_id, data_name)`。
+手工设置同名属性也不再向处理链注入数据；这些属性作为用户自己的普通属性保留，缓存清理不修改它们。
+内部测试或工具已有的 `_set_data(run_id, name, value)` 仍按 run 隔离，属于私有接口。
+`resolve_dependencies(target, run_id=...)` 只采纳该 run 的已有结果，省略 run 时不会推测种子所属运行。
+存储后端及 `RuntimeCacheManager` 的迁移见[存储层抽象](../../architecture/PLUGIN_CACHE_ARCHITECTURE.md#9-存储层抽象)。
+
 ## 相关文档
 
 - [Plugin DAG、lineage 与缓存](../../architecture/PLUGIN_DAG_LINEAGE_CACHE.md)

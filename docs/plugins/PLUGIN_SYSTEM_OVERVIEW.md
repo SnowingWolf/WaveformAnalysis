@@ -99,6 +99,10 @@ class RecordScalePlugin(Plugin):
 晚注册、覆盖或按 run 变化的动态约束会在请求返回缓存或执行之前检查；显式约束无法验证时也会失败。
 兼容的检查结果会复用，并随注册、配置变更和缓存清理失效。
 
+正式结果始终通过 `context.get_data(run_id, provides)` 读取；计算后不再自动创建同名 Context 属性，
+手工设置属性也不会向依赖图注入结果。内部显式注入的已有结果只能满足同一个 run 的依赖。
+预览无法解析完整依赖图时会返回 `error`，已有目标缓存不会把缺失上游隐藏为空计划。
+
 ```python
 from waveform_analysis import Context
 from waveform_analysis.plugins import profiles

@@ -17,11 +17,44 @@ def context(tmp_path):
     return ctx
 
 
+def test_results_are_run_specific_and_do_not_overwrite_user_attributes(context):
+    user_value = object()
+    context.mock_data = user_value
+    first = context.get_data("run1", "mock_data")
+    second = context.get_data("run2", "mock_data")
+
+    assert first is not second
+    assert context.get_data("run1", "mock_data") is first
+    assert context.get_data("run2", "mock_data") is second
+    assert context.mock_data is user_value
+    context.clear_cache_for("run2", "mock_data", clear_disk=False, verbose=False)
+    assert context.get_data("run1", "mock_data") is first
+    assert context.mock_data is user_value
+
+
+def test_manual_attribute_is_neither_result_nor_lineage(context):
+    value = np.zeros(2)
+    context.manual_data = value
+
+    assert context._get_data_from_memory("run1", "manual_data") is None
+    assert context.get_lineage("manual_data").get("plugin_class") != "ManualData"
+    with pytest.raises(ValueError, match="No plugin registered"):
+        context.get_data("run1", "manual_data")
+
+    context._set_data("run1", "manual_data", value)
+    assert context.get_data("run1", "manual_data") is value
+    assert context._get_data_from_memory("run2", "manual_data") is None
+    with pytest.raises(ValueError, match="No plugin registered"):
+        context.get_data("run2", "manual_data")
+    context.clear_cache_for("run1", "manual_data", clear_disk=False, verbose=False)
+    assert context.manual_data is value
+
+
 @pytest.mark.parametrize("data_name", ["mock_data", None])
-def test_clear_memory_releases_product_attribute(context, data_name):
+def test_clear_memory_releases_product(context, data_name):
     data = context.get_data("run1", "mock_data")
     data_ref = weakref.ref(data)
-    assert context.mock_data is data
+    assert "mock_data" not in vars(context)
     del data
 
     count = context.clear_cache_for("run1", data_name, clear_disk=False, verbose=False)
@@ -51,7 +84,6 @@ def test_clear_memory_preserves_other_run(context, cleared_run):
 
     if cleared_run == "run1":
         assert first_ref() is None
-        assert context.mock_data is second_ref()
         assert context.get_data("run2", "mock_data") is second_ref()
     else:
         assert second_ref() is None
@@ -68,7 +100,6 @@ def test_clear_memory_preserves_shared_object_for_other_run(context):
 
     context.clear_cache_for("run1", "mock_data", clear_disk=False, verbose=False)
 
-    assert context.mock_data is data_ref()
     assert context.get_data("run2", "mock_data") is data_ref()
 
     context.clear_cache_for("run2", "mock_data", clear_disk=False, verbose=False)
@@ -94,8 +125,8 @@ def test_clear_memory_preserves_replaced_attribute(context):
     assert context._get_data_from_memory("run1", "mock_data") is None
 
 
-@pytest.mark.parametrize("name", ["logger", "manual-data", "class_data"])
-def test_clear_memory_preserves_attributes_not_exposed_by_set_data(context, monkeypatch, name):
+@pytest.mark.parametrize("name", ["logger", "manual-data", "class_data", "manual_data"])
+def test_clear_memory_preserves_user_attributes(context, monkeypatch, name):
     if name == "logger":
         value = context.logger
     else:
@@ -104,21 +135,16 @@ def test_clear_memory_preserves_attributes_not_exposed_by_set_data(context, monk
             monkeypatch.setattr(Context, name, object(), raising=False)
         setattr(context, name, value)
 
-    if name == "manual-data":
-        context._set_data("run1", name, value)
-    else:
-        with pytest.warns(
-            UserWarning, match="conflicts with a Context method or reserved attribute"
-        ):
-            context._set_data("run1", name, value)
-
+    # The attribute can even reference the exact object held in the result cache.
+    context._set_data("run1", name, value)
+    assert vars(context)[name] is value
     context.clear_cache_for("run1", name, clear_disk=False, verbose=False)
 
     assert vars(context)[name] is value
     assert ("run1", name) not in context._results
 
 
-def test_clear_memory_false_keeps_product_and_attribute(context):
+def test_clear_memory_false_keeps_product(context):
     data = context.get_data("run1", "mock_data")
 
     count = context.clear_cache_for(
@@ -126,15 +152,15 @@ def test_clear_memory_false_keeps_product_and_attribute(context):
     )
 
     assert count == 0
-    assert context.mock_data is data
+    assert "mock_data" not in vars(context)
     assert context.get_data("run1", "mock_data") is data
 
 
-def test_clear_memory_releases_downstream_attributes(context):
+def test_clear_memory_releases_downstream_results(context):
     context.register(DependentPlugin)
     data = context.get_data("run1", "dependent_data")
     data_ref = weakref.ref(data)
-    source_ref = weakref.ref(context.mock_data)
+    source_ref = weakref.ref(context.get_data("run1", "mock_data"))
     del data
 
     count = context.clear_cache_for(
@@ -170,7 +196,7 @@ def test_clear_memory_releases_records_bundle_and_product_arrays(context):
     assert count == 2
     assert bundle_ref() is None
     assert records_ref() is None
-    assert context.wave_pool is pool_ref()
+    assert context.get_data("run1", "wave_pool") is pool_ref()
 
     assert context.clear_cache_for("run1", "wave_pool", clear_disk=False, verbose=False) == 1
     gc.collect()

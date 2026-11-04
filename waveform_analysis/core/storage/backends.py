@@ -35,10 +35,10 @@ class StorageBackend(Protocol):
     存储后端统一接口（Protocol）
 
     所有存储后端必须实现以下方法。使用 Protocol 而非抽象基类，
-    允许鸭子类型和更灵活的实现。
+    允许鸭子类型和更灵活的实现。所有方法接受可选的 run_id 关键字。
     """
 
-    def exists(self, key: str) -> bool:
+    def exists(self, key: str, run_id: str | None = None) -> bool:
         """
         检查数据是否存在
 
@@ -51,7 +51,11 @@ class StorageBackend(Protocol):
         ...
 
     def save_memmap(
-        self, key: str, data: np.ndarray, extra_metadata: dict[str, Any] | None = None
+        self,
+        key: str,
+        data: np.ndarray,
+        extra_metadata: dict[str, Any] | None = None,
+        run_id: str | None = None,
     ) -> None:
         """
         保存 numpy 数组
@@ -63,7 +67,7 @@ class StorageBackend(Protocol):
         """
         ...
 
-    def load_memmap(self, key: str) -> np.ndarray | None:
+    def load_memmap(self, key: str, run_id: str | None = None) -> np.ndarray | None:
         """
         加载 numpy 数组
 
@@ -75,7 +79,7 @@ class StorageBackend(Protocol):
         """
         ...
 
-    def save_metadata(self, key: str, metadata: dict[str, Any]) -> None:
+    def save_metadata(self, key: str, metadata: dict[str, Any], run_id: str | None = None) -> None:
         """
         保存元数据
 
@@ -85,7 +89,7 @@ class StorageBackend(Protocol):
         """
         ...
 
-    def get_metadata(self, key: str) -> dict[str, Any] | None:
+    def get_metadata(self, key: str, run_id: str | None = None) -> dict[str, Any] | None:
         """
         获取元数据
 
@@ -97,7 +101,7 @@ class StorageBackend(Protocol):
         """
         ...
 
-    def delete(self, key: str) -> None:
+    def delete(self, key: str, run_id: str | None = None) -> None:
         """
         删除数据和元数据
 
@@ -106,7 +110,7 @@ class StorageBackend(Protocol):
         """
         ...
 
-    def list_keys(self) -> list[str]:
+    def list_keys(self, run_id: str | None = None) -> list[str]:
         """
         列出所有存储的键
 
@@ -115,7 +119,7 @@ class StorageBackend(Protocol):
         """
         ...
 
-    def get_size(self, key: str) -> int:
+    def get_size(self, key: str, run_id: str | None = None) -> int:
         """
         获取数据大小（字节）
 
@@ -133,6 +137,7 @@ class StorageBackend(Protocol):
         stream: Iterator[np.ndarray],
         dtype: np.dtype,
         extra_metadata: dict[str, Any] | None = None,
+        run_id: str | None = None,
     ) -> int:
         """
         保存流式数据
@@ -149,7 +154,12 @@ class StorageBackend(Protocol):
         ...
 
     def finalize_save(
-        self, key: str, count: int, dtype: np.dtype, extra_metadata: dict[str, Any] | None = None
+        self,
+        key: str,
+        count: int,
+        dtype: np.dtype,
+        extra_metadata: dict[str, Any] | None = None,
+        run_id: str | None = None,
     ) -> None:
         """
         完成流式保存（原子化写入）
@@ -230,13 +240,17 @@ class SQLiteBackend:
 
         self.conn.commit()
 
-    def exists(self, key: str) -> bool:
+    def exists(self, key: str, run_id: str | None = None) -> bool:
         cursor = self.conn.cursor()
         cursor.execute("SELECT 1 FROM arrays WHERE key = ?", (key,))
         return cursor.fetchone() is not None
 
     def save_memmap(
-        self, key: str, data: np.ndarray, extra_metadata: dict[str, Any] | None = None
+        self,
+        key: str,
+        data: np.ndarray,
+        extra_metadata: dict[str, Any] | None = None,
+        run_id: str | None = None,
     ) -> None:
         blob = data.tobytes()
         # 保存 dtype 描述符（支持结构化数组）
@@ -269,10 +283,10 @@ class SQLiteBackend:
             }
         )
 
-        self.save_metadata(key, metadata)
+        self.save_metadata(key, metadata, run_id=run_id)
         self.conn.commit()
 
-    def load_memmap(self, key: str) -> np.ndarray | None:
+    def load_memmap(self, key: str, run_id: str | None = None) -> np.ndarray | None:
         cursor = self.conn.cursor()
         cursor.execute("SELECT data, dtype, shape FROM arrays WHERE key = ?", (key,))
         row = cursor.fetchone()
@@ -299,7 +313,7 @@ class SQLiteBackend:
 
         return arr
 
-    def save_metadata(self, key: str, metadata: dict[str, Any]) -> None:
+    def save_metadata(self, key: str, metadata: dict[str, Any], run_id: str | None = None) -> None:
         metadata_json = json.dumps(metadata, default=str)
 
         cursor = self.conn.cursor()
@@ -312,7 +326,7 @@ class SQLiteBackend:
         )
         self.conn.commit()
 
-    def get_metadata(self, key: str) -> dict[str, Any] | None:
+    def get_metadata(self, key: str, run_id: str | None = None) -> dict[str, Any] | None:
         cursor = self.conn.cursor()
         cursor.execute("SELECT metadata FROM metadata WHERE key = ?", (key,))
         row = cursor.fetchone()
@@ -322,18 +336,21 @@ class SQLiteBackend:
 
         return json.loads(row[0])
 
-    def delete(self, key: str) -> None:
+    def delete(self, key: str, run_id: str | None = None) -> None:
         cursor = self.conn.cursor()
         cursor.execute("DELETE FROM arrays WHERE key = ?", (key,))
         cursor.execute("DELETE FROM metadata WHERE key = ?", (key,))
         self.conn.commit()
 
-    def list_keys(self) -> list[str]:
+    def list_keys(self, run_id: str | None = None) -> list[str]:
         cursor = self.conn.cursor()
         cursor.execute("SELECT key FROM arrays ORDER BY created_at DESC")
-        return [row[0] for row in cursor.fetchall()]
+        keys = [row[0] for row in cursor.fetchall()]
+        if run_id is not None:
+            return [key for key in keys if key.startswith(f"{run_id}-")]
+        return keys
 
-    def get_size(self, key: str) -> int:
+    def get_size(self, key: str, run_id: str | None = None) -> int:
         cursor = self.conn.cursor()
         cursor.execute("SELECT LENGTH(data) FROM arrays WHERE key = ?", (key,))
         row = cursor.fetchone()
@@ -345,6 +362,7 @@ class SQLiteBackend:
         stream: Iterator[np.ndarray],
         dtype: np.dtype,
         extra_metadata: dict[str, Any] | None = None,
+        run_id: str | None = None,
     ) -> int:
         """累积流数据并保存"""
         chunks = []
@@ -357,12 +375,17 @@ class SQLiteBackend:
 
         if chunks:
             full_array = np.concatenate(chunks)
-            self.save_memmap(key, full_array, extra_metadata)
+            self.save_memmap(key, full_array, extra_metadata, run_id=run_id)
 
         return total_count
 
     def finalize_save(
-        self, key: str, count: int, dtype: np.dtype, extra_metadata: dict[str, Any] | None = None
+        self,
+        key: str,
+        count: int,
+        dtype: np.dtype,
+        extra_metadata: dict[str, Any] | None = None,
+        run_id: str | None = None,
     ) -> None:
         """SQLite 后端在 save_stream 中已完成保存，无需额外操作"""
         pass

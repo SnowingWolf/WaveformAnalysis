@@ -57,6 +57,11 @@ Context 调用之外安排多个任务。
 4. 行级实体通过 ID 与关联表连接，不能依赖两个数组“恰好同序”。
 5. Storage 复用由 lineage 决定；文件存在本身不构成缓存命中。
 
+结果只通过显式 `(run_id, data_name)` 存取，不再自动创建同名 Context 属性。
+缓存查找和命中统计集中到 `ContextCacheDomain`；运行时不再保留第二个 `RuntimeCacheManager`。
+内置存储与自定义后端统一接受 `run_id=` 关键字，Context 直接调用约定的方法。
+旧后端签名、缓存管理类及结果属性的迁移见[缓存入口与存储协议](PLUGIN_CACHE_ARCHITECTURE.md#9-存储层抽象)。
+
 ## 2. Context 配置模型
 
 Context 同时持有运行环境配置和 Plugin 配置。二者使用同一个配置入口，但消费者、解析方式和是否进入

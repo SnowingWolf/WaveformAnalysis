@@ -40,7 +40,6 @@ _LAZY_EXPORTS: dict[str, _LazyExport] = {
     "validate_storage_backend": (".backends", "validate_storage_backend"),
     # 缓存管理
     "CacheManager": (".cache", "CacheManager"),
-    "RuntimeCacheManager": (".cache_manager", "RuntimeCacheManager"),
     # 压缩管理
     "Blosc2Compression": (".compression", "Blosc2Compression"),
     "LZ4Compression": (".compression", "LZ4Compression"),
@@ -80,7 +79,6 @@ __all__ = [
     "validate_storage_backend",
     # 缓存管理
     "CacheManager",
-    "RuntimeCacheManager",
     # 压缩管理
     "Blosc2Compression",
     "LZ4Compression",

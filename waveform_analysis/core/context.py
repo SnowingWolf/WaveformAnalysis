@@ -22,10 +22,8 @@ import inspect
 import json
 import logging
 import os
-import re
 import threading
 from typing import TYPE_CHECKING, Any
-import warnings
 
 # 2. Third-party imports
 import numpy as np
@@ -49,7 +47,6 @@ from .foundation.error import ErrorManager
 from .foundation.utils import OneTimeGenerator, Profiler
 from .hardware.channel import HardwareChannel
 from .plugins.core.base import Plugin
-from .storage.cache_manager import RuntimeCacheManager
 from .storage.memmap import MemmapStorage
 
 if TYPE_CHECKING:
@@ -134,37 +131,6 @@ class Context:
     Inspired by strax, it is the main entry point for data analysis.
     """
 
-    # 保留名称集合：这些名称不能用作数据名，因为它们是 Context 的方法或属性
-    _RESERVED_NAMES = frozenset(
-        {
-            "analyze_dependencies",
-            "clear_cache",
-            "clear_cache_for",
-            "config",
-            "get_data",
-            "get_config",
-            "get_lineage",
-            "get_performance_report",
-            "get_run_config",
-            "get_run_hardware_channels",
-            "help",
-            "key_for",
-            "list_plugin_configs",
-            "list_provided_data",
-            "logger",
-            "plot_lineage",
-            "preview_execution",
-            "register",
-            "resolve_dependencies",
-            "run_plugin",
-            "set_config",
-            "show_config",
-            "storage",
-            "storage_dir",
-            "time_range",
-            "validate_run_config",
-        }
-    )
     # Multi-channel structured outputs now use a single array with a channel field.
     # Legacy list-of-arrays caches for these data names should be treated as invalid.
     _FLAT_CHANNEL_OUTPUTS = frozenset(
@@ -345,9 +311,6 @@ class Context:
 
         # Initialize ErrorManager
         self._error_manager = ErrorManager(self.logger)
-
-        # Initialize RuntimeCacheManager
-        self._cache_manager = RuntimeCacheManager(self)
 
         # Initialize ValidationManager
         self._validation_manager = ValidationManager(self)
@@ -883,23 +846,10 @@ class Context:
         self._validate_get_data_output(output)
         require_disk_cache = self._config_domain.prepare_request(run_id, data_name)
         self._plugin_domain.validate_request_versions(run_id, data_name)
-        # 1. Check memory cache
-        val = None if require_disk_cache else self._get_data_from_memory(run_id, data_name)
-        if self._cache_readonly and (
-            isinstance(val, Iterator | OneTimeGenerator) or hasattr(val, "__next__")
-        ):
-            # A cached stream can still compute or save when consumed. Only
-            # materialized memory results are usable in a cache-only request.
-            val = None
-        # 2. Check disk cache (memmap)
-        # Only check if it's a plugin-provided data
-        if val is None and data_name in self._plugins:
-            key = self.key_for(run_id, data_name)
-            val = self._load_from_disk_with_check(run_id, data_name, key)
+        val = self._cache_domain.get_cached_data(
+            run_id, data_name, require_disk_cache=require_disk_cache
+        )
         if val is not None:
-            if self.stats_collector and self.stats_collector.is_enabled():
-                self.stats_collector.start_execution(data_name, run_id)
-                self.stats_collector.end_execution(data_name, success=True, cache_hit=True)
             return self._coerce_get_data_output(run_id, data_name, val, output)
 
         if self._cache_readonly:
@@ -1104,19 +1054,6 @@ class Context:
         """Return storage backend for a plugin data name (fallback to default)."""
         return self._plugin_backends.get(data_name, self.storage)
 
-    def _storage_supports_run_id(self, storage: Any, method_name: str) -> bool:
-        """Check whether a storage method accepts run_id."""
-        method = getattr(storage, method_name, None)
-        if method is None:
-            return False
-        try:
-            params = inspect.signature(method).parameters
-        except (TypeError, ValueError):
-            return False
-        if "run_id" in params:
-            return True
-        return any(p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values())
-
     def _storage_call(
         self,
         storage: Any,
@@ -1126,11 +1063,8 @@ class Context:
         *args: Any,
         **kwargs: Any,
     ) -> Any:
-        """Call a storage method with run_id when supported."""
-        method = getattr(storage, method_name)
-        if run_id is not None and self._storage_supports_run_id(storage, method_name):
-            return method(key, *args, run_id=run_id, **kwargs)
-        return method(key, *args, **kwargs)
+        """Call a storage method using the common run_id keyword contract."""
+        return getattr(storage, method_name)(key, *args, run_id=run_id, **kwargs)
 
     def _storage_exists(self, storage: Any, key: str, run_id: str | None) -> bool:
         return bool(self._storage_call(storage, "exists", key, run_id))
@@ -1142,16 +1076,7 @@ class Context:
         if cached is not None:
             return cached
 
-        method = getattr(storage, "list_keys", None)
-        if method is None:
-            return []
-        try:
-            if run_id is not None and self._storage_supports_run_id(storage, "list_keys"):
-                keys = method(run_id=run_id)
-            else:
-                keys = method()
-        except Exception:
-            return []
+        keys = storage.list_keys(run_id=run_id)
         if run_id is None:
             result = keys
         else:
@@ -1195,7 +1120,7 @@ class Context:
         self._cache_domain.invalidate_caches_for(data_name)
 
     def _set_data(self, run_id: str, name: str, value: Any):
-        """Internal helper to set data in _results and optionally as attribute."""
+        """Store a run-specific result and its lineage in memory."""
         with self._data_lock:
             self._results[(run_id, name)] = value
 
@@ -1204,30 +1129,8 @@ class Context:
                 key = self.key_for(run_id, name)  # Contains lineage hash
                 self._results_lineage[(run_id, name)] = key
 
-        # Attribute assignment / warning logic doesn't touch shared dicts; keep it
-        # out of the lock to shorten hold time (key_for stays locked for cache dicts).
-        is_generator = isinstance(value, Iterator | OneTimeGenerator) or hasattr(value, "__next__")
-        if not re.match(r"^[a-zA-Z_]\w*$", name):
-            return
-
-        # Check if it's a property on the class
-        cls_attr = getattr(self.__class__, name, None)
-        is_prop = isinstance(cls_attr, property)
-
-        if name in self._RESERVED_NAMES or (hasattr(self.__class__, name) and not is_prop):
-            warnings.warn(
-                f"Data name '{name}' conflicts with a Context method or reserved attribute. "
-                f"Access it via context.get_data(run_id, '{name}') or context._results[(run_id, '{name}')].",
-                UserWarning,
-            )
-        elif not is_prop and not is_generator:
-            # Note: This overwrites the attribute for different runs.
-            # It's kept for convenience in interactive use.
-            # We don't set it if it's a property, as the property handles access.
-            setattr(self, name, value)
-
     def _get_data_from_memory(self, run_id: str, name: str) -> Any:
-        """Internal helper to get data from _results or attributes."""
+        """Retrieve a run-specific result after validating its lineage."""
         if (run_id, name) in self._results:
             # Validate lineage hash (config consistency check)
             if name in self._plugins:
@@ -1248,18 +1151,6 @@ class Context:
             val = self._results[(run_id, name)]
             return val
 
-        # Fallback for manually set attributes (if any)
-        # But ONLY if it's not a reserved name/method to avoid returning the method itself
-        # AND ONLY if it's not a plugin-provided data name, because plugin data MUST be run-id specific.
-        if (
-            name not in self._RESERVED_NAMES
-            and name not in self._plugins
-            and not hasattr(self.__class__, name)
-            and hasattr(self, name)
-        ):
-            # This might return data from a different run if it was the last one set.
-            # But it's a fallback for manually set attributes.
-            return getattr(self, name)
         return None
 
     def _load_from_disk_with_check(self, run_id: str, name: str, key: str) -> Any | None:
@@ -1474,9 +1365,6 @@ class Context:
             return {"plugin_class": "CircularDependency", "target": data_name}
 
         if data_name not in self._plugins:
-            # Check if it's a side-effect or manually set attribute
-            if hasattr(self, data_name) and getattr(self, data_name) is not None:
-                return {"plugin_class": "ManualData", "config": {}, "depends_on": {}}
             return {}
 
         plugin = self._plugins[data_name]

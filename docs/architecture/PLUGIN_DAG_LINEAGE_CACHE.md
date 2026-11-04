@@ -166,6 +166,9 @@ Context 先解析目标的依赖顺序，再计算各节点当前缓存键。执
 
 `preview_execution(run_id, target)` 使用同类依赖与缓存判断，但不执行目标。它适合在大规模运行前
 确认动态分支、缓存命中和预计重算范围。
+完整 DAG 无法解析时，预览返回包含 `error` 的结果；已有目标缓存不会掩盖缺失依赖。
+这与 `get_data()` 直接读取有效目标缓存不同：无显式版本约束的缓存读取仍可缺少上游 provider。
+执行计划未命中时由依赖解析统一验证版本，计划命中时仍验证已注册 provider 的约束。
 
 `Plugin.timeout` 是执行属性，不是 `set_config()` 配置项，其值不进入 lineage 或缓存身份。
 Context 当前只支持 `timeout=None`；非 `None` 值在该插件的 `compute()` 入口触发
@@ -272,8 +275,10 @@ Memmap 的 `save_stream` / `save_memmap`、Context 的 generator 缓存写入和
 调用者不能据此假定所有存储格式都支持并发覆盖。`delete` 当前删除二进制与 metadata，保留
 锁文件，也不负责回收残留的压缩或 DataFrame 数据文件。
 
-`clear_cache_for(..., clear_disk=False)` 会移除选定 run 的内存结果和指向该对象的同名 Context
-属性；另一 run 仍使用的共享对象及用户替换的属性会保留。调用方或 Accessor 自己持有的引用不受
+结果只保存在显式 `(run_id, data_name)` 的内存存储中，不再自动挂到 `ctx.<data_name>`。
+读取统一使用 `ctx.get_data(run_id, data_name)`；普通对象属性不作为结果或依赖注入。
+`clear_cache_for(..., clear_disk=False)` 只移除选定 run 的内存结果和关联 lineage，保留另一 run 的结果
+以及用户自己设置的普通属性。调用方或 Accessor 自己持有的引用不受
 影响，释放 Python 引用也不保证分配器立即归还 RSS。这是显式清理，不是自动内存预算或淘汰策略。
 
 ### 6.2 失效矩阵
