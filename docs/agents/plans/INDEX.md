@@ -11,7 +11,7 @@ links and readers; edit the task record and rerun
 | `adapter-contracts-20261030` | `completed` | `retire_compat` | `strict` | `staged` | `—` | `docs/agents/runs/current/adapter-contracts-20261030/task.yaml` |
 | `context-api-retirement-20261029` | `completed` | `retire_compat` | `strict` | `staged` | `—` | `docs/agents/runs/current/context-api-retirement-20261029/task.yaml` |
 | `context-dedup-20261029` | `completed` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/context-dedup-20261029/task.yaml` |
-| `context-simplification-20261104` | `reviewing` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/context-simplification-20261104/task.yaml` |
+| `context-simplification-20261104` | `completed` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/context-simplification-20261104/task.yaml` |
 | `corner-hist-bincount-optimization` | `completed` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/corner-hist-bincount-optimization/task.yaml` |
 | `docs-build-skill` | `reviewing` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/docs-build-skill/task.yaml` |
 | `event-contract-hardening-20261103` | `completed` | `modify_plugin` | `strict` | `staged` | `—` | `docs/agents/runs/current/event-contract-hardening-20261103/task.yaml` |

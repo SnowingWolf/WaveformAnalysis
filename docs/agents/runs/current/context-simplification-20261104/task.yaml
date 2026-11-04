@@ -4,7 +4,7 @@ metadata:
   id: context-simplification-20261104
   generation: 2
   created_at: '2026-11-04T08:32:07Z'
-  updated_at: '2026-11-04T08:57:51Z'
+  updated_at: '2026-11-04T09:01:30Z'
 spec:
   goal: 按用户批准简化 Context 缓存、运行结果、依赖版本验证与内置存储签名，迁移调用方并保持既有正确性契约。
   route: modify_code
@@ -36,15 +36,16 @@ spec:
     - docs/plugins/PLUGIN_SYSTEM_OVERVIEW.md
   acceptance_criteria:
   - 缓存查找和命中统计收敛为单一路径；多 run、lineage、命中计数及 readonly 行为保持。
-  - 结果仅由显式 (run_id, name) 存取；迁移仓库调用方，清除自动结果属性及无 run 属性回退，保留用户自有属性。 resolve_dependencies 不跨 run 推测；显式注入使用现有内部
-    _set_data，不新增公共写入接口。
-  - 消除执行计划冷路径重复版本验证；计划缓存命中仍验证，版本错误不被宽泛 ValueError 兜底吞掉。保留五类必要失效事件及版本 proof，不新增冗余身份状态；覆盖动态依赖、provider 覆盖、配置与
-    run_config 变更、只读与可写切换及 preview_execution 错误返回边界。
-  - 内置 Memmap 与 SQLite Storage 调用统一接受 run_id；Context 不再探测存储运行时签名，明确迁移自定义 backend 契约。 保持后端各自 run_id=None
-    列举语义及现有键布局，外部自定义 backend 迁移至接受 run_id 关键字。
+  - 结果仅由显式 (run_id, name) 存取；迁移仓库调用方，清除自动结果属性及无 run 属性回退，保留用户自有属性。 resolve_dependencies
+    不跨 run 推测；显式注入使用现有内部 _set_data，不新增公共写入接口。
+  - 消除执行计划冷路径重复版本验证；计划缓存命中仍验证，版本错误不被宽泛 ValueError 兜底吞掉。保留五类必要失效事件及版本 proof，不新增冗余身份状态；覆盖动态依赖、provider
+    覆盖、配置与 run_config 变更、只读与可写切换及 preview_execution 错误返回边界。
+  - 内置 Memmap 与 SQLite Storage 调用统一接受 run_id；Context 不再探测存储运行时签名，明确迁移自定义 backend 契约。
+    保持后端各自 run_id=None 列举语义及现有键布局，外部自定义 backend 迁移至接受 run_id 关键字。
   - 保留事件 pair_id 关联、位置异常传播、依赖版本强约束；无越权 public API 删除。
   - 定向测试、固定四条生成/impact/schema 门禁、文档同步与锚点、独立文档站点构建、独立阻断审查通过；仅 root scoped 提交。
-  - 缓存数据可能可读而完整依赖 DAG 缺失；preview_execution 在缺失完整 DAG 时返回 error，不以缓存可读替代完整依赖图验证。该边界源于移除宽泛 ValueError fallback。
+  - 缓存数据可能可读而完整依赖 DAG 缺失；preview_execution 在缺失完整 DAG 时返回 error，不以缓存可读替代完整依赖图验证。该边界源于移除宽泛
+    ValueError fallback。
   required_gates:
   - compat_inventory_ready
   - deletion_scope_confirmed
@@ -70,18 +71,19 @@ spec:
     - 'simplify_results: gpt-6.1-terra/xhigh'
     - 'simplify_versions: gpt-6.1-terra/xhigh'
     - 'simplify_storage: gpt-6.1-terra/xhigh'
-    integration: root owns context.py and coordinates overlapping files, docs, gates and commit
+    integration: root owns context.py and coordinates overlapping files, docs, gates
+      and commit
     reviewer: independent blocking reviewer plus root integration review
     ownership:
       root: context.py 集成 executor patches；独占 docs、site、站点构建、全局验证与 scoped 提交
-      simplify_cache: context_cache.py、context_execution.py、storage/cache_manager.py 删除、storage/__init__.py、test_context_simplification.py；整合属性清理及流式两处
-        run_id
-      simplify_results: test_context_memory_release.py 和 context.py patch；plugins seed hunk 交 versions，cache
-        属性清理交 cache
+      simplify_cache: context_cache.py、context_execution.py、storage/cache_manager.py
+        删除、storage/__init__.py、test_context_simplification.py；整合属性清理及流式两处 run_id
+      simplify_results: test_context_memory_release.py 和 context.py patch；plugins
+        seed hunk 交 versions，cache 属性清理交 cache
       simplify_versions: context_plugins.py、context_config.py 和 tests/plugins/test_plugin_versioning.py，整合
         seed hunk
-      simplify_storage: storage/backends.py、analysis/cache_queries.py、tests/test_storage_backends.py 和
-        context.py patch
+      simplify_storage: storage/backends.py、analysis/cache_queries.py、tests/test_storage_backends.py
+        和 context.py patch
   scope_out:
   - 超出四项授权的 public API 或兼容入口删除；不增加替代兼容别名。
   - 插件算法、dtype、物理含义及缓存 lineage 身份的无关变化；历史实验输出。
@@ -89,8 +91,8 @@ spec:
   - 新增框架、通用注册表或冗余状态；仅搬移代码冒充简化。
   - 流式 backend 重构：只允许 cache executor 为现有 _get_paths / finalize_save 两处显式传 run_id。
   authorization:
-    source: 用户对前述建议“合并 RuntimeCacheManager 与 ContextCacheDomain，收掉重复管理层”及其余三项直接要求分给 terra xhigh 子 agent
-      处理，已授权所列删除与迁移。
+    source: 用户对前述建议“合并 RuntimeCacheManager 与 ContextCacheDomain，收掉重复管理层”及其余三项直接要求分给
+      terra xhigh 子 agent 处理，已授权所列删除与迁移。
     agent_model: gpt-6.1-terra/xhigh
     commit: 仅 root 负责审查、集成和 scoped 提交。
   compat_inventory:
@@ -107,15 +109,16 @@ spec:
     risk_level: high
     user_confirmation: 四项范围已由用户批准
   - legacy_form: RuntimeCacheManager 类和 waveform_analysis.core.storage 及模块本身的公开导出
-    canonical_form: ContextCacheDomain 单一路径；运行结果由 ctx.get_data(run_id, name) 获取，状态由 ctx.preview_execution(run_id,
-      target) 查询
+    canonical_form: ContextCacheDomain 单一路径；运行结果由 ctx.get_data(run_id, name) 获取，状态由
+      ctx.preview_execution(run_id, target) 查询
     runtime_surface: public_python_api
     delete_action: remove class and its two export paths; migrate callers and documentation
     risk_level: high
     user_confirmation: 用户已批准收掉重复管理层
     migration_note: get_data 可触发计算，不等价于 check_cache 纯探测；preview_execution 仅查询状态，非数据加载替代。
   - legacy_form: 分散版本验证入口及失效维护
-    canonical_form: 执行计划 miss 经 resolve_dependencies 校验一次，plan cache hit 独立校验；沿用原版本 proof 与必要失效事件
+    canonical_form: 执行计划 miss 经 resolve_dependencies 校验一次，plan cache hit 独立校验；沿用原版本
+      proof 与必要失效事件
     runtime_surface: internal
     delete_action: 移除冷路径重复调用和吞错回退，保留不同公开入口和失效时机以保护语义
     risk_level: high
@@ -125,19 +128,21 @@ spec:
     coordination: context.py 和共享文件由 root 统一集成；执行器仅修改分配路径。
     planning_status: 四份调查及 root 集成分工已收敛，allowed_paths 是上界，实际只修改必要文件。
     targeted_regressions:
-    - memory/disk hit and stats, load=False, parallel DAG, readonly and streaming failure semantics
-    - two-run data isolation, dependency resolution and manual user attributes, memory release and lineage
-    - provider registration/override, missing or incompatible versions, dynamic dependencies, run config
-      refresh, readonly warm path and hot cache
-    - both storage backends method contracts, run filtering including literal special characters, metadata
-      and supported streams, cache queries error propagation
+    - memory/disk hit and stats, load=False, parallel DAG, readonly and streaming
+      failure semantics
+    - two-run data isolation, dependency resolution and manual user attributes, memory
+      release and lineage
+    - provider registration/override, missing or incompatible versions, dynamic dependencies,
+      run config refresh, readonly warm path and hot cache
+    - both storage backends method contracts, run filtering including literal special
+      characters, metadata and supported streams, cache queries error propagation
     - event pair_id membership and position exception propagation regression
-    version_decision: 保留 proof set 与必要的 5 处失效；执行计划 miss 交 resolver 单次校验、缓存计划命中分支校验，消除冷路径重复。不同公开入口和 freshness
-      错误边界有真实语义，故不为减少调用点数量强行合并。配合精确同 run seed 解析移除宽泛 ValueError fallback；如有合法反例则保留并记录。不得使用 hash snapshot
-      方案。
+    version_decision: 保留 proof set 与必要的 5 处失效；执行计划 miss 交 resolver 单次校验、缓存计划命中分支校验，消除冷路径重复。不同公开入口和
+      freshness 错误边界有真实语义，故不为减少调用点数量强行合并。配合精确同 run seed 解析移除宽泛 ValueError fallback；如有合法反例则保留并记录。不得使用
+      hash snapshot 方案。
     baseline: 目标相关基线 149 passed，记录 /tmp/wa-context-simplification-20261104/baseline.xml。
 status:
-  state: reviewing
+  state: completed
   transitions:
   - from: created
     to: planning
@@ -176,6 +181,10 @@ status:
     to: reviewing
     at: '2026-11-04T08:57:51Z'
     actor: executor.code
+  - from: reviewing
+    to: completed
+    at: '2026-11-04T09:01:30Z'
+    actor: reviewer
   plan_sha256: 5f18618c87cd2eb9da7c27fd373621e0df4e53acb53d4ebc207732d21a5cea02
   execution:
     task_id: context-simplification-20261104
@@ -305,13 +314,14 @@ status:
     - waveform_analysis/documentation/site_dist/visualizations/waveform-plots/index.html
     - waveform_analysis/documentation/site_docs/catalog.py
     summary:
-    - Merge RuntimeCacheManager into ContextCacheDomain; preserve cache-hit counts, readonly and stream
-      semantics.
-    - Remove auto Context result attributes and attribute fallback; explicit same-run seeds only.
-    - Remove duplicate cold-plan version validation and broad ValueError fallback; retain necessary proof
-      invalidation.
-    - Make builtin storage methods accept run_id; remove signature probing and list error swallowing;
-      preserve key layout.
+    - Merge RuntimeCacheManager into ContextCacheDomain; preserve cache-hit counts,
+      readonly and stream semantics.
+    - Remove auto Context result attributes and attribute fallback; explicit same-run
+      seeds only.
+    - Remove duplicate cold-plan version validation and broad ValueError fallback;
+      retain necessary proof invalidation.
+    - Make builtin storage methods accept run_id; remove signature probing and list
+      error swallowing; preserve key layout.
     validation:
       baseline:
         evidence: /tmp/wa-context-simplification-20261104/baseline.xml
@@ -344,18 +354,21 @@ status:
         errors: 0
         skipped: 0
     limitations:
-    - Synthetic/unit regression coverage; no raw DAQ scan, performance speedup claim, production deployment
-      or cache deletion.
+    - Synthetic/unit regression coverage; no raw DAQ scan, performance speedup claim,
+      production deployment or cache deletion.
     - One existing mtime watcher test skipped for filesystem resolution.
-    - SQLite uses literal run key prefixes; arbitrary hyphenated run names are not guaranteed strict isolation
-      by the unchanged key layout.
+    - SQLite uses literal run key prefixes; arbitrary hyphenated run names are not
+      guaranteed strict isolation by the unchanged key layout.
     - Version proof state and five invalidation events retained for correctness.
     resolved_findings:
-    - Obsolete reserved-name test replaced with public retirement and import removal contract coverage.
-    - Five guide baselines restored to independent five-count-field schema after first consumer test failed.
-    - Metadata backend TypeError propagates on canonical/historical paths; OSError handling remains as
-      documented.
-    - Reviewer wording correction limits metadata propagation promise to non-OSError exceptions.
+    - Obsolete reserved-name test replaced with public retirement and import removal
+      contract coverage.
+    - Five guide baselines restored to independent five-count-field schema after first
+      consumer test failed.
+    - Metadata backend TypeError propagates on canonical/historical paths; OSError
+      handling remains as documented.
+    - Reviewer wording correction limits metadata propagation promise to non-OSError
+      exceptions.
     gate_results:
     - gate: compat_inventory_ready
       status: PASS
@@ -393,8 +406,8 @@ status:
       doc_sync: /tmp/wa-context-simplification-20261104/doc-sync-final.log
       pre_commit: /tmp/wa-context-simplification-20261104/precommit-final.log
       site_delta: /tmp/wa-context-simplification-20261104/site-model-delta.json
-      agent_doc_manifest: 'render_agent_docs.py --check and agent_workflow.py validate --strict: PASS
-        after reviewing transition'
+      agent_doc_manifest: 'render_agent_docs.py --check and agent_workflow.py validate
+        --strict: PASS after reviewing transition'
     docs_build:
       report: /tmp/waveform-doc-build/runs/context-simplification-20261104-02/report.json
       status: PASS
@@ -402,27 +415,33 @@ status:
       input_fingerprint: 8884e60a9730ee6528c8267e835be14a071413d152369a1b83fd342438429275
       fixture_matches_model: true
       static_export_validation: PASS
-      text_inspection: Six changed pages inspected; final cache guide OSError correction verified.
+      text_inspection: Six changed pages inspected; final cache guide OSError correction
+        verified.
   review:
     task_id: context-simplification-20261104
     base_sha: 10d01a42cb20eb9f09ce357a23c802d1b1c34e8c
     plan_sha256: 5f18618c87cd2eb9da7c27fd373621e0df4e53acb53d4ebc207732d21a5cea02
     generation: 2
     workflow_cost: strict
-    decision: approved_for_commit
+    decision: approved
     scope_changed: false
     blocking_findings: []
     review_notes:
-    - Reviewed Context cache and execution paths, same-run result and seed handling, version-validation
-      and invalidation paths, storage run_id signatures, metadata errors, and migration documentation.
-    - Canonical and historical metadata TypeError propagation is covered; OSError remains treated as a
-      cache read failure and documentation states that boundary.
-    - 120 changed or untracked paths matched the execution report and approved scope; git diff --check
-      passed.
-    - Reviewed initial failing tests and their targeted successful reruns; this does not claim the original
-      full suite was rerun.
-    - Site build report records three successful commands, isolated workspace and staged output. SQLite
-      prefix semantics and unsupported Context streaming remain documented.
+    - Reviewed Context cache and execution paths, same-run result and seed handling,
+      version-validation and invalidation paths, storage run_id signatures, metadata
+      errors, and migration documentation.
+    - Canonical and historical metadata TypeError propagation is covered; OSError
+      remains treated as a cache read failure and documentation states that boundary.
+    - 120 changed or untracked paths matched the execution report and approved scope;
+      git diff --check passed.
+    - Reviewed initial failing tests and their targeted successful reruns; this does
+      not claim the original full suite was rerun.
+    - Site build report records three successful commands, isolated workspace and
+      staged output. SQLite prefix semantics and unsupported Context streaming remain
+      documented.
+    - Verified commit parent equals the planned base and all 120 committed paths exactly
+      equal the execution report; commit hook and independent post-commit scoped handoff
+      check passed with a clean worktree.
     gate_results:
     - gate: compat_inventory_ready
       status: PASS
@@ -432,9 +451,9 @@ status:
       evidence: task.yaml spec.authorization and scope
     - gate: targeted_tests
       status: PASS
-      evidence: integrated.xml 470 pass/1 skip/1 obsolete test failure; final-consumer.xml 15 pass includes
-        corrected 13 retirement tests; documentation.xml 41 pass/1 fixed assertion, documentation-fixed.xml
-        1 pass
+      evidence: integrated.xml 470 pass/1 skip/1 obsolete test failure; final-consumer.xml
+        15 pass includes corrected 13 retirement tests; documentation.xml 41 pass/1
+        fixed assertion, documentation-fixed.xml 1 pass
     - gate: generate_docs_auto
       status: PASS
       evidence: generate-auto.log
@@ -455,26 +474,63 @@ status:
       evidence: doc-sync-final.log; 29 anchors, zero errors and warnings
     - gate: agent_doc_manifest
       status: PASS
-      evidence: manifest-final.json; independent render_agent_docs --check and agent_workflow validate
-        --strict exit 0
+      evidence: manifest-final.json; independent render_agent_docs --check and agent_workflow
+        validate --strict exit 0
     - gate: site_consumer_sync
       status: PASS
-      evidence: final-consumer.xml and site-model-delta.json; execution records final fixture/model equality
+      evidence: final-consumer.xml and site-model-delta.json; execution records final
+        fixture/model equality
     - gate: docs_build
       status: PASS
       evidence: /tmp/waveform-doc-build/runs/context-simplification-20261104-02/report.json
     - gate: reviewer
       status: PASS
-      evidence: independent scope, code and evidence review; approved for scoped commit only
+      evidence: independent scope, code and evidence review; approved for scoped commit
+        only
     - gate: scoped_commit_handoff
-      status: PENDING
-      evidence: actual commit SHA and post-commit handoff check required
+      status: PASS
+      evidence: 'handoff.json and independent check_agent_handoff.py --task: clean
+        worktree; implementation commit dbef409198634f1d2f60cfa047735170b0396b12'
     residual_risks:
     - One existing filesystem mtime-resolution test skipped.
-    - Regression validation uses synthetic/unit data; no real DAQ or performance speedup validation.
-    - SQLite run filters are literal prefixes and are not strict isolation for arbitrary hyphenated run
-      names; Context streaming remains limited to its supported backend.
-    next_action: Root performs scoped commit then supplies the actual SHA and handoff evidence for final
-      approval.
+    - Regression validation uses synthetic/unit data; no real DAQ or performance speedup
+      validation.
+    - SQLite run filters are literal prefixes and are not strict isolation for arbitrary
+      hyphenated run names; Context streaming remains limited to its supported backend.
+    next_action: Root may update only task completion and generated navigation records,
+      then make the evidence-only closeout commit.
+    implementation_commit: dbef409198634f1d2f60cfa047735170b0396b12
+    reviewer: simplify_reviewer
+    workflow_shape: staged
   approval: {}
-  handoff: {}
+  handoff:
+    implementation_commit: dbef409198634f1d2f60cfa047735170b0396b12
+    checks:
+    - command:
+      - git
+      - status
+      - --short
+      exit_status: 0
+      stdout: ''
+      stderr: ''
+    - command:
+      - git
+      - diff
+      - --stat
+      exit_status: 0
+      stdout: ''
+      stderr: ''
+    - command:
+      - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python
+      - scripts/check_agent_handoff.py
+      exit_status: 0
+      stdout: '=== agent handoff status ===
+
+        staged: 0, unstaged: 0, untracked: 0
+
+
+        PASS: 工作树干净，可以记录为 `已提交` 或 `无待提交改动`。
+
+        '
+      stderr: ''
+    status: PASS

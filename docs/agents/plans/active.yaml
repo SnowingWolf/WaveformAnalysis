@@ -27,7 +27,7 @@ active_plans:
   task_file: docs/agents/runs/current/context-dedup-20261029/task.yaml
   legacy_plan: docs/agents/runs/current/context-dedup-20261029/legacy-plan.md
 - task_id: context-simplification-20261104
-  state: reviewing
+  state: completed
   route: modify_code
   workflow_cost: strict
   workflow_shape: staged
