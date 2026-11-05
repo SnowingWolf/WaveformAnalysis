@@ -17,6 +17,7 @@ links and readers; edit the task record and rerun
 | `corner-hist-bincount-optimization` | `completed` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/corner-hist-bincount-optimization/task.yaml` |
 | `docs-build-skill` | `reviewing` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/docs-build-skill/task.yaml` |
 | `docs-index-cleanup-20261105` | `completed` | `generate_docs` | `light` | `staged` | `—` | `docs/agents/runs/current/docs-index-cleanup-20261105/task.yaml` |
+| `docs-visual-refresh-20261105` | `completed` | `modify_code` | `standard` | `staged` | `—` | `docs/agents/runs/current/docs-visual-refresh-20261105/task.yaml` |
 | `event-contract-hardening-20261103` | `completed` | `modify_plugin` | `strict` | `staged` | `—` | `docs/agents/runs/current/event-contract-hardening-20261103/task.yaml` |
 | `execution-correctness-20261030` | `completed` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/execution-correctness-20261030/task.yaml` |
 | `get-data-output-unification` | `planning` | `modify_code` | `standard` | `staged` | `NeedsRevalidation` | `docs/agents/runs/current/get-data-output-unification/task.yaml` |

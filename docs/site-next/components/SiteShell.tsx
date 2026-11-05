@@ -144,7 +144,6 @@ export function SiteShell({ model, children, toc = [], title = "文档", compact
         <button className="icon-button topbar__menu" type="button" onClick={() => setDrawerOpen(true)} aria-label="打开导航"><Icon name="menu" size={27} /></button>
       </div>
     </header>
-    <div className="site-progress" aria-hidden="true" />
     <div className="site-layout">
       <aside className={`left-rail${compactNav ? " left-rail--compact" : ""}`}><SideNav model={model} pathname={pathname} instanceId="desktop" /></aside>
       {drawerOpen && <div className="drawer-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setDrawerOpen(false); }}><aside className="mobile-drawer" aria-label="移动端文档导航"><div className="mobile-drawer__head"><Brand compact /><button className="icon-button" type="button" onClick={() => setDrawerOpen(false)} aria-label="关闭导航"><Icon name="close" size={22} /></button></div><SideNav model={model} pathname={pathname} instanceId="drawer" onNavigate={() => setDrawerOpen(false)} /></aside></div>}

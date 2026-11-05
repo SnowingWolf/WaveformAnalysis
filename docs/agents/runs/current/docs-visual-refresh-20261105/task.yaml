@@ -1,0 +1,268 @@
+api_version: waveform-analysis/agent-task/v1
+kind: AgentTask
+metadata:
+  id: docs-visual-refresh-20261105
+  generation: 1
+  created_at: '2026-11-05T11:56:49Z'
+  updated_at: '2026-11-05T12:12:48Z'
+spec:
+  goal: 美化整个文档网站及首页处理链，改善中文可读性、导航层级、响应式与深色主题，更新真实预览。
+  route: modify_code
+  workflow_cost: standard
+  workflow_shape: staged
+  risk_level: medium
+  scope:
+    base_sha: 223e16cc51ad17bd681156f4b8b4a3f543b0f7e5
+    allowed_paths:
+    - docs/site-next
+    - waveform_analysis/documentation/site_dist
+    - docs/agents/runs/current/docs-visual-refresh-20261105
+    - docs/agents/plans
+  acceptance_criteria:
+  - 首页六个阶段中文说明清晰，保留产物标识和有效详情链接，并标明为简化概览。
+  - 全站导航、正文、表格、代码块、目录与暗色/移动端风格一致；搜索、主题、目录和DAG仍可操作。
+  - 隔离构建、类型检查、前端测试与仓库要求gate完成；桌面和手机浏览器截图与交互通过；Reviewer放行后scoped提交。
+  required_gates:
+  - assess_change_impact
+  - schema_compat_check
+  - doc_sync
+  - doc_anchors
+  - frontend_tests
+  - site_build
+  - browser_qa
+  assignment:
+    planner_role: planner
+    executor_role: executor.code
+    reviewer_role: reviewer
+  design_plan:
+    direction: 清爽科研文档；浅色纸面、青蓝强调、宽松中文层次，沿用现有字体与图标。
+    scope_out:
+    - 插件/API/路由/算法/依赖版本
+    - DAQ/缓存/历史结果
+    inventory:
+    - 首页hero、6阶段概览、工作流、代码与概念入口
+    - 全站header/sidebar/TOC/阅读排版/目录/表格/代码/搜索/暗色
+    - 1440、1024、390响应式；局部滚动不外溢
+    planner_actor: docs_reviewer
+    planner_findings:
+    - 六项同排和10px说明导致拥挤，采用3×2编号卡片；概览不暗示真实直接依赖。
+    - 长名称/关系条换行，暗色硬编码背景和手机主题入口需修正。
+    - 同步header高度与sticky offset；保留实际交互并用浏览器验证。
+status:
+  state: completed
+  transitions:
+  - from: created
+    to: planning
+    at: '2026-11-05T11:57:03Z'
+    actor: planner
+  - from: planning
+    to: ready_for_execution
+    at: '2026-11-05T11:57:03Z'
+    actor: planner
+  - from: ready_for_execution
+    to: executing
+    at: '2026-11-05T11:57:03Z'
+    actor: executor.code
+  - from: executing
+    to: reviewing
+    at: '2026-11-05T12:11:52Z'
+    actor: executor.code
+  - from: reviewing
+    to: completed
+    at: '2026-11-05T12:12:48Z'
+    actor: reviewer
+  plan_sha256: 1b448807502fa733af55ae18453878eb4b197560aceed31a8710db5f6a16bf37
+  execution:
+    executor_role: executor.code
+    changed_paths:
+    - docs/agents/plans/INDEX.md
+    - docs/agents/plans/active.yaml
+    - docs/site-next/app/globals.css
+    - docs/site-next/app/page.tsx
+    - docs/site-next/app/plugins/page.tsx
+    - docs/site-next/components/PluginDirectory.tsx
+    - docs/site-next/components/SiteShell.tsx
+    - waveform_analysis/documentation/site_dist/404.html
+    - waveform_analysis/documentation/site_dist/404/index.html
+    - waveform_analysis/documentation/site_dist/_next/static/chunks/083k0_cs-6r0e.js
+    - waveform_analysis/documentation/site_dist/_next/static/chunks/2bfcrb8_2wdv1.js
+    - waveform_analysis/documentation/site_dist/_next/static/chunks/38rjny6tpd_0e.css
+    - waveform_analysis/documentation/site_dist/_next/static/chunks/3ecl4495d-vi1.js
+    - waveform_analysis/documentation/site_dist/_next/static/chunks/3p9r15zp-4vrf.js
+    - waveform_analysis/documentation/site_dist/_not-found/index.html
+    - waveform_analysis/documentation/site_dist/accessors/index.html
+    - waveform_analysis/documentation/site_dist/accessors/peak-channel-accessor/index.html
+    - waveform_analysis/documentation/site_dist/accessors/records-view/index.html
+    - waveform_analysis/documentation/site_dist/accessors/s1-s2-pair-accessor/index.html
+    - waveform_analysis/documentation/site_dist/adapters/adapter/index.html
+    - waveform_analysis/documentation/site_dist/adapters/index.html
+    - waveform_analysis/documentation/site_dist/architecture/PROJECT_STRUCTURE/index.html
+    - waveform_analysis/documentation/site_dist/architecture/accessor-analysis/index.html
+    - waveform_analysis/documentation/site_dist/architecture/data-products/index.html
+    - waveform_analysis/documentation/site_dist/architecture/index.html
+    - waveform_analysis/documentation/site_dist/architecture/plugin-cache-architecture/index.html
+    - waveform_analysis/documentation/site_dist/architecture/plugin-dag-lineage-cache/index.html
+    - waveform_analysis/documentation/site_dist/architecture/system/index.html
+    - waveform_analysis/documentation/site_dist/cli/WAVEFORM_CACHE/index.html
+    - waveform_analysis/documentation/site_dist/cli/WAVEFORM_DOCS/index.html
+    - waveform_analysis/documentation/site_dist/cli/WAVEFORM_PROCESS/index.html
+    - waveform_analysis/documentation/site_dist/cli/index.html
+    - waveform_analysis/documentation/site_dist/contexts/context/index.html
+    - waveform_analysis/documentation/site_dist/contexts/index.html
+    - waveform_analysis/documentation/site_dist/development/CONTRACT_TESTS/index.html
+    - waveform_analysis/documentation/site_dist/development/contributing/COMMIT_CONVENTION/index.html
+    - waveform_analysis/documentation/site_dist/development/contributing/DOC_ANCHOR_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/development/contributing/IMPORT_STYLE_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/development/index.html
+    - waveform_analysis/documentation/site_dist/development/plugin-development/PLUGIN_SCAFFOLD/index.html
+    - waveform_analysis/documentation/site_dist/development/plugin-development/PLUGIN_SPEC_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/development/plugin-development/plugin_guide/index.html
+    - waveform_analysis/documentation/site_dist/development/worktrees/index.html
+    - waveform_analysis/documentation/site_dist/features/advanced/PROGRESS_TRACKING_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/context/ABSOLUTE_TIME_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/context/BATCH_PROCESSOR/index.html
+    - waveform_analysis/documentation/site_dist/features/context/CONFIGURATION/index.html
+    - waveform_analysis/documentation/site_dist/features/context/DEPENDENCY_ANALYSIS_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/context/LINEAGE_VISUALIZATION_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/index.html
+    - waveform_analysis/documentation/site_dist/features/utils/ADAPTIVE_2D_SAMPLING_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/utils/DAQ_ANALYZER_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/utils/PDF_EXPORT_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/visualizations/POSITION_DASHBOARD_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/index.html
+    - waveform_analysis/documentation/site_dist/lineage/index.html
+    - waveform_analysis/documentation/site_dist/plugins/basic_features/index.html
+    - waveform_analysis/documentation/site_dist/plugins/cache_analysis/index.html
+    - waveform_analysis/documentation/site_dist/plugins/energy_reconstruction/index.html
+    - waveform_analysis/documentation/site_dist/plugins/events/index.html
+    - waveform_analysis/documentation/site_dist/plugins/filtered_waveforms/index.html
+    - waveform_analysis/documentation/site_dist/plugins/guides/STREAMING_PLUGINS_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_grouped/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_merge_clusters/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_merged/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_merged_components/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_merged_features/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_threshold/index.html
+    - waveform_analysis/documentation/site_dist/plugins/index.html
+    - waveform_analysis/documentation/site_dist/plugins/overview/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peak_classification/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_channels/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_components/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_features/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_waveform_pool/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_waveforms/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklets/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaks/index.html
+    - waveform_analysis/documentation/site_dist/plugins/position_reconstruction/index.html
+    - waveform_analysis/documentation/site_dist/plugins/raw_files/index.html
+    - waveform_analysis/documentation/site_dist/plugins/records/index.html
+    - waveform_analysis/documentation/site_dist/plugins/records_asymmetry_mask/index.html
+    - waveform_analysis/documentation/site_dist/plugins/records_detector_mask/index.html
+    - waveform_analysis/documentation/site_dist/plugins/records_veto_mask/index.html
+    - waveform_analysis/documentation/site_dist/plugins/reference/ADAPTER_PLUGIN_BEHAVIOR/index.html
+    - waveform_analysis/documentation/site_dist/plugins/reference/ADAPTER_SYSTEM_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/plugins/s1_s2_pair_candidates/index.html
+    - waveform_analysis/documentation/site_dist/plugins/s1_s2_pairs/index.html
+    - waveform_analysis/documentation/site_dist/plugins/st_waveforms/index.html
+    - waveform_analysis/documentation/site_dist/plugins/wave_pool/index.html
+    - waveform_analysis/documentation/site_dist/plugins/wave_pool_filtered/index.html
+    - waveform_analysis/documentation/site_dist/plugins/waveform_width/index.html
+    - waveform_analysis/documentation/site_dist/plugins/waveform_width_integral/index.html
+    - waveform_analysis/documentation/site_dist/site-manifest.json
+    - waveform_analysis/documentation/site_dist/user-guide/DF_RETIREMENT/index.html
+    - waveform_analysis/documentation/site_dist/user-guide/EXAMPLES_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/user-guide/QUICKSTART_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/user-guide/docs-build/index.html
+    - waveform_analysis/documentation/site_dist/user-guide/index.html
+    - waveform_analysis/documentation/site_dist/visualizations/index.html
+    - waveform_analysis/documentation/site_dist/visualizations/position-dashboard/index.html
+    - waveform_analysis/documentation/site_dist/visualizations/statistical-plots/index.html
+    - waveform_analysis/documentation/site_dist/visualizations/waveform-plots/index.html
+    - docs/agents/runs/current/docs-visual-refresh-20261105/task.yaml
+    - waveform_analysis/documentation/site_dist/_next/static/chunks/0elzsdo03570l.js
+    - waveform_analysis/documentation/site_dist/_next/static/chunks/10wvwosux5yxy.js
+    - waveform_analysis/documentation/site_dist/_next/static/chunks/21yim39338gay.js
+    - waveform_analysis/documentation/site_dist/_next/static/chunks/2rl3dsryigww5.js
+    - waveform_analysis/documentation/site_dist/_next/static/chunks/3sh20kl6u8i5p.css
+    actions_taken:
+    - 首页改为中文编号的3×2阶段卡片；手机1列、平板2列；保留产物名、详情链接、完整DAG入口并明确简化概览。
+    - 统一青蓝色、导航、正文层级、阅读宽度、表格与代码块；移除无真实进度含义的固定进度线；共享header高度变量。
+    - 插件目录移到文档索引之前，保留全部原正文和overview锚点；移除用户无用的schema实现提示。
+    - 补齐暗色DAG、控件及手机主题入口；长名称换行，表格/代码允许局部滚动；修复手机filter-tabs和长inline-code导致的页面溢出。
+    - 独立Reviewer指出raw_files文件分组不等于硬件通道，说明已改为按采集格式组织输入。
+    - 隔离构建180个公开静态文件，替换独立临时预览目录并保留之前两个版本；构建模型与base的解析对象相等；五个前端源文件与v2构建输入逐字相等。
+    commands_run:
+    - command: python scripts/assess_change_impact.py --base 223e16cc51ad17bd681156f4b8b4a3f543b0f7e5
+      result: PASS; 0 plugin contract changes
+    - command: python scripts/schema_compat_check.py --base 223e16cc51ad17bd681156f4b8b4a3f543b0f7e5
+        --run-smoke
+      result: PASS; no dtype changes; nonempty records/hit/peaklet/peaks chain, 24
+        records and 12 peaks
+    - command: scripts/check_doc_sync.sh
+      result: PASS; generated agent docs and all 28 DOC anchors
+    - command: python -m waveform_analysis.documentation.cli check links --docs-dir
+        docs
+      result: PASS; 311 Markdown files, 457 local references
+    - command: scripts/docs_build.py build --run-id docs-visual-refresh-20261105-v1
+        --stage-output
+      result: PASS; initial build retained; browser refinements followed
+    - command: scripts/docs_build.py build --run-id docs-visual-refresh-20261105-v2
+        --stage-output
+      result: PASS; npm ci/check/build all exit 0, 46.345 seconds
+    - command: npm test in v2 private build app
+      result: PASS; 4 files, 22 tests
+    - command: Playwright /tmp/waveform-visual-qa/check.py against http://10.18.154.11:8768/
+      result: PASS; 21 checks, no console errors; 1440/1024/840/390/320 widths; homepage/plugin
+        list/long-name plugin/guide/DAG; light/dark, pipeline links, search keyboard
+        navigation, filter/empty state, mobile drawer, DAG selection
+    - command: git diff --check
+      result: PASS
+    build_report: /tmp/waveform-doc-build/runs/docs-visual-refresh-20261105-v2/report.json
+    browser_report: /home/wxy/.codex/visualizations/2026/11/05/01a1aae1-933f-7152-a547-44f4b75c4fda/qa.json
+    visual_review:
+    - Inspected final desktop home, dark home, long-name plugin, mobile home/plugin/guide/directory,
+      840px and 320px header, dark DAG selected state screenshots.
+    - 'Reference mismatch addressed: six tiny horizontal English cards replaced with
+      readable Chinese stages; no direct-dependency claim.'
+    - First QA detected 635px/399px document width at 390px viewport; after CSS fixes
+      both report 390px.
+    - DAG QA initial selector used product name while sidebar displays class name;
+      corrected locator and verified ThresholdHitPlugin inspector.
+    - Browser plugin absent. System Chrome crashed before page creation; temporary
+      /tmp wrapper using existing low-mmap-launch enabled Chrome; --no-proxy-server
+      enabled local access. No changes to la57-fix files.
+    open_risks:
+    - Validated installed Chrome only; Firefox and Safari not exercised.
+    - Copy-to-clipboard behavior on insecure LAN HTTP is not part of visual QA. Tables
+      and code blocks may scroll locally on narrow screens.
+    requested_review_focus:
+    - Final source/build consistency
+    - visual/reponsive/dark verification and retained routes/models
+    - scoped commit handoff
+  review:
+    reviewer_actor: docs_reviewer
+    decision: approved
+    plan_sha256: 1b448807502fa733af55ae18453878eb4b197560aceed31a8710db5f6a16bf37
+    gate_results:
+      assess_change_impact: PASS
+      schema_compat_check: PASS
+      doc_sync: PASS
+      doc_anchors: PASS
+      frontend_tests: PASS
+      site_build: PASS
+      browser_qa: PASS
+    blocking_findings: []
+    coverage_review: 独立复核最终五个前端源文件与v2构建输入一致、site-model与HEAD对象相等、三条构建命令0；22前端测试和21浏览器检查通过。亲自检查手机目录、840/320px、暗色首页和DAG选择截图，溢出已修复、暗色可读、信息和链接保留。
+    residual_risks:
+    - 只验证Chrome，未覆盖Firefox/Safari。
+    - 剪贴板在非安全LAN HTTP下未纳入视觉QA；窄屏表格和代码可局部滚动。
+    commit_handoff: 批准scoped提交；最终SHA由交付回复提供。
+  approval: {}
+  handoff:
+    commit_status: 已提交：本任务记录与相关改动在同一scoped commit交付；完整SHA见Git历史和最终回复。
+    preview_url: http://10.18.154.11:8768/
+    preview_directory: /tmp/waveform-docs-preview.j2EbQY
+    preview_stop_command: kill 798111
+    build_report: /tmp/waveform-doc-build/runs/docs-visual-refresh-20261105-v2/report.json
+    commit_subject: 'docs: improve site layout and visual hierarchy'
