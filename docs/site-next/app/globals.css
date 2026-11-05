@@ -171,7 +171,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 .section-topline { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
 .section-topline .section-heading { margin: 0; }
 .section-topline > a { font-size: 12px; }
-.pipeline-diagram { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 24px 0 14px; padding: 0; list-style: none; }
+.pipeline-diagram { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 16px; margin: 24px 0 14px; padding: 0; list-style: none; }
 .pipeline-step { min-width: 0; }
 .pipeline-card { position: relative; display: flex; min-width: 0; height: 100%; flex-direction: column; padding: 18px 20px 20px; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); transition: border-color .18s ease, background .18s ease, transform .18s ease; }
 .pipeline-card:hover { transform: translateY(-3px); border-color: var(--teal); background: var(--surface); }
@@ -179,13 +179,22 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 .pipeline-card__top svg { color: var(--line-strong); transition: color .18s ease; }
 .pipeline-card:hover .pipeline-card__top svg { color: var(--teal); }
 .pipeline-number { font-family: var(--font-mono); font-size: 11px; }
-.pipeline-graphic { display: flex; align-items: center; height: 54px; margin: 10px 0 14px; color: var(--teal-dark); }
-.pipeline-graphic svg { width: 100px; height: 54px; fill: none; stroke: currentcolor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.5; }
-.pipeline-graphic svg circle { fill: var(--teal); stroke: none; }
-.pipeline-graphic .pipeline-baseline { stroke: var(--line-strong); stroke-dasharray: 4 4; stroke-width: 1; }
+.pipeline-card__main { display: block; }
+.pipeline-graphic { display: flex; align-items: center; margin: 12px -6px 18px; padding: 7px 0; border-radius: 7px; background: var(--surface); color: var(--teal-dark); }
+.pipeline-graphic svg { display: block; width: 100%; height: auto; fill: none; stroke: currentcolor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.5; }
+.pipeline-graphic text { fill: var(--ink); stroke: none; font-size: 12px; }
+.pipeline-graphic .figure-mono { font-family: var(--font-mono); font-size: 11px; }
+.pipeline-graphic .figure-small { fill: var(--muted); font-size: 11px; }
+.pipeline-graphic .figure-axis { stroke: var(--line-strong); stroke-width: 1; }
+.pipeline-graphic .figure-muted { stroke: var(--teal); opacity: .55; stroke-width: 1; }
+.pipeline-graphic .figure-dashed { stroke: var(--teal); stroke-dasharray: 4 4; stroke-width: 1; }
+.pipeline-graphic .figure-area { fill: var(--teal); fill-opacity: .08; }
+.pipeline-graphic .figure-hit { fill: var(--teal); fill-opacity: .5; }
 .pipeline-card h3 { margin: 0 0 3px; color: var(--ink); font-size: 16px; font-weight: 600; }
-.pipeline-card strong { color: var(--teal-dark); font-family: var(--font-mono); font-size: 12px; font-weight: 500; overflow-wrap: anywhere; }
-.pipeline-card p { margin: 12px 0 0; color: var(--muted); font-size: 13px; line-height: 1.75; }
+.pipeline-card p { margin: 8px 0 0; color: var(--muted); font-size: 13px; line-height: 1.75; }
+.pipeline-products { display: flex; flex-wrap: wrap; gap: 5px; margin-top: auto; padding-top: 16px; }
+.pipeline-products a { max-width: 100%; padding: 3px 6px; border: 1px solid var(--line); border-radius: 4px; color: var(--teal-dark); font-family: var(--font-mono); font-size: 10px; line-height: 1.5; overflow-wrap: anywhere; }
+.pipeline-products a:hover { border-color: var(--teal); background: var(--teal-pale); }
 .pipeline-section .pipeline-note { max-width: none; margin: 12px 0 0; color: var(--muted); font-size: 12px; }
 .workflow-table { overflow: hidden; border: 1px solid var(--line); border-radius: 10px; }
 .workflow-table__head, .workflow-table__row { display: grid; grid-template-columns: minmax(125px, 1fr) minmax(0, 2fr) 88px; align-items: center; gap: 18px; padding: 13px 18px; border-bottom: 1px solid var(--line); }
@@ -496,7 +505,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
   .home-hero { padding: 36px 0 30px; }
   .home-hero h1 { font-size: clamp(30px, 6.8vw, 46px); }
   .home-hero p { font-size: 15px; }
-  .pipeline-diagram { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .pipeline-diagram { gap: 12px; }
   .pipeline-card { padding: 18px; }
   .doc-section { padding: 28px 0 24px; }
   .section-heading h2 { font-size: 21px; }
@@ -526,8 +535,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
   .hero-eyebrow { letter-spacing: 0; }
   .pipeline-diagram { grid-template-columns: minmax(0, 1fr); }
   .pipeline-card { padding: 18px 20px; }
-  .pipeline-graphic { position: absolute; top: 42px; right: 18px; margin: 0; opacity: .75; }
-  .pipeline-card h3 { margin-top: 10px; }
+  .pipeline-graphic { max-width: 320px; width: calc(100% + 12px); align-self: center; }
   .pipeline-card p { max-width: 27em; }
   .workflow-table__head { display: none; }
   .workflow-table__row { grid-template-columns: 1fr; gap: 8px; padding: 16px; }

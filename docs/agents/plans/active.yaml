@@ -74,6 +74,14 @@ active_plans:
   condition: —
   task_file: docs/agents/runs/current/docs-index-cleanup-20261105/task.yaml
   legacy_plan: docs/agents/runs/current/docs-index-cleanup-20261105/legacy-plan.md
+- task_id: docs-pipeline-figures-20261105
+  state: completed
+  route: modify_code
+  workflow_cost: standard
+  workflow_shape: staged
+  condition: —
+  task_file: docs/agents/runs/current/docs-pipeline-figures-20261105/task.yaml
+  legacy_plan: docs/agents/runs/current/docs-pipeline-figures-20261105/legacy-plan.md
 - task_id: docs-visual-refresh-20261105
   state: completed
   route: modify_code
