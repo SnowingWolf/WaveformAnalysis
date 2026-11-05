@@ -66,6 +66,14 @@ active_plans:
   condition: —
   task_file: docs/agents/runs/current/docs-build-skill/task.yaml
   legacy_plan: docs/agents/runs/current/docs-build-skill/legacy-plan.md
+- task_id: docs-index-cleanup-20261105
+  state: completed
+  route: generate_docs
+  workflow_cost: light
+  workflow_shape: staged
+  condition: —
+  task_file: docs/agents/runs/current/docs-index-cleanup-20261105/task.yaml
+  legacy_plan: docs/agents/runs/current/docs-index-cleanup-20261105/legacy-plan.md
 - task_id: event-contract-hardening-20261103
   state: completed
   route: modify_plugin

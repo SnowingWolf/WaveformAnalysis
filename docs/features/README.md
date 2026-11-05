@@ -84,22 +84,3 @@ DAQ 适配器、DAQ 运行分析、二维抽样与事件筛选等实用工具。
 | 使用滤波插件 | [filtered_waveforms.md](../plugins/reference/agent/filtered_waveforms.md) |
 | 使用峰值检测插件 | [hit.md](../plugins/reference/agent/hit.md) |
 | 开发自定义插件 | [PLUGIN_SYSTEM_OVERVIEW.md](../plugins/PLUGIN_SYSTEM_OVERVIEW.md) |
-
-## 学习路径
-
-### 基础功能
-
-1. [Context 功能](context/README.md)
-2. [核心功能](context/README.md)
-3. [工具函数](utils/README.md)
-
-### 高级功能
-
-1. 基础功能
-2. [高级功能](advanced/README.md)
-3. [插件功能](../plugins/README.md)
-
-## 相关资源
-
-- [系统架构与数据模型](../architecture/README.md) - 系统架构
-- [插件详解](../plugins/README.md) - 内置插件说明

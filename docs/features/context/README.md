@@ -16,15 +16,3 @@ Context 相关的功能文档，包括依赖分析、血缘可视化、执行预
 | [血缘可视化](LINEAGE_VISUALIZATION_GUIDE.md) | 血缘可视化功能使用指南 |
 | [依赖分析](DEPENDENCY_ANALYSIS_GUIDE.md) | 依赖分析功能使用指南 |
 | [批处理器](BATCH_PROCESSOR.md) | 批处理器文档 |
-
-## 学习路径
-
-1. [配置管理](CONFIGURATION.md) - 配置插件
-2. [Plugin DAG、lineage 与缓存](../../architecture/PLUGIN_DAG_LINEAGE_CACHE.md) - 理解执行与缓存
-3. [血缘可视化](LINEAGE_VISUALIZATION_GUIDE.md) - 可视化依赖
-4. [依赖分析](DEPENDENCY_ANALYSIS_GUIDE.md) - 分析依赖
-
-## 相关资源
-
-- [高级功能](../advanced/README.md) - 进度追踪
-- [插件功能](../../plugins/README.md) - 插件开发

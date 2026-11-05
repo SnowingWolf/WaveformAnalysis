@@ -4326,8 +4326,8 @@
       "route": "/user-guide/",
       "source": "docs/user-guide/README.md",
       "title": "用户指南",
-      "source_sha256": "d1c0528768b742866b049d044fa37fd075e52b69d2c6603259564b760ae8d25f",
-      "model_fingerprint": "5c399c16270cba0fdc1791cbf7982e988c97fb4c0db1ecf178fbcfd885929490",
+      "source_sha256": "4abc9919f4c44d9dfbafa4e44c1a4850b27113245e9aec61c837a3a278d439ab",
+      "model_fingerprint": "f44813f6db7eeacbb99cfc2ddf4fbfbd5a0a93b6db3638a54c716d14dc191dc7",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -4336,60 +4336,37 @@
         "heading",
         "table",
         "heading",
-        "list",
-        "heading",
         "table",
         "paragraph",
         "heading",
-        "table",
-        "heading",
-        "list"
+        "table"
       ],
       "content_counts": {
         "paragraph": 3,
-        "link": 19,
+        "link": 14,
         "code": 0,
         "table": 3,
-        "list": 3
+        "list": 1
       }
     },
     {
       "section_id": "plugin-system",
       "route": "/plugins/",
       "source": "docs/plugins/README.md",
-      "title": "插件系统文档",
-      "source_sha256": "6360a517df34424bbe62f366d71a96a18e6c0b1f118b2d1b15bb34ae620fa74b",
-      "model_fingerprint": "4198e3338b4de160dee226dbc3dc4b4061021ea2431d5e534792e546ba169b08",
+      "title": "插件系统",
+      "source_sha256": "e9dfc116e32b6d80439c2940c61924ac2051f8755fdca63a1358c62cab2cae77",
+      "model_fingerprint": "928a2e047d8352e505a3c881aa36c60a8f45daa7d72a00c833c67c5315614313",
       "block_types": [
         "paragraph",
-        "paragraph",
         "heading",
-        "list",
-        "heading",
-        "heading",
-        "list",
-        "heading",
-        "list",
-        "heading",
-        "list",
-        "heading",
-        "heading",
-        "paragraph",
-        "table",
-        "heading",
-        "paragraph",
-        "table",
-        "heading",
-        "list",
-        "heading",
-        "list"
+        "table"
       ],
       "content_counts": {
-        "paragraph": 4,
-        "link": 25,
+        "paragraph": 1,
+        "link": 4,
         "code": 0,
-        "table": 2,
-        "list": 6
+        "table": 1,
+        "list": 0
       }
     },
     {
@@ -4397,24 +4374,20 @@
       "route": "/architecture/",
       "source": "docs/architecture/README.md",
       "title": "系统架构与数据模型",
-      "source_sha256": "7bf819d09054b302062ac02bcdd26aa1189d3531677d499ac3fbf6079ae8045d",
-      "model_fingerprint": "b0f852d3df1d7a5d6b7fbc57a973486fb0c5922bd013ce1712ff165a76647f07",
+      "source_sha256": "70a4904f9b3cd2eae7db75bebd15e5ecde37714b0d694704d44008cd4b701b4b",
+      "model_fingerprint": "d89e22a175f671884ee9acc290c3f141d5d0b5f362c44de46a7be17d2a50a062",
       "block_types": [
         "paragraph",
         "paragraph",
         "heading",
-        "table",
-        "heading",
-        "list",
-        "heading",
-        "list"
+        "table"
       ],
       "content_counts": {
         "paragraph": 2,
-        "link": 15,
+        "link": 7,
         "code": 0,
         "table": 1,
-        "list": 2
+        "list": 0
       }
     },
     {
@@ -4422,8 +4395,8 @@
       "route": "/features/",
       "source": "docs/features/README.md",
       "title": "功能特性",
-      "source_sha256": "ff1f92f0afced89fea8bca44ac5342c6f31156548ca62e7d5eebc30589dc673e",
-      "model_fingerprint": "c9698b58df5ec68784510c798a40a342955ca515528d3c66e793fc478a710225",
+      "source_sha256": "caba37461bdb1419f271ce7386afcbf24beee9eee84f4b24424f1f81a0f0a49f",
+      "model_fingerprint": "73aa65f6feb35e704934180104f4d6a1d958b50c86178d3c41d20e95d368e272",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -4450,21 +4423,14 @@
         "heading",
         "list",
         "heading",
-        "table",
-        "heading",
-        "heading",
-        "list",
-        "heading",
-        "list",
-        "heading",
-        "list"
+        "table"
       ],
       "content_counts": {
         "paragraph": 7,
-        "link": 50,
+        "link": 43,
         "code": 0,
         "table": 2,
-        "list": 10
+        "list": 7
       }
     },
     {
@@ -4472,24 +4438,20 @@
       "route": "/features/",
       "source": "docs/features/context/README.md",
       "title": "Context 功能",
-      "source_sha256": "48caccf697cd4590115c4280eae2a5d3da1bb9c8077e52177f01be5ba623b5f0",
-      "model_fingerprint": "b00bb78c127b9f30e42da068a4d5a0d18b0bb1108578a5217e7406634c8ef685",
+      "source_sha256": "fff331896d556295361e01e29ae0a01f54438d06e084829dd7e3e0acb204eef1",
+      "model_fingerprint": "d9146b967117babc7446cbfbc386742e186e11eb1a9dbaf35b83ffc9520ee223",
       "block_types": [
         "paragraph",
         "paragraph",
         "heading",
-        "table",
-        "heading",
-        "list",
-        "heading",
-        "list"
+        "table"
       ],
       "content_counts": {
         "paragraph": 2,
-        "link": 16,
+        "link": 10,
         "code": 0,
         "table": 1,
-        "list": 2
+        "list": 0
       }
     },
     {
@@ -4497,24 +4459,20 @@
       "route": "/features/",
       "source": "docs/features/advanced/README.md",
       "title": "高级功能",
-      "source_sha256": "d48ce6353cfa3ea66ec7c5dc3945e0a194537c5811cf28f6b08a71e3711b59a6",
-      "model_fingerprint": "176fd459c80c60252fc139f66c70096f213edf00fb73cf8cc27a73a30e26b1b7",
+      "source_sha256": "c6e4c9048d84ad6c51e0c79a47e10d0fce5b76caa27c239ea8bb00c1275cfd95",
+      "model_fingerprint": "138de0ec9ae6e80a1867696672c76edfac846781e183be006a42cc40acdd0650",
       "block_types": [
         "paragraph",
         "paragraph",
         "heading",
-        "table",
-        "heading",
-        "list",
-        "heading",
-        "list"
+        "table"
       ],
       "content_counts": {
         "paragraph": 2,
-        "link": 7,
+        "link": 3,
         "code": 0,
         "table": 1,
-        "list": 2
+        "list": 0
       }
     },
     {
@@ -4522,24 +4480,20 @@
       "route": "/features/",
       "source": "docs/features/utils/README.md",
       "title": "工具函数",
-      "source_sha256": "853375e1e3d118432ae941fca79c48a76da59ed138eab2fae4fb42a8290605d9",
-      "model_fingerprint": "f8312d491bc54010a9243e8a3e376ec946c47599cbc868328c3e529737d94c99",
+      "source_sha256": "0d1c7a833943077a53707368937268d65285ae503233fd3d1fc99782e95e26e8",
+      "model_fingerprint": "451c0b0636abb25bcebfbdaf7bb4d8f22c4b486f318b7f6c7c729dc69ab63d6f",
       "block_types": [
         "paragraph",
         "paragraph",
         "heading",
-        "table",
-        "heading",
-        "list",
-        "heading",
-        "list"
+        "table"
       ],
       "content_counts": {
         "paragraph": 2,
-        "link": 12,
+        "link": 6,
         "code": 0,
         "table": 1,
-        "list": 2
+        "list": 0
       }
     },
     {
@@ -4547,37 +4501,20 @@
       "route": "/cli/",
       "source": "docs/cli/README.md",
       "title": "命令行工具",
-      "source_sha256": "a8f1edf0e97bb4d3989b309557d0472e9a816ba6acf64610e4edcb9545e30cf1",
-      "model_fingerprint": "4aba915e940182d4bc04950bab8e9d331ccacb523c76ae4c961d28c42ec8cdcb",
+      "source_sha256": "19ba3f1ecb994c47ad543f583bd7907239844639ab59fbb03211640dfd4da64e",
+      "model_fingerprint": "e04fcd1f9123340da119d276a5a69acb4edde09823462b78979fb67b3f03156b",
       "block_types": [
-        "paragraph",
         "paragraph",
         "heading",
         "table",
         "heading",
-        "heading",
-        "code",
-        "heading",
-        "code",
-        "heading",
-        "code",
-        "heading",
         "paragraph",
-        "code",
-        "paragraph",
-        "code",
-        "heading",
-        "paragraph",
-        "paragraph",
-        "paragraph",
-        "paragraph",
-        "paragraph",
-        "paragraph"
+        "code"
       ],
       "content_counts": {
-        "paragraph": 10,
-        "link": 4,
-        "code": 5,
+        "paragraph": 2,
+        "link": 3,
+        "code": 1,
         "table": 1,
         "list": 0
       }
@@ -4587,27 +4524,20 @@
       "route": "/development/",
       "source": "docs/development/README.md",
       "title": "开发者指南",
-      "source_sha256": "95d91bbdd6960897a49385594dc527e47ff30baa0c65277415ac4c9b38bb2355",
-      "model_fingerprint": "e4578c08ff9cba6f22530fc4c63f0e92e8f73b3c25578cbe727f34673b1d1874",
+      "source_sha256": "01ee1fe4ea65e274ca069322b13fcbc2d08fddc105d5a370bfa8a0c3daba9b28",
+      "model_fingerprint": "6cdad8e45618f668ed30ad1155f2c2c921e3cc9424d3a8a96508abb371414deb",
       "block_types": [
         "paragraph",
         "paragraph",
         "heading",
-        "table",
-        "heading",
-        "heading",
-        "list",
-        "heading",
-        "list",
-        "heading",
-        "list"
+        "table"
       ],
       "content_counts": {
         "paragraph": 2,
-        "link": 15,
+        "link": 6,
         "code": 0,
         "table": 1,
-        "list": 3
+        "list": 0
       }
     },
     {
@@ -4638,26 +4568,22 @@
       "route": "/development/",
       "source": "docs/development/plugin-development/README.md",
       "title": "插件开发",
-      "source_sha256": "c38d30904e794e5c666ce088cb4e844467b09fba5d5294de769e854517bf27fa",
-      "model_fingerprint": "83388d580e658984b8598d404f3a116281c465d992d2dd9f02addae6f0e3bc9e",
+      "source_sha256": "bc1e01d53a569dc3bc1e7410f797681d639251f81367456f6702eb33b904f466",
+      "model_fingerprint": "f86a66a181f2210abe4733b633b25f29c963c715565df0b0ddf1dcb2b093aa69",
       "block_types": [
         "paragraph",
         "paragraph",
         "heading",
         "table",
         "heading",
-        "list",
-        "heading",
-        "paragraph",
-        "heading",
-        "list"
+        "paragraph"
       ],
       "content_counts": {
         "paragraph": 3,
-        "link": 12,
+        "link": 6,
         "code": 0,
         "table": 1,
-        "list": 2
+        "list": 0
       }
     }
   ]
