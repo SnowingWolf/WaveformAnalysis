@@ -463,7 +463,7 @@ ctx.set_config({'daq_adapter': 'my_daq'})
 | 查看文档指南 | `ctx.help()` 或查看 `docs/` 目录 |
 | 查看配置 | `ctx.show_config()` |
 | 血缘可视化 | `ctx.plot_lineage('basic_features')` |
-| 预览执行 | `ctx.preview_execution('run_001', 'basic_features')` |
+| 查看依赖 | `ctx.resolve_dependencies('basic_features', run_id='run_001')` |
 
 ### CLI 命令
 

@@ -209,20 +209,50 @@ ctx.show_config(run_name=run_name)
 | `ctx.clear_performance_caches()` | 删除手动维护调用；规划、lineage 与缓存键的失效由 Context 内部维护。 |
 | `ctx.profiling_summary` | 使用 `ctx.profiler.summary()` 获取 profiler 摘要。 |
 | `ctx.get_lineage(data_name, _visited=...)` | 使用 `ctx.get_lineage(data_name)`；循环检测状态只在内部递归中维护。 |
-| `ctx.analyze_dependencies(..., run_id=...)` | 删除未使用的 `run_id`，保留目标名称和 `include_performance`。 |
-| `DependencyAnalyzer.analyze(..., run_id=...)` | 同样删除未使用的 `run_id`。 |
+| `ctx.validate_run_config(run_id)` | 读取 `ctx.get_run_config(run_id)`，再调用独立的 `validate_run_config(config)`。 |
+| `ctx.get_run_hardware_channels(run_id)` | 对 run 配置调用独立的 `resolve_run_hardware_channels(config)`。 |
+| `ctx.get_plugin_run_config(name, run_id)` | 用户查看 `get_run_config()` 返回值中的 `plugins[name]`；插件内部继续使用配置辅助实现，保留 Context `runs` 配置回退。 |
+| `ctx.preview_execution(run_id, target)` | 已删除。依赖顺序用 `resolve_dependencies(target, run_id=run_id)`；没有等价的缓存命中／重算步骤预览。 |
+| `ctx.analyze_dependencies(...)` / `DependencyAnalyzer` | 高级分析已删除。普通依赖图用 `plot_lineage()`；实测耗时用 `get_performance_report()`。 |
+| `plot_lineage(..., analysis_result=..., highlight_critical_path=..., highlight_bottlenecks=..., highlight_parallel_groups=...)` | 删除这些高级分析参数；保留普通 `labview`、`plotly`、`mermaid` 图。未知样式关键字抛 `TypeError`，不再静默忽略。 |
+| `ctx.analyze_cache()` / `ctx.cache_stats()` | 查看缓存容量、数量和条目使用 `waveform-cache info / stats / list`。 |
+| `ctx.diagnose_cache(..., auto_fix=..., dry_run=...)` | 使用 `diagnose_cache(run_id=None, verbose=True)` 仅检查问题；修复操作走缓存 CLI。 |
 
 ```python
+from waveform_analysis.core.config import (
+    resolve_run_hardware_channels,
+    validate_run_config,
+)
+
 # 更新配置时自动失效相关内部缓存，不要直接修改 ctx.config 后手动清理
 ctx.set_config({'threshold': 15}, plugin_name='hit_threshold')
 
-# lineage 与依赖分析不需要运行标识
+# 依赖顺序和 lineage 不等于本次缓存命中或重算范围
 lineage = ctx.get_lineage('peaks')
-analysis = ctx.analyze_dependencies('peaks', include_performance=True)
+order = ctx.resolve_dependencies('peaks', run_id='run_001')
+issues = ctx.diagnose_cache('run_001')
 print(ctx.profiler.summary())
 
-# 检查特定 run 的缓存状态和执行计划
-plan = ctx.preview_execution('run_001', 'peaks')
+# run 配置读取与独立处理函数
+run_config = ctx.get_run_config('run_001')
+validate_run_config(run_config)
+hardware_channels = resolve_run_hardware_channels(run_config)
+hit_run_config = run_config.get('plugins', {}).get('hit', {})
+```
+
+`hit_run_config` 只是 run 配置文件内 `plugins.hit` 的覆盖块，不是插件默认值、Context 配置和
+逐通道配置的完整合并结果。插件内部读取该块时仍保留
+`ctx.config[plugin_name]["runs"][run_id]` 的既有回退规则；用户查看文件内容时无需调用该内部 helper。
+
+缓存与性能诊断的日常入口保留两个：`diagnose_cache()` 检查缓存问题；
+`get_performance_report()` 展示插件耗时、命中率和失败情况，需要在创建 Context 时启用
+`stats_mode="basic"` 或 `"detailed"`。底层 profiler、统计收集器保留供开发者使用。
+
+```bash
+waveform-cache stats --storage-dir ./wa_data --run run_001
+waveform-cache list --storage-dir ./wa_data --run run_001
+# 预演修复；确认输出后加 --no-dry-run 执行，修复可能删除无效缓存
+waveform-cache diagnose --storage-dir ./wa_data --run run_001 --fix --dry-run
 ```
 
 `clear_cache_for(run_id, data_name)` 仍是清理指定运行产物的公开入口，与内部规划缓存失效职责不同。

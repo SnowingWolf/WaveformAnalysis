@@ -50,6 +50,7 @@ def plot_lineage_plotly(
         data_wires: 是否在连线上显示数据类型。
         interactive: Plotly 图表始终是交互式的，此参数仅为兼容性保留（会被忽略）。
         show: Whether to display the figure immediately. Set false for HTML export.
+        **kwargs: LineageStyle 属性的覆盖值，未知参数抛出 TypeError。
 
     注意:
         需要安装 plotly: pip install plotly
@@ -82,8 +83,9 @@ def plot_lineage_plotly(
     s = style or LineageStyle()
     # 合并用户通过 kwargs 传入的覆盖参数
     for k, v in kwargs.items():
-        if hasattr(s, k):
-            setattr(s, k, v)
+        if not hasattr(s, k):
+            raise TypeError(f"plot_lineage_plotly() got an unexpected keyword argument {k!r}")
+        setattr(s, k, v)
 
     # 1. 确保我们有一个 LineageGraphModel
     if isinstance(lineage, dict):

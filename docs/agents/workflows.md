@@ -271,7 +271,8 @@ waveform-docs generate plugins-agent -o docs/plugins/reference/agent/
 ### 标准步骤
 1. `Planner` 确认 `run_id`、target 与重现路径
 2. `Executor` 运行：
-   - `ctx.preview_execution(run_id, target)`
+   - `ctx.resolve_dependencies(target, run_id=run_id)` 与 `ctx.get_lineage(target)`
+   - `ctx.get_resolved_config(target)`（配置来源）
    - `waveform-cache diagnose --run <run_id> --dry-run`
 3. `Reviewer` 审查根因是否明确、是否存在后续修复建议
 

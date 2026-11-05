@@ -778,7 +778,6 @@ _PARAMETER_HELP = {
     "target_name": "要分析依赖的数据名称。",
     "kind": "lineage 输出类型：`labview`、`plotly` 或 `mermaid`。",
     "show_virtual_plugins": "是否显示仅用于可视化的虚拟插件节点。",
-    "include_performance": "是否将性能信息纳入依赖分析。",
     "topic": "帮助主题；省略时返回 Context 总览。",
     "output": "返回形态：`native`、`chunk_stream` 或 `array`。",
     "show_progress": "是否显示数据请求进度。",
@@ -806,8 +805,6 @@ _PARAMETER_HELP = {
     "downstream": "是否同时清理下游产物。",
     "clear_memory": "是否清理内存缓存。",
     "clear_disk": "是否清理磁盘缓存。",
-    "auto_fix": "是否执行可自动修复的诊断建议。",
-    "dry_run": "仅报告诊断结果而不修改缓存。",
     "detailed": "是否返回详细统计。",
     "export_path": "可选统计导出路径。",
     "data": "长度一致的一维变量数组序列。",
@@ -888,15 +885,11 @@ _CALLABLE_RETURNS = {
     "get_epoch": "指定 run 的 epoch；未设置时为 `None`。",
     "get_data_time_range_absolute": "命中绝对时间范围的数组或数组列表。",
     "resolve_dependencies": "按执行顺序排列的依赖名称列表。",
-    "preview_execution": "执行计划、配置与缓存状态字典。",
     "get_lineage": "目标产物的 lineage 字典。",
     "plot_lineage": "图形对象或 Mermaid 文本，取决于 `kind`。",
-    "analyze_dependencies": "依赖分析结果。",
     "help": "结构化 `HelpDocument`。",
     "clear_cache_for": "已清理的缓存条目数。",
-    "analyze_cache": "`CacheAnalyzer` 分析器。",
     "diagnose_cache": "诊断问题列表。",
-    "cache_stats": "`CacheStatistics` 汇总结果。",
     "corner_hist": "`(matplotlib.figure.Figure, numpy.ndarray)`。",
     "plot_waveforms": "交互式 Plotly figure；Plotly 缺失时返回 `None`。",
     "plot_peak_channels_with_sum": "`(figure, axes)`；没有 peak 数据时均为 `None`。",
@@ -915,15 +908,10 @@ _CALLABLE_NOTES = {
     "set_config": ("通过此入口更新配置会自动失效解析配置与规划缓存，无需手动清理内部缓存。",),
     "show_config": ("`run_name` 是受支持的展示参数；仅在全局视图中标注缓存目录。",),
     "get_lineage": ("只接收 `data_name`；递归状态由内部维护。",),
-    "analyze_dependencies": (
-        "分析 Context 的依赖图与累计性能信息，不接收 `run_id`。",
-        "查看特定 run 的缓存命中与执行计划时使用 `preview_execution(run_id, data_name)`。",
-    ),
     "get_data": ("请求会按需解析依赖并复用有效缓存。",),
-    "preview_execution": ("只分析元数据，不执行插件或加载 run 数据。",),
     "plot_lineage": ("`mermaid` 返回文本；`labview` 和 `plotly` 返回图形对象。",),
     "clear_cache_for": ("设置 `downstream=True` 前应确认影响范围。",),
-    "diagnose_cache": ("默认 `dry_run=True`，不会修改缓存。",),
+    "diagnose_cache": ("仅检查并返回问题，不修改缓存；修复使用缓存 CLI。",),
     "corner_hist": (
         "对数坐标要求对应数据和范围为正数；对称对数坐标可保留负值和零。",
         "叠加绘图不会重复执行 tight layout；需要时请在最后手工调用一次。",
@@ -944,9 +932,7 @@ _CALLABLE_EXAMPLES = {
     "Context": """ctx = Context(config={\"data_root\": \"DAQ\", \"daq_adapter\": \"vx2730\"})\nctx.register(*profiles.cpu_default())""",
     "get_data": """peaks = ctx.get_data(\"run_001\", \"peaks\")""",
     "show_config": """ctx.show_config()\nctx.show_config(run_name=\"run_001\")""",
-    "analyze_dependencies": """analysis = ctx.analyze_dependencies(\"peaks\", include_performance=True)\nprint(analysis.summary())""",
     "get_lineage": """lineage = ctx.get_lineage(\"peaks\")""",
-    "preview_execution": """plan = ctx.preview_execution(\"run_001\", \"peaks\")""",
     "plot_lineage": """figure = ctx.plot_lineage(\"peaks\", kind=\"plotly\", show_virtual_plugins=False)""",
     "clear_cache_for": """ctx.clear_cache_for(\"run_001\", \"peaks\", downstream=True)""",
     "plot_waveforms": """figure = plot_waveforms(waveforms, event_index=0, channels=[\"0:3\"])""",
@@ -1027,9 +1013,6 @@ _CONTEXT_GROUP_RULES: tuple[tuple[str, str, str, tuple[str, ...]], ...] = (
             "show_resolved_config",
             "show_config",
             "get_run_config",
-            "validate_run_config",
-            "get_run_hardware_channels",
-            "get_plugin_run_config",
             "get_adapter_info",
             "list_plugin_configs",
         ),
@@ -1051,13 +1034,11 @@ _CONTEXT_GROUP_RULES: tuple[tuple[str, str, str, tuple[str, ...]], ...] = (
     (
         "dag-and-execution",
         "依赖、执行与 DAG",
-        "在执行前查看计划与依赖；`plot_lineage()` 是 Context 的 DAG 调试能力。",
+        "查看依赖顺序和 lineage；`plot_lineage()` 展示普通依赖图。",
         (
             "resolve_dependencies",
-            "preview_execution",
             "get_lineage",
             "plot_lineage",
-            "analyze_dependencies",
             "help",
             "get_performance_report",
         ),
@@ -1068,9 +1049,7 @@ _CONTEXT_GROUP_RULES: tuple[tuple[str, str, str, tuple[str, ...]], ...] = (
         "缓存 key 由 run、代码、版本、配置和输出契约决定。",
         (
             "clear_cache_for",
-            "analyze_cache",
             "diagnose_cache",
-            "cache_stats",
             "key_for",
         ),
     ),
@@ -1093,9 +1072,6 @@ _CONTEXT_DESCRIPTIONS: dict[str, str] = {
     "show_resolved_config": "打印解析配置。",
     "show_config": "显示当前配置，并标识每个配置项对应的插件。",
     "get_run_config": "读取特定 run 的 DAQ 配置。",
-    "validate_run_config": "校验 run 配置。",
-    "get_run_hardware_channels": "返回 run 的硬件通道映射。",
-    "get_plugin_run_config": "返回插件在特定 run 的配置。",
     "get_adapter_info": "获取 DAQ adapter 信息。",
     "list_plugin_configs": "列出插件配置选项。",
     "get_data": "请求 run 的具名数据；未命中缓存时执行必要上游。",
@@ -1106,16 +1082,12 @@ _CONTEXT_DESCRIPTIONS: dict[str, str] = {
     "get_data_time_range_absolute": "使用 datetime 边界查询绝对时间范围。",
     "auto_extract_epoch": "自动提取 run 的 epoch。",
     "resolve_dependencies": "返回目标依赖执行顺序。",
-    "preview_execution": "预览执行计划、配置与缓存命中。",
     "get_lineage": "返回插件 lineage 数据结构。",
     "plot_lineage": "渲染 `labview`、`plotly` 或 `mermaid` DAG。",
-    "analyze_dependencies": "分析上游、下游与性能信息。",
     "help": "返回结构化帮助文档。",
     "get_performance_report": "获取插件性能统计报告。",
     "clear_cache_for": "清理指定 run 的缓存。",
-    "analyze_cache": "生成缓存状态分析。",
-    "diagnose_cache": "诊断缓存问题，默认 dry-run。",
-    "cache_stats": "汇总缓存统计。",
+    "diagnose_cache": "检查缓存问题，不执行修复。",
     "key_for": "获取数据类型和 run 的唯一键。",
 }
 
@@ -1152,17 +1124,29 @@ _CONTEXT_NARRATIVE_SECTIONS = (
                     ("`ctx.<data_name>`", "`ctx.get_data(run_id, data_name)`"),
                     (
                         "`RuntimeCacheManager`",
-                        "读取结果用 `get_data`（缺失时会计算）；只查计划与状态用 `preview_execution`",
+                        "读取结果用 `get_data`（缺失时会计算）；检查缓存问题用 `diagnose_cache`",
                     ),
                     (
                         "`clear_config_cache()` / `clear_performance_caches()`",
                         "通过 `set_config(...)` 更新配置；删除手动维护调用",
                     ),
                     ("`ctx.profiling_summary`", "`ctx.profiler.summary()`"),
+                    (
+                        "`analyze_cache()` / `cache_stats()`",
+                        "容量与条目使用 `waveform-cache info / stats / list`",
+                    ),
+                    (
+                        "`diagnose_cache(auto_fix=..., dry_run=...)`",
+                        "只传 `run_id`、`verbose`；修复使用 `waveform-cache diagnose --fix`",
+                    ),
+                    (
+                        "run 配置便捷包装",
+                        "通过 `get_run_config()` 读取，再调用独立校验或硬件展开函数；见配置管理指南",
+                    ),
                     ("`get_lineage(data_name, _visited=...)`", "`get_lineage(data_name)`"),
                     (
-                        "`analyze_dependencies(..., run_id=...)`",
-                        "删除 `run_id`；run/cache 预览使用 `preview_execution(run_id, data_name)`",
+                        "`preview_execution()` / `analyze_dependencies()`",
+                        "已删除；依赖结构用 `resolve_dependencies()` / `plot_lineage()`，耗时用 `get_performance_report()`",
                     ),
                     (
                         "`show_config(run_name=...)`",
@@ -1173,7 +1157,7 @@ _CONTEXT_NARRATIVE_SECTIONS = (
             DocumentationContentBlock(
                 kind="paragraph",
                 text=(
-                    "直接使用 `DependencyAnalyzer.analyze()` 时也应删除未使用的 `run_id` 参数。"
+                    "高级依赖分析及其可视化高亮已退役；拓扑查询不提供缓存命中或重算范围预览。"
                     "`show_config` 的 `run_name` 只标注全局配置视图的缓存目录，不能替代数据访问的 `run_id`。"
                     "详细迁移示例见配置管理指南。"
                 ),
@@ -1186,7 +1170,7 @@ _CONTEXT_NARRATIVE_SECTIONS = (
                     'ctx.set_config({"threshold": 15}, plugin_name="hit_threshold")\n'
                     'ctx.show_config(run_name="run_001")\n'
                     'lineage = ctx.get_lineage("peaks")\n'
-                    'analysis = ctx.analyze_dependencies("peaks", include_performance=True)\n'
+                    'issues = ctx.diagnose_cache("run_001")\n'
                     "print(ctx.profiler.summary())"
                 ),
             ),
@@ -1292,7 +1276,7 @@ _CONTEXT_NARRATIVE_SECTIONS = (
                 kind="list",
                 ordered=True,
                 items=(
-                    "先用 `preview_execution(run_id, data_name)` 检查依赖顺序、resolved config 与缓存命中，再决定是否执行。",
+                    "执行前可用 `resolve_dependencies(data_name, run_id=run_id)` 查看依赖顺序，用 `get_resolved_config(data_name)` 检查配置；拓扑顺序不代表本次重算范围。",
                     "IO 密集型任务通常选 `thread`，CPU 密集型任务通常选 `process`；进程任务的函数、参数和 `Context` 工厂必须可 pickle。",
                     "复用执行器必须保持稳定的名称、类型和 `max_workers`；推荐使用 `with get_executor(...)`，不要依赖内部 `_executor_refs`。",
                     "多个 run 不共享可变 Context；使用 `BatchProcessor` 的 `context_factory` 或显式 `ctx.clone()`，让每个 run 的缓存和错误边界可追踪。",
@@ -1330,7 +1314,7 @@ _CONTEXT_NARRATIVE_SECTIONS = (
             DocumentationContentBlock(
                 kind="list",
                 items=(
-                    "执行计划异常：检查 `resolve_dependencies()`、`preview_execution()` 和 `get_lineage()`。",
+                    "执行计划异常：检查 `resolve_dependencies()`、`get_lineage()` 和执行日志。",
                     "配置来源异常：检查 `get_resolved_config()`；不要只看传入 Context 的原始字典。",
                     "并行任务泄漏或重复创建：检查执行器名称、`reuse`、`release_executor()` 与 `get_executor_manager().list_executors()`。",
                     "进程池失败：先确认函数/参数可序列化，再降低 `max_workers` 或切换到 `thread`；不要静默改变 `run_id` 或缓存目录。",

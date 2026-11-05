@@ -38,7 +38,7 @@
 ### 场景 4: 排查缓存/执行链问题
 1. `docs/agents/workflows.md`
 2. `docs/agents/lifecycle.md`
-3. `docs/features/context/PREVIEW_EXECUTION.md`
+3. `docs/cli/WAVEFORM_CACHE.md`
 4. `docs/architecture/PLUGIN_DAG_LINEAGE_CACHE.md`
 
 ### 场景 5: 文档同步与发布前检查
@@ -79,7 +79,7 @@
 - 删除 legacy/compat 路径：选 `retire_compat`；先写 `compat_inventory`，再定删除范围。
 - 只做文档生成、引用同步或锚点检查：选 `generate_docs`；代码契约变化带来的文档同步继承源 route 成本。
 - 只跑测试、影响分析、schema 检查、性能检查或发布检查：选对应 QA route（`run_tests` / `assess_change_impact` / `schema_compat_check` / `performance_regression_check` / `release_artifact_sync`）。
-- 排查缓存、执行预览或 lineage 问题：选 `debug_cache`，并优先准备明确的 `run_id`。
+- 排查缓存、执行链或 lineage 问题：选 `debug_cache`，并优先准备明确的 `run_id`。
 
 ## Hard Rules
 - Python 3.10+ 基线：允许使用 `str | Path` 等 3.10+ 语法。
@@ -302,7 +302,7 @@ waveform-process --show-daq <run_name> --daq-root DAQ
 - Accessor 与分析查询：`docs/architecture/ACCESSOR_ANALYSIS.md`
 - 分析查询与批量运行：`docs/architecture/ACCESSOR_ANALYSIS.md`
 - 配置：`docs/features/context/CONFIGURATION.md`
-- 执行预览：`docs/features/context/PREVIEW_EXECUTION.md`
+- 缓存诊断：`docs/cli/WAVEFORM_CACHE.md`
 - 流式插件：`docs/features/plugin/STREAMING_PLUGINS_GUIDE.md`
 - 执行器管理：`docs/architecture/ARCHITECTURE.md#执行器管理框架`
 - CLI: `docs/cli/WAVEFORM_PROCESS.md`

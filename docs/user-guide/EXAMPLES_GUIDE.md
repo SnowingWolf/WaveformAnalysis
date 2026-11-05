@@ -69,22 +69,18 @@ ctx.set_config({'daq_adapter': 'vx2730', 'threshold': 50})
 ctx.set_config({'height_range': (0, None)}, plugin_name='basic_features')
 ```
 
-### 预览执行计划
+### 依赖与缓存诊断
 
 ```python
-# 预览执行计划
-ctx.preview_execution('run_001', 'hit')
+# 拓扑顺序用于理解依赖，不表示本次需要重算的步骤
+print(ctx.resolve_dependencies('hit', run_id='run_001'))
+print(ctx.get_lineage('hit'))
 
-# 不同详细程度
-ctx.preview_execution('run_001', 'hit', verbose=0)  # 简洁
-ctx.preview_execution('run_001', 'hit', verbose=1)  # 标准
-ctx.preview_execution('run_001', 'hit', verbose=2)  # 详细
-
-# 程序化使用
-result = ctx.preview_execution('run_001', 'hit')
-needs_compute = [p for p, s in result['cache_status'].items() if s['needs_compute']]
-print(f"需要计算 {len(needs_compute)} 个插件")
+# 只检查缓存问题，不修复或删除缓存
+issues = ctx.diagnose_cache('run_001')
 ```
+
+容量、条目列表和修复使用 `waveform-cache`，详见[缓存 CLI](../cli/WAVEFORM_CACHE.md)。
 
 ### 血缘可视化
 
@@ -320,8 +316,11 @@ ctx.plot_lineage('basic_features', kind='labview')
 import logging
 logging.basicConfig(level=logging.DEBUG)
 
-# 使用预览模式
-ctx.preview_execution('run_001', 'basic_features', verbose=2)
+# 检查配置来源、依赖和实际运行统计
+ctx.show_resolved_config('basic_features')
+print(ctx.resolve_dependencies('basic_features', run_id='run_001'))
+# 若需耗时报告，在 Context 初始化时启用 stats_mode='basic' 或 'detailed'
+ctx.get_performance_report()
 ```
 
 ### Q5: 数据文件找不到怎么办？

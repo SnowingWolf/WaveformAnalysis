@@ -10,7 +10,6 @@ import pytest
 from waveform_analysis import Context
 from waveform_analysis.core import storage
 from waveform_analysis.core.data.batch_processor import BatchProcessor
-from waveform_analysis.core.data.dependency_analysis import DependencyAnalyzer
 from waveform_analysis.plugins import Option, Plugin
 
 pytestmark = pytest.mark.contract
@@ -51,7 +50,18 @@ def api_context(tmp_path):
 
 
 def test_retired_context_members_are_absent(api_context):
-    for name in ("clear_config_cache", "clear_performance_caches", "profiling_summary"):
+    for name in (
+        "clear_config_cache",
+        "clear_performance_caches",
+        "profiling_summary",
+        "validate_run_config",
+        "get_run_hardware_channels",
+        "get_plugin_run_config",
+        "preview_execution",
+        "analyze_dependencies",
+        "analyze_cache",
+        "cache_stats",
+    ):
         assert not hasattr(Context, name)
         assert not hasattr(api_context, name)
 
@@ -70,15 +80,10 @@ def test_runtime_cache_manager_public_export_and_module_are_removed():
 
 def test_context_signatures_expose_only_supported_parameters():
     assert tuple(inspect.signature(Context.get_lineage).parameters) == ("self", "data_name")
-    assert tuple(inspect.signature(Context.analyze_dependencies).parameters) == (
+    assert tuple(inspect.signature(Context.diagnose_cache).parameters) == (
         "self",
-        "target_name",
-        "include_performance",
-    )
-    assert tuple(inspect.signature(DependencyAnalyzer.analyze).parameters) == (
-        "self",
-        "target_name",
-        "include_performance",
+        "run_id",
+        "verbose",
     )
     assert tuple(inspect.signature(Context.show_config).parameters) == (
         "self",
@@ -92,10 +97,9 @@ def test_context_signatures_expose_only_supported_parameters():
 def test_removed_parameters_are_rejected(api_context):
     with pytest.raises(TypeError, match="_visited"):
         api_context.get_lineage("api_derived", _visited=set())
-    with pytest.raises(TypeError, match="run_id"):
-        api_context.analyze_dependencies("api_derived", run_id="run_1")
-    with pytest.raises(TypeError, match="run_id"):
-        DependencyAnalyzer(api_context).analyze("api_derived", run_id="run_1")
+    for keyword in ("auto_fix", "dry_run"):
+        with pytest.raises(TypeError, match=keyword):
+            api_context.diagnose_cache(**{keyword: True})
     with pytest.raises(TypeError, match="run_id"):
         api_context.show_config(run_id="run_1")
 
@@ -149,12 +153,12 @@ def test_batch_config_grid_uses_each_configuration(api_context, use_factory):
     ]
 
 
-@pytest.mark.parametrize("include_performance", [False, True])
-def test_dependency_analysis_keeps_static_dag(api_context, include_performance):
-    result = api_context.analyze_dependencies("api_derived", include_performance)
-    assert result.target_name == "api_derived"
-    assert result.execution_plan == ["api_source", "api_derived"]
-    assert not result.has_performance_data
+def test_retiring_dependency_analysis_preserves_static_dag(api_context):
+    with pytest.raises(ModuleNotFoundError) as exc_info:
+        importlib.import_module("waveform_analysis.core.data.dependency_analysis")
+    assert exc_info.value.name == "waveform_analysis.core.data.dependency_analysis"
+    assert api_context.resolve_dependencies("api_derived") == ["api_source", "api_derived"]
+    assert "api_source" in api_context.get_lineage("api_derived")["depends_on"]
 
 
 @pytest.mark.parametrize(

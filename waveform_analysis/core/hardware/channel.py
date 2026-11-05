@@ -476,27 +476,17 @@ def get_plugin_run_config(
     """Return raw run-level config tree for a plugin.
 
     Supported shapes, in precedence order:
-    1) ``context.get_plugin_run_config(plugin, run_id)`` if available
-    2) ``context.get_run_config(run_id)["plugins"][plugin_name]``
-    3) ``context.config[plugin_name]["runs"][run_id]``
-    """
-    getter = getattr(context, "get_plugin_run_config", None)
-    if callable(getter):
-        try:
-            result = getter(plugin, run_id)
-        except TypeError:
-            result = getter(getattr(plugin, "provides", plugin), run_id)
-        if isinstance(result, Mapping):
-            return dict(result)
+    1) ``context.get_run_config(run_id)["plugins"][plugin_name]``
+    2) ``context.config[plugin_name]["runs"][run_id]``
 
+    Context-like objects may expose only ``config``. Errors from an available
+    ``get_run_config`` propagate so a failed read cannot select a fallback silently.
+    """
     plugin_name = getattr(plugin, "provides", str(plugin))
 
     run_config_getter = getattr(context, "get_run_config", None)
     if callable(run_config_getter):
-        try:
-            run_config = run_config_getter(run_id)
-        except Exception:
-            run_config = {}
+        run_config = run_config_getter(run_id)
         plugins_block = _as_mapping(_as_mapping(run_config).get("plugins"))
         plugin_block = plugins_block.get(plugin_name)
         if isinstance(plugin_block, Mapping):

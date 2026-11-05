@@ -38,6 +38,12 @@ flowchart LR
 也不约束回调直接执行文件 I/O。具体缓存与配置有效性要求见
 [批量处理说明](../features/context/BATCH_PROCESSOR.md)。
 
+Context 的日常诊断入口为 `diagnose_cache(run_id)` 和 `get_performance_report()`：前者只检查
+缓存问题，后者在启用统计后报告实际插件执行情况。缓存容量、条目和修复由 `waveform-cache` CLI
+提供；依赖结构仍可通过 `resolve_dependencies()` 与 `plot_lineage()` 查看。
+run 配置文件使用 `get_run_config(run_id)` 读取，校验和硬件通道展开由独立配置函数处理。
+已删除的便捷包装、执行预览和高级依赖分析见[Context API 迁移](../features/context/CONFIGURATION.md#context-api-迁移)。
+
 ## Plugin 身份与输出契约
 
 最小插件由四个互相配合的声明组成：`provides` 标识产物，`depends_on` 标识输入，`version` 标识

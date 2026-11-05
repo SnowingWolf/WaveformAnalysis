@@ -14,11 +14,11 @@
 - **查看依赖关系**：清晰看到每个插件依赖哪些数据，产生哪些数据
 - **智能颜色分类**：自动识别节点类型并应用不同颜色
 - **交互式探索**：鼠标悬停查看详情，点击高亮依赖路径
-- **集成分析**：与依赖分析功能结合，高亮关键路径和瓶颈节点
 
 ## 快速开始
 
-最简单的使用方式是通过 Context 的 `plot_lineage` 方法：
+通过 Context 的 `plot_lineage` 方法绘制普通依赖图。样式覆盖仅接受 `LineageStyle` 已声明字段；
+未知样式关键字会抛出 `TypeError`。高级分析结果和高亮参数已删除，见[迁移说明](CONFIGURATION.md#context-api-迁移)。
 
 ```python
 from waveform_analysis import Context
@@ -94,7 +94,6 @@ ctx.plot_lineage("basic_features", kind="labview", verbose=2, interactive=True)
 - 自适应节点高度与同层间距，避免多端口节点的端口溢出或遮挡
 - 鼠标悬停显示详细信息
 - 点击节点显示上游依赖
-- 支持依赖分析高亮（关键路径、瓶颈节点、并行组）
 
 ### Plotly 高级交互式（`kind="plotly"`）
 
@@ -156,33 +155,6 @@ graph TD
 | `0` | 仅显示标题（key） |
 | `1` | 显示标题（key）+ class |
 | `2` | 显示 class + description + config |
-
-## 与依赖分析集成
-
-可以将血缘可视化与依赖分析功能结合，高亮关键路径、瓶颈节点和并行组。
-
-```python
-# 执行依赖分析
-analysis = ctx.analyze_dependencies("basic_features", include_performance=True)
-
-# 可视化并高亮分析结果
-ctx.plot_lineage(
-    "basic_features",
-    kind="labview",
-    interactive=True,
-    analysis_result=analysis,
-    highlight_critical_path=True,      # 高亮关键路径（红色边框）
-    highlight_bottlenecks=True,        # 高亮瓶颈节点（红/橙/黄背景）
-    highlight_parallel_groups=True     # 标记并行组（彩色徽章）
-)
-```
-
-高亮效果：
-- **关键路径**：红色粗边框
-- **高严重性瓶颈**：浅红色背景 + 红色边框
-- **中等严重性瓶颈**：浅橙色背景 + 橙色边框
-- **低严重性瓶颈**：浅黄色背景
-- **并行组**：右上角带颜色徽章（P1, P2, ...）
 
 ## 自定义样式
 
@@ -256,33 +228,6 @@ ctx.plot_lineage("basic_features", kind="plotly", verbose=2)
 ctx.plot_lineage("basic_features", kind="labview", interactive=True, verbose=2)
 ```
 
-### 示例 2: 与依赖分析结合
-
-```python
-# 1. 启用性能统计
-ctx = Context(
-    storage_dir="./cache",
-    stats_mode='detailed'
-)
-
-# 2. 注册插件并处理数据
-# ... (注册和处理代码) ...
-
-# 执行依赖分析
-analysis = ctx.analyze_dependencies("basic_features", include_performance=True)
-
-# 可视化并高亮分析结果
-ctx.plot_lineage(
-    "basic_features",
-    kind="plotly",
-    verbose=2,
-    analysis_result=analysis,
-    highlight_critical_path=True,
-    highlight_bottlenecks=True,
-    highlight_parallel_groups=True
-)
-```
-
 ## 常见问题
 
 ### Q1: 如何选择可视化模式？
@@ -321,4 +266,4 @@ print(lineage_dict)
 
 ## 相关文档
 
-- [依赖分析指南](DEPENDENCY_ANALYSIS_GUIDE.md)
+- [配置与诊断 API 迁移](CONFIGURATION.md#context-api-迁移)

@@ -47,6 +47,7 @@ from .foundation.error import ErrorManager
 from .foundation.utils import OneTimeGenerator, Profiler
 from .hardware.channel import HardwareChannel
 from .plugins.core.base import Plugin
+from .storage.cache_diagnostics import DiagnosticIssue
 from .storage.memmap import MemmapStorage
 
 if TYPE_CHECKING:
@@ -675,20 +676,6 @@ class Context:
     def get_run_config(self, run_id: str, refresh: bool = False) -> dict[str, Any]:
         return self._config_domain.get_run_config(run_id, refresh=refresh)
 
-    def validate_run_config(self, run_id: str, require_identity: bool = False) -> None:
-        self._config_domain.validate_run_config(run_id, require_identity=require_identity)
-
-    def get_run_hardware_channels(
-        self,
-        run_id: str,
-        *,
-        validate: bool = True,
-    ) -> dict[str, dict[str, Any]]:
-        return self._config_domain.get_run_hardware_channels(run_id, validate=validate)
-
-    def get_plugin_run_config(self, plugin: Plugin | str, run_id: str) -> dict[str, Any]:
-        return self._config_domain.get_plugin_run_config(plugin, run_id)
-
     def show_resolved_config(
         self,
         plugin: Plugin | str | None = None,
@@ -1205,7 +1192,8 @@ class Context:
             show_virtual_plugins: Whether to show plugins with ``lineage_virtual = True``.
                 When false, non-target virtual nodes are collapsed and their direct
                 upstream and downstream connections are joined for display only.
-            **kwargs: Additional arguments passed to the visualizer (e.g., save_path).
+            **kwargs: Additional arguments passed to the labview or plotly visualizer
+                (e.g., save_path). Mermaid does not accept additional arguments.
         """
         from .foundation.model import build_lineage_graph
 
@@ -1242,6 +1230,11 @@ class Context:
         if kind == "labview":
             return plot_lineage_labview(model, data_name, context=self, **kwargs)
         elif kind == "mermaid":
+            if kwargs:
+                raise TypeError(
+                    "Mermaid lineage visualization got an unexpected keyword argument "
+                    f"{next(iter(kwargs))!r}"
+                )
             mermaid_str = model.to_mermaid()
             print(mermaid_str)
             return mermaid_str
@@ -1301,41 +1294,6 @@ class Context:
                 return "\n".join(lines)
         else:
             return self.stats_collector.generate_report(format=format)
-
-    def analyze_dependencies(self, target_name: str, include_performance: bool = True):
-        """
-        分析插件依赖关系，识别关键路径、并行机会和性能瓶颈
-
-        Args:
-            target_name: 目标数据名称
-            include_performance: 是否包含性能数据分析（需要stats_mode='basic'或'detailed'）
-
-        Returns:
-            DependencyAnalysisResult: 分析结果对象
-
-        Example:
-            >>> ctx = Context(stats_mode='basic')
-            >>> # ... 注册插件并执行一些操作 ...
-            >>> analysis = ctx.analyze_dependencies('paired_events')
-            >>> print(analysis.summary())
-            >>> analysis.to_markdown('report.md')  # 导出为 Markdown
-            >>> data = analysis.to_dict()          # 导出为字典（可保存为 JSON）
-
-            # 可视化增强
-            >>> from waveform_analysis.utils.visualization import plot_lineage_labview
-            >>> plot_lineage_labview(
-            ...     ctx.get_lineage('paired_events'),
-            ...     'paired_events',
-            ...     context=ctx,
-            ...     analysis_result=analysis,
-            ...     highlight_critical_path=True,
-            ...     highlight_bottlenecks=True
-            ... )
-        """
-        from waveform_analysis.core.data.dependency_analysis import DependencyAnalyzer
-
-        analyzer = DependencyAnalyzer(self)
-        return analyzer.analyze(target_name=target_name, include_performance=include_performance)
 
     def get_lineage(self, data_name: str) -> dict[str, Any]:
         """
@@ -1978,277 +1936,6 @@ class Context:
             time_domain=time_domain,
         )
 
-    def preview_execution(
-        self,
-        run_id: str,
-        data_name: str,
-        show_tree: bool = True,
-        show_config: bool = True,
-        show_cache: bool = True,
-        verbose: int = 1,
-    ) -> dict[str, Any]:
-        """
-        预览数据获取的执行计划（不实际执行计算）
-
-        在调用 get_data() 之前查看将要执行的操作，包括：
-        - 执行计划（插件执行顺序）
-        - 依赖关系树
-        - 配置参数（仅显示非默认值）
-        - 缓存状态（哪些数据已缓存，哪些需要计算）
-
-        Args:
-            run_id: 运行标识符
-            data_name: 要获取的数据名称
-            show_tree: 是否显示依赖关系树
-            show_config: 是否显示配置参数
-            show_cache: 是否显示缓存状态
-            verbose: 显示详细程度 (0=简洁, 1=标准, 2=详细)
-
-        Returns:
-            包含执行计划详情的字典
-
-        Examples:
-            >>> # 基本预览
-            >>> ctx.preview_execution('run_001', 'signal_peaks')
-
-            >>> # 详细预览
-            >>> ctx.preview_execution('run_001', 'signal_peaks', verbose=2)
-
-            >>> # 仅显示执行计划
-            >>> info = ctx.preview_execution('run_001', 'signal_peaks',
-            ...                              show_tree=False, show_config=False)
-            >>> print(info['execution_plan'])
-
-            >>> # 在实际执行前确认
-            >>> ctx.preview_execution('run_001', 'signal_peaks')
-            >>> # 确认后再执行
-            >>> data = ctx.get_data('run_001', 'signal_peaks')
-        """
-        self._config_domain.prepare_request(run_id, data_name)
-        # 检查数据名称是否存在
-        if data_name not in self._plugins:
-            raise ValueError(
-                f"数据类型 '{data_name}' 未注册。可用数据: {', '.join(self.list_provided_data())}"
-            )
-
-        # 1. 解析执行计划
-        try:
-            execution_plan = self._execution_domain.resolve_execution_plan(run_id, data_name)
-        except Exception as e:
-            print(f"✗ 无法解析依赖关系: {e}")
-            return {"error": str(e)}
-
-        # 2. 计算本次实际需要执行的步骤（cache-aware）
-        needed_set = self._execution_domain.compute_needed_set(run_id, data_name, execution_plan)
-
-        # 3. 检查缓存状态
-        cache_status = {}
-        if show_cache:
-            for plugin_name in execution_plan:
-                # 检查内存缓存
-                in_memory = self._get_data_from_memory(run_id, plugin_name) is not None
-
-                # 检查磁盘缓存
-                on_disk = False
-                if plugin_name in self._plugins:
-                    try:
-                        key = self.key_for(run_id, plugin_name)
-                        on_disk = self._is_disk_cache_valid(run_id, plugin_name, key)
-                    except Exception:
-                        pass
-
-                cache_status[plugin_name] = {
-                    "in_memory": in_memory,
-                    "on_disk": on_disk,
-                    "needs_compute": plugin_name in needed_set,
-                    "pruned": (plugin_name not in needed_set) and not (in_memory or on_disk),
-                }
-
-        # 4. 收集配置信息
-        configs = {}
-        global_execution_config = {}
-        if show_config:
-            for name in ("enable_plugin_parallelism", "max_parallel_workers"):
-                if name in self.config:
-                    global_execution_config[name] = self.config[name]
-
-            for plugin_name in execution_plan:
-                if plugin_name in self._plugins:
-                    plugin = self._plugins[plugin_name]
-                    plugin_config = {}
-
-                    # 只收集非默认值的配置
-                    if hasattr(plugin, "options"):
-                        for opt_name, opt_obj in plugin.options.items():
-                            value = self.get_config(plugin, opt_name)
-                            if value != opt_obj.default:
-                                plugin_config[opt_name] = {
-                                    "value": value,
-                                    "default": opt_obj.default,
-                                    "type": opt_obj.type.__name__ if opt_obj.type else "Any",
-                                }
-
-                    if plugin_config:
-                        configs[plugin_name] = plugin_config
-
-        # 5. 构建结果字典
-        resolved_depends_on = {}
-        if show_tree or verbose > 1:
-            for plugin_name in execution_plan:
-                plugin = self._plugins.get(plugin_name)
-                if plugin is None:
-                    continue
-                resolved_depends_on[plugin_name] = self._plugin_domain.get_dependency_names(
-                    plugin, run_id=run_id
-                )
-        result = {
-            "target": data_name,
-            "run_id": run_id,
-            "execution_plan": execution_plan,
-            "cache_status": cache_status,
-            "configs": configs,
-            "global_execution_config": global_execution_config,
-            "resolved_depends_on": resolved_depends_on,
-            "needed_set": sorted(needed_set),
-        }
-
-        # 6. 打印格式化输出
-        self._print_preview(
-            result,
-            show_tree=show_tree,
-            show_config=show_config,
-            show_cache=show_cache,
-            verbose=verbose,
-        )
-
-        return result
-
-    def _print_preview(
-        self,
-        info: dict[str, Any],
-        show_tree: bool,
-        show_config: bool,
-        show_cache: bool,
-        verbose: int,
-    ):
-        """打印格式化的预览信息"""
-
-        # 标题
-        print("\n" + "=" * 70)
-        print(f"执行计划预览: {info['target']} (run_id: {info['run_id']})")
-        print("=" * 70)
-
-        # 1. 执行计划
-        print(f"\n{'📋 执行计划' if verbose > 0 else '执行计划'}:")
-        print(f"  {'共 ' + str(len(info['execution_plan'])) + ' 个步骤' if verbose > 0 else ''}")
-
-        for i, plugin_name in enumerate(info["execution_plan"], 1):
-            # 获取缓存状态标记
-            status_mark = ""
-            if show_cache and plugin_name in info["cache_status"]:
-                status = info["cache_status"][plugin_name]
-                if status["in_memory"]:
-                    status_mark = " ✓ [内存]"
-                elif status["on_disk"]:
-                    status_mark = " ✓ [磁盘]"
-                elif status.get("pruned"):
-                    status_mark = " ↳ [剪枝]"
-                else:
-                    status_mark = " ⚙️ [需计算]"
-
-            arrow = "  └─→" if i == len(info["execution_plan"]) else "  ├─→"
-            print(f"{arrow} {i}. {plugin_name}{status_mark}")
-
-        # 2. 依赖关系树
-        if show_tree:
-            print(f"\n{'🌳 依赖关系树' if verbose > 0 else '依赖关系树'}:")
-            self._print_dependency_tree(info["target"], prefix="  ", run_id=info.get("run_id"))
-
-        # 3. 解析后的依赖（verbose > 1）
-        if verbose > 1 and info.get("resolved_depends_on"):
-            print(f"\n{'🔗 解析后依赖' if verbose > 0 else '解析后依赖'}:")
-            for plugin_name in info["execution_plan"]:
-                deps = info["resolved_depends_on"].get(plugin_name, [])
-                if deps:
-                    print(f"  • {plugin_name}: {', '.join(deps)}")
-
-        # 4. 配置参数
-        if show_config and info["configs"]:
-            print(f"\n{'⚙️ 自定义配置' if verbose > 0 else '自定义配置'}:")
-            for plugin_name, plugin_config in info["configs"].items():
-                print(f"  • {plugin_name}:")
-                for opt_name, opt_info in plugin_config.items():
-                    default_str = f" (默认: {opt_info['default']})" if verbose > 1 else ""
-                    print(f"      {opt_name} = {opt_info['value']}{default_str}")
-        elif show_config:
-            print(f"\n{'⚙️ 自定义配置' if verbose > 0 else '自定义配置'}: 无（使用所有默认值）")
-
-        if show_config and info.get("global_execution_config"):
-            print(f"\n{'🧭 全局执行配置' if verbose > 0 else '全局执行配置'}:")
-            for name, value in info["global_execution_config"].items():
-                print(f"  • {name} = {value}")
-
-        # 5. 缓存状态汇总
-        if show_cache:
-            cache_summary = {"in_memory": 0, "on_disk": 0, "needs_compute": 0, "pruned": 0}
-            for status in info["cache_status"].values():
-                if status["in_memory"]:
-                    cache_summary["in_memory"] += 1
-                elif status["on_disk"]:
-                    cache_summary["on_disk"] += 1
-                elif status.get("pruned"):
-                    cache_summary["pruned"] += 1
-                else:
-                    cache_summary["needs_compute"] += 1
-
-            print(f"\n{'💾 缓存状态汇总' if verbose > 0 else '缓存汇总'}:")
-            print(f"  • 内存缓存: {cache_summary['in_memory']} 个")
-            print(f"  • 磁盘缓存: {cache_summary['on_disk']} 个")
-            print(f"  • 需要计算: {cache_summary['needs_compute']} 个")
-            print(f"  • 已剪枝: {cache_summary['pruned']} 个")
-
-        print("\n" + "=" * 70 + "\n")
-
-    def _print_dependency_tree(
-        self,
-        data_name: str,
-        prefix: str = "",
-        is_last: bool = True,
-        visited: set | None = None,
-        run_id: str | None = None,
-    ):
-        """递归打印依赖关系树"""
-        if visited is None:
-            visited = set()
-
-        if data_name in visited:
-            print(f"{prefix}{'└─' if is_last else '├─'} {data_name} [循环引用]")
-            return
-
-        visited.add(data_name)
-
-        # 打印当前节点
-        connector = "└─" if is_last else "├─"
-        print(f"{prefix}{connector} {data_name}")
-
-        # 获取依赖
-        if data_name not in self._plugins:
-            return
-
-        plugin = self._plugins[data_name]
-        dependencies = self._plugin_domain.get_dependency_names(plugin, run_id=run_id)
-
-        if not dependencies:
-            return
-
-        # 打印子节点
-        extension = "   " if is_last else "│  "
-        for i, dep in enumerate(dependencies):
-            is_last_dep = i == len(dependencies) - 1
-            self._print_dependency_tree(
-                dep, prefix + extension, is_last_dep, visited.copy(), run_id=run_id
-            )
-
     # ==========================
     # Help system
     # ==========================
@@ -2270,59 +1957,18 @@ class Context:
     # ===========================
     # 缓存管理工具 (Cache Management)
     # ===========================
-    from waveform_analysis.core.storage.cache_analyzer import CacheAnalyzer
-    from waveform_analysis.core.storage.cache_diagnostics import CacheDiagnostics, DiagnosticIssue
-    from waveform_analysis.core.storage.cache_statistics import CacheStatistics
-
-    def analyze_cache(self, run_id: str | None = None, verbose: bool = True) -> CacheAnalyzer:
-        """获取缓存分析器实例并执行扫描
-
-        创建一个 CacheAnalyzer 实例来分析缓存状态，支持按 run_id 过滤。
-
-        Args:
-            run_id: 仅分析指定运行的缓存，None 则分析所有
-            verbose: 是否显示扫描进度
-
-        Returns:
-            CacheAnalyzer 实例（已完成扫描）
-
-        Examples:
-            >>> # 获取缓存分析器
-            >>> analyzer = ctx.analyze_cache()
-            >>>
-            >>> # 查看所有条目
-            >>> entries = analyzer.get_entries()
-            >>> print(f"共 {len(entries)} 个缓存条目")
-            >>>
-            >>> # 按条件过滤
-            >>> large = analyzer.get_entries(min_size=1024*1024)
-            >>> old = analyzer.get_entries(max_age_days=30)
-            >>>
-            >>> # 打印摘要
-            >>> analyzer.print_summary(detailed=True)
-        """
-        from waveform_analysis.core.storage.cache_analyzer import CacheAnalyzer
-
-        analyzer = CacheAnalyzer(self)
-        run_ids = [run_id] if run_id else None
-        analyzer.scan(verbose=verbose, run_ids=run_ids)
-        return analyzer
-
     def diagnose_cache(
         self,
         run_id: str | None = None,
-        auto_fix: bool = False,
-        dry_run: bool = True,
         verbose: bool = True,
     ) -> list[DiagnosticIssue]:
         """诊断缓存问题
 
-        检查缓存的完整性、版本一致性、孤儿文件等问题。
+        检查缓存的完整性、版本一致性、孤儿文件等问题，不修改缓存。
+        缓存修复使用 waveform-cache diagnose --fix。
 
         Args:
             run_id: 仅诊断指定运行，None 则诊断所有
-            auto_fix: 是否自动修复可修复的问题
-            dry_run: 如果 auto_fix=True，是否仅预演（不实际执行）
             verbose: 是否显示详细信息
 
         Returns:
@@ -2334,19 +1980,13 @@ class Context:
             >>>
             >>> # 诊断特定运行
             >>> issues = ctx.diagnose_cache(run_id='run_001')
-            >>>
-            >>> # 自动修复（先 dry-run）
-            >>> issues = ctx.diagnose_cache(auto_fix=True, dry_run=True)
-            >>>
-            >>> # 实际修复
-            >>> issues = ctx.diagnose_cache(auto_fix=True, dry_run=False)
         """
+        from waveform_analysis.core.storage.cache_analyzer import CacheAnalyzer
+        from waveform_analysis.core.storage.cache_diagnostics import CacheDiagnostics
 
-        from waveform_analysis.core.storage.cache_diagnostics import (
-            CacheDiagnostics,
-        )
-
-        analyzer = self.analyze_cache(verbose=False)
+        analyzer = CacheAnalyzer(self)
+        run_ids = [run_id] if run_id is not None else None
+        analyzer.scan(verbose=False, run_ids=run_ids)
 
         diag = CacheDiagnostics(analyzer)
         issues = diag.diagnose(run_id=run_id, verbose=verbose)
@@ -2354,63 +1994,7 @@ class Context:
         if verbose:
             diag.print_report(issues)
 
-        if auto_fix and issues:
-            fixable = [i for i in issues if i.fixable]
-            if fixable:
-                result = diag.auto_fix(issues, dry_run=dry_run)
-                if verbose:
-                    print(
-                        f"\n[修复结果] 总计: {result['total']}, "
-                        f"可修复: {result['fixable']}, "
-                        f"{'将修复' if dry_run else '已修复'}: {result['fixed']}"
-                    )
-
         return issues
-
-    def cache_stats(
-        self,
-        run_id: str | None = None,
-        detailed: bool = False,
-        export_path: str | None = None,
-    ) -> CacheStatistics:
-        """获取缓存统计信息
-
-        收集并显示缓存使用情况的统计信息。
-
-        Args:
-            run_id: 仅统计指定运行，None 则统计所有
-            detailed: 是否显示详细统计（按运行、按数据类型）
-            export_path: 如果指定，导出统计到文件（支持 .json, .csv）
-
-        Returns:
-            CacheStatistics 统计数据
-
-        Examples:
-            >>> # 获取基本统计
-            >>> stats = ctx.cache_stats()
-            >>>
-            >>> # 详细统计
-            >>> stats = ctx.cache_stats(detailed=True)
-            >>>
-            >>> # 特定运行的统计
-            >>> stats = ctx.cache_stats(run_id='run_001', detailed=True)
-            >>>
-            >>> # 导出统计
-            >>> stats = ctx.cache_stats(export_path='cache_stats.json')
-        """
-        from waveform_analysis.core.storage.cache_statistics import CacheStatsCollector
-
-        analyzer = self.analyze_cache(verbose=False)
-
-        collector = CacheStatsCollector(analyzer)
-        stats = collector.collect(run_id=run_id)
-        collector.print_summary(stats, detailed=detailed)
-
-        if export_path:
-            fmt = "csv" if export_path.endswith(".csv") else "json"
-            collector.export_stats(stats, export_path, format=fmt)
-
-        return stats
 
     def __repr__(self):
         return f"Context(storage='{self.storage_dir}', plugins={self.list_provided_data()})"

@@ -38,7 +38,7 @@ DIR_NAMES = {
 
 # 文件名到标题的映射（可选，如果不在这里会从文件内容提取）
 FILE_TITLES = {
-    "DEPENDENCY_ANALYSIS_GUIDE.md": "依赖分析",
+    "DEPENDENCY_ANALYSIS_GUIDE.md": "依赖分析退役迁移",
     "LINEAGE_VISUALIZATION.md": "血缘图预览",
     "STREAMING_PLUGINS_GUIDE.md": "流式处理插件",
     "STRAX_PLUGINS_ADAPTER.md": "Strax 适配器",

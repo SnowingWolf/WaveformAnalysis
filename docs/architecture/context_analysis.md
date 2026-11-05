@@ -3,7 +3,8 @@
 > 初始分析日期：2026-07-11；API 决策同步：2026-10-29
 > 模块路径：`waveform_analysis/core/context.py`
 > 分析范围：Context 主模块及相关 domain 子模块
-> 本文的规模统计和性能推测保留初始分析口径，不作为当前接口清单或性能测量结果。
+> 历史分析：全文（包括 API 示例、候选建议、规模统计和性能推测）保留当时口径，不作为当前使用指南。
+> 执行预览、高级依赖分析及部分 Context 诊断包装已在 2026-11-05 退役；请按下面链接迁移。
 > 当前 API 分层与已确认精简见 [Context API 优化计划](context_api_optimization_plan.md)，
 > 用户迁移示例见[配置管理](../features/context/CONFIGURATION.md#context-api-迁移)。
 

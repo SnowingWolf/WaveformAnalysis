@@ -133,11 +133,12 @@ adapter-placement 兼容检查，缺少 lineage 元数据的历史 key 不会复
 
 1. **内存命中**：`_get_data_from_memory` 校验 `_results_lineage` 中的 key。
 2. **磁盘命中**：`key_for` 得到当前 key，共享解析器按“规范 key → 可证明等价的历史 key”校验；
-   validity、执行预览和实际加载使用同一解析结果。
+   validity 判断和实际加载使用同一解析结果。
 3. **执行计划**：`resolve_execution_plan` 拓扑序 + `compute_needed_set` 剪枝未命中节点。
 4. **执行**：只跑缺失节点，`save_plugin_result` 写盘。
 
-`preview_execution` 走相同的依赖与缓存判断，但不执行目标，适合在大规模运行前确认重算范围。
+`resolve_dependencies(target, run_id=run_id)` 可查看依赖顺序，`get_lineage(target)` 可查看缓存身份；
+两者都不报告本次缓存命中或重算范围。
 
 ```mermaid
 flowchart TD
@@ -216,7 +217,8 @@ DataFrame 是可选能力，内置 SQLite 尚不支持；Context 的生成器落
 内存和磁盘查找、只读过滤及命中统计统一由 `ContextCacheDomain` 承担。
 `RuntimeCacheManager` 类及其 `waveform_analysis.core.storage` 和 `cache_manager` 模块导入路径已移除。
 读取结果使用 `ctx.get_data(run_id, name)`；它在缓存缺失时会计算，并非旧 `check_cache()` 的纯探测替代。
-只查看计划与状态使用 `ctx.preview_execution(run_id, name)`，该接口不负责加载结果。
+缓存问题检查使用 `ctx.diagnose_cache(run_id)`；条目、容量与修复使用 `waveform-cache` CLI。
+执行前的缓存命中与重算范围预览已退役。
 
 ## 10. 相关文档
 

@@ -255,7 +255,7 @@ with get_executor("waveform-loading", **config) as executor:
 | 流式 chunk 任务 | Streaming Plugin 的 `executor_config` | worker 数是资源配置；改变结果语义的 option 仍要进入 Plugin lineage |
 
 因此，worker 数、进度显示和负载均衡不会单独创建新的数据产物身份。排查并行问题时依次检查
-`preview_execution()`、resolved config、执行器状态（`list_executors()` / `get_stats()`）和
+`resolve_dependencies()`、resolved config、执行器状态（`list_executors()` / `get_stats()`）和
 缓存 lineage；不要通过改变 `run_id`、共享 Context 或直接操作 `_executor_refs` 来规避错误。
 
 ### 超时支持边界
@@ -311,7 +311,7 @@ peaklet_waveform_pool` 是另一实例。不同实体必须使用对应的索引
 
 | 现象 | 可能原因 | 首先检查 |
 | --- | --- | --- |
-| 同一请求意外重算 | tracked 配置、adapter、version、schema 或上游 lineage 已变化 | `preview_execution`、resolved config、当前 lineage |
+| 同一请求意外重算 | tracked 配置、adapter、version、schema 或上游 lineage 已变化 | resolved config、当前 lineage、执行日志 |
 | 本应重算却复用旧结果 | 影响输出的配置未跟踪，或行为变化未升级 version | Plugin option、version、lineage 内容 |
 | 结果来自错误 run | 调用端复用局部 ID 或未显式传递正确 `run_id` | 所有 `get_data` 与 Accessor 构造入口 |
 | 波形切片越界 | 索引产物与 wave pool 不配对，pool 被截断或 offset 错误 | run、lineage、pool 长度与切片字段 |

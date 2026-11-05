@@ -296,9 +296,8 @@ def test_unconstrained_cache_does_not_require_absent_provider(tmp_path):
     ctx._set_data("run", "version_target", np.array([17], dtype="i8"))
 
     np.testing.assert_array_equal(ctx.get_data("run", "version_target"), [17])
-    preview = ctx.preview_execution("run", "version_target", verbose=0)
-    assert "Missing dependency" in preview["error"]
-    assert "unregistered_source" in preview["error"]
+    with pytest.raises(ValueError, match="Missing dependency.*unregistered_source"):
+        ctx.resolve_dependencies("version_target", run_id="run")
 
 
 def test_execution_plan_validates_once_on_miss_and_again_on_hit(tmp_path, monkeypatch):
@@ -337,8 +336,8 @@ def test_cached_execution_plan_cannot_bypass_invalidated_version_check(tmp_path)
 
     with pytest.raises(ValueError, match="requires 'version_source'.*>=2.0.0"):
         ctx._execution_domain.resolve_execution_plan("run", "version_target")
-    preview = ctx.preview_execution("run", "version_target", verbose=0)
-    assert "requires 'version_source' >=2.0.0" in preview["error"]
+    with pytest.raises(ValueError, match="requires 'version_source'.*>=2.0.0"):
+        ctx.get_data("run", "version_target")
 
 
 def test_resolve_dependencies_requires_seed_from_requested_run(tmp_path):

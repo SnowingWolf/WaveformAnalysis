@@ -217,13 +217,9 @@ def test_cached_get_data_records_one_hit_and_preserves_array(tmp_path, cache_sou
     assert (stats.successful_calls, stats.failed_calls) == (1, 0)
 
 
-@pytest.mark.parametrize(
-    ("auto_fix", "dry_run", "verbose"),
-    [(False, True, True), (True, True, True), (True, False, False)],
-)
-def test_diagnose_cache_scans_all_runs_then_filters_and_forwards_fix_options(
-    tmp_path, monkeypatch, auto_fix, dry_run, verbose
-):
+@pytest.mark.parametrize("verbose", [False, True])
+@pytest.mark.parametrize("run_id", [None, "run_001"])
+def test_diagnose_cache_limits_scan_and_never_repairs(tmp_path, monkeypatch, run_id, verbose):
     ctx = Context(storage_dir=str(tmp_path))
     analyzer_factory = Mock()
     diagnostics_factory = Mock()
@@ -236,66 +232,19 @@ def test_diagnose_cache_scans_all_runs_then_filters_and_forwards_fix_options(
     diagnostics = diagnostics_factory.return_value
     issues = [SimpleNamespace(fixable=True), SimpleNamespace(fixable=False)]
     diagnostics.diagnose.return_value = issues
-    diagnostics.auto_fix.return_value = {"total": 2, "fixable": 1, "fixed": 1}
 
-    assert ctx.diagnose_cache("run_001", auto_fix, dry_run, verbose) is issues
+    assert ctx.diagnose_cache(run_id, verbose) is issues
     analyzer_factory.assert_called_once_with(ctx)
-    scan = analyzer_factory.return_value.scan
-    scan.assert_called_once()
-    assert scan.call_args.kwargs.get("run_ids") is None
-    assert scan.call_args.kwargs["verbose"] is False
+    analyzer_factory.return_value.scan.assert_called_once_with(
+        verbose=False, run_ids=None if run_id is None else [run_id]
+    )
     diagnostics_factory.assert_called_once_with(analyzer_factory.return_value)
-    diagnostics.diagnose.assert_called_once_with(run_id="run_001", verbose=verbose)
+    diagnostics.diagnose.assert_called_once_with(run_id=run_id, verbose=verbose)
     if verbose:
         diagnostics.print_report.assert_called_once_with(issues)
     else:
         diagnostics.print_report.assert_not_called()
-    if auto_fix:
-        diagnostics.auto_fix.assert_called_once_with(issues, dry_run=dry_run)
-    else:
-        diagnostics.auto_fix.assert_not_called()
-
-
-@pytest.mark.parametrize(
-    ("run_id", "detailed", "export_name", "export_format"),
-    [
-        (None, False, None, None),
-        ("run_001", True, "stats.csv", "csv"),
-        ("run_001", False, "stats.json", "json"),
-    ],
-)
-def test_cache_stats_scans_all_runs_then_filters_and_exports(
-    tmp_path, monkeypatch, run_id, detailed, export_name, export_format
-):
-    ctx = Context(storage_dir=str(tmp_path))
-    analyzer_factory = Mock()
-    collector_factory = Mock()
-    monkeypatch.setattr(
-        "waveform_analysis.core.storage.cache_analyzer.CacheAnalyzer", analyzer_factory
-    )
-    monkeypatch.setattr(
-        "waveform_analysis.core.storage.cache_statistics.CacheStatsCollector", collector_factory
-    )
-    collector = collector_factory.return_value
-    export_path = str(tmp_path / export_name) if export_name else None
-
-    assert ctx.cache_stats(run_id, detailed, export_path) is collector.collect.return_value
-    analyzer_factory.assert_called_once_with(ctx)
-    scan = analyzer_factory.return_value.scan
-    scan.assert_called_once()
-    assert scan.call_args.kwargs.get("run_ids") is None
-    assert scan.call_args.kwargs["verbose"] is False
-    collector_factory.assert_called_once_with(analyzer_factory.return_value)
-    collector.collect.assert_called_once_with(run_id=run_id)
-    collector.print_summary.assert_called_once_with(
-        collector.collect.return_value, detailed=detailed
-    )
-    if export_path:
-        collector.export_stats.assert_called_once_with(
-            collector.collect.return_value, export_path, format=export_format
-        )
-    else:
-        collector.export_stats.assert_not_called()
+    diagnostics.auto_fix.assert_not_called()
 
 
 @pytest.mark.parametrize("parallel", [False, True])

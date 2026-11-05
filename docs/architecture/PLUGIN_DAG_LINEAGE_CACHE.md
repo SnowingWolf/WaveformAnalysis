@@ -11,8 +11,8 @@ Context 负责统一协调插件注册、依赖解析、lineage 与缓存复用�
 
 公开的 Context 方法保留显式签名，配置、缓存、执行和时间操作分别委派给内部 domain；
 这些入口与 domain 实现承担不同职责。内存和磁盘命中共用统计记录及输出转换出口。
-缓存管理工具中，`diagnose_cache()` 和 `cache_stats()` 复用 `analyze_cache()` 的扫描入口，
-仍先扫描全部缓存，再按各自的 `run_id` 参数过滤诊断或统计结果。
+Context 的缓存诊断入口为 `diagnose_cache(run_id=None, verbose=True)`，只检查并返回问题。
+容量统计、条目列表和修复使用 `waveform-cache` CLI；扫描实现继续由缓存工具管理。
 
 除非显式传入 `storage_dir`，Context 默认把缓存和处理产物写入当前目录下的 `./wa_data/`；
 `data_root` 只用于定位原始 DAQ 数据，默认值为 `DAQ`。因此原始输入与可重建的缓存产物不会因为
@@ -64,7 +64,7 @@ DAG 与 lineage 是协同关系：DAG 提供结果的计算结构，lineage 把�
 ### 1.2 Plugin 内数据获取
 
 Plugin 通过 `context.get_data(run_id, name)` 读取正式上游，且 `name` 必须出现在静态或动态依赖中。
-这条约束让执行预览、lineage、缓存清理和实际运行看到同一张图。
+这条约束让依赖查询、lineage、缓存清理和实际运行看到同一张图。
 
 ```mermaid
 flowchart TD
@@ -168,10 +168,8 @@ Context 先解析目标的依赖顺序，再计算各节点当前缓存键。执
 | 上游 lineage 改变 | 从变化节点向下游重算 |
 | 动态依赖选择另一分支 | 计算新分支对应的缺失节点 |
 
-`preview_execution(run_id, target)` 使用同类依赖与缓存判断，但不执行目标。它适合在大规模运行前
-确认动态分支、缓存命中和预计重算范围。
-完整 DAG 无法解析时，预览返回包含 `error` 的结果；已有目标缓存不会掩盖缺失依赖。
-这与 `get_data()` 直接读取有效目标缓存不同：无显式版本约束的缓存读取仍可缺少上游 provider。
+`resolve_dependencies(target, run_id=run_id)` 可查询拓扑顺序；它不报告缓存命中或重算范围。
+`get_data()` 可直接读取有效目标缓存：无显式版本约束的缓存读取仍可缺少上游 provider。
 执行计划未命中时由依赖解析统一验证版本，计划命中时仍验证已注册 provider 的约束。
 
 `Plugin.timeout` 是执行属性，不是 `set_config()` 配置项，其值不进入 lineage 或缓存身份。
@@ -310,10 +308,10 @@ Memmap 的 `save_stream` / `save_memmap`、Context 的 generator 缓存写入和
 
 | 现象 | 可能原因 | 验证入口 |
 | --- | --- | --- |
-| 本应命中却重算 | resolved config、adapter、version、schema 或上游身份变化 | `preview_execution`、`get_resolved_config`、`get_lineage` |
+| 本应命中却重算 | resolved config、adapter、version、schema 或上游身份变化 | `get_resolved_config`、`get_lineage`、执行日志 |
 | 本应重算却命中 | 行为未升级 version，或语义配置未跟踪 | Plugin options、version 与缓存元数据 |
 | 动态路径错误 | `resolve_depends_on` 读到另一配置来源或依赖不确定状态 | `resolve_dependencies(..., run_id=...)` |
-| 预览与运行不同 | `compute` 在 DAG 外读取数据，或运行期临时切换来源 | 静态/动态依赖与所有 `get_data` 调用 |
+| 依赖查询与实际运行不同 | `compute` 在 DAG 外读取数据，或运行期临时切换来源 | 静态/动态依赖与所有 `get_data` 调用 |
 | 磁盘条目损坏或孤立 | 写入中断、checksum 失败、旧元数据遗留 | `waveform-cache diagnose --run <run_id> --dry-run` |
 | 清理后仍看到结果 | 清理范围、run 或产物名不一致，或内存项仍在 | `clear_cache_for(run_id, ..., downstream=True)` |
 

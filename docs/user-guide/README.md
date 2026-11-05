@@ -18,7 +18,7 @@
 | [EXAMPLES_GUIDE.md](EXAMPLES_GUIDE.md) | 常见场景示例集合 |
 | [位置二维 Dashboard](../features/visualizations/POSITION_DASHBOARD_GUIDE.md) | 位置重建、S1/S2 分布与交互式二维检查 |
 | [Run 6 Xe Fast 教学 Notebook](https://github.com/SnowingWolf/WaveformAnalysis/blob/0bc56668c0d2ebf81fc391287fb0097cd94b49f7/archive/notebooks/run6_xe_fast_0611_teaching.ipynb) | Run 6 Xe 数据扫描、Context 配置、records 读取与快速分析教学流程 |
-| [Context 使用](../features/context/README.md) | 配置管理、数据获取、执行预览 |
+| [Context 使用](../features/context/README.md) | 配置管理、数据获取、缓存诊断 |
 
 ## 术语约定
 

@@ -206,13 +206,20 @@ def test_context_reference_exposes_supported_api_and_migration():
             "profiling_summary",
             "_clear_config_cache",
             "_invalidate_planning_caches",
+            "validate_run_config",
+            "get_run_hardware_channels",
+            "get_plugin_run_config",
+            "preview_execution",
+            "analyze_dependencies",
+            "analyze_cache",
+            "cache_stats",
         }
         & members.keys()
     )
     assert [item["name"] for item in members["get_lineage"]["parameters"]] == ["data_name"]
-    assert [item["name"] for item in members["analyze_dependencies"]["parameters"]] == [
-        "target_name",
-        "include_performance",
+    assert [item["name"] for item in members["diagnose_cache"]["parameters"]] == [
+        "run_id",
+        "verbose",
     ]
     assert "run_name" in {item["name"] for item in members["show_config"]["parameters"]}
     assert "run_id" not in {item["name"] for item in members["show_config"]["parameters"]}
@@ -221,7 +228,13 @@ def test_context_reference_exposes_supported_api_and_migration():
     text = json.dumps(migration, ensure_ascii=False)
     assert all(
         name in text
-        for name in ("set_config", "clear_cache_for", "ctx.profiler.summary()", "preview_execution")
+        for name in (
+            "set_config",
+            "clear_cache_for",
+            "ctx.profiler.summary()",
+            "diagnose_cache",
+            "waveform-cache",
+        )
     )
 
 

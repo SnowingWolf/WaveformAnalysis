@@ -1,6 +1,6 @@
 # Context API 优化计划
 
-> 状态：本轮已确认直接精简公开缓存维护入口、摘要属性与冗余参数；实现、文档系统与契约测试同步收敛。
+> 状态：已确认精简公开缓存维护入口、摘要属性、冗余参数及进阶诊断包装；2026-11-05 补充诊断接口收敛。
 > 范围：`waveform_analysis/core/context.py`、相关 domain、调用方与文档目录。
 > 用户迁移说明：[配置管理](../features/context/CONFIGURATION.md#context-api-迁移)。
 
@@ -21,7 +21,11 @@
 | `clear_performance_caches()` | 私有 `_invalidate_planning_caches()` 调用缓存域 `invalidate_planning_caches()`。 | 用户删除手动维护调用；注册和配置更新负责自动失效。 |
 | `profiling_summary` | 删除便捷属性。 | 使用 `ctx.profiler.summary()`。 |
 | `get_lineage(data_name, _visited=...)` | 公共签名只接收 `data_name`；递归状态放在私有 `_get_base_lineage()`。 | 删除 `_visited` 参数。 |
-| `analyze_dependencies(..., run_id=...)` | Context 与底层 `DependencyAnalyzer.analyze()` 均移除未使用的 `run_id`。 | 删除该参数；特定 run 的缓存预览使用 `preview_execution(run_id, data_name)`。 |
+| `preview_execution()` / `analyze_dependencies()` | 执行预览与高级依赖分析整体退役。 | 普通依赖结构使用 `resolve_dependencies()` / `plot_lineage()`；实测性能使用 `get_performance_report()`，无等价预览替代。 |
+| `validate_run_config()` / `get_run_hardware_channels()` | 删除 Context 包装。 | 读取 run 配置后，调用独立校验与硬件展开函数。 |
+| `get_plugin_run_config()` | 删除 Context 包装，插件 helper 保留 run 块读取与回退。 | 用户通过 `get_run_config()` 查看文件覆盖块。 |
+| `analyze_cache()` / `cache_stats()` | 删除 Context 包装。 | 使用缓存 CLI 的 `info` / `stats` / `list`。 |
+| `diagnose_cache(auto_fix=..., dry_run=...)` | Context 只检查；移除修复参数。 | 修复走 `waveform-cache diagnose --fix`，默认预演。 |
 | `show_config(run_name=...)` 的错误弃用 | `run_name` 是受支持的展示参数，不发出弃用警告。 | 保持 `run_name` 写法；该入口不接受 `run_id`。 |
 
 内部缓存维护方法不属于迁移后的用户 API。`set_config()` 自动清理解析配置、运行配置与规划缓存；
@@ -35,8 +39,8 @@
 | 核心数据 | `get_data`, `register`, `set_config`, `clear_cache_for` | 数据处理与缓存生命周期。 |
 | 配置读取 | `get_config`, `get_config_value`, `get_resolved_config` | 裸值、单项来源和完整解析结果。 |
 | 配置展示 | `show_config`, `list_plugin_configs`, `show_resolved_config` | 全局汇总、插件选项和解析来源。 |
-| 依赖与执行 | `get_lineage`, `resolve_dependencies`, `preview_execution`, `analyze_dependencies` | 缓存身份、拓扑顺序、run/cache 预览与关键路径分析。 |
-| 缓存诊断 | `analyze_cache`, `cache_stats`, `diagnose_cache` | 现有 Context 存储与插件注册范围内的诊断。 |
+| 依赖与执行 | `get_lineage`, `resolve_dependencies`, `plot_lineage` | 缓存身份、拓扑顺序与普通依赖图。 |
+| 缓存与性能诊断 | `diagnose_cache`, `get_performance_report` | 缓存问题与实际插件执行统计；容量和修复统一走 CLI。 |
 | 时间 | `time_range`、epoch 和时间索引方法 | 时间查询、换算与索引生命周期。 |
 | 帮助 | `help` | 返回终端/Jupyter 可显示的结构化 `HelpDocument`，查询当前已注册插件。 |
 
@@ -59,4 +63,5 @@
 5. 通过文档同步、锚点检查、影响分析、schema 冒烟及真实隔离站点构建，暂存验证后的打包导出。
 6. 独立 Reviewer 审查通过后，由主流程提交本轮改动。
 
-执行证据与最终状态以当前任务记录 `docs/agents/runs/current/context-api-retirement-20261029/task.yaml` 为准。
+前序精简证据见 `docs/agents/runs/current/context-api-retirement-20261029/task.yaml`；
+本轮诊断收敛证据与最终状态见 `docs/agents/runs/current/context-diagnostics-retirement-20261105/task.yaml`。

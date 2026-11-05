@@ -42,6 +42,14 @@ active_plans:
   condition: —
   task_file: docs/agents/runs/current/context-dedup-20261029/task.yaml
   legacy_plan: docs/agents/runs/current/context-dedup-20261029/legacy-plan.md
+- task_id: context-diagnostics-retirement-20261105
+  state: completed
+  route: retire_compat
+  workflow_cost: strict
+  workflow_shape: staged
+  condition: —
+  task_file: docs/agents/runs/current/context-diagnostics-retirement-20261105/task.yaml
+  legacy_plan: docs/agents/runs/current/context-diagnostics-retirement-20261105/legacy-plan.md
 - task_id: context-simplification-20261104
   state: completed
   route: modify_code

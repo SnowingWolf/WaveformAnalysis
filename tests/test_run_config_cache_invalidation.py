@@ -4,7 +4,11 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from waveform_analysis.core.config import RunConfigValidationError, validate_run_config
+from waveform_analysis.core.config import (
+    RunConfigValidationError,
+    resolve_run_hardware_channels,
+    validate_run_config,
+)
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.core.base import Plugin
 
@@ -209,8 +213,8 @@ def test_run_config_supports_run_number_daq_and_hardware_channels(tmp_path):
 
     ctx = Context(config={"data_root": str(data_root)})
     loaded = ctx.get_run_config(run_id)
-    ctx.validate_run_config(run_id, require_identity=True)
-    channels = ctx.get_run_hardware_channels(run_id)
+    validate_run_config(loaded, require_identity=True)
+    channels = resolve_run_hardware_channels(loaded)
 
     assert loaded["run_number"] == "001000"
     assert loaded["daq"]["start_time"] == "2026-05-26T10:30:00.000000Z"

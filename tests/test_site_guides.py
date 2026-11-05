@@ -3,6 +3,7 @@ import importlib
 import inspect
 from pathlib import Path
 import re
+import shlex
 
 import pytest
 
@@ -192,7 +193,13 @@ def test_context_migration_guide_examples_match_public_signatures():
             signature.bind(None, *node.args, **{kw.arg: kw.value for kw in node.keywords})
             calls.append(name)
 
-    assert set(calls) == {"set_config", "get_lineage", "analyze_dependencies", "preview_execution"}
+    assert set(calls) == {
+        "set_config",
+        "get_lineage",
+        "resolve_dependencies",
+        "diagnose_cache",
+        "get_run_config",
+    }
     assert "ctx.profiler.summary()" in migration
     assert "不会发出弃用警告" in source
 
@@ -223,3 +230,25 @@ def test_adapter_guide_loading_examples_match_hardware_key_signatures(filename):
                 assert "board" in {kw.arg for kw in node.keywords}
             calls.append(name)
     assert set(calls) == {"load_channel", "load_channel_generator", "load_all_channels"}
+
+
+@pytest.mark.parametrize(
+    "filename",
+    ["docs/cli/WAVEFORM_CACHE.md", "docs/features/context/CONFIGURATION.md"],
+)
+def test_cache_cli_documented_examples_match_parser(filename):
+    from waveform_analysis.cli_cache import create_parser
+
+    source = (Path(__file__).parents[1] / filename).read_text(encoding="utf-8")
+    parser = create_parser()
+    parsed = []
+    for block in re.findall(r"```bash\n(.*?)```", source, re.DOTALL):
+        for line in block.splitlines():
+            command = line.strip()
+            if not command.startswith("waveform-cache ") or any(
+                marker in command for marker in ("<", "[")
+            ):
+                continue
+            args = parser.parse_args(shlex.split(command)[1:])
+            parsed.append(args.command)
+    assert {"stats", "list", "diagnose"} <= set(parsed)

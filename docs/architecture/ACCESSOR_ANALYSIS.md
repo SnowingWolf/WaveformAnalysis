@@ -189,7 +189,7 @@ flowchart LR
 | 字段来自旧版本 | Accessor 复用旧实例或正式缓存未失效 | 产物 lineage、Plugin version、本地缓存 |
 | 通道结果缺少成员 | 把聚合表当关系表，或 `(board, channel)` 连接错误 | `peaklet_components` 与 `peaklet_channels` |
 | 波形属于错误实体 | records/pool 配错、peak ID 与 record ID 混用 | 波形配对、ID 字段和 run_id |
-| Accessor 查询触发大量计算 | 请求的正式输入未缓存，或查询加载了超出需要的目标 | `preview_execution` 与数据加载清单 |
+| Accessor 查询触发大量计算 | 请求的正式输入未缓存，或查询加载了超出需要的目标 | `resolve_dependencies`、执行日志与数据加载清单 |
 
 ## 7. 维护检查
 
