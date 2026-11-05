@@ -35,9 +35,6 @@ print(preview)
 | --- | --- | --- | --- | --- | --- | --- |
 | [`basic_features`](basic_features.md) | `BasicFeaturesPlugin` | 特征提取 | `records`, `wave_pool` | `structured_array` | `static` | `4.1.0` |
 | [`cache_analysis`](cache_analysis.md) | `CacheAnalysisPlugin` | 缓存分析 | - | `dict` | `static` | `0.1.0` |
-| [`df`](df.md) | `DataFramePlugin` | 数据导出 | `records`, `basic_features` | `dataframe` | `static` | `1.7.0` |
-| [`df_events`](df_events.md) | `GroupedEventsPlugin` | 事件分析 | `df` | `dataframe` | `static` | `0.0.1` |
-| [`df_paired`](df_paired.md) | `PairedEventsPlugin` | 事件分析 | `df_events` | `dataframe` | `static` | `0.0.1` |
 | [`energy_reconstruction`](energy_reconstruction.md) | `EnergyReconstructionPlugin` | 其他 | `s1_s2_pairs` | `structured_array` | `static` | `0.1.0` |
 | [`events`](events.md) | `EventPlugin` | 事件分析 | `s1_s2_pairs`, `position_reconstruction` | `structured_array` | `static` | `0.1.0` |
 | [`filtered_waveforms`](filtered_waveforms.md) | `FilteredWaveformsPlugin` | 波形处理 | `st_waveforms` | `structured_array` | `static` | `3.0.0` |
@@ -124,18 +121,9 @@ print(preview)
 将峰或 hit 组织为事件、配对结果或位置重建结果。
 | Provides | 插件类 | 解析后依赖 | 页面来源 |
 | --- | --- | --- | --- |
-| [`df_events`](df_events.md) | `GroupedEventsPlugin` | `df` | `source` |
-| [`df_paired`](df_paired.md) | `PairedEventsPlugin` | `df_events` | `source` |
 | [`events`](events.md) | `EventPlugin` | `s1_s2_pairs`, `position_reconstruction` | `source` |
 | [`s1_s2_pair_candidates`](s1_s2_pair_candidates.md) | `S1S2PairCandidatesPlugin` | `peak_classification`, `peaks` | `source` |
 | [`s1_s2_pairs`](s1_s2_pairs.md) | `S1S2PairSelectionPlugin` | `s1_s2_pair_candidates` | `source` |
-
-### 数据导出
-
-把插件产物整理为分析侧表格或批量输出。
-| Provides | 插件类 | 解析后依赖 | 页面来源 |
-| --- | --- | --- | --- |
-| [`df`](df.md) | `DataFramePlugin` | `records`, `basic_features` | `source` |
 
 ### 缓存分析
 

@@ -1617,7 +1617,6 @@ _LINEAGE_KIND_BY_PLUGIN_SET = {
     "hit": "signal",
     "peaks": "peak",
     "events": "event",
-    "tabular": "event",
 }
 
 _LINEAGE_KIND_BY_VISUAL_CATEGORY = {

@@ -18,8 +18,8 @@ class _ConstPlugin(Plugin):
         return np.array([(1,)], dtype=self.output_dtype)
 
 
-class _DFPlugin(_ConstPlugin):
-    provides = "df"
+class _CalibrationTablePlugin(_ConstPlugin):
+    provides = "calibration_table"
     uses_run_config = True
 
 
@@ -28,22 +28,22 @@ class _RunConfigDrivenPlugin(_ConstPlugin):
     uses_run_config = True
 
 
-class _DFEventsPlugin(_ConstPlugin):
-    provides = "df_events"
-    depends_on = ["df"]
+class _GroupedTablePlugin(_ConstPlugin):
+    provides = "grouped_table"
+    depends_on = ["calibration_table"]
 
 
-class _DFPairedPlugin(_ConstPlugin):
-    provides = "df_paired"
-    depends_on = ["df_events"]
+class _SelectedTablePlugin(_ConstPlugin):
+    provides = "selected_table"
+    depends_on = ["grouped_table"]
 
 
 def _register_test_plugins(ctx: Context):
     ctx.register(
-        _DFPlugin(),
+        _CalibrationTablePlugin(),
         _RunConfigDrivenPlugin(),
-        _DFEventsPlugin(),
-        _DFPairedPlugin(),
+        _GroupedTablePlugin(),
+        _SelectedTablePlugin(),
     )
 
 
@@ -113,11 +113,11 @@ def test_run_config_hash_change_triggers_related_cache_clear(tmp_path):
     ctx2._config_domain.maybe_invalidate_run_config_cache(run_id)
     assert clear_calls == []
 
-    # Changed hash: should invalidate df branch and its downstream.
+    # Changed hash: should invalidate calibration_table branch and its downstream.
     _write_run_config(config_path, gain_value=11.0)
     ctx2._config_domain.maybe_invalidate_run_config_cache(run_id)
 
-    assert (run_id, "df", True) in clear_calls
+    assert (run_id, "calibration_table", True) in clear_calls
     assert (run_id, "run_cfg_root", True) in clear_calls
 
 

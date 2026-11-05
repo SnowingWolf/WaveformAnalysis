@@ -845,11 +845,14 @@ Plugin Set 是最小可复用插件组，每个 set 只关注单一职责。
 | Set | 插件 | 说明 |
 | --- | --- | --- |
 | `io` | RawFileNamesPlugin | 扫描并分组原始文件 |
-| `waveform` | WaveformsPlugin, FilteredWaveformsPlugin, RecordsPlugin | 波形提取、滤波与 records 构建 |
-| `basic_features` | BasicFeaturesPlugin, WaveformWidthIntegralPlugin | 基础特征计算 |
-| `tabular` | DataFramePlugin, GroupedEventsPlugin, PairedEventsPlugin | DataFrame 表格化输出，包括 legacy 事件分组与配对表 |
-| `events` | S1S2PairCandidatesPlugin, S1S2PairSelectionPlugin, PositionReconstructionPlugin, EventPlugin, HitGroupedPlugin | 事件构建、S1/S2 配对、位置重建与 legacy hit 分组 |
-| `peaks` | HitFinderPlugin, RecordsAsymmetryMaskPlugin, RecordsDetectorMaskPlugin, RecordsVetoMaskPlugin, ThresholdHitPlugin, HitMergeClustersPlugin, HitMergePlugin, HitMergedComponentsPlugin, HitMergedFeaturesPlugin, PeakletPlugin, PeakletComponentsPlugin, PeakletWaveformPlugin, PeakletWaveformPoolPlugin, PeakletFeaturesPlugin, PeakletChannelsPlugin, PeaksPlugin, WaveformWidthPlugin, S1S2ClassifierPlugin, PeakletS1S2ClassifierPlugin | 峰值检测、asymmetry 后通道角色分流、轻量 peaklet 聚类、records-backed peaklet 波形/特征、最终 peaks 输出与 S1/S2 分类 |
+| `waveform` | WaveformsPlugin, FilteredWaveformsPlugin, RecordsPlugin, WavePoolPlugin, WavePoolFilteredPlugin | 结构化波形、滤波与 records-backed 波形访问 |
+| `hit` | HitFinderPlugin, RecordsAsymmetryMaskPlugin, RecordsDetectorMaskPlugin, RecordsVetoMaskPlugin, ThresholdHitPlugin, HitMergeClustersPlugin, HitMergePlugin, HitMergedComponentsPlugin, HitMergedFeaturesPlugin | 寻峰、通道角色分流、hit 筛选与合并 |
+| `peaks` | PeakletComponentsPlugin, PeakletPlugin, PeakletWaveformPlugin, PeakletWaveformPoolPlugin, PeakletFeaturesPlugin, PeakletChannelsPlugin, PeaksPlugin, WaveformWidthPlugin, S1S2ClassifierPlugin, PeakClassificationPlugin | peaklet 构建、波形和特征、最终 peaks 与分类；S1S2ClassifierPlugin 为保留的弃用插件 |
+| `basic_features` | BasicFeaturesPlugin, WaveformWidthIntegralPlugin | 单记录基础特征与宽度积分 |
+| `events` | S1S2PairCandidatesPlugin, S1S2PairSelectionPlugin, PositionReconstructionPlugin, EnergyReconstructionPlugin, EventPlugin, HitGroupedPlugin | S1/S2 配对与事件重建；HitGroupedPlugin 为保留的弃用插件 |
+
+内置 `tabular` 集合和 `df → df_events → df_paired` 已退役。分析表可由现行产物显式转换，
+旧符合表与 S1/S2 配对的语义不同，见[退役迁移说明](../user-guide/DF_RETIREMENT.md)。
 
 `plugins_peaks()` 中 `peaklets` 是轻量聚类产物，旧的 `area`、`height`、
 `max_time`、`width`、`rise_time`、`fall_time` 字段由 `peaklet_features`
@@ -902,17 +905,17 @@ ctx.register(*profiles.cpu_default())
 `cpu_default()` 等价于：
 
 ```
-io + waveform + peaks + basic_features + tabular + events
+io + waveform + hit + peaks + basic_features + events
 ```
 
 ---
 
 ## Profile 选择
 
-CLI 可通过 `--profile` 选择执行链路：
+CLI 可通过 `--profile` 选择注册的插件集合，普通处理还必须用 `--target` 明确输出产物：
 
 ```bash
-waveform-process --run-name run_001 --profile cpu
+waveform-process --run-name run_001 --profile cpu --target basic_features
 ```
 
 目前 `streaming` 与 `jax` 仍为占位 Profile，会提示未实现。

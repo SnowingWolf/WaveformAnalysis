@@ -9,6 +9,20 @@ import tempfile
 import time
 import tracemalloc
 
+SMOKE_TARGETS = (
+    "records",
+    "wave_pool",
+    "hit_threshold",
+    "hit_merged",
+    "hit_merged_components",
+    "peaklet_components",
+    "peaklets",
+    "peaklet_waveforms",
+    "peaklet_waveform_pool",
+    "peaklet_features",
+    "peaks",
+)
+
 
 def create_synthetic_vx2730_run(
     data_root: Path,
@@ -29,7 +43,8 @@ def create_synthetic_vx2730_run(
             fp.write("HEADER;IGNORE\n")
 
             for event_idx in range(n_events):
-                timestamp = event_idx * 1_000_000 + ch * 100
+                # VX2730 timestamps are ps; channel offsets must share its 2 ns sample grid.
+                timestamp = event_idx * 1_000_000 + ch * 2_000
                 row = [0, ch, timestamp, event_idx, 0, 0, 0]
 
                 wave = [100] * n_samples
@@ -46,10 +61,15 @@ def create_synthetic_vx2730_run(
 def _build_context(storage_dir: Path, data_root: Path):
     from waveform_analysis.core.context import Context
     from waveform_analysis.core.plugins.builtin.cpu import (
-        BasicFeaturesPlugin,
-        DataFramePlugin,
-        GroupedEventsPlugin,
         HitFinderPlugin,
+        HitMergedComponentsPlugin,
+        HitMergePlugin,
+        PeakletComponentsPlugin,
+        PeakletFeaturesPlugin,
+        PeakletPlugin,
+        PeakletWaveformPlugin,
+        PeakletWaveformPoolPlugin,
+        PeaksPlugin,
         RawFilesPlugin,
         RecordsPlugin,
         ThresholdHitPlugin,
@@ -63,11 +83,17 @@ def _build_context(storage_dir: Path, data_root: Path):
             "data_root": str(data_root),
             "daq_adapter": "vx2730",
             "n_channels": 2,
+            # Tiny CSV fixture: avoid process-pickling local parser functions.
+            # Both benchmark checkouts use this same bounded execution setup.
+            "records.channel_workers": 1,
+            "records.n_jobs": 1,
+            "records.use_process_pool": False,
             "hit.use_filtered": False,
+            # Rectangular six-sample pulses have a one-sample derivative edge.
+            "hit.use_derivative": False,
             "hit_threshold.wave_source": "records",
             # 性能基准不启用 records asymmetry cut，避免引入 records_asymmetry_mask 依赖
             "hit_threshold.asymmetry_cut_enabled": False,
-            "basic_features.use_filtered": False,
             "show_progress": False,
         },
         stats_mode="off",
@@ -78,14 +104,19 @@ def _build_context(storage_dir: Path, data_root: Path):
     ctx.register(WavePoolPlugin())
     ctx.register(HitFinderPlugin())
     ctx.register(ThresholdHitPlugin())
-    ctx.register(BasicFeaturesPlugin())
-    ctx.register(DataFramePlugin())
-    ctx.register(GroupedEventsPlugin())
+    ctx.register(HitMergePlugin())
+    ctx.register(HitMergedComponentsPlugin())
+    ctx.register(PeakletComponentsPlugin())
+    ctx.register(PeakletPlugin())
+    ctx.register(PeakletWaveformPlugin())
+    ctx.register(PeakletWaveformPoolPlugin())
+    ctx.register(PeakletFeaturesPlugin())
+    ctx.register(PeaksPlugin())
     return ctx
 
 
 def run_smoke_chain() -> dict[str, object]:
-    """Run fixed smoke chain: raw_files -> st_waveforms -> hit -> df -> df_events."""
+    """Materialize the records-backed hit/peaklet/peaks chain from synthetic raw files."""
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir)
         data_root = tmp_path / "DAQ"
@@ -95,22 +126,25 @@ def run_smoke_chain() -> dict[str, object]:
         run_id = "run_smoke_001"
 
         raw_files = ctx.get_data(run_id, "raw_files")
-        st_waveforms = ctx.get_data(run_id, "st_waveforms")
-        hit = ctx.get_data(run_id, "hit")
-        df = ctx.get_data(run_id, "df")
-        events = ctx.get_data(run_id, "df_events")
-
-        events_columns = getattr(events, "columns", None)
+        products = {}
+        for target in SMOKE_TARGETS:
+            data = ctx.get_data(run_id, target)
+            declared_dtype = ctx.get_plugin(target).output_dtype
+            if data.dtype != declared_dtype:
+                raise ValueError(
+                    f"{target} output dtype differs from its declared contract: "
+                    f"{data.dtype} != {declared_dtype}"
+                )
+            products[target] = {
+                "count": len(data),
+                "dtype": str(data.dtype),
+                "fields": {name: str(data.dtype[name]) for name in data.dtype.names or ()},
+            }
 
         return {
             "run_id": run_id,
-            "raw_file_groups": len(raw_files) if raw_files is not None else 0,
-            "st_waveforms_count": len(st_waveforms) if st_waveforms is not None else 0,
-            "hit_count": len(hit) if hit is not None else 0,
-            "df_rows": len(df) if df is not None else 0,
-            "events_count": len(events) if events is not None else 0,
-            "st_waveforms_fields": list(getattr(st_waveforms.dtype, "names", ()) or ()),
-            "events_fields": list(events_columns) if events_columns is not None else [],
+            "raw_file_groups": len(raw_files),
+            "products": products,
         }
 
 
@@ -135,12 +169,14 @@ def benchmark_hot_targets(targets: Iterable[str], repeats: int = 3) -> dict[str,
                 tracemalloc.start()
                 try:
                     t0 = time.perf_counter()
-                    _ = ctx.get_data(run_id, target)
+                    result = ctx.get_data(run_id, target)
                     elapsed = time.perf_counter() - t0
                     _current, peak = tracemalloc.get_traced_memory()
                 finally:
                     tracemalloc.stop()
 
+                if len(result) == 0:
+                    raise ValueError(f"empty benchmark output for {target} on the pulse fixture")
                 if not math.isfinite(elapsed) or elapsed <= 0:
                     raise ValueError(f"invalid benchmark elapsed time for {target}: {elapsed}")
                 if not math.isfinite(peak) or peak < 0:

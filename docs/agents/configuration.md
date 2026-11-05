@@ -149,7 +149,7 @@ ctx = Context(
 上述示例下：
 - `hit(1:7)` 最终为 `polarity=positive, threshold=42.0`
 - `basic_features(0:3)` 最终为 `polarity=negative, fixed_baseline=8300.0`
-- `df` 若未显式设置 `df.gain_adc_per_pe`，则读取 `calibration.gain_adc_per_pe`
+- `calibration.gain_adc_per_pe` 保留为运行标定元数据；分析代码显式读取并按 `(board, channel)` 应用面积增益，内置 `basic_features` 不自动换算为 PE。
 
 ## Groups 用法
 - `channel_config` 支持 `groups`

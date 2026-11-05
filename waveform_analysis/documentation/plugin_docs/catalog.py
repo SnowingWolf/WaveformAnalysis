@@ -34,7 +34,6 @@ PLUGIN_SET_DESCRIPTIONS = {
     "hit": "Hit 检测与合并：阈值检测、记录掩码（不对称/探测器/veto）、hit 合并与聚类、hit_merged 特征。",
     "peaks": "Peaklet 构建与 peak 分类：peaklet 组件、peaklets、波形、pool、特征、通道、peaks、波形宽度、S1/S2 分类与 peak 分类。",
     "basic_features": "基础特征提取：从波形计算高度、面积、最大绝对差等特征。",
-    "tabular": "表格输出（DataFrame、表）：构建单通道事件 DataFrame 与分组/配对事件表。",
     "events": "事件级处理：S1-S2 配对候选与最终选择、位置重建、完整事件重建与按时间窗口分组的事件。",
 }
 
@@ -44,7 +43,6 @@ PLUGIN_SET_COLORS = {
     "hit": ("#fff0df", "#c76b20", "#f8d5ab"),
     "peaks": ("#f1e9fb", "#8054b5", "#dfcdf4"),
     "basic_features": ("#fdf5d8", "#a98219", "#f2e3a6"),
-    "tabular": ("#e6f4f6", "#287e88", "#c8e8eb"),
     "events": ("#fae8ed", "#bb4666", "#f3cad5"),
     "other": ("#eef1f2", "#63727b", "#d9e0e3"),
 }

@@ -48,11 +48,12 @@ class ContextConfigDomain:
         self.ctx._run_config_hash_loaded.clear()
 
     def raise_if_removed_data_name(self, data_name: str) -> None:
-        replacement = self.ctx._REMOVED_DATA_NAME_ALIASES.get(data_name)
-        if replacement is None:
+        guidance = self.ctx._REMOVED_DATA_NAMES.get(data_name)
+        if guidance is None:
             return
         raise ValueError(
-            f"Data name '{data_name}' has been removed. Please use '{replacement}' instead."
+            f"Data name '{data_name}' has been removed. {guidance} "
+            "See docs/user-guide/DF_RETIREMENT.md for migration details."
         )
 
     def get_config_value(

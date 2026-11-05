@@ -72,7 +72,7 @@ pip install -e ".[dev]"
 ./scripts/run_tests.sh
 
 # 常用 CLI
-waveform-process --run-name <run_name> --verbose
+waveform-process --run-name <run_name> --target basic_features --verbose
 waveform-process --scan-daq --daq-root DAQ
 waveform-process --show-daq --daq-root DAQ
 ```

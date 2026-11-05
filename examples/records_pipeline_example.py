@@ -1,14 +1,15 @@
-"""Records pipeline example with all related plugins."""
+"""Records、基础特征及按 record_id 访问波形的示例。"""
 
-from waveform_analysis.core.context import Context
+import pandas as pd
+
+from waveform_analysis import Context
 from waveform_analysis.core.data import records_view
-from waveform_analysis.core.plugins.builtin.cpu import (
-    EventFramePlugin,
-    EventsGroupedPlugin,
-    EventsPlugin,
-    RawFilesPlugin,
+from waveform_analysis.plugins import (
+    BasicFeaturesPlugin,
+    RawFileNamesPlugin,
     RecordsPlugin,
     WaveformsPlugin,
+    WavePoolPlugin,
 )
 
 
@@ -23,31 +24,29 @@ def main() -> None:
             "show_progress": True,
         }
     )
-    ctx.register(RawFilesPlugin())
+    ctx.register(RawFileNamesPlugin())
     ctx.register(WaveformsPlugin())
     ctx.register(RecordsPlugin())
-    ctx.register(EventsPlugin())
-    ctx.register(EventFramePlugin())
-    ctx.register(EventsGroupedPlugin())
+    ctx.register(WavePoolPlugin())
+    ctx.register(BasicFeaturesPlugin())
 
     # Required: set DAQ adapter (or pass daq_run/daq_info to get_raw_files)
     ctx.set_config({"daq_adapter": daq_adapter})
 
     # Optional: set dt (ns) explicitly for records if not provided by the adapter
     # ctx.set_config({"dt": 2}, plugin_name="records")
-    # Downstream event-level plugins read propagated dt from upstream data.
+    # basic_features has one row per record, not one row per multi-channel event.
 
     records = ctx.get_data(run_id, "records")
     print(f"records={len(records)}")
 
-    events = ctx.get_data(run_id, "events")
-    print(f"events={len(events)}")
+    features = ctx.get_data(run_id, "basic_features")
+    df = pd.DataFrame(features)
+    print(f"basic_features records={len(df)}")
+    print(df.head())
 
-    df = ctx.get_data(run_id, "df")
-    print(f"df={len(df)}")
-
-    df_events = ctx.get_data(run_id, "df_events")
-    print(f"df_events={len(df_events)}")
+    if len(records) == 0:
+        return
 
     rv = records_view(ctx, run_id)
     first_record_id = int(records[0]["record_id"])

@@ -26,6 +26,8 @@ mappings:
     to: /user-guide/docs-build/
   - from: /user-guide/EXAMPLES_GUIDE.html
     to: /user-guide/EXAMPLES_GUIDE/
+  - from: /user-guide/DF_RETIREMENT.html
+    to: /user-guide/DF_RETIREMENT/
   - from: /contexts/context.html
     to: /contexts/context/
   - from: /contexts/records-view.html
@@ -126,11 +128,14 @@ mappings:
   - from: /plugins/cache_analysis.html
     to: /plugins/cache_analysis/
   - from: /plugins/df.html
-    to: /plugins/df/
+    to: /user-guide/DF_RETIREMENT/
+    note: 旧插件已退役；迁移说明不代表存在等价替代产物。
   - from: /plugins/df_events.html
-    to: /plugins/df_events/
+    to: /user-guide/DF_RETIREMENT/
+    note: 旧插件已退役；迁移说明不代表存在等价替代产物。
   - from: /plugins/df_paired.html
-    to: /plugins/df_paired/
+    to: /user-guide/DF_RETIREMENT/
+    note: 旧插件已退役；迁移说明不代表存在等价替代产物。
   - from: /plugins/energy_reconstruction.html
     to: /plugins/energy_reconstruction/
   - from: /plugins/events.html

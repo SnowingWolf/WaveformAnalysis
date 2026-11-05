@@ -20,23 +20,36 @@ ctx.set_config({'data_root': 'DAQ', 'daq_adapter': 'vx2730'})
 
 # 计算与读取
 basic_features = ctx.get_data('run_001', 'basic_features')
-ch0 = basic_features[basic_features['channel'] == 0]
+ch0 = basic_features[(basic_features['board'] == 0) & (basic_features['channel'] == 0)]
 heights = ch0['height']
 amps = ch0['amp']
 areas = ch0['area']
-print(f"Found {len(ch0)} events in channel 0")
+print(f"Found {len(ch0)} records in board 0, channel 0")
 ```
 
 **English**:
 
 ```python
 basic_features = ctx.get_data('run_001', 'basic_features')
-ch0 = basic_features[basic_features['channel'] == 0]
+ch0 = basic_features[(basic_features['board'] == 0) & (basic_features['channel'] == 0)]
 heights = ch0['height']
 amps = ch0['amp']
 areas = ch0['area']
-print(f"Found {len(ch0)} events in channel 0")
+print(f"Found {len(ch0)} records in board 0, channel 0")
 ```
+
+### 转为分析表
+
+```python
+import pandas as pd
+
+df = pd.DataFrame(ctx.get_data('run_001', 'basic_features'))
+# 需要按时间分析时显式排序；record_id 与 board/channel 保留用于关联。
+df = df.sort_values('timestamp', kind='stable').reset_index(drop=True)
+```
+
+每行代表一条记录的特征；PE 标定在分析层显式进行。旧表格产物、公开导入和
+符合分组的迁移边界见[旧表格链路退役迁移](DF_RETIREMENT.md)。
 
 ### 配置管理
 
@@ -77,18 +90,18 @@ print(f"需要计算 {len(needs_compute)} 个插件")
 
 ```python
 # LabVIEW 风格（Matplotlib）
-ctx.plot_lineage('df_paired', kind='labview')
+ctx.plot_lineage('basic_features', kind='labview')
 
 # 交互式模式
-ctx.plot_lineage('df_paired', kind='labview', interactive=True)
+ctx.plot_lineage('basic_features', kind='labview', interactive=True)
 
 # Plotly 高级交互式
-ctx.plot_lineage('df_paired', kind='plotly', verbose=2)
+ctx.plot_lineage('basic_features', kind='plotly', verbose=2)
 
 # 自定义样式
 from waveform_analysis.core.foundation.utils import LineageStyle
 style = LineageStyle(node_width=4.0, node_height=2.0, verbose=2)
-ctx.plot_lineage('df_paired', kind='plotly', style=style)
+ctx.plot_lineage('basic_features', kind='plotly', style=style)
 ```
 
 ### 位置二维 Dashboard
@@ -200,11 +213,14 @@ reloader.disable_auto_reload()
 from waveform_analysis import Context
 
 # 启用统计收集
-ctx = Context(stats_mode='detailed')
+ctx = Context(stats_mode='detailed', config={'data_root': 'DAQ', 'daq_adapter': 'vx2730'})
+ctx.register(*profiles.cpu_default())
 
 # 执行操作
 basic_features = ctx.get_data('run_001', 'basic_features')
-df = ctx.get_data('run_001', 'dataframe')
+# 分析层表格转换，不再请求旧表格插件。
+import pandas as pd
+df = pd.DataFrame(basic_features)
 
 # 查看性能报告
 print(ctx.get_performance_report())
@@ -291,10 +307,10 @@ shutil.rmtree('./wa_data')
 
 ```python
 # 打印依赖树
-print(ctx.resolve_dependencies('df_paired'))
+print(ctx.resolve_dependencies('basic_features'))
 
 # 可视化
-ctx.plot_lineage('df_paired', kind='labview')
+ctx.plot_lineage('basic_features', kind='labview')
 ```
 
 ### Q4: 如何调试插件执行？

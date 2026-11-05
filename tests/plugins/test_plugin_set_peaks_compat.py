@@ -1,3 +1,5 @@
+import pytest
+
 from waveform_analysis.core.plugins import profiles
 from waveform_analysis.core.plugins.plugin_sets import PLUGIN_SETS, get_plugin_set
 
@@ -51,9 +53,7 @@ def test_get_plugin_set_event_available():
     """Test the events plugin set.
 
     The events set now hosts the new S1-S2 pairing workflow plus the
-    deprecated ``hit_grouped`` legacy plugin. ``df_events`` and ``df_paired``
-    have been moved to the ``tabular`` plugin set because they produce
-    DataFrame (tabular) outputs.
+    deprecated ``hit_grouped`` legacy plugin.
     """
     factory = get_plugin_set("events")
     plugins = factory()
@@ -74,13 +74,10 @@ def test_plugin_set_events_in_registry():
     assert "events" in PLUGIN_SETS
 
 
-def test_get_plugin_set_tabular_includes_df_events_and_df_paired():
-    """Tabular set should include df, df_events, and df_paired."""
-    factory = get_plugin_set("tabular")
-    plugins = factory()
-
-    provides = _provides_names(plugins)
-    assert provides == ["df", "df_events", "df_paired"]
+def test_retired_tabular_set_is_not_registered():
+    assert "tabular" not in PLUGIN_SETS
+    with pytest.raises(KeyError, match="Unknown plugin set: tabular"):
+        get_plugin_set("tabular")
 
 
 def test_plugin_set_registry_contains_all_keys():
@@ -90,7 +87,6 @@ def test_plugin_set_registry_contains_all_keys():
     assert "hit" in PLUGIN_SETS
     assert "peaks" in PLUGIN_SETS
     assert "basic_features" in PLUGIN_SETS
-    assert "tabular" in PLUGIN_SETS
     assert "events" in PLUGIN_SETS
 
 
@@ -123,4 +119,5 @@ def test_cpu_default_includes_all_layers():
     assert "hit_threshold" in provides  # hit layer
     assert "peaklets" in provides  # hit layer (peaklets)
     assert "peaks" in provides  # peaks layer
-    assert "df_events" in provides  # event layer
+    assert "s1_s2_pairs" in provides  # event layer
+    assert not {"df", "df_events", "df_paired"}.intersection(provides)

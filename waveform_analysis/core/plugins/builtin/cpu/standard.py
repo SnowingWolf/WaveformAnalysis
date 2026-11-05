@@ -9,9 +9,6 @@ CPU Standard Plugins - 标准波形分析插件（统一导入入口）
 - WaveformsPlugin → waveforms.py (合并了原 StWaveformsPlugin)
 - HitFinderPlugin → peak_finding.py
 - BasicFeaturesPlugin → basic_features.py
-- DataFramePlugin → dataframe.py
-- GroupedEventsPlugin → event_analysis.py
-- PairedEventsPlugin → event_analysis.py
 
 使用方式：
     from waveform_analysis.core.plugins.builtin.cpu.standard import standard_plugins
@@ -27,8 +24,6 @@ CPU Standard Plugins - 标准波形分析插件（统一导入入口）
 from waveform_analysis.core.plugins.profiles import cpu_default
 
 from .basic_features import BASIC_FEATURES_DTYPE, BasicFeaturesPlugin
-from .dataframe import DataFramePlugin
-from .event_analysis import GroupedEventsPlugin, PairedEventsPlugin
 from .peak_finding import HitFinderPlugin
 from .raw_files import RawFileNamesPlugin
 from .waveforms import WaveformsPlugin, WaveformStruct, WaveformStructConfig
@@ -44,8 +39,5 @@ __all__ = [
     "HitFinderPlugin",
     "BasicFeaturesPlugin",
     "BASIC_FEATURES_DTYPE",
-    "DataFramePlugin",
-    "GroupedEventsPlugin",
-    "PairedEventsPlugin",
     "standard_plugins",
 ]

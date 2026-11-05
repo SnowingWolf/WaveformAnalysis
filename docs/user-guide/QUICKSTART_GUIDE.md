@@ -469,7 +469,7 @@ ctx.set_config({'daq_adapter': 'my_daq'})
 
 ```bash
 # 处理数据
-waveform-process --run-name run_001 --verbose
+waveform-process --run-name run_001 --target basic_features --verbose
 
 # 扫描 DAQ 目录
 waveform-process --scan-daq --daq-root DAQ

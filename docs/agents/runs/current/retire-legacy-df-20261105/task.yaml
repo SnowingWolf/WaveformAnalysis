@@ -1,0 +1,526 @@
+api_version: waveform-analysis/agent-task/v1
+kind: AgentTask
+metadata:
+  id: retire-legacy-df-20261105
+  generation: 3
+  created_at: '2026-11-05T10:59:15Z'
+  updated_at: '2026-11-05T11:30:28Z'
+spec:
+  goal: 在独立分支彻底退役df/df_events/df_paired及tabular插件集合，迁移显式target CLI、质量检查和文档示例；保留独立DataFrame功能和历史数据。
+  route: modify_plugin
+  workflow_cost: strict
+  workflow_shape: staged
+  risk_level: high
+  scope:
+    base_sha: f5633c91a0a1013e6d71fd919bf5140dd1a18512
+    allowed_paths:
+    - waveform_analysis/core/plugins
+    - waveform_analysis/plugins/__init__.py
+    - waveform_analysis/core/context.py
+    - waveform_analysis/core/context_domains
+    - waveform_analysis/cli.py
+    - waveform_analysis/documentation
+    - waveform_analysis/visualization/lineage/model.py
+    - waveform_analysis/visualization/lineage_visualizer.py
+    - scripts/_quality_common.py
+    - scripts/schema_compat_check.py
+    - scripts/performance_regression_check.py
+    - scripts/README.md
+    - tests
+    - examples
+    - docs
+    - AGENTS.md
+    - CHANGELOG.md
+    - waveform_analysis/core/context_config.py
+    - README.md
+  acceptance_criteria:
+  - 三个内置产物、公开类导出、兼容模块及tabular集合退役；cpu_default不再注册；不改通用DataFrame存储和独立EventAnalyzer/group_multi_channel_hits。
+  - CLI正常处理显式指定target，删除旧符合参数；扫描与配置显示保持可用；正常、空结果和错误参数有测试覆盖。
+  - 质量冒烟迁移至现行records/hit/peaks链；相关导入、缓存、CLI和现行插件测试通过；两套文档生成、影响分析、schema smoke、文档同步与锚点检查完成。
+  - 更新迁移说明和旧示例、生成网站参考/搜索/DAG并重建预览；独立Reviewer放行后提交；不删除DAQ/缓存/历史记录。
+  required_gates:
+  - compat_inventory_ready
+  - deletion_scope_confirmed
+  - targeted_tests
+  - generate_docs
+  - assess_change_impact
+  - schema_compat_check
+  - doc_sync
+  - doc_anchors
+  - markdown_links
+  - site_build
+  assignment:
+    planner_role: planner
+    executor_role: executor.plugin
+    reviewer_role: reviewer
+  compat_inventory:
+    canonical_policy: User explicitly authorized code and documentation retirement;
+      no alias pretending S1-S2 equivalence; keep independent dataframe APIs and historical
+      data.
+    confirmation: 2026-11-05 用户选择：退役 df 旧链路的代码和文档。
+    items:
+    - legacy_form: df/DataFramePlugin; df_events/GroupedEventsPlugin; df_paired/PairedEventsPlugin
+      canonical_form: basic_features structured array for raw record features; explicit
+        modern target for physical reconstruction
+      runtime_surface: plugin_contract/public_python_api
+      risk_level: high
+      delete_action: remove
+      migration_note: raw table can be constructed from basic_features; gain calibration
+        explicitly applied in analysis; old grouping/coincidence is not equivalent
+        to S1-S2.
+    - legacy_form: plugins_tabular/get_plugin_set(tabular), CPU shims and facade exports
+      canonical_form: remaining six plugin sets and cpu_default without tabular
+      runtime_surface: public_python_api
+      risk_level: high
+      delete_action: remove
+    - legacy_form: CLI fixed df_paired target and --time-window/--start-channel
+      canonical_form: explicit --target; output named by target; DAQ/config-only paths
+        remain target-free
+      runtime_surface: public_cli
+      risk_level: high
+      delete_action: migrate
+    - legacy_form: df-backed smoke and performance defaults
+      canonical_form: existing records/hit/peaks products
+      runtime_surface: quality_checks
+      risk_level: medium
+      delete_action: migrate
+    - legacy_form: EventAnalyzer/group_multi_channel_hits, generic pandas IO/storage,
+        hit_grouped and S1S2Classifier
+      canonical_form: independent APIs and other plugins
+      runtime_surface: out_of_scope
+      risk_level: high
+      delete_action: keep
+    - legacy_form: DAQ/cache/historical notebooks and task reports
+      canonical_form: original data and history
+      runtime_surface: user_data/history
+      risk_level: high
+      delete_action: keep
+  change_level: L3
+  version_action: Remove retired bundles with their version identities; no algorithm/dtype/version
+    changes to retained plugins. Record public breaking removal under Unreleased;
+    no release version bump requested.
+  execution_backend_decision:
+    backend: python
+    parallel_scope: none
+    benchmark_required: false
+    reason: API retirement, CLI table export and QA migration only; retained numerical
+      algorithms unchanged.
+status:
+  state: completed
+  transitions:
+  - from: created
+    to: planning
+    at: '2026-11-05T10:59:15Z'
+    actor: planner
+  - from: planning
+    to: ready_for_execution
+    at: '2026-11-05T10:59:16Z'
+    actor: planner
+  - from: ready_for_execution
+    to: executing
+    at: '2026-11-05T10:59:16Z'
+    actor: executor.plugin
+  - from: executing
+    to: reviewing
+    at: '2026-11-05T11:01:46Z'
+    actor: executor.plugin
+  - from: reviewing
+    to: rework_required
+    at: '2026-11-05T11:01:47Z'
+    actor: reviewer
+  - from: rework_required
+    to: planning
+    at: '2026-11-05T11:01:47Z'
+    actor: planner
+    scope_changed: true
+  - from: planning
+    to: ready_for_execution
+    at: '2026-11-05T11:01:47Z'
+    actor: planner
+  - from: ready_for_execution
+    to: executing
+    at: '2026-11-05T11:01:47Z'
+    actor: executor.plugin
+  - from: executing
+    to: reviewing
+    at: '2026-11-05T11:26:00Z'
+    actor: executor.plugin
+  - from: reviewing
+    to: rework_required
+    at: '2026-11-05T11:27:42Z'
+    actor: reviewer
+  - from: rework_required
+    to: executing
+    at: '2026-11-05T11:27:42Z'
+    actor: executor.plugin
+  - from: executing
+    to: reviewing
+    at: '2026-11-05T11:29:32Z'
+    actor: executor.plugin
+  - from: reviewing
+    to: completed
+    at: '2026-11-05T11:30:28Z'
+    actor: reviewer
+  plan_sha256: e9e6af6f66c1571b32f0b7001c4c3eb4edd29cf97b7d36f1b12c804b3efd8440
+  execution:
+    executor_role: executor.plugin
+    changed_paths:
+    - AGENTS.md
+    - CHANGELOG.md
+    - README.md
+    - docs/README.md
+    - docs/agents/architecture.md
+    - docs/agents/configuration.md
+    - docs/agents/plans/INDEX.md
+    - docs/agents/plans/active.yaml
+    - docs/agents/runs/current/retire-legacy-df-20261105/task.yaml
+    - docs/agents/workflows.md
+    - docs/architecture/PLUGIN_DAG_LINEAGE_CACHE.md
+    - docs/cli/WAVEFORM_PROCESS.md
+    - docs/development/plugin-development/plugin_guide.md
+    - docs/features/context/CONFIGURATION.md
+    - docs/features/context/DEPENDENCY_ANALYSIS_GUIDE.md
+    - docs/features/context/LINEAGE_VISUALIZATION_GUIDE.md
+    - docs/plugins/PLUGIN_SYSTEM_OVERVIEW.md
+    - docs/plugins/reference/agent/INDEX.md
+    - docs/plugins/reference/agent/basic_features.md
+    - docs/plugins/reference/agent/df.md
+    - docs/plugins/reference/agent/df_events.md
+    - docs/plugins/reference/agent/df_paired.md
+    - docs/plugins/reference/agent/records.md
+    - docs/plugins/reference/builtin/auto/INDEX.md
+    - docs/plugins/reference/builtin/auto/basic_features.md
+    - docs/plugins/reference/builtin/auto/df.md
+    - docs/plugins/reference/builtin/auto/df_events.md
+    - docs/plugins/reference/builtin/auto/df_paired.md
+    - docs/plugins/reference/builtin/auto/records.md
+    - docs/site-content-baseline.json
+    - docs/site-guides.yaml
+    - docs/site-next/fixture/site-model.v1.json
+    - docs/site-next/lib/site-model.test.ts
+    - docs/site-route-migration.yaml
+    - docs/user-guide/DF_RETIREMENT.md
+    - docs/user-guide/EXAMPLES_GUIDE.md
+    - docs/user-guide/QUICKSTART_GUIDE.md
+    - examples/demo_spe_gain_config.py
+    - examples/gain_integration_guide.py
+    - examples/records_pipeline_example.py
+    - examples/set_gain_batch.py
+    - examples/simple_spe_gain_example.py
+    - scripts/README.md
+    - scripts/_quality_common.py
+    - scripts/performance_regression_check.py
+    - scripts/schema_compat_check.py
+    - tests/contracts/import_topology_contract.json
+    - tests/contracts/test_cli_import_contract.py
+    - tests/contracts/test_df_retirement.py
+    - tests/contracts/test_import_topology_contract.py
+    - tests/contracts/test_plugin_lazy_exports.py
+    - tests/contracts/test_plugin_shim_compat.py
+    - tests/plugins/test_plugin_set_peaks_compat.py
+    - tests/test_agent_quality_checks.py
+    - tests/test_cli_process.py
+    - tests/test_cli_show_daq.py
+    - tests/test_dataframe_plugin.py
+    - tests/test_events_df_convergence.py
+    - tests/test_plugin_documentation.py
+    - tests/test_quality_smoke_chain.py
+    - tests/test_run_config_cache_invalidation.py
+    - tests/test_site_model.py
+    - waveform_analysis/cli.py
+    - waveform_analysis/core/context.py
+    - waveform_analysis/core/context_config.py
+    - waveform_analysis/core/plugins/__init__.py
+    - waveform_analysis/core/plugins/builtin/__init__.py
+    - waveform_analysis/core/plugins/builtin/cpu/__init__.py
+    - waveform_analysis/core/plugins/builtin/cpu/dataframe.py
+    - waveform_analysis/core/plugins/builtin/cpu/event_analysis.py
+    - waveform_analysis/core/plugins/builtin/cpu/standard.py
+    - waveform_analysis/core/plugins/builtin/df/__init__.py
+    - waveform_analysis/core/plugins/builtin/df/manifest.yaml
+    - waveform_analysis/core/plugins/builtin/df/plugin.py
+    - waveform_analysis/core/plugins/builtin/df/requirements.txt
+    - waveform_analysis/core/plugins/builtin/df/tests/test_df.py
+    - waveform_analysis/core/plugins/builtin/df_events/__init__.py
+    - waveform_analysis/core/plugins/builtin/df_events/manifest.yaml
+    - waveform_analysis/core/plugins/builtin/df_events/plugin.py
+    - waveform_analysis/core/plugins/builtin/df_events/requirements.txt
+    - waveform_analysis/core/plugins/builtin/df_events/tests/test_df_events.py
+    - waveform_analysis/core/plugins/builtin/df_paired/__init__.py
+    - waveform_analysis/core/plugins/builtin/df_paired/manifest.yaml
+    - waveform_analysis/core/plugins/builtin/df_paired/plugin.py
+    - waveform_analysis/core/plugins/builtin/df_paired/requirements.txt
+    - waveform_analysis/core/plugins/builtin/df_paired/tests/test_df_paired.py
+    - waveform_analysis/core/plugins/plugin_sets/__init__.py
+    - waveform_analysis/core/plugins/plugin_sets/event.py
+    - waveform_analysis/core/plugins/plugin_sets/tabular.py
+    - waveform_analysis/core/plugins/profiles.py
+    - waveform_analysis/documentation/dtype_field_notes.yaml
+    - waveform_analysis/documentation/plugin_docs/catalog.py
+    - waveform_analysis/documentation/site_dist/404.html
+    - waveform_analysis/documentation/site_dist/404/index.html
+    - waveform_analysis/documentation/site_dist/_not-found/index.html
+    - waveform_analysis/documentation/site_dist/accessors/index.html
+    - waveform_analysis/documentation/site_dist/accessors/peak-channel-accessor/index.html
+    - waveform_analysis/documentation/site_dist/accessors/records-view/index.html
+    - waveform_analysis/documentation/site_dist/accessors/s1-s2-pair-accessor/index.html
+    - waveform_analysis/documentation/site_dist/adapters/adapter/index.html
+    - waveform_analysis/documentation/site_dist/adapters/index.html
+    - waveform_analysis/documentation/site_dist/architecture/PROJECT_STRUCTURE/index.html
+    - waveform_analysis/documentation/site_dist/architecture/accessor-analysis/index.html
+    - waveform_analysis/documentation/site_dist/architecture/data-products/index.html
+    - waveform_analysis/documentation/site_dist/architecture/index.html
+    - waveform_analysis/documentation/site_dist/architecture/plugin-cache-architecture/index.html
+    - waveform_analysis/documentation/site_dist/architecture/plugin-dag-lineage-cache/index.html
+    - waveform_analysis/documentation/site_dist/architecture/system/index.html
+    - waveform_analysis/documentation/site_dist/cli/WAVEFORM_CACHE/index.html
+    - waveform_analysis/documentation/site_dist/cli/WAVEFORM_DOCS/index.html
+    - waveform_analysis/documentation/site_dist/cli/WAVEFORM_PROCESS/index.html
+    - waveform_analysis/documentation/site_dist/cli/index.html
+    - waveform_analysis/documentation/site_dist/contexts/context/index.html
+    - waveform_analysis/documentation/site_dist/contexts/index.html
+    - waveform_analysis/documentation/site_dist/development/CONTRACT_TESTS/index.html
+    - waveform_analysis/documentation/site_dist/development/contributing/COMMIT_CONVENTION/index.html
+    - waveform_analysis/documentation/site_dist/development/contributing/DOC_ANCHOR_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/development/contributing/IMPORT_STYLE_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/development/index.html
+    - waveform_analysis/documentation/site_dist/development/plugin-development/PLUGIN_SCAFFOLD/index.html
+    - waveform_analysis/documentation/site_dist/development/plugin-development/PLUGIN_SPEC_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/development/plugin-development/plugin_guide/index.html
+    - waveform_analysis/documentation/site_dist/development/worktrees/index.html
+    - waveform_analysis/documentation/site_dist/features/advanced/PROGRESS_TRACKING_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/context/ABSOLUTE_TIME_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/context/BATCH_PROCESSOR/index.html
+    - waveform_analysis/documentation/site_dist/features/context/CONFIGURATION/index.html
+    - waveform_analysis/documentation/site_dist/features/context/DEPENDENCY_ANALYSIS_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/context/LINEAGE_VISUALIZATION_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/index.html
+    - waveform_analysis/documentation/site_dist/features/utils/ADAPTIVE_2D_SAMPLING_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/utils/DAQ_ANALYZER_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/utils/PDF_EXPORT_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/visualizations/POSITION_DASHBOARD_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/index.html
+    - waveform_analysis/documentation/site_dist/lineage/index.html
+    - waveform_analysis/documentation/site_dist/plugins/basic_features/index.html
+    - waveform_analysis/documentation/site_dist/plugins/cache_analysis/index.html
+    - waveform_analysis/documentation/site_dist/plugins/df/index.html
+    - waveform_analysis/documentation/site_dist/plugins/df_events/index.html
+    - waveform_analysis/documentation/site_dist/plugins/df_paired/index.html
+    - waveform_analysis/documentation/site_dist/plugins/energy_reconstruction/index.html
+    - waveform_analysis/documentation/site_dist/plugins/events/index.html
+    - waveform_analysis/documentation/site_dist/plugins/filtered_waveforms/index.html
+    - waveform_analysis/documentation/site_dist/plugins/guides/STREAMING_PLUGINS_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_grouped/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_merge_clusters/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_merged/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_merged_components/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_merged_features/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_threshold/index.html
+    - waveform_analysis/documentation/site_dist/plugins/index.html
+    - waveform_analysis/documentation/site_dist/plugins/overview/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peak_classification/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_channels/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_components/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_features/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_waveform_pool/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_waveforms/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklets/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaks/index.html
+    - waveform_analysis/documentation/site_dist/plugins/position_reconstruction/index.html
+    - waveform_analysis/documentation/site_dist/plugins/raw_files/index.html
+    - waveform_analysis/documentation/site_dist/plugins/records/index.html
+    - waveform_analysis/documentation/site_dist/plugins/records_asymmetry_mask/index.html
+    - waveform_analysis/documentation/site_dist/plugins/records_detector_mask/index.html
+    - waveform_analysis/documentation/site_dist/plugins/records_veto_mask/index.html
+    - waveform_analysis/documentation/site_dist/plugins/reference/ADAPTER_PLUGIN_BEHAVIOR/index.html
+    - waveform_analysis/documentation/site_dist/plugins/reference/ADAPTER_SYSTEM_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/plugins/s1_s2_pair_candidates/index.html
+    - waveform_analysis/documentation/site_dist/plugins/s1_s2_pairs/index.html
+    - waveform_analysis/documentation/site_dist/plugins/st_waveforms/index.html
+    - waveform_analysis/documentation/site_dist/plugins/wave_pool/index.html
+    - waveform_analysis/documentation/site_dist/plugins/wave_pool_filtered/index.html
+    - waveform_analysis/documentation/site_dist/plugins/waveform_width/index.html
+    - waveform_analysis/documentation/site_dist/plugins/waveform_width_integral/index.html
+    - waveform_analysis/documentation/site_dist/search-index.v1.json
+    - waveform_analysis/documentation/site_dist/site-manifest.json
+    - waveform_analysis/documentation/site_dist/site-model.v1.json
+    - waveform_analysis/documentation/site_dist/user-guide/DF_RETIREMENT/index.html
+    - waveform_analysis/documentation/site_dist/user-guide/EXAMPLES_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/user-guide/QUICKSTART_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/user-guide/docs-build/index.html
+    - waveform_analysis/documentation/site_dist/user-guide/index.html
+    - waveform_analysis/documentation/site_dist/visualizations/index.html
+    - waveform_analysis/documentation/site_dist/visualizations/position-dashboard/index.html
+    - waveform_analysis/documentation/site_dist/visualizations/statistical-plots/index.html
+    - waveform_analysis/documentation/site_dist/visualizations/waveform-plots/index.html
+    - waveform_analysis/documentation/site_model.py
+    - waveform_analysis/plugins/__init__.py
+    - waveform_analysis/visualization/lineage_visualizer.py
+    actions_taken:
+    - 删除df/df_events/df_paired三个Bundle、专属CPU兼容模块、公开类导出与tabular集合；保留其它插件版本和数值算法、独立EventAnalyzer/group_multi_channel_hits及通用DataFrame存储。
+    - Context在读取缓存前拒绝旧名；错误指向docs/user-guide/DF_RETIREMENT.md。CLI必须显式--target，移除旧时间符合参数，支持标量structured
+      array的CSV/Parquet导出与空表。
+    - 迁移五个示例至basic_features和显式面积标定；按board/channel匹配、非法增益拒绝、缺失为NaN；批量JSON配置合并保留其它元数据。
+    - schema smoke和性能默认目标迁移到records/hit/peaklets/peaks，要求非空并核对dtype；不宣称性能改善。
+    - 同步人工指南、六个生成参考页删除、plugin/model目录、内容基线、fixture、搜索和DAG；新增迁移指南并重建打包静态站点。
+    - 修复两处测试隔离/过时假设：factory只mock本模块importlib绑定；站点索引测试同时检查表格内链接。
+    validation:
+      retirement_contracts: 88 passed before documentation-only followups; final 11
+        retirement cases passed with full migration-path assertion. Black-only formatting
+        followed.
+      cli: 'df_cli_executor: 35 targeted tests passed; parser-light paths, required
+        target, removed flags, normal/empty CSV and Parquet writer boundary.'
+      cli_real_exports: 'Independent reviewer used real default CPU Context: basic_features
+        CSV/Parquet 24 rows x 8 fields; hit empty x 10 fields. Values equal Context
+        outputs; Parquet dtype equal. /tmp/df-retire-review-cli-pjkxc6fu/report-exports.json'
+      qa: 'df_qa_executor: fast quality tests and 10 smoke-negative tests passed;
+        2 explicit slow harness tests passed. Slow threshold=500%, repeats=1 validates
+        harness, not performance regression.'
+      examples: Executor py_compile/Ruff and synthetic configuration/calibration cases
+        passed. Migration guide Python snippets executed with 6 synthetic records;
+        no real DAQ run.
+      documentation_python: 59 passed, 1 skipped, 2 deselected initially; two importlib-mock
+        failures fixed and both passed. Logs /tmp/df-retire-doc-tests.log and /tmp/df-retire-doc-tests-retry.log.
+      site_python: 32 passed initially; 3 inventory/baseline/mapping failures fixed
+        and passed. Updated source-content baseline independently passed; total 35
+        site-model/site-guide cases passed across runs. Logs /tmp/df-retire-site-tests*.log
+        and /tmp/df-retire-baseline-final.log.
+      site_typescript: 'Final reviewed build: 22/22 tests PASS in 4 files; /tmp/df-retire-site-ts-reviewed.log.
+        Earlier temporary-test-directory setup failures resolved without production
+        changes.'
+      lint: Ruff all changed Python files PASS; Black check identified five changed
+        test files, formatted successfully with Black outside sandbox. git diff --check
+        PASS.
+      final_pair_grain: Source checked against s1_s2_pairs.compute return candidates
+        and selected flag; targeted baseline test PASS; HTTP200 final guide contains
+        candidate/selected wording.
+    commands_run:
+    - command: python -m waveform_analysis.documentation.cli generate plugins-auto
+        -o docs/plugins/reference/builtin/auto/
+      result: PASS
+      log: /tmp/df-retire-docs-auto.log
+    - command: python -m waveform_analysis.documentation.cli generate plugins-agent
+        -o docs/plugins/reference/agent/
+      result: PASS
+      log: /tmp/df-retire-docs-agent.log
+    - command: python scripts/assess_change_impact.py --base HEAD
+      exit_status: 1
+      result: 'EXPECTED HIGH RISK: exactly three authorized class_removed entries;
+        no retained contract changes; independent Reviewer accepts removal risk. This
+        is not a command PASS.'
+      log: /tmp/df-retire-impact.log
+    - command: python scripts/schema_compat_check.py --base HEAD --run-smoke --json-out
+        /tmp/df-retire-schema-final.json
+      result: PASS; records/hit_threshold/hit_merged 24 each; peaks 12; all 11 products
+        nonempty, actual dtype matches declared
+      log: /tmp/df-retire-schema-final.log
+    - command: scripts/check_doc_sync.sh
+      result: PASS
+      log: /tmp/df-retire-doc-sync-final.log
+    - command: python scripts/check_doc_anchors.py --check-sync --base HEAD
+      result: 'PASS: 28 anchors, zero warnings/errors'
+      log: /tmp/df-retire-doc-anchors-final.log
+    - command: python -m waveform_analysis.documentation.cli check links --docs-dir
+        docs
+      result: 'PASS: 311 Markdown files, 456 local references'
+      log: /tmp/df-retire-doc-links.log
+    - command: scripts/docs_build.py build --workspace /mnt/data/Run3/WaveformAnalysis
+        --run-id retire-legacy-df-20261105-final --stage-output
+      result: PASS outside sandbox, LD_PRELOAD/LD_LIBRARY_PATH removed; npm ci/check/build
+        all exit 0; 180 static files, 33 plugins, 88 routes
+    - command: scripts/docs_build.py build --workspace /mnt/data/Run3/WaveformAnalysis
+        --run-id retire-legacy-df-20261105-reviewed --stage-output
+      result: PASS; npm ci/check/build all exit0, 180 files, 33 plugins, 88 routes,
+        current model=fixture; final preview updated.
+    build_report: /tmp/waveform-doc-build/runs/retire-legacy-df-20261105-reviewed/report.json
+    build_notes:
+    - Earlier sandbox build compiled then TypeScript subprocess exited 139; /tmp/waveform-doc-build/runs/retire-legacy-df-20261105
+      retains failure evidence.
+    - After successful build only tests/task evidence and fixture/content-baseline
+      correction changed; built site-model equals current fixture. Production Markdown
+      and generator inputs have not changed.
+    - Black multi-file checks hang in sandbox even with one worker; scoped hung processes
+      stopped and required files formatted outside sandbox. No production service
+      changed.
+    - 'Final review corrected s1_s2_pairs grain: candidate rows may be selected=False;
+      guide now requires explicit selected filtering. Rebuilt with run-id retire-legacy-df-20261105-reviewed;
+      final model equals current fixture.'
+    - Commit hook Black25 reformatted two tests; AST compared against staged versions
+      and unchanged. Restaged formatter output and reran full hooks.
+    preview:
+      url: http://10.18.154.11:8768/
+      root: /tmp/waveform-docs-preview.j2EbQY
+      pid: 798111
+      backup: /tmp/waveform-docs-preview.j2EbQY-before-df-retirement
+      http_checks: /tmp/df-retire-preview-http.json
+      search: 1041 search entries, no retired plugin URLs; 7 migration-guide entries
+    old_route_policy: Retired /plugins/df/, /plugins/df_events/, /plugins/df_paired/
+      return 404. Existing site never emits .html alias redirects; mapping manifest
+      is documentation only and points old .html spellings to migration guide.
+    open_risks:
+    - Intentional breaking removal requires external callers to migrate. No equivalent
+      new builtin for old multi-channel coincidence; S1-S2 pairing is not a substitute.
+    - No real experimental DAQ run or full repository test suite; verification uses
+      focused contracts and synthetic data.
+    - 'Visual/browser interaction verification not performed: Chrome crashed before
+      page creation in preceding task; HTTP/static/search/model checks passed.'
+    - Existing unrelated records CSV process-pool pickling and Context exception-wrapper
+      issues were observed by QA; smoke explicitly runs serial reads. Default CLI
+      basic_features exports succeeded.
+    requested_review_focus:
+    - final removal inventory, gate interpretation of expected impact exit1, source/fixture/build
+      agreement, HTTP404 strategy, commit readiness
+  review:
+    reviewer_actor: df_retirement_planner
+    decision: approved
+    plan_sha256: e9e6af6f66c1571b32f0b7001c4c3eb4edd29cf97b7d36f1b12c804b3efd8440
+    gate_results:
+      compat_inventory_ready:
+        status: PASS
+      deletion_scope_confirmed:
+        status: PASS
+      targeted_tests:
+        status: PASS
+      generate_docs:
+        status: PASS
+      assess_change_impact:
+        status: PASS
+        command_exit_status: 1
+        interpretation: 'Risk review accepted, not command success: three authorized
+          class_removed/high entries only. User explicitly confirmed code retirement;
+          no retained plugin contract/version drift.'
+        evidence: /tmp/df-retire-impact.log
+      schema_compat_check:
+        status: PASS
+      doc_sync:
+        status: PASS
+      doc_anchors:
+        status: PASS
+      markdown_links:
+        status: PASS
+      site_build:
+        status: PASS
+    blocking_findings: []
+    coverage_review: Independent reviewer accepted removal scope, real CSV/Parquet
+      exports and nonempty smoke; migration path corrected; final selected-candidate
+      wording checked against source. Reviewed build/model/fixture/search/HTTP agree;
+      final TS22 tests and baseline passed.
+    residual_risks:
+    - Intentional breaking removal requires external callers to migrate. No equivalent
+      new builtin for old multi-channel coincidence; S1-S2 pairing is not a substitute.
+    - No real experimental DAQ run or full repository test suite; verification uses
+      focused contracts and synthetic data.
+    - 'Visual/browser interaction verification not performed: Chrome crashed before
+      page creation in preceding task; HTTP/static/search/model checks passed.'
+    - Existing unrelated records CSV process-pool pickling and Context exception-wrapper
+      issues were observed by QA; smoke explicitly runs serial reads. Default CLI
+      basic_features exports succeeded.
+    commit_handoff: Approved for scoped local commit; no push or PR requested.
+  approval: {}
+  handoff:
+    commit_status: 已提交：任务记录与本轮范围在同一 scoped commit 交付；完整 SHA 见 Git 历史及最终回复。
+    branch: codex/retire-legacy-df
+    preview_url: http://10.18.154.11:8768/
+    preview_stop: kill 798111
+    commit_subject: 'refactor: retire legacy dataframe plugin pipeline'

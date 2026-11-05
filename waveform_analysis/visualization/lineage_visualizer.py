@@ -36,7 +36,7 @@ from waveform_analysis.utils.visualization import plot_lineage_plotly
 plot_lineage_plotly(lineage_dict, "target_data", context=ctx, verbose=2)
 
 # 通过 Context 调用（推荐）
-ctx.plot_lineage("df_paired", kind="plotly", verbose=2)
+ctx.plot_lineage("peaks", kind="plotly", verbose=2)
 ```
 
 ### 特性
@@ -98,11 +98,11 @@ plot_lineage_labview(
 ```python
 from waveform_analysis.core.dependency_analysis import analyze_dependencies
 
-result = analyze_dependencies(ctx, "df_paired")
+result = analyze_dependencies(ctx, "peaks")
 
 plot_lineage_labview(
     lineage_dict,
-    "df_paired",
+    "peaks",
     context=ctx,
     analysis_result=result,
     highlight_critical_path=True,

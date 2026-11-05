@@ -171,7 +171,7 @@ DAQ adapter 的解释信息由 Context 仅附加在顶层 lineage。递归上游
 在 WaveformAnalysis 系统中，两个术语分别属于不同边界：
 
 - **`run_name`**：DAQ/CLI 使用的数据集名称，通常对应 DAQ 根目录下的运行目录名。
-  `waveform-process --run-name <run_name>` 使用该名称选择数据集。
+  `waveform-process --run-name <run_name> --target basic_features` 使用该名称选择数据集。
 
 - **`run_id`**：Context/API 访问数据时显式传入的运行标识符，用于所有数据读取和缓存范围
   - `ctx.get_data(run_id, 'peaks')`

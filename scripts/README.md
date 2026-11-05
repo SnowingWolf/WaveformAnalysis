@@ -87,7 +87,11 @@ python scripts/schema_compat_check.py --base HEAD --run-smoke
 ```
 
 输出字段迁移清单，并固定执行链路冒烟：
-`raw_files -> st_waveforms -> hit -> df -> events`。
+`raw_files -> records / wave_pool -> hit_threshold -> hit_merged -> peaklets -> peaks`。
+同时物化 `hit_merged_components`、`peaklet_components`、`peaklet_waveforms`、
+`peaklet_waveform_pool` 和 `peaklet_features`。合成输入包含确定的脉冲，所有中间产物必须非空，
+实际输出 dtype 必须匹配插件声明，并检查 records、hit_threshold、hit_merged、peaks 的关键
+字段与类型。该检查覆盖波形到峰的处理链，不代表事件分组或 S1–S2 配对验证。
 
 ### `performance_regression_check.py` - 性能回归对比
 
@@ -96,7 +100,10 @@ python scripts/performance_regression_check.py --base HEAD
 ```
 
 对热点插件记录“改前/改后”耗时与峰值内存对比。默认目标包含
-`st_waveforms`、`hit`、`hit_threshold`、`df` 和 `df_events`。
+`st_waveforms`、`hit`、`hit_threshold`、`hit_merged` 和 `peaks`。
+合成 CSV 的通道时间戳对齐 VX2730 的 2 ns 采样网格，records 解析使用单 worker，
+`hit` 对六采样点矩形脉冲使用直接信号检测（`use_derivative=False`）。
+任一目标输出为空会直接失败，不将解析失败或筛选后无脉冲的输出记为性能样本。
 
 两侧使用同一个当前 benchmark harness，在各自源码目录的独立 Python 子进程中执行，
 校验实际导入来源。`--json-out <path>` 保存各次样本及源码 commit、工作树变更状态、解释器

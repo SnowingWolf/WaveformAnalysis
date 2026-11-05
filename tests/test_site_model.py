@@ -112,7 +112,7 @@ def test_site_model_v1_uses_real_plugin_and_guide_facts_without_html():
     assert json.dumps(model, ensure_ascii=False).find("<html") < 0
     assert SITE_MODEL_SCHEMA_PATH.is_file()
     assert len(model["source_indexes"]) == 11
-    assert sum(bool(guide.get("source")) for guide in model["guides"]) == 34
+    assert sum(bool(guide.get("source")) for guide in model["guides"]) == 35
     reference = next(section for section in model["navigation"] if section["id"] == "reference")
     cli_navigation = next(item for item in reference["items"] if item["href"] == "/cli/")
     assert [(item["label"], item["href"]) for item in cli_navigation["children"]] == [
@@ -342,8 +342,8 @@ def test_public_guide_baseline_tracks_source_and_typed_content_independently():
     guides = {
         (guide["route"], guide["source"]): guide for guide in model["guides"] if guide.get("source")
     }
-    assert len(guides) == 34
-    assert len(baseline["guides"]) == 34
+    assert len(guides) == 35
+    assert len(baseline["guides"]) == 35
     for expected in baseline["guides"]:
         actual = guides[(expected["route"], expected["source"])]
         source_path = project_root / expected["source"]
@@ -366,6 +366,16 @@ def test_public_guide_baseline_tracks_source_and_typed_content_independently():
             block["kind"] for section in actual["sections"] for block in section["blocks"]
         ] == expected["block_types"]
         assert _independent_guide_counts(actual["sections"]) == expected["content_counts"]
+
+
+def test_retired_dataframe_plugins_are_absent_from_published_model():
+    model = build_site_model(Path(__file__).parents[1])
+    retired = {"df", "df_events", "df_paired"}
+    assert not retired.intersection(plugin["provides"] for plugin in model["plugins"])
+    assert not retired.intersection(node["id"] for node in model["lineage"]["nodes"])
+    routes = {route["path"] for route in model["routes"]}
+    assert not routes.intersection(f"/plugins/{name}/" for name in retired)
+    assert "/user-guide/DF_RETIREMENT/" in routes
 
 
 def test_markdown_blocks_preserve_ordered_lists_links_multiple_code_and_tables():

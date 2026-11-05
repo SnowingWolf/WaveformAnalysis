@@ -357,7 +357,11 @@ python scripts/assess_change_impact.py --base HEAD
 
 ### 目标
 专门处理字段/dtype 变更，输出迁移清单，并固定执行关键链路冒烟：
-`raw_files -> st_waveforms -> hit -> df -> events`
+`raw_files -> records/wave_pool -> hit_threshold -> hit_merged -> peaklets -> peaks`
+
+冒烟同时检查 `hit_merged_components`、`peaklet_components`、`peaklet_waveforms`、
+`peaklet_waveform_pool` 和 `peaklet_features`，完整目标以 `scripts/_quality_common.py`
+中的 `SMOKE_TARGETS` 为准；上式仅概括 records-backed 主链路。
 
 ### 命令
 ```bash
@@ -381,7 +385,7 @@ python scripts/performance_regression_check.py --base HEAD
 
 ### 口径
 1. 固定小型合成输入，两侧使用同一当前 harness 和独立 Python 子进程，报告实际源码与解释器来源。
-2. 默认目标插件：`st_waveforms, hit, hit_threshold, df, df_events`；默认重复 5 次，比较中位数。
+2. 默认目标插件：`st_waveforms, hit, hit_threshold, hit_merged, peaks`；默认重复 5 次，比较中位数。
 3. 默认耗时回归阈值为 `+10%`；`tracemalloc` 峰值内存须同时增长 `+15%` 和超过 `1 MB` 才判定回归。该指标不等于进程峰值 RSS。
 4. 基准不可用、目标缺失或样本无效时退出 `2`，不得回退为当前版本与自身比较；有效比较无回归退出 `0`，有回归退出 `1`。
 5. 真实数据的性能结论须另用固定切片，分别记录首次编译、热计算、缓存读取和进程峰值内存；不得由小型合成检查推断全 run 提速。

@@ -337,8 +337,8 @@ def main() -> int:
     parser.add_argument("--base", default="HEAD", help="Git base ref (default: HEAD)")
     parser.add_argument(
         "--targets",
-        default="st_waveforms,hit,hit_threshold,df,df_events",
-        help="Comma-separated targets (default: st_waveforms,hit,hit_threshold,df,df_events)",
+        default="st_waveforms,hit,hit_threshold,hit_merged,peaks",
+        help="Comma-separated targets (default: st_waveforms,hit,hit_threshold,hit_merged,peaks)",
     )
     parser.add_argument(
         "--repeats", type=int, default=DEFAULT_REPEATS, help="Benchmark repeats per target"

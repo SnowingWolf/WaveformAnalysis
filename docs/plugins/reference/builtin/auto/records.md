@@ -117,7 +117,6 @@ result = ctx.get_data("run_001", "records")
 ### Downstream Consumers
 
 - `basic_features`
-- `df`
 - `hit`
 - `hit_merged_features`
 - `hit_threshold`

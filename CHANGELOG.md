@@ -4,11 +4,13 @@
 
 ### Breaking changes
 
+- 退役内置 `df → df_events → df_paired` 链路、相关插件公开导入/兼容别名和 `plugins_tabular()`。普通 CLI 处理必须显式指定 `--target`；单记录特征可从 `basic_features` 转表，旧符合分组和配对没有等价的内置替代。既有数据与历史 notebook 保留，见[迁移说明](docs/user-guide/DF_RETIREMENT.md)。
+
 - 移除 `Context.clear_time_index()` 与 `Context.get_time_index_stats()` 公开 API。时间索引由 `time_range()`/`build_time_index()` 隐式管理，不再提供独立的清空/统计入口。
 
 ### Features
 
-- 插件索引 web 页：为 7 个插件集合（io/waveform/hit/peaks/basic_features/tabular/events）区块加入真实波形配图，由 `examples/generate_plugin_set_images.py` 从真实 DAQ 数据经真实插件链（hit → hit_merged → peaklets → peaks）生成。
+- 插件索引 web 页：为 6 个现行插件集合（io/waveform/hit/peaks/basic_features/events）区块加入真实波形配图，由 `examples/generate_plugin_set_images.py` 从真实 DAQ 数据经真实插件链（hit → hit_merged → peaklets → peaks）生成。
 
 ### Refactoring and performance
 

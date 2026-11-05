@@ -21,27 +21,29 @@
 最简单的使用方式是通过 Context 的 `plot_lineage` 方法：
 
 ```python
-from waveform_analysis.core.context import Context
+from waveform_analysis import Context
+from waveform_analysis.plugins import BasicFeaturesPlugin, plugins_io, plugins_waveform
 
-# 创建 Context 并注册插件
-ctx = Context(storage_dir="./cache")
-# ... 注册插件并处理数据 ...
+# 本例绘制单记录基础特征的依赖，不需要先执行 DAQ 处理。
+ctx = Context(storage_dir="./cache", config={"daq_adapter": "vx2730"})
+ctx.register(*plugins_io(), *plugins_waveform(), BasicFeaturesPlugin())
+ctx.set_config({"wave_source": "records"}, plugin_name="basic_features")
 
 # 可视化目标数据的血缘图
-ctx.plot_lineage("df_paired")
+ctx.plot_lineage("basic_features")
 ```
 
 支持三种可视化模式：
 
 ```python
 # LabVIEW 风格（默认，静态或交互式）
-ctx.plot_lineage("df_paired", kind="labview")
+ctx.plot_lineage("basic_features", kind="labview")
 
 # Plotly 高级交互式（推荐用于复杂图形）
-ctx.plot_lineage("df_paired", kind="plotly")
+ctx.plot_lineage("basic_features", kind="plotly")
 
 # Mermaid 文本格式（用于文档）
-mermaid_code = ctx.plot_lineage("df_paired", kind="mermaid")
+mermaid_code = ctx.plot_lineage("basic_features", kind="mermaid")
 ```
 
 ### 隐藏展示用虚插件
@@ -61,7 +63,7 @@ class NormalizedRecordsPlugin(Plugin):
 目标数据本身是虚插件，它仍会显示，避免产生空图。
 
 ```python
-ctx.plot_lineage("df_paired", kind="plotly", show_virtual_plugins=False)
+ctx.plot_lineage("basic_features", kind="plotly", show_virtual_plugins=False)
 ```
 
 这只影响可视化，不改变 `depends_on`、依赖解析、缓存 lineage、执行计划或数据访问；未声明
@@ -77,13 +79,13 @@ LabVIEW 风格的静态或交互式可视化，适合大多数场景。
 
 ```python
 # 静态图
-ctx.plot_lineage("df_paired", kind="labview")
+ctx.plot_lineage("basic_features", kind="labview")
 
 # 交互式图（鼠标悬停显示详情、点击显示依赖）
-ctx.plot_lineage("df_paired", kind="labview", interactive=True)
+ctx.plot_lineage("basic_features", kind="labview", interactive=True)
 
 # 显示详细信息
-ctx.plot_lineage("df_paired", kind="labview", verbose=2, interactive=True)
+ctx.plot_lineage("basic_features", kind="labview", verbose=2, interactive=True)
 ```
 
 特性：
@@ -100,7 +102,7 @@ ctx.plot_lineage("df_paired", kind="labview", verbose=2, interactive=True)
 
 ```python
 # Plotly 高级交互式图（始终支持缩放、平移、悬停）
-ctx.plot_lineage("df_paired", kind="plotly", verbose=2)
+ctx.plot_lineage("basic_features", kind="plotly", verbose=2)
 ```
 
 特性：
@@ -116,17 +118,18 @@ ctx.plot_lineage("df_paired", kind="plotly", verbose=2)
 生成 Mermaid 格式的文本，可用于文档或在线编辑器。
 
 ```python
-mermaid_code = ctx.plot_lineage("df_paired", kind="mermaid")
+mermaid_code = ctx.plot_lineage("basic_features", kind="mermaid")
 print(mermaid_code)
 ```
 
-输出示例：
+以 VX2730、records 波形来源为例的主依赖关系：
 
 ```mermaid
 graph TD
-    A[raw_files] --> B[waveforms]
-    B --> C[st_waveforms]
-    C --> D[features]
+    A[raw_files] --> B[records]
+    A --> C[wave_pool]
+    B --> D[basic_features]
+    C --> D
 ```
 
 ## 智能颜色高亮
@@ -160,11 +163,11 @@ graph TD
 
 ```python
 # 执行依赖分析
-analysis = ctx.analyze_dependencies("df_paired", include_performance=True)
+analysis = ctx.analyze_dependencies("basic_features", include_performance=True)
 
 # 可视化并高亮分析结果
 ctx.plot_lineage(
-    "df_paired",
+    "basic_features",
     kind="labview",
     interactive=True,
     analysis_result=analysis,
@@ -196,7 +199,7 @@ style = LineageStyle(
     verbose=2            # 显示详细信息
 )
 
-ctx.plot_lineage("df_paired", kind="labview", style=style, interactive=True)
+ctx.plot_lineage("basic_features", kind="labview", style=style, interactive=True)
 ```
 
 ### 可用的样式参数
@@ -218,17 +221,17 @@ ctx.plot_lineage("df_paired", kind="labview", style=style, interactive=True)
 ```python
 style = LineageStyle(
     wire_style_overrides={
-        "peaks": {"dash": "dash", "width": 2.0},
-        "charges": {"dash": "dot", "alpha": 0.6},
+        "records": {"dash": "dash", "width": 2.0},
+        "wave_pool": {"dash": "dot", "alpha": 0.6},
     },
     port_groups={
-        "dataframe": {
-            "in": [["peaks"], ["st_waveforms"], ["charges"]],
+        "basic_features": {
+            "in": [["records"], ["wave_pool"]],
         }
     },
 )
 
-ctx.plot_lineage("df_paired", kind="labview", style=style)
+ctx.plot_lineage("basic_features", kind="labview", style=style)
 ```
 
 ## 完整示例
@@ -236,27 +239,21 @@ ctx.plot_lineage("df_paired", kind="labview", style=style)
 ### 示例 1: 基础可视化与交互式探索
 
 ```python
-from waveform_analysis.core.context import Context
-from waveform_analysis.core.plugins import (
-    RawFilesPlugin, WaveformsPlugin,
-    BasicFeaturesPlugin, DataFramePlugin, PairedEventsPlugin,
-)
+from waveform_analysis import Context
+from waveform_analysis.plugins import BasicFeaturesPlugin, plugins_io, plugins_waveform
 
-# 创建 Context 并注册插件
-ctx = Context(storage_dir="./cache")
-ctx.register(
-    RawFilesPlugin(), WaveformsPlugin(),
-    BasicFeaturesPlugin(), DataFramePlugin(), PairedEventsPlugin(),
-)
+ctx = Context(storage_dir="./cache", config={"daq_adapter": "vx2730"})
+ctx.register(*plugins_io(), *plugins_waveform(), BasicFeaturesPlugin())
+ctx.set_config({"wave_source": "records"}, plugin_name="basic_features")
 
-# 处理数据
-ctx.get_data("my_run", "df_paired")
+# 结构可视化不要求执行数据处理。若需实际性能信息，再用真实 run 调用：
+# ctx.get_data("my_run", "basic_features")
 
 # 可视化血缘图
-ctx.plot_lineage("df_paired", kind="plotly", verbose=2)
+ctx.plot_lineage("basic_features", kind="plotly", verbose=2)
 
 # 或使用 LabVIEW 交互式模式
-ctx.plot_lineage("df_paired", kind="labview", interactive=True, verbose=2)
+ctx.plot_lineage("basic_features", kind="labview", interactive=True, verbose=2)
 ```
 
 ### 示例 2: 与依赖分析结合
@@ -272,11 +269,11 @@ ctx = Context(
 # ... (注册和处理代码) ...
 
 # 执行依赖分析
-analysis = ctx.analyze_dependencies("df_paired", include_performance=True)
+analysis = ctx.analyze_dependencies("basic_features", include_performance=True)
 
 # 可视化并高亮分析结果
 ctx.plot_lineage(
-    "df_paired",
+    "basic_features",
     kind="plotly",
     verbose=2,
     analysis_result=analysis,
@@ -303,22 +300,22 @@ ctx.plot_lineage(
 
 ```python
 # 通用方式（自动导出）
-ctx.plot_lineage("df", kind="labview", save_path="lineage.png")
-ctx.plot_lineage("df", kind="plotly", save_path="lineage.png")  # 需要 pip install kaleido
+ctx.plot_lineage("basic_features", kind="labview", save_path="lineage.png")
+ctx.plot_lineage("basic_features", kind="plotly", save_path="lineage.png")  # 需要 pip install kaleido
 
 # LabVIEW 模式
-fig = ctx.plot_lineage("df", kind="labview")
+fig = ctx.plot_lineage("basic_features", kind="labview")
 fig.savefig("lineage.png", dpi=300)
 
 # Plotly 模式
-fig = ctx.plot_lineage("df", kind="plotly")
+fig = ctx.plot_lineage("basic_features", kind="plotly")
 fig.write_image("lineage.png")  # 需要 pip install kaleido
 ```
 
 ### Q4: 如何查看原始血缘数据？
 
 ```python
-lineage_dict = ctx.get_lineage("df_paired")
+lineage_dict = ctx.get_lineage("basic_features")
 print(lineage_dict)
 ```
 

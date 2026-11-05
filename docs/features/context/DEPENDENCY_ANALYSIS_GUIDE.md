@@ -23,36 +23,23 @@
 不需要性能数据也能进行基本的依赖分析：
 
 ```python
-from waveform_analysis.core.context import Context
+from waveform_analysis import Context
+from waveform_analysis.plugins import BasicFeaturesPlugin, plugins_io, plugins_waveform
 
-ctx = Context()
-# ... 注册插件 ...
+ctx = Context(config={"daq_adapter": "vx2730"})
+ctx.register(*plugins_io(), *plugins_waveform(), BasicFeaturesPlugin())
 
 # 执行静态分析
 analysis = ctx.analyze_dependencies(
-    'paired_events',
+    'basic_features',
     include_performance=False
 )
 
 print(analysis.summary())
 ```
 
-输出示例：
-
-```
-=== 依赖分析摘要：paired_events ===
-分析模式: 静态
-总插件数: 7
-DAG 深度: 6, 宽度: 2
-
-关键路径 (6 个插件):
-  raw_files → waveforms → st_waveforms → features → dataframe → paired_events
-
-并行机会: 2 组
-  理论加速比: 2.00x
-
-优化建议: 3 条
-```
+此例分析单记录特征 `basic_features` 的依赖。摘要包含插件数、DAG 层次、关键路径
+和并行建议；具体数值由已注册插件与波形来源决定，以实际输出为准。
 
 ### 性能分析（动态）
 
@@ -66,7 +53,7 @@ ctx = Context(
 # ... 注册插件并执行数据处理 ...
 
 # 执行动态分析（包含性能数据）
-analysis = ctx.analyze_dependencies('paired_events', include_performance=True)
+analysis = ctx.analyze_dependencies('basic_features', include_performance=True)
 
 print(analysis.summary())
 
@@ -103,11 +90,11 @@ analysis.to_json('dependency_analysis.json', indent=2)  # 保存为 JSON
 ```python
 from waveform_analysis.utils.visualization import plot_lineage_labview
 
-analysis = ctx.analyze_dependencies('paired_events')
+analysis = ctx.analyze_dependencies('basic_features')
 
 plot_lineage_labview(
-    lineage=ctx.get_lineage('paired_events'),
-    target_name='paired_events',
+    lineage=ctx.get_lineage('basic_features'),
+    target_name='basic_features',
     context=ctx,
     analysis_result=analysis,
     highlight_critical_path=True,   # 高亮关键路径（红色粗边框）
@@ -245,7 +232,7 @@ def analyze_dependencies(
 `preview_execution` 返回执行计划、配置与缓存状态字典，适合在执行前确认将要计算哪些插件：
 
 ```python
-preview = ctx.preview_execution('run_001', 'df_paired')
+preview = ctx.preview_execution('run_001', 'basic_features')
 needs_compute = sum(1 for s in preview['cache_status'].values() if s['needs_compute'])
 print(f"需计算: {needs_compute} 个插件")
 ```

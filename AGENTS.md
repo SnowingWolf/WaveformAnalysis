@@ -208,9 +208,9 @@ waveform-cache diagnose --run <run_id> --dry-run
 
 ### CLI
 ```bash
-waveform-process --run-name <run_name> --verbose
+waveform-process --run-name <run_name> --target basic_features --verbose
 waveform-process --scan-daq --daq-root DAQ
-waveform-process --show-daq --daq-root DAQ
+waveform-process --show-daq <run_name> --daq-root DAQ
 ```
 
 ## Architecture Essentials
@@ -230,7 +230,7 @@ waveform-process --show-daq --daq-root DAQ
 1. `provides` 唯一、语义稳定。
 2. `depends_on` 与 `resolve_depends_on()` 一致。
 3. `options` 的默认值、类型、help 明确。
-4. `version` 在行为变更时升级（详见 [插件 Version 升级策略](docs/plugins/PLUGIN_VERSION_POLICY.md)）。
+4. `version` 在行为变更时升级（详见 [插件 Version 升级策略](docs/plugins/PLUGIN_SYSTEM_OVERVIEW.md#插件-version-升级策略)）。
    - **行为变更**包括：算法逻辑变更、内部实现路径变更（如从 Python 循环改为 Numba）、新增字段/配置、修改默认参数。
    - 契约破坏性变更（删除字段、改变字段类型/语义）必须升级 MAJOR。
    - 算法路径变更或新增功能应升级 MINOR。

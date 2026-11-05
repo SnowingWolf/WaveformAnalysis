@@ -137,7 +137,6 @@ def test_phase4c_cpu_module_shims_resolve_to_bundles():
             "FilteredWaveformsPlugin",
             "filtered_waveforms",
         ),
-        ("waveform_analysis.core.plugins.builtin.cpu.dataframe", "DataFramePlugin", "df"),
         (
             "waveform_analysis.core.plugins.builtin.cpu.basic_features",
             "BasicFeaturesPlugin",
@@ -210,7 +209,6 @@ def test_phase4c_cpu_package_lazy_resolves_to_bundles():
         ("WaveformStructConfig", "st_waveforms"),
         ("RawFileNamesPlugin", "raw_files"),
         ("FilteredWaveformsPlugin", "filtered_waveforms"),
-        ("DataFramePlugin", "df"),
         ("BasicFeaturesPlugin", "basic_features"),
         ("CacheAnalysisPlugin", "cache_analysis"),
         ("PeakClassificationPlugin", "peak_classification"),
@@ -460,25 +458,6 @@ def test_records_channel_role_masks_old_paths_are_new_bundles():
     assert OldRoleVeto == NewRoleVeto == "veto"
 
 
-def test_event_analysis_old_paths_resolve_to_bundles():
-    """event_analysis 迁移后，旧 cpu.event_analysis.* 路径指向 df_events / df_paired。"""
-    from waveform_analysis.core.plugins.builtin.cpu.event_analysis import (
-        GroupedEventsPlugin as OldGrouped,
-    )
-    from waveform_analysis.core.plugins.builtin.cpu.event_analysis import (
-        PairedEventsPlugin as OldPaired,
-    )
-    from waveform_analysis.core.plugins.builtin.df_events import (
-        GroupedEventsPlugin as NewGrouped,
-    )
-    from waveform_analysis.core.plugins.builtin.df_paired import (
-        PairedEventsPlugin as NewPaired,
-    )
-
-    assert OldGrouped is NewGrouped
-    assert OldPaired is NewPaired
-
-
 def test_cpu_lazy_imports_resolve_to_new_bundles():
     """builtin.cpu 懒加载映射指向新 bundle（RecordsPlugin 等）。"""
     from waveform_analysis.core.plugins.builtin import cpu
@@ -498,8 +477,6 @@ def test_cpu_lazy_imports_resolve_to_new_bundles():
         "RecordsVetoMaskPlugin": (
             "waveform_analysis.core.plugins.builtin.records_veto_mask.plugin"
         ),
-        "GroupedEventsPlugin": "waveform_analysis.core.plugins.builtin.df_events.plugin",
-        "PairedEventsPlugin": "waveform_analysis.core.plugins.builtin.df_paired.plugin",
     }
     for name, module in expected.items():
         assert getattr(cpu, name).__module__ == module, name

@@ -49,13 +49,21 @@ def test_schema_compat_check_cli_with_smoke(tmp_path):
         ]
     )
 
-    # non-zero is possible when contract issues are intentionally surfaced.
-    assert result.returncode in (0, 1)
+    assert result.returncode == 0, result.stdout + result.stderr
     assert out_json.exists()
 
     payload = json.loads(out_json.read_text(encoding="utf-8"))
     assert "dtype_changes" in payload
-    assert "smoke_result" in payload
+    assert payload["contract_issues"] == []
+    assert payload["smoke_error"] is None
+    products = payload["smoke_result"]["products"]
+    assert products["records"]["count"] == 24
+    assert products["hit_threshold"]["count"] == 24
+    assert products["peaks"]["count"] == 12
+    assert all(product["count"] > 0 for product in products.values())
+    assert products["records"]["fields"]["board"] == "int16"
+    assert products["peaks"]["fields"]["time_start"] == "int64"
+    assert products["peaks"]["fields"]["area"] == "float32"
 
 
 @pytest.mark.slow
@@ -67,8 +75,6 @@ def test_performance_regression_check_cli_runs(tmp_path):
             "scripts/performance_regression_check.py",
             "--base",
             "HEAD",
-            "--targets",
-            "st_waveforms,hit,hit_threshold",
             "--repeats",
             "1",
             "--time-threshold-pct",
@@ -89,6 +95,8 @@ def test_performance_regression_check_cli_runs(tmp_path):
     assert "comparison" in payload
     assert "hit_threshold" in payload["before"]
     assert "hit_threshold" in payload["after"]
+    assert "hit_merged" in payload["after"]
+    assert "peaks" in payload["after"]
     assert payload["comparison"]["valid"]
     for side in ("base", "current"):
         source = payload["provenance"][side]
@@ -116,6 +124,7 @@ def test_performance_regression_check_defaults_to_five_repeats(monkeypatch):
 
     def fake_run_base(base, targets, repeats):
         repeats_seen["base"] = repeats
+        assert targets == ["st_waveforms", "hit", "hit_threshold", "hit_merged", "peaks"]
         return {}, source
 
     def fake_run_current(targets, repeats):

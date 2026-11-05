@@ -2,20 +2,25 @@
 """
 批量配置增益工具
 
-用于快速为所有 run 设置 gain_adc_per_pe 配置
+在各 run 的 JSON 中保存 calibration.gain_adc_per_pe，供分析代码显式读取。
+本例的增益单位为 ADC·sample/PE，须与 basic_features.area 的积分定义匹配。
 """
 
 import argparse
+import json
+import math
 from pathlib import Path
-
-import yaml
 
 
 def create_run_config(channels: list[int], gain_value: float, board: int = 0) -> dict:
     """创建 run_config 字典"""
+    if not math.isfinite(gain_value) or gain_value <= 0:
+        raise ValueError("gain 必须是有限的正数，单位为 ADC·sample/PE")
+    if board < 0 or not channels or any(channel < 0 for channel in channels):
+        raise ValueError("board/channel 必须非负，且至少指定一个 channel")
     gain_config = {f"{board}:{ch}": gain_value for ch in channels}
 
-    return {"plugins": {"df": {"gain_adc_per_pe": gain_config}}}
+    return {"calibration": {"gain_adc_per_pe": gain_config}}
 
 
 def apply_gain_to_runs(
@@ -41,7 +46,8 @@ def apply_gain_to_runs(
         return
 
     print(f"找到 {len(run_dirs)} 个 run 目录")
-    print(f"增益配置: board {board}, 通道 {channels}, 增益值 {gain_value} ADC/PE")
+    print(f"增益配置: board {board}, 通道 {channels}, 增益值 {gain_value} ADC·sample/PE")
+    print("分析时设置 run_config_path='{data_root}/{run_id}/run_config.json' 并显式换算。")
     print("-" * 80)
 
     # 生成配置
@@ -52,28 +58,32 @@ def apply_gain_to_runs(
     skipped = 0
 
     for run_dir in run_dirs:
-        config_file = run_dir / "run_config.yaml"
+        config_file = run_dir / "run_config.json"
+        existed = config_file.exists()
 
         # 检查是否已存在
-        if config_file.exists() and not overwrite:
-            print(f"⊙ 跳过 {run_dir.name} (已存在，使用 --overwrite 强制覆盖)")
+        if existed and not overwrite:
+            print(f"⊙ 跳过 {run_dir.name} (已存在，使用 --overwrite 更新所选通道增益)")
             skipped += 1
             continue
 
         if dry_run:
-            action = "更新" if config_file.exists() else "创建"
-            print(f"[试运行] {action} {run_dir.name}/run_config.yaml")
+            action = "更新" if existed else "创建"
+            print(f"[试运行] {action} {run_dir.name}/run_config.json")
             continue
 
-        # 写入配置
-        with open(config_file, "w", encoding="utf-8") as f:
-            yaml.dump(run_config, f, default_flow_style=False, allow_unicode=True)
+        # 只合并所选通道的标定，保留 run 身份、硬件信息及其它通道。
+        payload = json.loads(config_file.read_text(encoding="utf-8")) if existed else {}
+        gains = payload.setdefault("calibration", {}).setdefault("gain_adc_per_pe", {})
+        gains.update(run_config["calibration"]["gain_adc_per_pe"])
+        serialized = json.dumps(payload, indent=2, ensure_ascii=False, allow_nan=False)
+        config_file.write_text(serialized + "\n", encoding="utf-8")
 
-        if config_file.exists():
-            print(f"✓ 更新 {run_dir.name}/run_config.yaml")
+        if existed:
+            print(f"✓ 更新 {run_dir.name}/run_config.json")
             updated += 1
         else:
-            print(f"✓ 创建 {run_dir.name}/run_config.yaml")
+            print(f"✓ 创建 {run_dir.name}/run_config.json")
             created += 1
 
     print("-" * 80)
@@ -98,16 +108,16 @@ def main():
   # 试运行（不实际写入文件）
   python set_gain_batch.py --channels 9-15 --gain 200 --dry-run
 
-  # 强制覆盖已存在的配置
+  # 合并更新已有配置中的所选通道增益，保留其它元数据
   python set_gain_batch.py --channels 9-15 --gain 200 --overwrite
         """,
     )
 
     parser.add_argument("--daq-root", default="DAQ", help="DAQ 根目录路径 (默认: DAQ)")
     parser.add_argument("--channels", required=True, help="通道列表，支持格式: '9-15' 或 '0,1,2,3'")
-    parser.add_argument("--gain", type=float, required=True, help="增益值 (ADC/PE)")
+    parser.add_argument("--gain", type=float, required=True, help="SPE 面积增益 (ADC·sample/PE)")
     parser.add_argument("--board", type=int, default=0, help="板卡编号 (默认: 0)")
-    parser.add_argument("--overwrite", action="store_true", help="覆盖已存在的配置文件")
+    parser.add_argument("--overwrite", action="store_true", help="更新已有 JSON 的所选通道增益")
     parser.add_argument("--dry-run", action="store_true", help="试运行，不实际写入文件")
 
     args = parser.parse_args()

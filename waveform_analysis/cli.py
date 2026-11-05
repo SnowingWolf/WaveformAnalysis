@@ -67,13 +67,13 @@ def main():
         epilog="""
 示例:
   # 处理单个数据集
-  waveform-process --run-name 50V_OV_circulation_20thr --output results.csv
+  waveform-process --run-name 50V_OV_circulation_20thr --target basic_features --output results.csv
 
-  # 指定时间窗口
-  waveform-process --run-name 50V_OV_circulation_20thr --time-window 200
+  # 导出 hit 特征
+  waveform-process --run-name 50V_OV_circulation_20thr --target hit --output hits.parquet
 
   # 详细输出
-  waveform-process --run-name 50V_OV_circulation_20thr --verbose
+  waveform-process --run-name 50V_OV_circulation_20thr --target basic_features --verbose
         """,
     )
 
@@ -83,15 +83,15 @@ def main():
         type=str,
         dest="run_name",
         required=False,
-        help="数据集标识符（目录名）。当使用 --show-daq 时可省略。",
+        help="数据集标识符（目录名）。DAQ 扫描、显示或配置查询时可省略。",
     )
 
     parser.add_argument("--n-channels", type=int, default=2, help="处理的通道数（默认: 2）")
 
-    parser.add_argument("--start-channel", type=int, default=6, help="起始通道索引（默认: 6）")
-
     parser.add_argument(
-        "--time-window", type=float, default=100, help="事件配对时间窗口（ns，默认: 100）"
+        "--target",
+        type=str,
+        help="要导出的表产物（普通处理必须显式指定，例如 basic_features 或 hit）",
     )
 
     parser.add_argument("--output", type=str, help="输出文件路径（可选）")
@@ -136,21 +136,22 @@ def main():
 
     args = parser.parse_args()
 
+    is_processing = not (args.show_daq or args.show_config or args.scan_daq)
+    if is_processing:
+        if not args.run_name:
+            parser.error("--run-name 是必需的（除非使用 --show-daq、--show-config 或 --scan-daq）")
+        if not args.target:
+            parser.error("--target 是必需的；请显式选择要导出的表产物，例如 basic_features")
+        if args.target in {"df", "df_events", "df_paired"}:
+            parser.error(f"产物 {args.target!r} 已退役；请显式选择现行表产物，并确认其物理含义")
+
     # 创建数据集
-    if args.verbose:
+    if args.verbose and is_processing:
         print(f"处理数据集: {args.run_name}")
         print(f"通道数: {args.n_channels}")
-        print(f"时间窗口: {args.time_window} ns")
+        print(f"输出产物: {args.target}")
 
     try:
-        # 若为普通数据处理（非 --show-daq, --show-config），则 --run-name 为必需
-        if not args.show_daq and not args.show_config and not args.scan_daq and not args.run_name:
-            print(
-                "错误: --run-name 是必需的（除非使用 --show-daq, --show-config 或 --scan-daq）",
-                file=sys.stderr,
-            )
-            return 2
-
         # DAQ 扫描分支
         if args.scan_daq:
             daq_analyzer = _load_runtime("DAQAnalyzer")["DAQAnalyzer"]
@@ -186,12 +187,6 @@ def main():
             )
             profile_factory = profile_module.get_profile(args.profile)
             ctx.register(*profile_factory())
-            ctx.set_config(
-                {
-                    "start_channel_slice": args.start_channel,
-                    "time_window_ns": args.time_window,
-                }
-            )
 
             print("=" * 60)
             print("配置解析结果 (Configuration Resolution)")
@@ -226,12 +221,6 @@ def main():
         )
         profile_factory = profile_module.get_profile(args.profile)
         ctx.register(*profile_factory())
-        ctx.set_config(
-            {
-                "start_channel_slice": args.start_channel,
-                "time_window_ns": args.time_window,
-            }
-        )
 
         # verbose 模式下显示关键配置摘要
         if args.verbose:
@@ -240,28 +229,36 @@ def main():
                 print(
                     f"DAQ Adapter: {adapter_info.name} ({adapter_info.sampling_rate_hz / 1e6:.0f} MHz)"
                 )
-            print(
-                f"配置: n_channels={args.n_channels}, start_channel={args.start_channel}, time_window={args.time_window} ns"
-            )
+            print(f"配置: n_channels={args.n_channels}")
 
-        # 获取结果
-        df_paired = ctx.get_data(args.run_name, "df_paired")
+        # 只导出标量字段构成的一维表，避免将波形池或嵌套产物误写为表。
+        import numpy as np
+        import pandas as pd
+
+        data = ctx.get_data(args.run_name, args.target)
+        if not isinstance(data, np.ndarray) or data.ndim != 1 or not data.dtype.names:
+            raise ValueError(f"产物 {args.target!r} 不是可导出的表；需要一维 structured array")
+        for name in data.dtype.names:
+            field_dtype = data.dtype.fields[name][0]
+            if field_dtype.names or field_dtype.subdtype or field_dtype.hasobject:
+                raise ValueError(f"产物 {args.target!r} 的字段 {name!r} 不是可导出的标量字段")
+        table = pd.DataFrame.from_records(data)
 
         if args.verbose:
             print("\n处理完成！")
-            print(f"配对事件数: {len(df_paired)}")
+            print(f"{args.target} 行数: {len(table)}")
 
         # 保存结果
         if args.output:
             output_path = Path(args.output)
         else:
-            output_path = Path("outputs") / f"{args.run_name}_paired.csv"
+            output_path = Path("outputs") / f"{args.run_name}_{args.target}.csv"
 
         output_path.parent.mkdir(parents=True, exist_ok=True)
         if output_path.suffix == ".parquet":
-            df_paired.to_parquet(output_path)
+            table.to_parquet(output_path, index=False)
         else:
-            df_paired.to_csv(output_path, index=False)
+            table.to_csv(output_path, index=False)
 
         if args.verbose:
             print(f"结果已保存到: {output_path}")

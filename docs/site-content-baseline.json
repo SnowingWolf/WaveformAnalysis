@@ -221,7 +221,7 @@
       "minimum_blocks": {
         "code": 1,
         "heading": 5,
-        "list": 4,
+        "list": 3,
         "paragraph": 3,
         "table": 4
       },
@@ -291,75 +291,6 @@
       ],
       "route": "/plugins/cache_analysis/",
       "title": "cache_analysis"
-    },
-    {
-      "kind": "plugin",
-      "minimum_blocks": {
-        "code": 1,
-        "heading": 5,
-        "list": 4,
-        "paragraph": 3,
-        "table": 4
-      },
-      "required_config": [
-        "gain_adc_per_pe",
-        "use_filtered",
-        "wave_source"
-      ],
-      "required_fields": [],
-      "required_members": [],
-      "required_sections": [
-        "overview",
-        "configuration",
-        "output",
-        "usage"
-      ],
-      "route": "/plugins/df/",
-      "title": "df"
-    },
-    {
-      "kind": "plugin",
-      "minimum_blocks": {
-        "code": 1,
-        "heading": 5,
-        "list": 4,
-        "paragraph": 3,
-        "table": 4
-      },
-      "required_config": [
-        "time_window_ns"
-      ],
-      "required_fields": [],
-      "required_members": [],
-      "required_sections": [
-        "overview",
-        "configuration",
-        "output",
-        "usage"
-      ],
-      "route": "/plugins/df_events/",
-      "title": "df_events"
-    },
-    {
-      "kind": "plugin",
-      "minimum_blocks": {
-        "code": 1,
-        "heading": 5,
-        "list": 3,
-        "paragraph": 5,
-        "table": 3
-      },
-      "required_config": [],
-      "required_fields": [],
-      "required_members": [],
-      "required_sections": [
-        "overview",
-        "configuration",
-        "output",
-        "usage"
-      ],
-      "route": "/plugins/df_paired/",
-      "title": "df_paired"
     },
     {
       "kind": "plugin",
@@ -1612,8 +1543,8 @@
       "route": "/user-guide/EXAMPLES_GUIDE/",
       "title": "常见场景示例",
       "source": "docs/user-guide/EXAMPLES_GUIDE.md",
-      "source_sha256": "ef919bbda358097dee153f92652ee7245810647d883771805c8fb49edc161291",
-      "model_fingerprint": "6300c0ed0f02e31d468fe07905fd204a30ffc0d95b22f9336269dc1d177fd592",
+      "source_sha256": "e5d399de19c04560076542df9ab8f385e8c2494641658ffcd8cc0052024088c6",
+      "model_fingerprint": "29d84a3d65b8cbfc6f7821a91810556d1de47ce1ab2a6b95fe2ef83a37b4c9a0",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -1622,6 +1553,9 @@
         "code",
         "paragraph",
         "code",
+        "heading",
+        "code",
+        "paragraph",
         "heading",
         "code",
         "heading",
@@ -1667,9 +1601,9 @@
         "paragraph"
       ],
       "content_counts": {
-        "paragraph": 10,
-        "link": 9,
-        "code": 18,
+        "paragraph": 11,
+        "link": 10,
+        "code": 19,
         "table": 1,
         "list": 1
       }
@@ -1678,8 +1612,8 @@
       "route": "/user-guide/QUICKSTART_GUIDE/",
       "title": "快速开始指南",
       "source": "docs/user-guide/QUICKSTART_GUIDE.md",
-      "source_sha256": "c4630dabf4e9b57483855bbb5236f7ad3143b4e10a22f4a5d5122e5476640269",
-      "model_fingerprint": "23c0e358049ac7a86936e8d26af18cfe48b34c8d87b7e3e8e5679de5dcfc5c69",
+      "source_sha256": "3a61d25af633babdba2626bee6752620677619b5bc10ed6eba802e533c5a2ecd",
+      "model_fingerprint": "e71d1a2f59946a28d20eeba58166fe751e5921eceab7239563bae68ab31aea94",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -1853,8 +1787,8 @@
       "route": "/plugins/overview/",
       "title": "插件系统与模板 API",
       "source": "docs/plugins/PLUGIN_SYSTEM_OVERVIEW.md",
-      "source_sha256": "f2158e225514c19c17e409572137d3791aa51c35864726deae73d1d7ad083967",
-      "model_fingerprint": "24de24d1d7ee47b287e511506e37676f2a2e32109e235f179b079511b698de82",
+      "source_sha256": "fb6f3487c6d199b785711be481a22b24103dd5cf22209fcacee5cca1b30b4db5",
+      "model_fingerprint": "d62eff3f7f09d0ce8fec5f20fc7624a0e21154ee1a4da8e8576550994a7ca512",
       "block_types": [
         "paragraph",
         "heading",
@@ -2023,6 +1957,7 @@
         "table",
         "paragraph",
         "paragraph",
+        "paragraph",
         "code",
         "paragraph",
         "code",
@@ -2048,8 +1983,8 @@
         "paragraph"
       ],
       "content_counts": {
-        "paragraph": 96,
-        "link": 6,
+        "paragraph": 97,
+        "link": 7,
         "code": 27,
         "table": 8,
         "list": 18
@@ -2515,8 +2450,8 @@
       "route": "/architecture/plugin-dag-lineage-cache/",
       "title": "插件执行链与缓存",
       "source": "docs/architecture/PLUGIN_DAG_LINEAGE_CACHE.md",
-      "source_sha256": "1020d4a549b4937fb418a32a8727de884d8b0f90c5a61e6dfddb7e078e58c768",
-      "model_fingerprint": "0a109d62a81da47ea08549d5c4770df3f0c4dc134fa11081fefbf3a5ebf61f92",
+      "source_sha256": "6fb4c253511afc286a3a11b1cf9fa27ce957f8dff96a0a048daa22e364123d00",
+      "model_fingerprint": "cb2863d1ce791f8cd71fe36d1afff5fd09cbfd1e2e30f0c49db991645179460d",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -2529,6 +2464,7 @@
         "heading",
         "paragraph",
         "table",
+        "paragraph",
         "paragraph",
         "heading",
         "paragraph",
@@ -2593,8 +2529,8 @@
         "list"
       ],
       "content_counts": {
-        "paragraph": 34,
-        "link": 6,
+        "paragraph": 35,
+        "link": 7,
         "code": 8,
         "table": 4,
         "list": 3
@@ -2977,8 +2913,8 @@
       "route": "/features/context/CONFIGURATION/",
       "title": "配置管理",
       "source": "docs/features/context/CONFIGURATION.md",
-      "source_sha256": "82d4668dc25047f417add060b5d8b1754e2a764541e2135990963ac3b8c7364b",
-      "model_fingerprint": "b9bc3b7bb9339c3890a3e1ebbf532d4af80a96ccaa5db6dc75f14d4315d42e4c",
+      "source_sha256": "69942ab80d8cbaf5af2352affc96ef244a2fcb6aa59bf1d92de2076eb1788b35",
+      "model_fingerprint": "fcebc774df269a522d55fbdaf5df8c236af97a8e5c9da51d2a63f8d446a83dff",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -3052,8 +2988,8 @@
       "route": "/features/context/DEPENDENCY_ANALYSIS_GUIDE/",
       "title": "依赖分析功能使用指南",
       "source": "docs/features/context/DEPENDENCY_ANALYSIS_GUIDE.md",
-      "source_sha256": "078ae4a053edf9f4685ad55bfdbb6940f4a2bcc1cb44e1b237cdef74f12794a2",
-      "model_fingerprint": "557ed4c2071a6f1d6aad9c0a90695fb7a42f912a9bb53bef52c4731355aace43",
+      "source_sha256": "8ff7ef0461de4feb78ebd0f4376d8a6756c5351dc4db3a2a0d56c69d3287611b",
+      "model_fingerprint": "55c43aafab305184a0528a8a9f14dcf015b3872b3e4e8c27103344bfa216f994",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -3066,7 +3002,6 @@
         "paragraph",
         "code",
         "paragraph",
-        "code",
         "heading",
         "paragraph",
         "code",
@@ -3118,7 +3053,7 @@
       "content_counts": {
         "paragraph": 16,
         "link": 6,
-        "code": 12,
+        "code": 11,
         "table": 3,
         "list": 6
       }
@@ -3127,8 +3062,8 @@
       "route": "/features/context/LINEAGE_VISUALIZATION_GUIDE/",
       "title": "血缘可视化功能使用指南",
       "source": "docs/features/context/LINEAGE_VISUALIZATION_GUIDE.md",
-      "source_sha256": "1f23980ee50d2b2bc7ff9ff5c067fe0584284c9bb0a6bfb31cce741d7b97ef5c",
-      "model_fingerprint": "25ac79ee630b76d1b6b62f78cc2ca5c356ac1803b6a6bdfae1eda3330b800835",
+      "source_sha256": "14cc4fb0443f74ee11ea914281b24c79e29073003c3674c35c3d46b5186b83f8",
+      "model_fingerprint": "a83a215164f8a4a3f4946cf9e9c453cc1d7548cf94fc750e5603bdf2f01c5e86",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -3613,8 +3548,8 @@
       "route": "/cli/WAVEFORM_PROCESS/",
       "title": "waveform-process 命令参考",
       "source": "docs/cli/WAVEFORM_PROCESS.md",
-      "source_sha256": "6b227b30ca7151d562b3da7097b6da468fc9948f50ba249f9c944ea4335b3556",
-      "model_fingerprint": "e5e97c7113b5869b25e39a7f59b1f50fb06d025f55a9fb5ddce848db41ae09bb",
+      "source_sha256": "8a3b3977c2a2371dc189237435dddadbcc1767875a99fc47d19ca521145ba19f",
+      "model_fingerprint": "f5c14b97d3d3266b0c8a65f3961822b7bb8294ed1aff87c9dfce04f21ed2b5fe",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -3657,6 +3592,8 @@
         "heading",
         "heading",
         "list",
+        "paragraph",
+        "paragraph",
         "heading",
         "list",
         "paragraph",
@@ -3689,7 +3626,7 @@
         "paragraph"
       ],
       "content_counts": {
-        "paragraph": 26,
+        "paragraph": 28,
         "link": 3,
         "code": 10,
         "table": 5,
@@ -4135,13 +4072,11 @@
       "route": "/development/plugin-development/plugin_guide/",
       "title": "插件开发指南",
       "source": "docs/development/plugin-development/plugin_guide.md",
-      "source_sha256": "3bf4645d29b9df1c82a50ca4c8bdada37c30814b0d638a01cdb0210eb5c6e74d",
-      "model_fingerprint": "ba212e964e2c24d2149c6a20e04481c17257d13424351345f60a6d4f7385f63f",
+      "source_sha256": "cc84d30634aa2023a58f32d7be1045b4201edae79931aad787ea0ba4577138f9",
+      "model_fingerprint": "8a9f1788e2e416464e58150c9fec50b1eab2da336077d1ebb8cc3f51a25e3955",
       "block_types": [
         "paragraph",
         "paragraph",
-        "note",
-        "note",
         "paragraph",
         "note",
         "paragraph",
@@ -4149,17 +4084,13 @@
         "heading",
         "paragraph",
         "code",
-        "heading",
-        "code",
-        "heading",
-        "heading",
-        "list",
-        "heading",
-        "list",
-        "note",
-        "heading",
         "paragraph",
         "code",
+        "heading",
+        "table",
+        "paragraph",
+        "heading",
+        "paragraph",
         "paragraph",
         "heading",
         "heading",
@@ -4203,20 +4134,7 @@
         "paragraph",
         "heading",
         "paragraph",
-        "heading",
-        "paragraph",
-        "paragraph",
         "list",
-        "paragraph",
-        "heading",
-        "paragraph",
-        "paragraph",
-        "list",
-        "paragraph",
-        "heading",
-        "paragraph",
-        "paragraph",
-        "paragraph",
         "heading",
         "heading",
         "code",
@@ -4224,16 +4142,14 @@
         "paragraph",
         "code",
         "heading",
-        "list",
-        "paragraph",
-        "paragraph"
+        "list"
       ],
       "content_counts": {
-        "paragraph": 46,
-        "link": 6,
-        "code": 7,
-        "table": 0,
-        "list": 7
+        "paragraph": 37,
+        "link": 10,
+        "code": 6,
+        "table": 1,
+        "list": 4
       }
     },
     {
@@ -4317,6 +4233,48 @@
         "code": 1,
         "table": 0,
         "list": 1
+      }
+    },
+    {
+      "route": "/user-guide/DF_RETIREMENT/",
+      "title": "旧表格链路退役迁移",
+      "source": "docs/user-guide/DF_RETIREMENT.md",
+      "source_sha256": "6fbbc06bf3791b100f557fd2c49fced2b76108ba5ae3a1dd7011657f979e3f1e",
+      "model_fingerprint": "a4c14b0461df9b101ac8060f9fb13390957c8804d7ff7ab869b78e2650630fad",
+      "block_types": [
+        "paragraph",
+        "paragraph",
+        "heading",
+        "table",
+        "paragraph",
+        "paragraph",
+        "heading",
+        "code",
+        "paragraph",
+        "heading",
+        "paragraph",
+        "paragraph",
+        "code",
+        "paragraph",
+        "code",
+        "paragraph",
+        "code",
+        "paragraph",
+        "paragraph",
+        "heading",
+        "paragraph",
+        "code",
+        "paragraph",
+        "heading",
+        "paragraph",
+        "paragraph"
+      ],
+      "content_counts": {
+        "paragraph": 15,
+        "link": 6,
+        "code": 5,
+        "table": 1,
+        "list": 0
       }
     }
   ],

@@ -19,7 +19,6 @@ _LAZY_EXPORTS: dict[str, _LazyExport] = {
     "plugins_hit": (".hit", "plugins_hit"),
     "plugins_io": (".io", "plugins_io"),
     "plugins_peaks": (".peaks", "plugins_peaks"),
-    "plugins_tabular": (".tabular", "plugins_tabular"),
     "plugins_waveform": (".waveform", "plugins_waveform"),
 }
 
@@ -39,7 +38,6 @@ def _build_plugin_sets() -> dict[str, object]:
         "hit": _plugin_set_factory("hit"),
         "peaks": _plugin_set_factory("peaks"),
         "basic_features": _plugin_set_factory("basic_features"),
-        "tabular": _plugin_set_factory("tabular"),
         "events": _plugin_set_factory("events"),
     }
 

@@ -14,6 +14,8 @@ sections:
         route: /user-guide/docs-build/
       - source: docs/user-guide/QUICKSTART_GUIDE.md
         route: /user-guide/QUICKSTART_GUIDE/
+      - source: docs/user-guide/DF_RETIREMENT.md
+        route: /user-guide/DF_RETIREMENT/
       - source: docs/user-guide/EXAMPLES_GUIDE.md
         route: /user-guide/EXAMPLES_GUIDE/
 

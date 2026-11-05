@@ -144,9 +144,12 @@ class Context:
             "s1_s2",
         }
     )
-    _REMOVED_DATA_NAME_ALIASES = {
-        "events_df": "df",
-        "events_grouped": "df_events",
+    _REMOVED_DATA_NAMES = {
+        "events_df": "Use basic_features for record-level features and convert explicitly to a table.",
+        "events_grouped": "Legacy coincidence grouping has no equivalent builtin replacement.",
+        "df": "Use basic_features for record-level features; apply calibration explicitly in analysis.",
+        "df_events": "Legacy coincidence grouping has no equivalent builtin replacement.",
+        "df_paired": "Legacy coincidence pairing is not equivalent to s1_s2_pairs or events.",
     }
     _CONTEXT_CONFIG_KEYS = frozenset(
         {
@@ -978,7 +981,7 @@ class Context:
             >>> # 清理所有步骤的缓存
             >>> ctx.clear_cache_for("run_001")
             >>> # 只清理内存缓存
-            >>> ctx.clear_cache_for("run_001", "df", clear_disk=False)
+            >>> ctx.clear_cache_for("run_001", "basic_features", clear_disk=False)
         """
         if self._cache_readonly and clear_disk:
             raise PermissionError("Cannot clear disk cache during a readonly batch task")

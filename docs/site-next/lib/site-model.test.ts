@@ -55,7 +55,9 @@ describe("site-model/v1", () => {
     const pluginIndex = model.source_indexes.find((index) => index.route === "/plugins/");
     expect(pluginIndex?.sections.length).toBeGreaterThan(0);
     expect(pluginIndex?.sections.flatMap((section) => section.blocks).some((block) =>
-      block.inlines?.some((inline) => inline.kind === "link" && inline.href?.startsWith("/")),
+      [...(block.inlines ?? []), ...(block.table_inlines ?? []).flat(2)].some(
+        (inline) => inline.kind === "link" && inline.href?.startsWith("/"),
+      ),
     )).toBe(true);
   });
 

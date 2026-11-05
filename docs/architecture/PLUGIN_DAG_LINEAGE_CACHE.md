@@ -57,6 +57,10 @@ DAG 与 lineage 是协同关系：DAG 提供结果的计算结构，lineage 把�
 显式约束要求可用的 `packaging`、合法版本及约束表达式，校验失败不会降为警告。
 旧的 `resolve_depends_on(context)` 签名仍受支持；解析函数内部的 `TypeError` 直接传播。
 
+已退役的 `df`、`df_events`、`df_paired` 及旧别名会在读取缓存前被拒绝。
+缓存文件仍保留，但不能用旧缓存恢复已移除的产物契约；现行调用按
+[旧表格链路迁移说明](../user-guide/DF_RETIREMENT.md) 显式选择目标并处理排序和标定。
+
 ### 1.2 Plugin 内数据获取
 
 Plugin 通过 `context.get_data(run_id, name)` 读取正式上游，且 `name` 必须出现在静态或动态依赖中。

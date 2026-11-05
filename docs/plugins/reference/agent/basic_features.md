@@ -111,7 +111,8 @@ result = ctx.get_data("run_001", "basic_features")
 - 动态依赖无法解析、所需配置不合法或上游产物缺失时，插件不会生成有效输出。
 ### Downstream Impact
 
-直接消费者：`df`
+没有声明直接的内置消费者。
+
 ## Maintenance
 
 ### Change Playbook

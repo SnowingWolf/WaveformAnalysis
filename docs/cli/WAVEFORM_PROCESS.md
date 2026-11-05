@@ -12,7 +12,7 @@ CLI 的 DAQ 扫描实现由 `waveform_analysis.acquisition.runs.DAQAnalyzer` 提
 ## 命令概述
 
 `waveform-process` 提供以下功能：
-- 处理单个数据集（提取波形、计算特征、配对事件）
+- 处理单个数据集，将显式选择的表产物导出为 CSV 或 Parquet
 - 扫描 DAQ 目录并导出 JSON 报告
 - 显示指定运行的 DAQ 通道详情
 
@@ -40,10 +40,9 @@ waveform-process [选项]
 
 | 参数 | 简写 | 类型 | 默认值 | 说明 |
 |------|------|------|--------|------|
-| `--run-name` | `--char`（兼容） | str | - | 数据集标识符（`run_name`，通常为目录名）。当使用 `--show-daq` 时可省略 |
+| `--run-name` | `--char`（兼容） | str | - | 数据集标识符（`run_name`，通常为目录名）。DAQ 扫描、显示或配置查询时可省略 |
 | `--n-channels` | - | int | 2 | 处理的通道数 |
-| `--start-channel` | - | int | 6 | 起始通道索引 |
-| `--time-window` | - | float | 100 | 事件配对时间窗口（ns） |
+| `--target` | - | str | 无 | 普通处理必须显式指定的表产物，例如 `basic_features` 或 `hit` |
 | `--output` | - | str | - | 输出文件路径（可选）。支持 `.csv` 和 `.parquet` 格式 |
 | `--verbose` | - | flag | False | 显示详细信息 |
 | `--profile` | - | str | "cpu" | 插件 Profile（`cpu` / `streaming` / `jax`） |
@@ -69,6 +68,8 @@ waveform-process [选项]
 |------|------|
 | `--version` | 显示版本信息 |
 | `--help` | 显示帮助信息 |
+| `--show-config` | 显示所选 Profile 的解析配置，不要求 `--run-name` 或 `--target` |
+| `--daq-adapter` | DAQ 适配器名称，默认 `vx2730` |
 
 ---
 
@@ -78,20 +79,19 @@ waveform-process [选项]
 
 ```bash
 # 基本处理
-waveform-process --run-name 50V_OV_circulation_20thr
+waveform-process --run-name 50V_OV_circulation_20thr --target basic_features
 
 # 指定输出文件
-waveform-process --run-name 50V_OV_circulation_20thr --output results.csv
+waveform-process --run-name 50V_OV_circulation_20thr --target basic_features --output results.csv
 
 # 使用 Parquet 格式
-waveform-process --run-name 50V_OV_circulation_20thr --output results.parquet
+waveform-process --run-name 50V_OV_circulation_20thr --target hit --output hits.parquet
 
 # 自定义参数
 waveform-process \
   --run-name 50V_OV_circulation_20thr \
+  --target basic_features \
   --n-channels 4 \
-  --start-channel 0 \
-  --time-window 200 \
   --verbose
 ```
 
@@ -103,7 +103,7 @@ Profile 用于选择执行的插件组合：
 
 ```bash
 # CPU 默认链路
-waveform-process --run-name run_001 --profile cpu
+waveform-process --run-name run_001 --profile cpu --target basic_features
 ```
 
 目前 `streaming` 与 `jax` 为占位 Profile，会提示未实现。
@@ -137,9 +137,18 @@ waveform-process --show-daq 50V_OV_circulation_20thr --show-daq-files
 
 ### 数据处理输出
 
-- **默认输出**: 结果保存到 `outputs/{run_name}_paired.csv`
+- **默认输出**: 结果保存到 `outputs/{run_name}_{target}.csv`
 - **指定输出**: 使用 `--output` 参数指定路径
 - **支持格式**: CSV (`.csv`) 和 Parquet (`.parquet`)
+
+`--target` 必须是所选 Profile 已注册的产物。导出要求结果是一维 NumPy
+structured array，且每个字段都是标量；波形池、嵌套记录、数组字段和 object
+字段不能直接导出。空表仍写出列名。导出保留原产物的字段和单位，不自动做增益换算、
+事件分组或通道展开；Parquet 写入需要安装 pandas 支持的 Parquet 引擎。
+
+旧 `df → df_events → df_paired` 链路以及 `--start-channel`、`--time-window`
+已移除。旧命令必须显式选择当前产物，不能把 `basic_features` 当成旧配对表的等价替代。
+`basic_features` 表示记录特征，`hit` 表示检出的 hit；请按分析所需的数据粒度选择。
 
 ### DAQ 扫描输出
 
@@ -155,7 +164,7 @@ waveform-process --show-daq 50V_OV_circulation_20thr --show-daq-files
 |--------|------|
 | 0 | 成功 |
 | 1 | 错误（文件未找到、处理失败等） |
-| 2 | 参数错误（缺少必需参数） |
+| 2 | 参数错误（缺少必需参数、使用已退役产物或旧选项等），或未实现的 Profile |
 
 ---
 
@@ -163,11 +172,12 @@ waveform-process --show-daq 50V_OV_circulation_20thr --show-daq-files
 
 ### 常见错误
 
-1. **缺少 --run-name**
+1. **缺少 --run-name 或 --target**
    ```
-   错误: --run-name 是必需的（除非使用 --show-daq）
+   error: --target 是必需的；请显式选择要导出的表产物，例如 basic_features
    ```
-   解决: 提供 `--run-name` 参数或使用 `--show-daq`
+   解决: 普通处理同时提供 `--run-name` 和 `--target`。
+   `--scan-daq`、`--show-daq`、`--show-config` 不要求这两个参数。
 
 2. **数据文件未找到**
    ```
@@ -186,7 +196,7 @@ waveform-process --show-daq 50V_OV_circulation_20thr --show-daq-files
 使用 `--verbose` 选项查看详细错误信息：
 
 ```bash
-waveform-process --run-name run_001 --verbose
+waveform-process --run-name run_001 --target basic_features --verbose
 ```
 
 ---

@@ -4,9 +4,6 @@
 
 # 插件开发指南
 
-> 自动生成于 2026-01-11 19:23:26
-> **更新**: 2026-01-12 - 添加按加速器划分的插件架构说明
-
 本指南介绍如何开发自定义插件。
 
 > 🎯 **初学者？** 如果你是第一次写插件，建议先阅读 [插件编写规范](../../plugins/PLUGIN_SYSTEM_OVERVIEW.md)，然后再回到这里深入学习。
@@ -15,74 +12,54 @@
 
 ## 插件架构概览
 
-### 按加速器划分的插件组织（Since 2026-01）
+### 插件 Bundle 与公开入口
 
-WaveformAnalysis 采用按计算加速器类型组织插件的架构，便于在不同硬件平台上优化性能：
+内置实现按产物组织为 Bundle；`cpu/` 中保留部分历史导入入口。新代码从
+`waveform_analysis.plugins` 导入插件和 plugin set：
 
+```python
+from waveform_analysis import Context
+from waveform_analysis.plugins import BasicFeaturesPlugin, plugins_io, plugins_waveform
+
+ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
+ctx.register(*plugins_io(), *plugins_waveform(), BasicFeaturesPlugin())
+features = ctx.get_data("run_001", "basic_features")
 ```
+
+每个 Bundle 的实现、manifest、依赖与测试放在 `builtin/<产物>/` 中，例如：
+
+```text
 waveform_analysis/core/plugins/builtin/
-├── cpu/              # CPU 实现 (NumPy/SciPy/Numba)
-│   ├── standard.py   # 标准数据处理插件（10个）
-│   ├── filtering.py  # 兼容 shim（FilteredWaveformsPlugin 属于 builtin.filtered_waveforms）
-│   └── peak_finding.py # 兼容 shim（HitFinderPlugin 属于 builtin.hit）
-├── jax/              # JAX GPU 实现（待开发）
-│   ├── filtering.py  # JAX 滤波插件
-│   └── peak_finding.py # JAX 寻峰插件
-├── streaming/        # 流式处理插件（待开发）
-│   ├── cpu/
-│   └── jax/
-└── legacy/           # 向后兼容层（弃用）
+├── raw_files/         # 原始文件发现
+├── st_waveforms/      # 结构化波形
+├── records/           # 记录元数据
+├── wave_pool/         # 波形池
+├── basic_features/    # 单记录基础特征
+├── hit/               # 寻峰
+├── peaks/             # 峰表
+└── cpu/               # 保留的 CPU 实现和兼容导入
 ```
 
-### 导入插件（显式 CPU）
+### 常用插件
 
-```python
-from waveform_analysis.core.plugins.builtin.cpu import (
-    RawFilesPlugin,
-    FilteredWaveformsPlugin,
-    HitFinderPlugin,
-)
-```
+| 插件 | 产物与职责 |
+| --- | --- |
+| `RawFileNamesPlugin` | `raw_files`：扫描并分组原始文件 |
+| `WaveformsPlugin` | `st_waveforms`：构建结构化波形 |
+| `RecordsPlugin`, `WavePoolPlugin` | `records`, `wave_pool`：记录元数据与波形池 |
+| `BasicFeaturesPlugin` | `basic_features`：每条记录的面积、高度等基础特征 |
+| `FilteredWaveformsPlugin` | `filtered_waveforms`：配置 Butterworth/SG 滤波 |
+| `HitFinderPlugin` | `hit`：峰检测 |
+| `PeaksPlugin` | `peaks`：从 peaklet 特征构建峰表 |
 
-### 可用的 CPU 插件
+完整依赖、参数与字段以[内置插件参考](../../plugins/reference/agent/INDEX.md)为准。
+使用多个阶段时优先选用[Plugin Set 与 Profile](../../plugins/PLUGIN_SYSTEM_OVERVIEW.md#plugin-sets)。
 
-#### 标准数据处理插件 (`cpu/standard.py`)
-- `RawFilesPlugin`: 扫描和分组原始 CSV 文件
-- `WaveformsPlugin`: 提取波形数据
-- `StWaveformsPlugin`: 结构化波形数组
-- `HitFinderPlugin`: 检测 Hit 事件
-- `BasicFeaturesPlugin`: 计算基础特征
-- `PeaksPlugin`: 峰值特征提取
-- `ChargesPlugin`: 电荷积分
-- `DataFramePlugin`: 构建 DataFrame
-- `GroupedEventsPlugin`: 时间窗口分组（支持 Numba 加速）
-- `PairedEventsPlugin`: 跨通道事件配对
+### 旧表格插件迁移
 
-#### 信号处理插件
-- `FilteredWaveformsPlugin` (`builtin/filtered_waveforms`): 波形滤波
-  - Butterworth 带通滤波器
-  - Savitzky-Golay 滤波器
-- `HitFinderPlugin` (`builtin/hit`，provides=`hit`): 高级峰值检测
-  - 基于 scipy.signal.find_peaks
-  - 支持导数检测、高度、距离、显著性等参数
-
-> 📖 **详细文档**: 查看 [FilteredWaveformsPlugin](../../plugins/reference/agent/filtered_waveforms.md) 和 [HitFinderPlugin](../../plugins/reference/agent/hit.md) 的生成参考页，了解滤波、寻峰配置和示例。
-
-### 迁移指南
-
-如果你的代码使用旧的导入方式，建议迁移到新架构：
-
-```python
-# 旧方式（会发出弃用警告）
-from waveform_analysis.core.plugins.builtin.cpu import RawFilesPlugin
-from waveform_analysis.core.plugins.builtin.cpu import FilteredWaveformsPlugin
-
-# 新方式（推荐）
-from waveform_analysis.core.plugins.builtin.cpu import (
-    RawFilesPlugin,
-    FilteredWaveformsPlugin,
-)
-```
+`DataFramePlugin`、`GroupedEventsPlugin`、`PairedEventsPlugin` 及其旧公开导入已移除。
+单记录特征可用 `pd.DataFrame(features)` 转表；旧符合分组和配对需要单独保留或重写分析逻辑，
+不能直接替换为 S1/S2 配对。配置、排序与标定处理见[退役迁移说明](../../user-guide/DF_RETIREMENT.md)。
 
 ---
 
@@ -194,52 +171,11 @@ Called during registration.
 
 ## 标准插件示例
 
-以下是一些内置插件的实现示例，可作为开发参考。
+内置插件的版本、依赖与配置选项由代码生成参考页，避免在本指南重复维护：
 
-### raw_files
-
-**类名**: `RawFilesPlugin`
-**版本**: 0.0.2
-**提供数据**: `raw_files`
-**依赖**: 无
-Plugin to find raw CSV files.
-
-**配置选项**:
-
-- `data_root` (<class 'str'>): Root directory for data (默认: DAQ)
-- `daq_adapter` (<class 'str'>): DAQ adapter name (默认: vx2730)
-
----
-### waveforms
-
-**类名**: `WaveformsPlugin`
-**版本**: 0.0.2
-**提供数据**: `waveforms`
-**依赖**: raw_files
-Plugin to extract waveforms from raw files.
-
-**配置选项**:
-
-- `channel_workers` (None): Number of parallel workers for channel-level processing (None=auto, uses min(len(raw_files), cpu_count)) (默认: None)
-- `channel_executor` (<class 'str'>): Executor type for channel-level parallelism: 'thread' or 'process' (默认: thread)
-- `n_jobs` (<class 'int'>): Number of parallel workers for file-level processing within each channel (默认: None)
-- `use_process_pool` (<class 'bool'>): Whether to use process pool for file-level parallelism (默认: False)
-- `chunksize` (<class 'int'>): Chunk size for CSV reading (默认: None)
-- `daq_adapter` (<class 'str'>): DAQ adapter name (默认: vx2730)
-
----
-### st_waveforms
-
-**类名**: `StWaveformsPlugin`
-**版本**: 0.0.0
-**提供数据**: `st_waveforms`
-**依赖**: waveforms
-Plugin to structure waveforms into NumPy arrays.
-
-
----
-
----
+- [raw_files](../../plugins/reference/agent/raw_files.md)：DAQ 文件发现与 adapter 配置。
+- [st_waveforms](../../plugins/reference/agent/st_waveforms.md)：`WaveformsPlugin` 的结构化波形输出。
+- [basic_features](../../plugins/reference/agent/basic_features.md)：单记录特征与波形来源配置。
 
 ## 开发自定义插件
 
@@ -342,8 +278,3 @@ class PeaksPlugin(Plugin):
    - 为插件编写单元测试
    - 测试边界情况
    - 验证缓存一致性
-
----
-
-**生成时间**: 2026-01-11 19:23:26
-**工具**: WaveformAnalysis DocGenerator

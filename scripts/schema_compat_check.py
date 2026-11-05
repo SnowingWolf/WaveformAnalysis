@@ -8,7 +8,7 @@ from pathlib import Path
 import subprocess
 import sys
 
-from _quality_common import run_smoke_chain
+from _quality_common import SMOKE_TARGETS, run_smoke_chain
 
 try:
     from scripts.change_scope import (
@@ -28,6 +28,53 @@ except ImportError:  # direct ``python scripts/schema_compat_check.py`` executio
     )
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
+# Stable consumer-facing fields; new fields may be added without breaking these contracts.
+REQUIRED_FIELDS = {
+    "records": {
+        "record_id": "int64",
+        "timestamp": "int64",
+        "board": "int16",
+        "channel": "int16",
+        "dt": "int32",
+        "baseline": "float64",
+        "wave_offset": "int64",
+        "event_length": "int32",
+    },
+    "hit_threshold": {
+        "record_id": "int64",
+        "timestamp": "int64",
+        "board": "int16",
+        "channel": "int16",
+        "dt": "int32",
+        "edge_start": "int32",
+        "edge_end": "int32",
+    },
+    "hit_merged": {
+        "merged_id": "int64",
+        "record_id": "int64",
+        "board": "int16",
+        "channel": "int16",
+        "dt": "int32",
+        "time_start": "int64",
+        "time_end": "int64",
+        "component_offset": "int64",
+        "component_count": "int32",
+    },
+    "peaks": {
+        "peak_id": "int64",
+        "time_start": "int64",
+        "time_end": "int64",
+        "time_peak": "int64",
+        "center_time": "int64",
+        "area": "float32",
+        "height": "float32",
+        "width": "float32",
+        "width_25_75": "float32",
+        "n_hits": "int32",
+        "n_channels": "int32",
+    },
+}
 
 
 def _run_git(args: list[str], check: bool = True) -> str:
@@ -228,28 +275,49 @@ def _build_migration_items(changes: list[dict[str, object]]) -> list[str]:
     return items
 
 
-def _check_runtime_contracts() -> list[str]:
-    """Check key runtime schema contracts for df/events chain."""
+def _check_product_fields(target: str, fields: dict[str, str]) -> list[str]:
     issues: list[str] = []
+    for name, expected_type in REQUIRED_FIELDS[target].items():
+        if name not in fields:
+            issues.append(f"{target} 缺少关键字段: {name}")
+        elif fields[name] != expected_type:
+            issues.append(f"{target}.{name} 类型不匹配: {fields[name]} (expected {expected_type})")
+    return issues
 
-    from waveform_analysis.core.plugins.builtin.cpu import WaveformsPlugin
+
+def _check_runtime_contracts() -> list[str]:
+    """Check declared records/hit/peaks contracts, including the retained hit path."""
+    from waveform_analysis.core.plugins.builtin.cpu import (
+        HitMergePlugin,
+        PeaksPlugin,
+        RecordsPlugin,
+        ThresholdHitPlugin,
+        WaveformsPlugin,
+    )
+
+    issues: list[str] = []
+    for plugin in (RecordsPlugin(), ThresholdHitPlugin(), HitMergePlugin(), PeaksPlugin()):
+        fields = {name: str(plugin.output_dtype[name]) for name in plugin.output_dtype.names or ()}
+        issues.extend(_check_product_fields(plugin.provides, fields))
 
     st_fields = set(WaveformsPlugin().output_dtype.names or ())
-    required_for_df = {"timestamp", "channel"}
-    required_for_hit = {"wave", "timestamp", "channel"}
-    required_for_events = {"wave", "baseline", "event_length", "timestamp", "channel"}
-
-    missing_df = sorted(required_for_df - st_fields)
-    missing_hit = sorted(required_for_hit - st_fields)
-    missing_events = sorted(required_for_events - st_fields)
-
-    if missing_df:
-        issues.append("st_waveforms 缺少 df 所需字段: {}".format(", ".join(missing_df)))
+    missing_hit = sorted({"wave", "timestamp", "board", "channel", "record_id"} - st_fields)
     if missing_hit:
         issues.append("st_waveforms 缺少 hit 所需字段: {}".format(", ".join(missing_hit)))
-    if missing_events:
-        issues.append("st_waveforms 缺少 df_events 所需字段: {}".format(", ".join(missing_events)))
+    return issues
 
+
+def _check_smoke_contracts(smoke: dict[str, object]) -> list[str]:
+    """Reject empty or malformed output from the fixture's known nonempty pulses."""
+    issues: list[str] = []
+    if smoke["raw_file_groups"] <= 0:
+        issues.append("raw_files 冒烟输入为空")
+    for target in SMOKE_TARGETS:
+        product = smoke["products"][target]
+        if product["count"] <= 0:
+            issues.append(f"{target} 冒烟输出为空")
+        if target in REQUIRED_FIELDS:
+            issues.extend(_check_product_fields(target, product["fields"]))
     return issues
 
 
@@ -281,13 +349,7 @@ def check_schema(
     if run_smoke:
         try:
             smoke = run_smoke_chain()
-            required_events = {"event_id", "t_min", "t_max", "dt/ns", "channels", "timestamps"}
-            smoke_fields = set(smoke.get("events_fields", []))
-            missing_events_out = sorted(required_events - smoke_fields)
-            if missing_events_out:
-                contract_issues.append(
-                    "df_events 输出缺少关键字段: {}".format(", ".join(missing_events_out))
-                )
+            contract_issues.extend(_check_smoke_contracts(smoke))
         except Exception as exc:
             smoke_error = str(exc)
 
@@ -354,11 +416,9 @@ def _print_report(report: dict[str, object]) -> None:
     if report["smoke_result"] is not None:
         print("[smoke chain]")
         smoke = report["smoke_result"]
-        print(
-            "raw_files={raw_file_groups}, st_waveforms={st_waveforms_count}, hit={hit_count}, df={df_rows}, events={events_count}".format(
-                **smoke
-            )
-        )
+        print(f"raw_files={smoke['raw_file_groups']}")
+        for target, product in smoke["products"].items():
+            print(f"  {target}={product['count']}")
     elif report["smoke_error"]:
         print("[smoke chain]")
         print("FAILED: {}".format(report["smoke_error"]))
@@ -377,7 +437,7 @@ def main() -> int:
     parser.add_argument(
         "--run-smoke",
         action="store_true",
-        help="Run fixed smoke chain raw_files->st_waveforms->hit->df->events",
+        help="Run records-backed smoke chain raw_files->records/wave_pool->hit_threshold->peaks",
     )
     parser.add_argument("--json-out", default=None, help="Write report JSON to path")
     args = parser.parse_args()
