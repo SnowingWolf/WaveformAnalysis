@@ -90,6 +90,14 @@ active_plans:
   condition: —
   task_file: docs/agents/runs/current/docs-index-cleanup-20261105/task.yaml
   legacy_plan: docs/agents/runs/current/docs-index-cleanup-20261105/legacy-plan.md
+- task_id: docs-maintenance-system
+  state: completed
+  route: generate_docs
+  workflow_cost: light
+  workflow_shape: staged
+  condition: —
+  task_file: docs/agents/runs/current/docs-maintenance-system/task.yaml
+  legacy_plan: docs/agents/runs/current/docs-maintenance-system/legacy-plan.md
 - task_id: docs-pipeline-figures-20261105
   state: completed
   route: modify_code

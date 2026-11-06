@@ -4183,9 +4183,24 @@
     {
       "route": "/user-guide/docs-build/",
       "source": "docs/agents/docs-build.md",
-      "source_sha256": "37929f3d8737fa6b85afc55a0fb999155805fe703413790b1a7a349c973f0346",
-      "model_fingerprint": "123e87bf478dbd453e4a969c97b26433ed9bbc4ab4f0ce70df56e54818fef2d3",
+      "source_sha256": "ee331cc48412fd428a11d905ab4f3979de576c22c86fe34c1fa2cfd698cfda47",
+      "model_fingerprint": "0240c9f18b2e8544e7c65726959b189c982d50c5f381ec86f72fbcb8f31dc7e0",
       "block_types": [
+        "heading",
+        "paragraph",
+        "table",
+        "paragraph",
+        "paragraph",
+        "heading",
+        "paragraph",
+        "table",
+        "paragraph",
+        "code",
+        "paragraph",
+        "paragraph",
+        "paragraph",
+        "paragraph",
+        "heading",
         "paragraph",
         "code",
         "paragraph",
@@ -4197,10 +4212,10 @@
         "paragraph"
       ],
       "content_counts": {
-        "paragraph": 7,
-        "link": 0,
-        "code": 1,
-        "table": 0,
+        "paragraph": 16,
+        "link": 3,
+        "code": 2,
+        "table": 2,
         "list": 1
       }
     },

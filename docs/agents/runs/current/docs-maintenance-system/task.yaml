@@ -1,0 +1,233 @@
+api_version: waveform-analysis/agent-task/v1
+kind: AgentTask
+metadata:
+  id: docs-maintenance-system
+  generation: 1
+  created_at: '2026-11-06T14:28:58Z'
+  updated_at: '2026-11-06T14:35:57Z'
+spec:
+  goal: 完善文档真源说明、分层验证与 CI 覆盖，形成源码到打包站点的维护闭环
+  route: generate_docs
+  workflow_cost: light
+  workflow_shape: staged
+  risk_level: low
+  scope:
+    base_sha: 7fc81c7824ae64a5fbfde5196a5b79dd8b1e2b9b
+    allowed_paths:
+    - .github/workflows/docs-check.yml
+    - docs/README.md
+    - docs/agents/docs-build.md
+    - docs/site-content-baseline.json
+    - docs/site-next/fixture/site-model.v1.json
+    - docs/agents/runs/current/docs-maintenance-system/
+    - docs/agents/plans/
+    - waveform_analysis/documentation/site_dist/
+  acceptance_criteria:
+  - 现有公开路由保持不变，维护说明区分真源与生成产物
+  - CI 覆盖内容、反射 API、构建脚本和依赖变化，快速检查先于 Node 构建
+  - 本地链接、覆盖、模型回归、文档同步及真实隔离构建通过，阻断式审查通过
+  required_gates:
+  - doc_sync
+  - doc_links
+  - doc_coverage
+  - targeted_tests
+  - site_build
+  - reviewer
+  assignment:
+    planner_role: planner
+    executor_role: executor.docs
+    reviewer_role: reviewer
+status:
+  state: completed
+  transitions:
+  - from: created
+    to: planning
+    at: '2026-11-06T14:28:58Z'
+    actor: planner
+  - from: planning
+    to: ready_for_execution
+    at: '2026-11-06T14:30:03Z'
+    actor: planner
+  - from: ready_for_execution
+    to: executing
+    at: '2026-11-06T14:30:03Z'
+    actor: executor.docs
+  - from: executing
+    to: reviewing
+    at: '2026-11-06T14:33:16Z'
+    actor: executor.docs
+  - from: reviewing
+    to: completed
+    at: '2026-11-06T14:35:57Z'
+    actor: reviewer
+  plan_sha256: 207fc6f5565551608f0484afbe2778c333a68b5f23deb87b1ae0e61cf38c5220
+  execution:
+    executor_role: executor.docs
+    actions_taken:
+    - 扩大文档 CI 输入覆盖并增加无 Node 前置检查
+    - 明确文档真源、同步产物、变更验证矩阵和构建交付边界
+    - 更新单个指南基线、当前模型 fixture 和验证后的打包站点
+    commands_run:
+    - command: .venv/bin/python -m waveform_analysis.documentation.cli check links
+        --docs-dir docs
+      result: 'PASS: 311 Markdown, 465 local references'
+    - command: .venv/bin/python -m waveform_analysis.documentation.cli check coverage
+        --strict --fail-on-warning
+      result: 'PASS: 33/33 plugins, zero warnings'
+    - command: PYTHONPATH=$PWD /home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m
+        pytest -q tests/test_doc_links.py tests/test_site_guides.py tests/test_site_model.py
+      result: 'PASS: 44 tests; 2 existing plugin deprecation warnings'
+    - command: WAVEFORM_PYTHON=$PWD/.venv/bin/python bash scripts/check_doc_sync.sh
+        --base HEAD
+      result: 'PASS: generated agent docs; 28 doc anchors, zero warnings'
+    - command: docs_build.py build --run-id docs-maintenance-20261106-01 --stage-output
+      result: 'FAIL: Next TypeScript --showConfig parsing; preserved report in /tmp/waveform-doc-build/runs/docs-maintenance-20261106-01/'
+    - command: env -u NODE_OPTIONS -u NODE_PATH PYTHONPATH=$PWD /home/wxy/anaconda3/envs/pyroot-kernel/bin/python
+        scripts/docs_build.py build --workspace $PWD --run-id docs-maintenance-20261106-02
+        --stage-output
+      result: 'PASS outside sandbox: npm ci/check/build; 180 files; report /tmp/waveform-doc-build/runs/docs-maintenance-20261106-02/report.json'
+    - command: CI YAML structure and generated model/HTML inspection
+      result: 'PASS: symmetric push/PR triggers; source job precedes Node; generated
+        model equals fixture; public route paths unchanged; packaged HTML includes
+        new sections'
+    changed_paths:
+    - .github/workflows/docs-check.yml
+    - docs/README.md
+    - docs/agents/docs-build.md
+    - docs/agents/plans/INDEX.md
+    - docs/agents/plans/active.yaml
+    - docs/site-content-baseline.json
+    - docs/site-next/fixture/site-model.v1.json
+    - waveform_analysis/documentation/site_dist/404.html
+    - waveform_analysis/documentation/site_dist/404/index.html
+    - waveform_analysis/documentation/site_dist/_not-found/index.html
+    - waveform_analysis/documentation/site_dist/accessors/index.html
+    - waveform_analysis/documentation/site_dist/accessors/peak-channel-accessor/index.html
+    - waveform_analysis/documentation/site_dist/accessors/records-view/index.html
+    - waveform_analysis/documentation/site_dist/accessors/s1-s2-pair-accessor/index.html
+    - waveform_analysis/documentation/site_dist/adapters/adapter/index.html
+    - waveform_analysis/documentation/site_dist/adapters/index.html
+    - waveform_analysis/documentation/site_dist/architecture/PROJECT_STRUCTURE/index.html
+    - waveform_analysis/documentation/site_dist/architecture/accessor-analysis/index.html
+    - waveform_analysis/documentation/site_dist/architecture/data-products/index.html
+    - waveform_analysis/documentation/site_dist/architecture/index.html
+    - waveform_analysis/documentation/site_dist/architecture/plugin-cache-architecture/index.html
+    - waveform_analysis/documentation/site_dist/architecture/plugin-dag-lineage-cache/index.html
+    - waveform_analysis/documentation/site_dist/architecture/system/index.html
+    - waveform_analysis/documentation/site_dist/cli/WAVEFORM_CACHE/index.html
+    - waveform_analysis/documentation/site_dist/cli/WAVEFORM_DOCS/index.html
+    - waveform_analysis/documentation/site_dist/cli/WAVEFORM_PROCESS/index.html
+    - waveform_analysis/documentation/site_dist/cli/index.html
+    - waveform_analysis/documentation/site_dist/contexts/context/index.html
+    - waveform_analysis/documentation/site_dist/contexts/index.html
+    - waveform_analysis/documentation/site_dist/development/CONTRACT_TESTS/index.html
+    - waveform_analysis/documentation/site_dist/development/contributing/COMMIT_CONVENTION/index.html
+    - waveform_analysis/documentation/site_dist/development/contributing/DOC_ANCHOR_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/development/contributing/IMPORT_STYLE_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/development/index.html
+    - waveform_analysis/documentation/site_dist/development/plugin-development/PLUGIN_SCAFFOLD/index.html
+    - waveform_analysis/documentation/site_dist/development/plugin-development/PLUGIN_SPEC_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/development/plugin-development/plugin_guide/index.html
+    - waveform_analysis/documentation/site_dist/development/worktrees/index.html
+    - waveform_analysis/documentation/site_dist/features/advanced/PROGRESS_TRACKING_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/context/ABSOLUTE_TIME_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/context/BATCH_PROCESSOR/index.html
+    - waveform_analysis/documentation/site_dist/features/context/CONFIGURATION/index.html
+    - waveform_analysis/documentation/site_dist/features/context/DEPENDENCY_ANALYSIS_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/context/LINEAGE_VISUALIZATION_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/index.html
+    - waveform_analysis/documentation/site_dist/features/utils/ADAPTIVE_2D_SAMPLING_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/utils/DAQ_ANALYZER_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/utils/PDF_EXPORT_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/visualizations/POSITION_DASHBOARD_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/index.html
+    - waveform_analysis/documentation/site_dist/lineage/index.html
+    - waveform_analysis/documentation/site_dist/plugins/basic_features/index.html
+    - waveform_analysis/documentation/site_dist/plugins/cache_analysis/index.html
+    - waveform_analysis/documentation/site_dist/plugins/energy_reconstruction/index.html
+    - waveform_analysis/documentation/site_dist/plugins/events/index.html
+    - waveform_analysis/documentation/site_dist/plugins/filtered_waveforms/index.html
+    - waveform_analysis/documentation/site_dist/plugins/guides/STREAMING_PLUGINS_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_grouped/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_merge_clusters/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_merged/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_merged_components/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_merged_features/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_threshold/index.html
+    - waveform_analysis/documentation/site_dist/plugins/index.html
+    - waveform_analysis/documentation/site_dist/plugins/overview/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peak_classification/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_channels/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_components/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_features/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_waveform_pool/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_waveforms/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklets/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaks/index.html
+    - waveform_analysis/documentation/site_dist/plugins/position_reconstruction/index.html
+    - waveform_analysis/documentation/site_dist/plugins/raw_files/index.html
+    - waveform_analysis/documentation/site_dist/plugins/records/index.html
+    - waveform_analysis/documentation/site_dist/plugins/records_asymmetry_mask/index.html
+    - waveform_analysis/documentation/site_dist/plugins/records_detector_mask/index.html
+    - waveform_analysis/documentation/site_dist/plugins/records_veto_mask/index.html
+    - waveform_analysis/documentation/site_dist/plugins/reference/ADAPTER_PLUGIN_BEHAVIOR/index.html
+    - waveform_analysis/documentation/site_dist/plugins/reference/ADAPTER_SYSTEM_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/plugins/s1_s2_pair_candidates/index.html
+    - waveform_analysis/documentation/site_dist/plugins/s1_s2_pairs/index.html
+    - waveform_analysis/documentation/site_dist/plugins/st_waveforms/index.html
+    - waveform_analysis/documentation/site_dist/plugins/wave_pool/index.html
+    - waveform_analysis/documentation/site_dist/plugins/wave_pool_filtered/index.html
+    - waveform_analysis/documentation/site_dist/plugins/waveform_width/index.html
+    - waveform_analysis/documentation/site_dist/plugins/waveform_width_integral/index.html
+    - waveform_analysis/documentation/site_dist/search-index.v1.json
+    - waveform_analysis/documentation/site_dist/site-manifest.json
+    - waveform_analysis/documentation/site_dist/site-model.v1.json
+    - waveform_analysis/documentation/site_dist/user-guide/DF_RETIREMENT/index.html
+    - waveform_analysis/documentation/site_dist/user-guide/EXAMPLES_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/user-guide/QUICKSTART_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/user-guide/docs-build/index.html
+    - waveform_analysis/documentation/site_dist/user-guide/index.html
+    - waveform_analysis/documentation/site_dist/visualizations/index.html
+    - waveform_analysis/documentation/site_dist/visualizations/position-dashboard/index.html
+    - waveform_analysis/documentation/site_dist/visualizations/statistical-plots/index.html
+    - waveform_analysis/documentation/site_dist/visualizations/waveform-plots/index.html
+    - docs/agents/runs/current/docs-maintenance-system/task.yaml
+    open_risks:
+    - GitHub hosted workflow has not run; checked YAML and commands locally
+    - No browser visual inspection; no frontend layout or interaction source changed
+    - Default python is 2.7 and .venv lacks pytest; used existing pyroot-kernel environment
+      for tests/build
+    requested_review_focus:
+    - CI triggers and job dependency
+    - source-to-generated content scope
+    - packaged export and preserved routes
+  review:
+    reviewer_actor: docs_reviewer
+    decision: approved
+    plan_sha256: 207fc6f5565551608f0484afbe2778c333a68b5f23deb87b1ae0e61cf38c5220
+    gate_results:
+      doc_sync: PASS
+      doc_links: PASS
+      doc_coverage: PASS
+      targeted_tests: PASS
+      site_build: PASS
+      reviewer: PASS
+    blocking_findings: []
+    findings:
+    - CI source checks precede Node build and cover source inputs
+    - Only maintenance-guide baseline changed; model and search changes limited to
+      guide and related titles
+    - Build02 install/typecheck/build passed; packaged output inspected
+    - Unrelated HTML differences are generated content fingerprints; manifest file
+      count unchanged
+    residual_risks:
+    - Remote GitHub CI not run
+    - No browser visual QA; frontend layout unchanged
+    follow_up_actions: []
+  approval: {}
+  handoff:
+    commit_status: pending scoped commit after completed record and generated navigation
+      refresh
+    summary: Documentation maintenance CI, ownership guide and verified packaged site;
+      commit hash reported in final response

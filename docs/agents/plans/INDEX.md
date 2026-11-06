@@ -19,6 +19,7 @@ links and readers; edit the task record and rerun
 | `corner-hist-bincount-optimization` | `completed` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/corner-hist-bincount-optimization/task.yaml` |
 | `docs-build-skill` | `reviewing` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/docs-build-skill/task.yaml` |
 | `docs-index-cleanup-20261105` | `completed` | `generate_docs` | `light` | `staged` | `—` | `docs/agents/runs/current/docs-index-cleanup-20261105/task.yaml` |
+| `docs-maintenance-system` | `completed` | `generate_docs` | `light` | `staged` | `—` | `docs/agents/runs/current/docs-maintenance-system/task.yaml` |
 | `docs-pipeline-figures-20261105` | `completed` | `modify_code` | `standard` | `staged` | `—` | `docs/agents/runs/current/docs-pipeline-figures-20261105/task.yaml` |
 | `docs-toc-hierarchy-20261106` | `completed` | `modify_code` | `standard` | `staged` | `—` | `docs/agents/runs/current/docs-toc-hierarchy-20261106/task.yaml` |
 | `docs-visual-refresh-20261105` | `completed` | `modify_code` | `standard` | `staged` | `—` | `docs/agents/runs/current/docs-visual-refresh-20261105/task.yaml` |
