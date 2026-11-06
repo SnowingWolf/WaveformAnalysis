@@ -561,6 +561,10 @@ wave_pool/plugin.py       # provides: wave_pool
 
 ## 新增 Bundle 检查单
 
+本节适用于加入主仓库的内置插件。独立分发的外置插件见
+[外置插件接入](../development/plugin-development/plugin_guide.md#外置插件接入)，
+无需创建内置 bundle manifest 或修改主仓库导出表。
+
 1. 创建 `builtin/<provides>/`，确保目录名与 `provides` 一致。
 2. 在 `manifest.yaml` 声明唯一 `provides`、`plugin_class`、version 和依赖。
 3. 在 `plugin.py` 实现单一职责的插件类。

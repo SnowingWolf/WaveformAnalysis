@@ -181,63 +181,187 @@ Called during registration.
 
 ### 基本模板
 
+以下示例只缩放配置中提供的数值，用于验证插件接入，不代表实际波形算法。
+输出 `sample_index` 是从零开始的输入索引，`value` 与输入数值同单位，`scale` 无量纲；
+空列表返回相同 dtype 的空表。
+
 ```python
-from waveform_analysis.core.plugins.core.base import Plugin, Option
 import numpy as np
+from waveform_analysis.plugins import Option, Plugin
+
 
 class MyCustomPlugin(Plugin):
-    """自定义插件示例"""
+    """外置插件的最小可运行示例。"""
 
-    # 必需属性
-    provides = 'my_data'
-    depends_on = ['waveforms']
-    version = '1.0.0'
-
-    # 可选属性
+    provides = "my_data"
+    depends_on = []
+    version = "1.0.0"
+    save_when = "target"
     options = {
-        'threshold': Option(
-            default=10.0,
-            type=float,
-            help='阈值参数'
-        ),
+        "values": Option(default=[], type=list, help="待缩放的一维数值列表"),
+        "scale": Option(default=1.0, type=float, help="无量纲缩放系数"),
     }
+    output_dtype = np.dtype([("sample_index", "<i8"), ("value", "<f8")])
 
-    # 输出数据类型
-    output_dtype = np.dtype([
-        ('time', '<f8'),
-        ('value', '<f4'),
-    ])
-
-    def compute(self, waveforms, run_id):
-        """
-        核心计算逻辑
-
-        Args:
-            waveforms: 依赖的数据（自动传入）
-            run_id: 运行 ID
-
-        Returns:
-            结构化数组或生成器
-        """
-        # 获取配置
-        threshold = self.config.get('threshold', 10.0)
-
-        # 处理逻辑
-        result = []
-        for wf in waveforms:
-            # ... 计算 ...
-            pass
-
-        return np.array(result, dtype=self.output_dtype)
-
-# 注册插件
-from waveform_analysis.core.context import Context
-ctx = Context()
-ctx.register(MyCustomPlugin())
-
-# 使用插件
-data = ctx.get_data('run_001', 'my_data')
+    def compute(self, context, run_id: str, **kwargs):
+        values = np.asarray(context.get_config(self, "values"), dtype=np.float64)
+        if values.ndim != 1:
+            raise ValueError("values 必须是一维数值列表")
+        scale = context.get_config(self, "scale")
+        result = np.empty(len(values), dtype=self.output_dtype)
+        result["sample_index"] = np.arange(len(values))
+        result["value"] = values * scale
+        return result
 ```
+
+真实插件通过 `depends_on` 声明正式上游产物，在 `compute(context, run_id, **kwargs)` 中
+调用 `context.get_data(run_id, "上游产物名")` 读取。框架传入 Context，而不是把上游数组
+直接作为第一个参数传入；配置通过 `context.get_config(self, "配置名")` 读取。
+
+## 外置插件接入
+
+外置插件可以独立于 WaveformAnalysis 仓库维护。注册到 Context 后，它参与同一套 DAG、
+配置解析、lineage 和缓存机制。外置包不需要放进 `builtin/`，也不要求内置 bundle 的
+`manifest.yaml`、主仓库公共导出表或内置 Profile；插件自身的输入输出和版本契约仍须完整。
+
+### 独立包与安装
+
+将上面的 `MyCustomPlugin` 保存到下列包的 `plugin.py`：
+
+```text
+my-analysis-plugins/
+├── pyproject.toml
+├── README.md
+├── src/
+│   └── my_analysis_plugins/
+│       ├── __init__.py
+│       └── plugin.py
+└── tests/
+    └── test_my_data.py
+```
+
+`src/my_analysis_plugins/__init__.py` 明确导出插件类：
+
+```python
+from .plugin import MyCustomPlugin
+
+__all__ = ["MyCustomPlugin"]
+```
+
+`pyproject.toml` 的最小示例：
+
+```toml
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "my-analysis-plugins"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = ["waveform-analysis", "numpy"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+```
+
+在外置包根目录、使用运行分析的同一个 Python 环境执行：
+
+```bash
+python -m pip install -e .
+```
+
+上述依赖没有声明经过验证的兼容范围；发布时根据实际测试结果约束 `waveform-analysis`
+和第三方依赖的版本。包版本用于分发，插件类的 `version` 用于行为与缓存契约，二者分别维护。
+
+### 方式一：显式注册
+
+适合分析脚本，也适合需要构造参数的插件。以下示例可以直接运行，无需 DAQ 文件：
+
+```python
+from waveform_analysis import Context
+from my_analysis_plugins import MyCustomPlugin
+
+ctx = Context(storage_dir="./example_cache")
+ctx.register(MyCustomPlugin())
+ctx.set_config({"values": [1.0, 2.0], "scale": 2.0}, plugin_name="my_data")
+result = ctx.get_data("example_run", "my_data")
+assert result["value"].tolist() == [2.0, 4.0]
+```
+
+真实算法还需注册它的所有上游；可以按需组合内置 Plugin Set / Profile 和自己的插件集合。
+注册只加入 provider，不会立即计算。正式结果始终通过显式 `run_id` 请求。
+
+### 方式二：entry points 自动发现
+
+向外置包的 `pyproject.toml` 追加：
+
+```toml
+[project.entry-points."waveform_analysis.plugins"]
+my_data = "my_analysis_plugins:MyCustomPlugin"
+```
+
+重新执行安装命令，使环境中的包元数据包含 entry point，然后显式触发发现：
+
+```python
+from waveform_analysis import Context
+
+ctx = Context(storage_dir="./example_cache")
+registered_count = ctx.discover_and_register_plugins()
+ctx.set_config({"values": [1.0, 2.0], "scale": 2.0}, plugin_name="my_data")
+result = ctx.get_data("example_run", "my_data")
+```
+
+也可以在创建 Context 时设置 `auto_discover_plugins=True`。默认是 `False`，仅安装包不会
+自动注册。发现过程会扫描该组的所有已安装 entry points，并无参实例化插件类；需要构造
+参数时使用显式实例注册。entry point 名称是发现标识，实际数据目标由类的 `provides` 决定。
+
+### 方式三：目录扫描
+
+适合简单的本地单文件插件。例如目录结构为：
+
+```text
+/absolute/path/to/local_plugins/
+└── my_data/
+    └── plugin.py
+```
+
+```python
+from waveform_analysis import Context
+
+ctx = Context(
+    storage_dir="./example_cache",
+    external_plugin_dirs=["/absolute/path/to/local_plugins"],
+    auto_discover_plugins=True,
+)
+result = ctx.get_data("example_run", "my_data")  # 示例默认返回空表
+```
+
+扫描器递归检查 `plugin.py`；同目录没有该文件时，检查子目录的 `__init__.py`。
+它不会扫描任意命名的 `.py` 文件，也不会读取 bundle manifest。目录扫描模式仍会先发现
+已安装的 entry points。当前文件加载方式不建立完整的包导入上下文，因此有相对导入或
+多进程导入需求的插件优先使用可安装包；第三方依赖也需事先安装到当前环境。
+
+### 集成验收与维护
+
+| 检查项 | 验收要求 |
+| --- | --- |
+| 产物契约 | `provides` 唯一，字段、dtype、单位、关联键、空输入与缺失值语义明确 |
+| 依赖与配置 | 上游全部注册；静态和动态依赖一致；Option 默认值、类型和 help 完整 |
+| 加载 | 目标类成功注册，实际请求目标产物通过；不能只检查发现函数没有抛异常 |
+| 缓存 | 检查配置、插件版本和上游变化后的 lineage；持久化由 `save_when` 控制，基类默认 `never` |
+| 测试 | 覆盖正常输入、空输入、边界、输出结构与实际下游链路；需要多进程或流式时单独验证 |
+| 交付 | 外置包维护安装、配置、调用示例、兼容范围和版本记录；不自动进入主仓库内置插件参考页 |
+
+当前自动发现会记录加载或注册失败并继续处理其他插件；返回值是成功注册的数量，
+不能证明某个指定目标已注册。调试时可改为显式 import 和 `ctx.register()`，直接查看异常。
+同一 `provides` 默认拒绝覆盖；只有确实要替换实现时才使用 `allow_override=True`。
+
+插件行为、输出或配置语义改变时按[插件版本规则](../../plugins/PLUGIN_SYSTEM_OVERVIEW.md#插件-version-升级策略)
+更新类的 `version`，不要只修改外置包版本。需要更严格的注册检查时，可以提供完整
+PluginSpec，再使用 `ctx.register(plugin, require_spec=True)`，详见 [PluginSpec 指南](PLUGIN_SPEC_GUIDE.md)。
+
+## 进阶开发
 
 ### 动态依赖
 

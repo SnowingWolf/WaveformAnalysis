@@ -122,6 +122,14 @@ active_plans:
   condition: —
   task_file: docs/agents/runs/current/execution-correctness-20261030/task.yaml
   legacy_plan: docs/agents/runs/current/execution-correctness-20261030/legacy-plan.md
+- task_id: external-plugin-docs-20261106
+  state: completed
+  route: generate_docs
+  workflow_cost: light
+  workflow_shape: staged
+  condition: —
+  task_file: docs/agents/runs/current/external-plugin-docs-20261106/task.yaml
+  legacy_plan: docs/agents/runs/current/external-plugin-docs-20261106/legacy-plan.md
 - task_id: get-data-output-unification
   state: planning
   route: modify_code

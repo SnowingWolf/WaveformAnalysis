@@ -9,7 +9,7 @@
 | 文档 | 说明 |
 |------|------|
 | [插件编写规范](../../plugins/PLUGIN_SYSTEM_OVERVIEW.md) | 插件编写规范与最佳实践 |
-| [插件开发完整指南](plugin_guide.md) | 深入学习插件开发 |
+| [插件开发完整指南](plugin_guide.md) | 插件模板、外置包安装与三种注册方式、集成验收 |
 | [插件脚手架](PLUGIN_SCAFFOLD.md) | 插件脚手架与测试夹具 |
 | [PluginSpec 指南](PLUGIN_SPEC_GUIDE.md) | PluginSpec 与 ConfigField 高级指南 |
 

@@ -1,0 +1,244 @@
+api_version: waveform-analysis/agent-task/v1
+kind: AgentTask
+metadata:
+  id: external-plugin-docs-20261106
+  generation: 2
+  created_at: '2026-11-06T03:05:24Z'
+  updated_at: '2026-11-06T03:14:27Z'
+spec:
+  goal: 补充外置插件安装注册与集成验收文档，修正直接相关模板并同步文档站
+  route: generate_docs
+  workflow_cost: light
+  workflow_shape: staged
+  risk_level: low
+  scope:
+    base_sha: e25d7da73dd01bffa54be8a2a005d5a977092da2
+    allowed_paths:
+    - docs/development/plugin-development
+    - docs/plugins/PLUGIN_SYSTEM_OVERVIEW.md
+    - docs/site-content-baseline.json
+    - docs/site-next/fixture/site-model.v1.json
+    - waveform_analysis/documentation/site_dist
+    - docs/agents/runs/current/external-plugin-docs-20261106
+    - docs/agents/plans
+  acceptance_criteria:
+  - 外置插件三种加载方式与源码一致，示例执行通过，文档检查和真实站点构建通过
+  required_gates:
+  - doc_sync
+  - doc_anchors
+  - markdown_links
+  - example_smoke
+  - site_model
+  - site_build
+  assignment:
+    planner_role: planner
+    executor_role: executor.docs
+    reviewer_role: reviewer
+status:
+  state: completed
+  transitions:
+  - from: created
+    to: executing
+    at: '2026-11-06T03:05:24Z'
+    actor: executor.docs
+  - from: executing
+    to: reviewing
+    at: '2026-11-06T03:11:23Z'
+    actor: executor.docs
+  - from: reviewing
+    to: rework_required
+    at: '2026-11-06T03:11:23Z'
+    actor: reviewer
+  - from: rework_required
+    to: planning
+    at: '2026-11-06T03:11:37Z'
+    actor: planner
+    scope_changed: true
+  - from: planning
+    to: ready_for_execution
+    at: '2026-11-06T03:11:37Z'
+    actor: planner
+  - from: ready_for_execution
+    to: executing
+    at: '2026-11-06T03:11:37Z'
+    actor: executor.docs
+  - from: executing
+    to: reviewing
+    at: '2026-11-06T03:12:27Z'
+    actor: executor.docs
+  - from: reviewing
+    to: completed
+    at: '2026-11-06T03:14:27Z'
+    actor: reviewer
+  plan_sha256: dd352d3a020683762155e340557d6e44f90154042aae7dc98c6bdb199ed0d1e4
+  execution:
+    executor_role: executor.docs
+    changed_paths:
+    - docs/agents/plans/INDEX.md
+    - docs/agents/plans/active.yaml
+    - docs/development/plugin-development/README.md
+    - docs/development/plugin-development/plugin_guide.md
+    - docs/plugins/PLUGIN_SYSTEM_OVERVIEW.md
+    - docs/site-content-baseline.json
+    - docs/site-next/fixture/site-model.v1.json
+    - waveform_analysis/documentation/site_dist/404.html
+    - waveform_analysis/documentation/site_dist/404/index.html
+    - waveform_analysis/documentation/site_dist/_not-found/index.html
+    - waveform_analysis/documentation/site_dist/accessors/index.html
+    - waveform_analysis/documentation/site_dist/accessors/peak-channel-accessor/index.html
+    - waveform_analysis/documentation/site_dist/accessors/records-view/index.html
+    - waveform_analysis/documentation/site_dist/accessors/s1-s2-pair-accessor/index.html
+    - waveform_analysis/documentation/site_dist/adapters/adapter/index.html
+    - waveform_analysis/documentation/site_dist/adapters/index.html
+    - waveform_analysis/documentation/site_dist/architecture/PROJECT_STRUCTURE/index.html
+    - waveform_analysis/documentation/site_dist/architecture/accessor-analysis/index.html
+    - waveform_analysis/documentation/site_dist/architecture/data-products/index.html
+    - waveform_analysis/documentation/site_dist/architecture/index.html
+    - waveform_analysis/documentation/site_dist/architecture/plugin-cache-architecture/index.html
+    - waveform_analysis/documentation/site_dist/architecture/plugin-dag-lineage-cache/index.html
+    - waveform_analysis/documentation/site_dist/architecture/system/index.html
+    - waveform_analysis/documentation/site_dist/cli/WAVEFORM_CACHE/index.html
+    - waveform_analysis/documentation/site_dist/cli/WAVEFORM_DOCS/index.html
+    - waveform_analysis/documentation/site_dist/cli/WAVEFORM_PROCESS/index.html
+    - waveform_analysis/documentation/site_dist/cli/index.html
+    - waveform_analysis/documentation/site_dist/contexts/context/index.html
+    - waveform_analysis/documentation/site_dist/contexts/index.html
+    - waveform_analysis/documentation/site_dist/development/CONTRACT_TESTS/index.html
+    - waveform_analysis/documentation/site_dist/development/contributing/COMMIT_CONVENTION/index.html
+    - waveform_analysis/documentation/site_dist/development/contributing/DOC_ANCHOR_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/development/contributing/IMPORT_STYLE_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/development/index.html
+    - waveform_analysis/documentation/site_dist/development/plugin-development/PLUGIN_SCAFFOLD/index.html
+    - waveform_analysis/documentation/site_dist/development/plugin-development/PLUGIN_SPEC_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/development/plugin-development/plugin_guide/index.html
+    - waveform_analysis/documentation/site_dist/development/worktrees/index.html
+    - waveform_analysis/documentation/site_dist/features/advanced/PROGRESS_TRACKING_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/context/ABSOLUTE_TIME_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/context/BATCH_PROCESSOR/index.html
+    - waveform_analysis/documentation/site_dist/features/context/CONFIGURATION/index.html
+    - waveform_analysis/documentation/site_dist/features/context/DEPENDENCY_ANALYSIS_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/context/LINEAGE_VISUALIZATION_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/index.html
+    - waveform_analysis/documentation/site_dist/features/utils/ADAPTIVE_2D_SAMPLING_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/utils/DAQ_ANALYZER_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/utils/PDF_EXPORT_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/visualizations/POSITION_DASHBOARD_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/index.html
+    - waveform_analysis/documentation/site_dist/lineage/index.html
+    - waveform_analysis/documentation/site_dist/plugins/basic_features/index.html
+    - waveform_analysis/documentation/site_dist/plugins/cache_analysis/index.html
+    - waveform_analysis/documentation/site_dist/plugins/energy_reconstruction/index.html
+    - waveform_analysis/documentation/site_dist/plugins/events/index.html
+    - waveform_analysis/documentation/site_dist/plugins/filtered_waveforms/index.html
+    - waveform_analysis/documentation/site_dist/plugins/guides/STREAMING_PLUGINS_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_grouped/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_merge_clusters/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_merged/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_merged_components/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_merged_features/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_threshold/index.html
+    - waveform_analysis/documentation/site_dist/plugins/index.html
+    - waveform_analysis/documentation/site_dist/plugins/overview/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peak_classification/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_channels/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_components/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_features/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_waveform_pool/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_waveforms/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklets/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaks/index.html
+    - waveform_analysis/documentation/site_dist/plugins/position_reconstruction/index.html
+    - waveform_analysis/documentation/site_dist/plugins/raw_files/index.html
+    - waveform_analysis/documentation/site_dist/plugins/records/index.html
+    - waveform_analysis/documentation/site_dist/plugins/records_asymmetry_mask/index.html
+    - waveform_analysis/documentation/site_dist/plugins/records_detector_mask/index.html
+    - waveform_analysis/documentation/site_dist/plugins/records_veto_mask/index.html
+    - waveform_analysis/documentation/site_dist/plugins/reference/ADAPTER_PLUGIN_BEHAVIOR/index.html
+    - waveform_analysis/documentation/site_dist/plugins/reference/ADAPTER_SYSTEM_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/plugins/s1_s2_pair_candidates/index.html
+    - waveform_analysis/documentation/site_dist/plugins/s1_s2_pairs/index.html
+    - waveform_analysis/documentation/site_dist/plugins/st_waveforms/index.html
+    - waveform_analysis/documentation/site_dist/plugins/wave_pool/index.html
+    - waveform_analysis/documentation/site_dist/plugins/wave_pool_filtered/index.html
+    - waveform_analysis/documentation/site_dist/plugins/waveform_width/index.html
+    - waveform_analysis/documentation/site_dist/plugins/waveform_width_integral/index.html
+    - waveform_analysis/documentation/site_dist/search-index.v1.json
+    - waveform_analysis/documentation/site_dist/site-manifest.json
+    - waveform_analysis/documentation/site_dist/site-model.v1.json
+    - waveform_analysis/documentation/site_dist/user-guide/DF_RETIREMENT/index.html
+    - waveform_analysis/documentation/site_dist/user-guide/EXAMPLES_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/user-guide/QUICKSTART_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/user-guide/docs-build/index.html
+    - waveform_analysis/documentation/site_dist/user-guide/index.html
+    - waveform_analysis/documentation/site_dist/visualizations/index.html
+    - waveform_analysis/documentation/site_dist/visualizations/position-dashboard/index.html
+    - waveform_analysis/documentation/site_dist/visualizations/statistical-plots/index.html
+    - waveform_analysis/documentation/site_dist/visualizations/waveform-plots/index.html
+    - docs/agents/runs/current/external-plugin-docs-20261106/task.yaml
+    actions_taken:
+    - 补充外置插件三种加载方式、独立包与集成验收；修正旧模板；同步入口、fixture、受影响基线和打包站点
+    - 在隔离 venv 从文档代码安装真实 editable 示例包，未修改共享 Python 环境
+    commands_run:
+    - command: isolated pip install --no-deps --no-build-isolation -e <documented
+        demo package> + check_examples.py
+      result: PASS explicit registration, real entry points, startup discovery, isolated
+        directory scan, config update, empty dtype, invalid dimensions; first harness
+        expected ValueError directly, corrected to check RuntimeError cause
+    - command: scripts/check_doc_sync.sh; render_agent_docs.py --check
+      result: PASS repository-wide generated-doc validation and 28 DOC anchors, no
+        errors or warnings
+    - command: python -m waveform_analysis.documentation.cli check links --docs-dir
+        docs
+      result: PASS 311 Markdown files, 459 local references
+    - command: python -m waveform_analysis.documentation.cli check coverage --strict
+        --fail-on-warning
+      result: PASS 33/33 plugins
+    - command: pytest tests/test_site_model.py -q --no-cov; rerun test_public_guide_baseline_tracks_source_and_typed_content_independently
+      result: 20 PASS initially; baseline count-key mismatch fixed; remaining 1 PASS
+        on targeted rerun; total 21 cases passed across runs
+    - command: docs_build.py build --run-id external-plugin-docs-20261106-a --stage-output
+      result: FAIL sandbox TypeScript --showConfig output parse; evidence retained
+    - command: docs_build.py build --run-id external-plugin-docs-20261106-b --stage-output
+      result: PASS unsandboxed isolated build; npm ci/check/build all exit 0; staged
+        packaged site
+    - command: inspect build report/model/site/HTML/search and git diff --check
+      result: PASS; built model equals fixture; new content is present in page and
+        search
+    build_report: /tmp/waveform-doc-build/runs/external-plugin-docs-20261106-b/report.json
+    build_notes:
+    - After build snapshot only baseline count-key filtering and task records changed;
+      no Markdown, model, frontend or production input changed. Baseline is validation
+      metadata and built model equals current fixture.
+    open_risks:
+    - Browser visual inspection not performed; static export, HTML contents and model
+      checks passed.
+    - Demo does not validate real DAQ algorithms, streaming or multiprocessing.
+    requested_review_focus:
+    - Verify external plugin docs against loader/Context; scope and generated consumers;
+      all required gate evidence
+  review:
+    reviewer_actor: docs_reviewer
+    decision: approved
+    plan_sha256: dd352d3a020683762155e340557d6e44f90154042aae7dc98c6bdb199ed0d1e4
+    gate_results:
+      doc_sync: PASS
+      doc_anchors: PASS
+      markdown_links: PASS
+      example_smoke: PASS
+      site_model: PASS
+      site_build: PASS
+    blocking_findings: []
+    coverage_review: Independent Reviewer verified source semantics, documentation
+      scope, baseline, built/packaged/fixture equality, HTML/search, execution evidence
+      and git diff --check.
+    residual_risks:
+    - Browser visuals, real DAQ, streaming and multiprocessing not tested; not required
+      for this documentation scope.
+    follow_up_actions:
+    - Render completed task navigation and commit scoped changes
+  approval: {}
+  handoff:
+    commit_status: 已提交：本任务记录与相关文档、生成站点在同一个 scoped commit 交付；具体 SHA 见 Git 历史与最终回复。
+    commit_subject: 'docs: document external plugin integration'
+    summary: 外置插件三种接入方式、可运行模板、入口、基线与打包文档站同步完成；独立 Reviewer approved。
