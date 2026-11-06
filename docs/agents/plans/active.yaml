@@ -26,6 +26,14 @@ active_plans:
   condition: —
   task_file: docs/agents/runs/current/adapter-layout-20261104/task.yaml
   legacy_plan: docs/agents/runs/current/adapter-layout-20261104/legacy-plan.md
+- task_id: context-api-consolidation-20261105
+  state: completed
+  route: retire_compat
+  workflow_cost: strict
+  workflow_shape: staged
+  condition: —
+  task_file: docs/agents/runs/current/context-api-consolidation-20261105/task.yaml
+  legacy_plan: docs/agents/runs/current/context-api-consolidation-20261105/legacy-plan.md
 - task_id: context-api-retirement-20261029
   state: completed
   route: retire_compat

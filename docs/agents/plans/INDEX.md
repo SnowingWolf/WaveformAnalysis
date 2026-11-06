@@ -11,6 +11,7 @@ links and readers; edit the task record and rerun
 | `acquisition-layout` | `completed` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/acquisition-layout/task.yaml` |
 | `adapter-contracts-20261030` | `completed` | `retire_compat` | `strict` | `staged` | `—` | `docs/agents/runs/current/adapter-contracts-20261030/task.yaml` |
 | `adapter-layout-20261104` | `completed` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/adapter-layout-20261104/task.yaml` |
+| `context-api-consolidation-20261105` | `completed` | `retire_compat` | `strict` | `staged` | `—` | `docs/agents/runs/current/context-api-consolidation-20261105/task.yaml` |
 | `context-api-retirement-20261029` | `completed` | `retire_compat` | `strict` | `staged` | `—` | `docs/agents/runs/current/context-api-retirement-20261029/task.yaml` |
 | `context-dedup-20261029` | `completed` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/context-dedup-20261029/task.yaml` |
 | `context-diagnostics-retirement-20261105` | `completed` | `retire_compat` | `strict` | `staged` | `—` | `docs/agents/runs/current/context-diagnostics-retirement-20261105/task.yaml` |

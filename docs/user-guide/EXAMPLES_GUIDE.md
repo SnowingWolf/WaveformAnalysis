@@ -55,12 +55,12 @@ df = df.sort_values('timestamp', kind='stable').reset_index(drop=True)
 
 ```python
 # 查看可用配置项
-ctx.list_plugin_configs()
-ctx.list_plugin_configs('waveforms')  # 特定插件
+ctx.show_config(view="options")
+ctx.show_config('st_waveforms')  # 特定插件
 
 # 查看当前配置
 ctx.show_config()
-ctx.show_config('waveforms')
+ctx.show_config('st_waveforms')
 
 # 设置配置（全局）
 ctx.set_config({'daq_adapter': 'vx2730', 'threshold': 50})
@@ -167,7 +167,7 @@ data = ctx.get_data('run_001', 'basic_features')
 # 单个数据集导出
 exporter = DataExporter()
 exporter.export(data, 'output.parquet')  # 自动检测格式
-exporter.export(data, 'output.hdf5', key='waveforms')
+exporter.export(data, 'output.hdf5', key='st_waveforms')
 exporter.export(data, 'output.csv')
 exporter.export(data, 'output.json')
 exporter.export(data, 'output.npy')
@@ -285,7 +285,7 @@ python examples/streaming_plugins_demo.py
 
 ```python
 ctx.list_provided_data()
-# ['raw_files', 'waveforms', 'st_waveforms', 'basic_features', ...]
+# ['raw_files', 'st_waveforms', 'st_waveforms', 'basic_features', ...]
 ```
 
 ### Q2: 如何清除缓存？
@@ -317,7 +317,7 @@ import logging
 logging.basicConfig(level=logging.DEBUG)
 
 # 检查配置来源、依赖和实际运行统计
-ctx.show_resolved_config('basic_features')
+ctx.show_config('basic_features', show_source=True)
 print(ctx.resolve_dependencies('basic_features', run_id='run_001'))
 # 若需耗时报告，在 Context 初始化时启用 stats_mode='basic' 或 'detailed'
 ctx.get_performance_report()

@@ -13,6 +13,15 @@ class ContextTimeDomain:
 
     def __init__(self, context: Any) -> None:
         self.ctx = context
+        self._query_engines: dict[tuple[str, str | None, str | None], Any] = {}
+
+    def _query_engine(self, time_domain: str, time_field: str | None, endtime_field: str | None):
+        from waveform_analysis.core.data.query import TimeRangeQueryEngine
+
+        key = (self.normalize_time_domain(time_domain), time_field, endtime_field)
+        if key not in self._query_engines:
+            self._query_engines[key] = TimeRangeQueryEngine()
+        return self._query_engines[key]
 
     def normalize_time_domain(self, time_domain: str) -> str:
         normalized = str(time_domain).strip().lower()
@@ -71,11 +80,7 @@ class ContextTimeDomain:
         force_rebuild: bool = False,
         time_domain: str = "system_ns",
     ) -> dict[str, Any]:
-        from waveform_analysis.core.data.query import TimeRangeQueryEngine
-
-        if not hasattr(self.ctx, "_time_query_engine"):
-            self.ctx._time_query_engine = TimeRangeQueryEngine()
-        engine = self.ctx._time_query_engine
+        engine = self._query_engine(time_domain, time_field, endtime_field)
         data = self.ctx.get_data(run_id, data_name)
         if data is None or (hasattr(data, "__len__") and len(data) == 0):
             self.ctx.logger.warning("No data found for %s, cannot build index", data_name)
@@ -128,19 +133,34 @@ class ContextTimeDomain:
         self,
         run_id: str,
         data_name: str,
-        start_time: int | None = None,
-        end_time: int | None = None,
+        start_time: int | datetime | None = None,
+        end_time: int | datetime | None = None,
         time_field: str | None = None,
         endtime_field: str | None = None,
         auto_build_index: bool = True,
         channel: int | HardwareChannel | tuple[int, int] | str | None = None,
         time_domain: str = "system_ns",
+        *,
+        auto_extract_epoch: bool = True,
     ) -> np.ndarray | list[np.ndarray]:
-        from waveform_analysis.core.data.query import TimeRangeQueryEngine
-
-        if not hasattr(self.ctx, "_time_query_engine"):
-            self.ctx._time_query_engine = TimeRangeQueryEngine()
-        engine = self.ctx._time_query_engine
+        time_domain = self.normalize_time_domain(time_domain)
+        bounds = [value for value in (start_time, end_time) if value is not None]
+        if any(isinstance(value, datetime) for value in bounds):
+            if not all(isinstance(value, datetime) for value in bounds):
+                raise TypeError("time bounds must not mix integers and datetime")
+            start_time, end_time = self._datetime_bounds(
+                run_id, start_time, end_time, auto_extract_epoch, time_domain
+            )
+        elif any(
+            isinstance(value, bool | np.bool_) or not isinstance(value, int | np.integer)
+            for value in bounds
+        ):
+            raise TypeError("time bounds must be integers, datetime or None")
+        if start_time is not None:
+            start_time = int(start_time)
+        if end_time is not None:
+            end_time = int(end_time)
+        engine = self._query_engine(time_domain, time_field, endtime_field)
         data = self.ctx.get_data(run_id, data_name)
         if data is None:
             return np.array([], dtype=np.float64)
@@ -288,18 +308,9 @@ class ContextTimeDomain:
     ) -> np.ndarray | list[np.ndarray]:
         n_channels = len(data)
         if auto_build_index:
-            has_indices = (
-                hasattr(self.ctx, "_multi_channel_indices")
-                and (run_id, data_name) in self.ctx._multi_channel_indices
+            self.build_multi_channel_time_index(
+                engine, run_id, data_name, data, time_field, endtime_field, False, time_domain
             )
-            if not has_indices:
-                self.build_time_index(
-                    run_id,
-                    data_name,
-                    time_field=time_field,
-                    endtime_field=endtime_field,
-                    time_domain=time_domain,
-                )
         normalized_channel = self.normalize_channel_ref(channel)
         if normalized_channel is not None:
             if not isinstance(normalized_channel, int):
@@ -425,12 +436,6 @@ class ContextTimeDomain:
                     "time_range": (index.min_time, index.max_time),
                     "build_time": index.build_time,
                 }
-        if not hasattr(self.ctx, "_multi_channel_indices"):
-            self.ctx._multi_channel_indices = {}
-        self.ctx._multi_channel_indices[(run_id, data_name)] = {
-            "n_channels": n_channels,
-            "channel_indices": indices,
-        }
         self.ctx.logger.info(
             "Built %s channel indices for %s, total records: %s",
             len(indices),
@@ -501,19 +506,14 @@ class ContextTimeDomain:
         self.ctx.logger.info("Auto-extracted epoch for %s: %s", run_id, epoch_info)
         return epoch_info
 
-    def get_data_time_range_absolute(
+    def _datetime_bounds(
         self,
         run_id: str,
-        data_name: str,
-        start_dt: datetime | None = None,
-        end_dt: datetime | None = None,
-        time_field: str | None = None,
-        endtime_field: str | None = None,
-        auto_build_index: bool = True,
-        channel: int | HardwareChannel | tuple[int, int] | str | None = None,
-        auto_extract_epoch: bool = True,
-        time_domain: str = "system_ns",
-    ) -> np.ndarray | list[np.ndarray]:
+        start_dt: datetime | None,
+        end_dt: datetime | None,
+        auto_extract_epoch: bool,
+        time_domain: str,
+    ) -> tuple[int | None, int | None]:
         from waveform_analysis.core.foundation.time_conversion import TimeConverter
 
         epoch_info = self.get_epoch(run_id)
@@ -542,14 +542,4 @@ class ContextTimeDomain:
                 start_rel = int(round(convert_time(float(start_rel), source_unit, target_unit)))
             if end_rel is not None:
                 end_rel = int(round(convert_time(float(end_rel), source_unit, target_unit)))
-        return self.time_range(
-            run_id=run_id,
-            data_name=data_name,
-            start_time=start_rel,
-            end_time=end_rel,
-            time_field=time_field,
-            endtime_field=endtime_field,
-            auto_build_index=auto_build_index,
-            channel=channel,
-            time_domain=domain,
-        )
+        return start_rel, end_rel

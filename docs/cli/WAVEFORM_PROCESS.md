@@ -71,6 +71,9 @@ waveform-process [选项]
 | `--show-config` | 显示所选 Profile 的解析配置，不要求 `--run-name` 或 `--target` |
 | `--daq-adapter` | DAQ 适配器名称，默认 `vx2730` |
 
+`--show-config` 使用 `ctx.get_config(plugin).summary(verbose=...)` 逐个打印插件的解析配置摘要，
+保留按来源分组的终端输出和 `--verbose` 详细模式；配置解析错误会直接报告。
+
 ---
 
 ## 使用示例

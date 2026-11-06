@@ -162,13 +162,13 @@ adapter 当前可推断采样率、采样间隔、时间戳单位和原始时间
 ### 2.4 查看最终值与来源
 
 ```python
-resolved = ctx.get_resolved_config("records")
+resolved = ctx.get_config("records")
 print(resolved.to_dict())
 
-ctx.show_resolved_config("records", verbose=True)
+ctx.show_config("records", show_source=True)
 ```
 
-`get_resolved_config()` 返回可编程读取的 `ResolvedConfig`；`show_resolved_config()` 展示值、来源和
+`get_config()` 返回可编程读取的 `ResolvedConfig`；`show_config(show_source=True)` 展示值、来源和
 adapter。排查配置问题时应查看 resolved config，而不是只检查传给 Context 的原始字典。
 
 ### 2.5 配置与 lineage
@@ -316,7 +316,7 @@ peaklet_waveform_pool` 是另一实例。不同实体必须使用对应的索引
 | 结果来自错误 run | 调用端复用局部 ID 或未显式传递正确 `run_id` | 所有 `get_data` 与 Accessor 构造入口 |
 | 波形切片越界 | 索引产物与 wave pool 不配对，pool 被截断或 offset 错误 | run、lineage、pool 长度与切片字段 |
 | Accessor 查询为空 | ID 空间错误、输入产物缺失或关联表不覆盖该实体 | Accessor 输入表、关系字段和 run_id |
-| 切换 adapter 后物理量异常 | 显式配置覆盖了推断值，或输入解释未进入 lineage | `show_resolved_config` 与 adapter 信息 |
+| 切换 adapter 后物理量异常 | 显式配置覆盖了推断值，或输入解释未进入 lineage | `show_config(show_source=True)` 与 adapter 信息 |
 
 ## 7. 阅读顺序
 

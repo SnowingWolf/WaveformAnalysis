@@ -3,7 +3,7 @@
 本文档说明 `Context` 配置解析、DAQ adapter 推断、兼容参数映射与配置类型。Agent 侧约束见 `docs/agents/configuration.md`；本文件是用户与代码锚点使用的配置入口。
 
 `Context` 保持无状态的数据访问接口；配置解析由内部的 `ContextConfigDomain` 承接，
-不改变 `ctx.set_config()`、`ctx.get_config()` 或 `ctx.get_resolved_config()` 的用法。
+写入、读取与展示分别统一到 `ctx.set_config()`、`ctx.get_config()` 和 `ctx.show_config()`。
 
 Context 未显式传入 `storage_dir` 时，默认将缓存和处理产物写入当前目录下的 `./wa_data/`；
 `data_root` 仍用于定位原始 DAQ 数据，默认值为 `DAQ`。如需使用其他缓存位置，请显式传入
@@ -27,14 +27,42 @@ readonly 仍只更新内存中的验证状态，不计算插件或改写磁盘�
 
 ## 查看配置
 
-`ctx.list_plugin_configs(plugin_name, verbose=False)` 返回选项元数据和当前值的字典；
-默认开启展示时，还会输出插件概览与选项表。`show_current_values=False` 仅列出选项定义，
-`show_full_help=True` 保留完整帮助文本。
+```python
+value = ctx.get_config("records", "dt")  # 已校验的单个值
+source = ctx.get_config("records", "dt", with_source=True)  # ConfigValue
+resolved = ctx.get_config("records")  # ResolvedConfig，始终包含来源
+print(source.value, source.source, resolved.to_dict())
 
-`ctx.show_config(data_name)` 复用插件选项表；不传 `data_name` 时则按全局、插件特定、
-Context 自身和未使用配置分组展示。两种视图共用选项格式、排序和高亮规则，
-但全局视图展示显式配置，选项清单中的当前值经过配置解析。
-需要追踪生效值来源时，使用 `ctx.show_resolved_config(plugin)`。
+ctx.show_config()  # 原始显式配置的全局汇总
+ctx.show_config("records", show_source=True)  # 插件选项、当前值和来源
+options = ctx.show_config(view="options", output="dict")  # 全部插件的元数据，静默返回
+```
+
+`get_config()` 接受插件实例或已注册的 `provides` 名称。指定 `name` 时只解析该项，
+不会因其他选项无效而失败；省略 `name` 时解析全部声明的选项。未知插件或选项抛出
+`KeyError`，类型、范围、单位与 alias 校验仍由配置解析器负责。
+`adapter_name` 只覆盖此次查询的推断来源，不写入 Context，显式选项仍优先。
+这些查询不合并 run 或逐通道覆盖；run 文件内容通过 `get_run_config(run_id)` 获取。
+
+`show_config()` 无参时按全局、插件特定、Context 自身和未使用配置分组展示原始显式值。
+指定插件、`show_source=True` 或 `view="options"` 则展示解析后的插件选项；
+无插件选择时覆盖所有已注册插件。`output="dict"` 仅支持选项视图并静默返回元数据，
+默认 `output="display"` 展示表格并返回 `None`。`show_current_values=False` 只读取声明，
+不解析当前配置，不能与 `show_source=True` 同用；`show_full_help=True` 保留完整帮助文本。
+
+## 写入配置与 JSON 文件
+
+```python
+from pathlib import Path
+
+ctx.set_config({"dt": 4}, plugin_name="records")
+ctx.set_config(Path("settings.json"))  # 也接受字符串路径
+```
+
+JSON 可以是普通配置对象，或包含 `custom_config` 对象的配置快照。
+文件读取与结构校验在更新前完成；无效文件不会改变当前配置或使规划缓存失效。
+指定 `plugin_name` 时浅更新该插件配置块；未指定时浅更新顶层，传入的插件块整体替换原块。
+更新成功后仍自动失效解析配置、运行配置和规划缓存。
 
 ## 配置优先级
 
@@ -110,7 +138,7 @@ Adapter registry 的规范入口是 `waveform_analysis.acquisition.formats`；�
 - `timestamp_unit`
 - `raw_timestamp_mode`
 
-推断值只在没有显式配置时生效。可以使用 `ctx.get_resolved_config()` 或 `ctx.show_resolved_config()` 检查每个配置值的来源。
+推断值只在没有显式配置时生效。可以使用 `ctx.get_config(plugin)` 或 `ctx.show_config(plugin, show_source=True)` 检查每个配置值的来源。
 
 ## 兼容层
 
@@ -146,13 +174,13 @@ DAQ adapter 的解释信息由 Context 仅附加在顶层 lineage。递归上游
 
 ## 配置展示
 
-`ctx.list_plugin_configs()` 会展示插件概览和配置选项明细。对于没有 `options`
+`ctx.show_config(view="options")` 会展示插件概览和配置选项明细。对于没有 `options`
 的插件，配置选项明细会明确显示“该插件没有配置选项”，不会再尝试对空配置表排序或
 设置索引。
 
 `ctx.help("config")` 返回 `HelpDocument`：终端中打印纯文本一次，Jupyter 中由 displayhook
 显示 HTML。帮助查询不会解析 run 配置、执行插件或修改 Context；需要检查实际配置来源时仍应使用
-`get_resolved_config()` / `show_resolved_config()`。
+`get_config(plugin)` / `show_config(plugin, show_source=True)`。
 
 ## 推荐实践
 
@@ -205,6 +233,12 @@ ctx.show_config(run_name=run_name)
 
 | 原调用 | 当前写法与语义 |
 | --- | --- |
+| `ctx.get_config_value(plugin, name)` | `ctx.get_config(plugin, name, with_source=True)`，返回 `ConfigValue`。 |
+| `ctx.get_resolved_config(plugin)` | `ctx.get_config(plugin)`，返回 `ResolvedConfig`。 |
+| `ctx.show_resolved_config(plugin)` | `ctx.show_config(plugin, show_source=True)`，展示来源；无插件选择时展示全部插件。 |
+| `ctx.from_config_json(path)` | `ctx.set_config(path)`；`plugin_name` 的更新作用域保留。 |
+| `ctx.list_plugin_configs(plugin_name, verbose=False)` | `ctx.show_config(plugin_name, view="options", output="dict")`；省略插件名称时仍指定 `view="options"`。需要展示时省略 `output`。 |
+| `ctx.get_data_time_range_absolute(run_id, name, start_dt=..., end_dt=...)` | `ctx.time_range(run_id, name, start_time=..., end_time=...)`，直接传 datetime；epoch 和通道参数保留。 |
 | `ctx.clear_config_cache()` | 删除手动清理调用；通过 `ctx.set_config(...)` 更新配置，自动失效解析配置与规划缓存。 |
 | `ctx.clear_performance_caches()` | 删除手动维护调用；规划、lineage 与缓存键的失效由 Context 内部维护。 |
 | `ctx.profiling_summary` | 使用 `ctx.profiler.summary()` 获取 profiler 摘要。 |

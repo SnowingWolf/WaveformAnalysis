@@ -172,7 +172,7 @@ ctx = Context(config={"data_root": "DAQ", "daq_adapter": "my_adapter"})
 
 ```python
 print(ctx.get_adapter_info())
-ctx.show_resolved_config("records")  # 需先注册对应插件
+ctx.show_config("records", show_source=True)  # 需先注册对应插件
 ```
 
 `AdapterInfo.from_adapter(name)` 与 `get_adapter_info(name)` 每次读取当前注册对象，复用

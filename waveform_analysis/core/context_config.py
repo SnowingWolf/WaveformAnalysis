@@ -8,7 +8,7 @@ from typing import Any
 
 import numpy as np
 
-from .config import CompatManager, ConfigResolver, ConfigValue, ResolvedConfig
+from .config import CompatManager, ConfigResolver, ResolvedConfig
 from .plugins.core.base import Plugin
 
 
@@ -55,24 +55,27 @@ class ContextConfigDomain:
             "See docs/user-guide/DF_RETIREMENT.md for migration details."
         )
 
-    def get_config_value(
+    def get_config(
         self,
-        plugin: Plugin,
-        name: str,
+        plugin: Plugin | str,
+        name: str | None = None,
+        *,
+        with_source: bool = False,
         adapter_name: str | None = None,
-    ) -> ConfigValue:
+    ) -> Any:
+        if isinstance(plugin, str):
+            plugin = self.ctx.get_plugin(plugin)
         if adapter_name is None:
             adapter_name = self.resolve_adapter_name_for_plugin(plugin)
         resolver = self.ensure_config_resolver()
-        return resolver.resolve_value(
-            plugin=plugin,
-            name=name,
-            config=self.ctx.config,
-            adapter_name=adapter_name,
+        if name is None:
+            return resolver.resolve(
+                plugin=plugin, config=self.ctx.config, adapter_name=adapter_name
+            )
+        value = resolver.resolve_value(
+            plugin=plugin, name=name, config=self.ctx.config, adapter_name=adapter_name
         )
-
-    def get_config(self, plugin: Plugin, name: str) -> Any:
-        return self.get_config_value(plugin, name).value
+        return value if with_source else value.value
 
     def resolve_adapter_name_for_plugin(
         self,
@@ -98,22 +101,6 @@ class ContextConfigDomain:
             return cv.value
         return resolved_adapter
 
-    def get_resolved_config(
-        self,
-        plugin: Plugin | str,
-        adapter_name: str | None = None,
-    ) -> ResolvedConfig:
-        if isinstance(plugin, str):
-            if plugin not in self.ctx._plugins:
-                raise KeyError(f"Plugin '{plugin}' is not registered")
-            plugin = self.ctx._plugins[plugin]
-
-        if adapter_name is None:
-            adapter_name = self.resolve_adapter_name_for_plugin(plugin)
-
-        resolver = self.ensure_config_resolver()
-        return resolver.resolve(plugin=plugin, config=self.ctx.config, adapter_name=adapter_name)
-
     def make_config_signature(self, raw_config: dict[str, Any]) -> str:
         def default(value: Any) -> str:
             if isinstance(value, np.ndarray):
@@ -130,7 +117,7 @@ class ContextConfigDomain:
         return self.make_config_signature(payload)
 
     def ensure_plugin_config_validated(self, plugin: Plugin) -> dict[str, Any]:
-        resolved = self.get_resolved_config(plugin)
+        resolved = self.get_config(plugin)
         signature = self.make_resolved_config_signature(resolved)
         cache_key = (plugin.provides, signature)
         if cache_key in self.ctx._resolved_config_cache:
@@ -372,30 +359,6 @@ class ContextConfigDomain:
         self.ctx._run_config_cache[run_id] = result
         self.ctx._run_config_hash_cache[run_id] = current_hash
         return result
-
-    def show_resolved_config(
-        self,
-        plugin: Plugin | str | None = None,
-        verbose: bool = True,
-        adapter_name: str | None = None,
-    ) -> None:
-        if adapter_name is None:
-            adapter_name = self.ctx.config.get("daq_adapter")
-
-        if plugin is None:
-            plugins_to_show = list(self.ctx._plugins.values())
-        elif isinstance(plugin, str):
-            if plugin not in self.ctx._plugins:
-                print(f"Plugin '{plugin}' is not registered")
-                return
-            plugins_to_show = [self.ctx._plugins[plugin]]
-        else:
-            plugins_to_show = [plugin]
-
-        for p in plugins_to_show:
-            resolved = self.get_resolved_config(p, adapter_name=adapter_name)
-            print(resolved.summary(verbose=verbose))
-            print()
 
     def prepare_request(self, run_id: str, data_name: str) -> bool:
         """Prepare a request; return whether it must bypass memory cache."""

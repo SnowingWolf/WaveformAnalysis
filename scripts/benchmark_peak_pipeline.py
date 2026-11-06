@@ -735,7 +735,7 @@ WARMUP_TYPE = "warm_jit_warm_page_cache"
 def _resolved_config_summary(ctx: Any, targets: tuple[str, ...] | None = None) -> dict[str, Any]:
     summary: dict[str, Any] = {}
     for target in targets or PIPELINE_TARGETS:
-        resolved = ctx.get_resolved_config(target)
+        resolved = ctx.get_config(target)
         summary[target] = {
             "adapter_name": resolved.adapter_name,
             "values": _json_safe(resolved.to_dict()),

@@ -241,7 +241,7 @@ waveform-process --show-daq <run_name> --daq-root DAQ
 ## Configuration Rules
 - 配置优先级：显式配置 > adapter 推断 > 插件默认值。
 - 推荐全局配置 `daq_adapter`，避免链路内插件不一致。
-- 使用 `ctx.get_resolved_config()` / `ctx.show_resolved_config()` 检查来源。
+- 使用 `ctx.get_config(plugin)` / `ctx.show_config(show_source=True)` 检查来源。
 
 ## Testing Rules
 - 发现目录：`tests/`，模式见 `pyproject.toml`。

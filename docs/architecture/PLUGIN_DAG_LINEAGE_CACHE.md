@@ -308,7 +308,7 @@ Memmap 的 `save_stream` / `save_memmap`、Context 的 generator 缓存写入和
 
 | 现象 | 可能原因 | 验证入口 |
 | --- | --- | --- |
-| 本应命中却重算 | resolved config、adapter、version、schema 或上游身份变化 | `get_resolved_config`、`get_lineage`、执行日志 |
+| 本应命中却重算 | resolved config、adapter、version、schema 或上游身份变化 | `get_config`、`get_lineage`、执行日志 |
 | 本应重算却命中 | 行为未升级 version，或语义配置未跟踪 | Plugin options、version 与缓存元数据 |
 | 动态路径错误 | `resolve_depends_on` 读到另一配置来源或依赖不确定状态 | `resolve_dependencies(..., run_id=...)` |
 | 依赖查询与实际运行不同 | `compute` 在 DAG 外读取数据，或运行期临时切换来源 | 静态/动态依赖与所有 `get_data` 调用 |

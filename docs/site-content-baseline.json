@@ -121,7 +121,7 @@
       "required_fields": [],
       "required_members": [
         "Context.get_adapter_info",
-        "Context.get_resolved_config",
+        "Context.get_config",
         "DAQAdapter",
         "DAQAdapter.load_all_channels",
         "DAQAdapter.load_channel",
@@ -152,13 +152,13 @@
     {
       "kind": "context",
       "minimum_blocks": {
-        "code": 40,
-        "heading": 111,
+        "code": 37,
+        "heading": 98,
         "list": 11,
         "mermaid": 1,
         "note": 2,
-        "paragraph": 73,
-        "table": 31
+        "paragraph": 61,
+        "table": 25
       },
       "required_config": [],
       "required_fields": [],
@@ -171,21 +171,16 @@
         "create_context_factory",
         "diagnose_cache",
         "discover_and_register_plugins",
-        "from_config_json",
         "get_adapter_info",
         "get_config",
-        "get_config_value",
         "get_data",
-        "get_data_time_range_absolute",
         "get_epoch",
         "get_lineage",
         "get_performance_report",
         "get_plugin",
-        "get_resolved_config",
         "get_run_config",
         "help",
         "key_for",
-        "list_plugin_configs",
         "list_provided_data",
         "plot_lineage",
         "register",
@@ -193,7 +188,6 @@
         "set_config",
         "set_epoch",
         "show_config",
-        "show_resolved_config",
         "time_range"
       ],
       "required_sections": [
@@ -1536,8 +1530,8 @@
       "route": "/user-guide/EXAMPLES_GUIDE/",
       "title": "常见场景示例",
       "source": "docs/user-guide/EXAMPLES_GUIDE.md",
-      "source_sha256": "a9580b53883493cd6e826d99cfef4762e97de342989181ff8ad7529c9fccfd3a",
-      "model_fingerprint": "3753523ccc8935f7943422b38d14c1ebd34f1e6b4ed6606595d3fe8ccf70b403",
+      "source_sha256": "486c81f53210fb28ce6310ad44769486aa686d84b70059f2a223f3d5603a104c",
+      "model_fingerprint": "053ac0a3eaf14bac009d2c012df3a2c6006a7f01fa8599be03e7514d9f69af27",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -1781,8 +1775,8 @@
       "route": "/plugins/overview/",
       "title": "插件系统与模板 API",
       "source": "docs/plugins/PLUGIN_SYSTEM_OVERVIEW.md",
-      "source_sha256": "e6e0ea3e6dfadb96ddbec10ee7bd5ef4eb446dd00de9503edb7e6f62fa144e1b",
-      "model_fingerprint": "5c749a0f74c840b3f9876d19409b04fc43f4eb816da8e04e793a5d2084898ced",
+      "source_sha256": "cb213921522ce4fe81fc8cdb35a2e2006f5fbca611e42c3de7aaa7cfc3ef5731",
+      "model_fingerprint": "64ed6ddf937b2393463cbbfe563902b0a57c0ebcbb2b2d391e95ffc5836f8b8f",
       "block_types": [
         "paragraph",
         "heading",
@@ -2031,8 +2025,8 @@
       "route": "/plugins/reference/ADAPTER_SYSTEM_GUIDE/",
       "title": "DAQ 适配器系统详解",
       "source": "docs/plugins/reference/ADAPTER_SYSTEM_GUIDE.md",
-      "source_sha256": "c52c46ea8b4406e78aed7f2afe16d82f313d877a899095ffd8d3dcc96222eaf9",
-      "model_fingerprint": "df3ead488dbda7fc02dc985e2aae02ff96b03d0bac9d63c8e81745b356ed4e76",
+      "source_sha256": "9d8027008fabac0674e644603732b8677ad9b28becc8b227cb4ffb7248c3db9d",
+      "model_fingerprint": "5489a42cec593e6263ac1fd70a84657e462c1404c6b959833d7cb02d573c93ec",
       "block_types": [
         "heading",
         "paragraph",
@@ -2445,8 +2439,8 @@
       "route": "/architecture/plugin-dag-lineage-cache/",
       "title": "插件执行链与缓存",
       "source": "docs/architecture/PLUGIN_DAG_LINEAGE_CACHE.md",
-      "source_sha256": "541d72a9eeca2505e95092b6bc06d55c7936678150d0592f8c4688dac19993ff",
-      "model_fingerprint": "cdaa6f54224523e5704dd5483e8eab0cc84987e1b5b24fe4801e96d3b54c4085",
+      "source_sha256": "ad43667ce91946799b41777dfec2b12543a3f56e94e2ded6aa38409154c7112e",
+      "model_fingerprint": "c66d796493784867d0356c1141aea357dbea8f91c6866e18bdeab24f0843f4cc",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -2535,8 +2529,8 @@
       "route": "/architecture/system/",
       "title": "系统架构与数据流",
       "source": "docs/architecture/ARCHITECTURE.md",
-      "source_sha256": "18fedfae4f144734c81e909edbeb3f70703a15ffbd9cfaf2cfed9486cafab55a",
-      "model_fingerprint": "95a4714a11d1e57f476e39b508a7cebabcdce8791c96411b7e42f4def801febd",
+      "source_sha256": "704062020433a17f15633e6790f41a43b24470091cd02f6198b0e1c204afb07f",
+      "model_fingerprint": "e7abe8b57d9a58e4e9e783aa4a9806992bf14b6e37fb68345207e73d9ef24d68",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -2730,8 +2724,8 @@
       "route": "/features/context/ABSOLUTE_TIME_GUIDE/",
       "title": "绝对时间查询指南",
       "source": "docs/features/context/ABSOLUTE_TIME_GUIDE.md",
-      "source_sha256": "5b6de5773e73e40f425254b47b4c34cffdc0bb5e08de7bf26c9c6810d98f5b5e",
-      "model_fingerprint": "33c79b13adeea09dda9cf4fafe2b2665a0d3b9410a629ef0c668ab545a6dc96e",
+      "source_sha256": "2d9bcc3e38884066dedf444cfb157f066bf93a7ac56c19a3b34d41486c7b1298",
+      "model_fingerprint": "324b5f110d304180ea9af0b84dc582e44674d5a88389306d68ca94af53013688",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -2784,6 +2778,8 @@
         "code",
         "heading",
         "paragraph",
+        "paragraph",
+        "paragraph",
         "code",
         "heading",
         "heading",
@@ -2802,7 +2798,7 @@
         "table"
       ],
       "content_counts": {
-        "paragraph": 16,
+        "paragraph": 18,
         "link": 3,
         "code": 15,
         "table": 5,
@@ -2908,8 +2904,8 @@
       "route": "/features/context/CONFIGURATION/",
       "title": "配置管理",
       "source": "docs/features/context/CONFIGURATION.md",
-      "source_sha256": "92c99d7ce11faa96adc096ebd7a73076068fec8b84a3b6eab96ff75dcc465d80",
-      "model_fingerprint": "697ed0d3842c8392bd148cc11626c70dc0529d21f3972a69a8afbf7b3c7f0f50",
+      "source_sha256": "13d3a91738a37c1d49ea9c985f055073ce35d714251c7ed3cbdaaf8c98fe2f70",
+      "model_fingerprint": "d2f4e4f71b87940320bb0da53db4b6245ee6b6e0879468504a652a9f7378d2c2",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -2918,7 +2914,11 @@
         "paragraph",
         "paragraph",
         "heading",
+        "code",
         "paragraph",
+        "paragraph",
+        "heading",
+        "code",
         "paragraph",
         "heading",
         "paragraph",
@@ -2975,9 +2975,9 @@
         "list"
       ],
       "content_counts": {
-        "paragraph": 37,
+        "paragraph": 38,
         "link": 5,
-        "code": 5,
+        "code": 7,
         "table": 1,
         "list": 8
       }
@@ -3481,8 +3481,8 @@
       "route": "/cli/WAVEFORM_PROCESS/",
       "title": "waveform-process 命令参考",
       "source": "docs/cli/WAVEFORM_PROCESS.md",
-      "source_sha256": "8a3b3977c2a2371dc189237435dddadbcc1767875a99fc47d19ca521145ba19f",
-      "model_fingerprint": "f5c14b97d3d3266b0c8a65f3961822b7bb8294ed1aff87c9dfce04f21ed2b5fe",
+      "source_sha256": "04bb757583ab7217d6afa83016f2dbe393a86827c56060aa0be9300ed9856210",
+      "model_fingerprint": "2e3f867524afe047e0c2e69fb88481a4a5df5dc95f006cf06045d542747809e9",
       "block_types": [
         "paragraph",
         "paragraph",
@@ -3508,6 +3508,7 @@
         "table",
         "heading",
         "table",
+        "paragraph",
         "paragraph",
         "heading",
         "heading",
@@ -3559,7 +3560,7 @@
         "paragraph"
       ],
       "content_counts": {
-        "paragraph": 28,
+        "paragraph": 29,
         "link": 3,
         "code": 10,
         "table": 5,

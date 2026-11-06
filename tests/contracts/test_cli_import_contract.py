@@ -203,8 +203,14 @@ class FakeContext:
     def get_adapter_info(self):
         return None
 
-    def show_resolved_config(self, **kwargs):
-        return None
+    def list_provided_data(self):
+        return ["fake-plugin"]
+
+    def get_config(self, plugin_name):
+        return self
+
+    def summary(self, **kwargs):
+        return "resolved configuration"
 
     def get_data(self, run_id, data_name):
         import numpy as np

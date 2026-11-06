@@ -771,7 +771,8 @@ _PARAMETER_HELP = {
     "data_name": "已注册插件提供的数据名称。",
     "plugin": "插件实例或其 `provides` 名称。",
     "plugin_name": "插件的 `provides` 名称。",
-    "name": "配置项名称。",
+    "name": "配置项名称；get_config 省略此项时解析全部声明的选项。",
+    "with_source": "单项查询为 True 时返回 ConfigValue；全量查询始终包含来源。",
     "adapter_name": "覆盖自动推断的 DAQ adapter 名称。",
     "refresh": "是否忽略已有 run 配置并重新读取。",
     "target": "要解析依赖的数据名称。",
@@ -786,9 +787,9 @@ _PARAMETER_HELP = {
     "time_field": "开始时间字段名；省略时自动推断。",
     "endtime_field": "结束时间字段名；省略时自动推断。",
     "force_rebuild": "是否强制重建已有时间索引。",
-    "time_domain": "查询时间域，默认 `system_ns`。",
-    "start_time": "系统时间范围的起点。",
-    "end_time": "系统时间范围的终点。",
+    "time_domain": "查询时间域：`system_ns`（ns，默认）或 `raw_ps`（ps）。",
+    "start_time": "整数时间或 datetime 起点；None 表示开放边界。",
+    "end_time": "整数时间或 datetime 终点；None 表示开放边界。",
     "auto_build_index": "索引缺失时是否自动建立。",
     "epoch": "要设置的绝对时间基准。",
     "time_unit": "数值 epoch 的单位。",
@@ -799,6 +800,9 @@ _PARAMETER_HELP = {
     "show_config": "是否显示解析后的配置。",
     "show_usage": "是否显示每项配置的使用位置。",
     "show_full_help": "是否显示完整帮助文本。",
+    "view": "配置视图：`summary` 为全局显式配置，`options` 为插件选项。",
+    "show_current_values": "是否解析当前值；False 时仅查看选项声明。",
+    "show_source": "是否在选项视图中显示配置来源、原始键名和推断信息。",
     "run_name": "在 show_config 的全局配置视图中标注缓存目录使用的运行名。",
     "show_cache": "是否显示缓存命中状态。",
     "verbose": "输出详细程度。",
@@ -876,14 +880,13 @@ _CALLABLE_RETURNS = {
     "Context": "已配置但未绑定当前 run 的 `Context` 实例。",
     "list_provided_data": "已注册插件的 `provides` 名称列表。",
     "get_plugin": "匹配的 `Plugin` 实例。",
-    "get_config_value": "带来源信息的 `ConfigValue`。",
-    "get_resolved_config": "插件的 `ResolvedConfig`。",
+    "get_config": "单项返回值或 ConfigValue（with_source=True）；省略 name 返回 ResolvedConfig。",
+    "show_config": "默认展示并返回 None；字典输出模式静默返回插件选项元数据。",
     "get_run_config": "指定 run 的配置字典。",
     "get_data": "请求的原生结果、数组或 chunk stream。",
     "build_time_index": "时间索引元数据字典。",
     "time_range": "命中时间范围的数组或数组列表。",
     "get_epoch": "指定 run 的 epoch；未设置时为 `None`。",
-    "get_data_time_range_absolute": "命中绝对时间范围的数组或数组列表。",
     "resolve_dependencies": "按执行顺序排列的依赖名称列表。",
     "get_lineage": "目标产物的 lineage 字典。",
     "plot_lineage": "图形对象或 Mermaid 文本，取决于 `kind`。",
@@ -905,8 +908,25 @@ _CALLABLE_RETURNS = {
 _CALLABLE_NOTES = {
     "Context": ("Context 无状态；数据访问必须显式传入 `run_id`。",),
     "register": ("插件行为变更后应升级插件版本，以保证缓存 lineage 失效。",),
-    "set_config": ("通过此入口更新配置会自动失效解析配置与规划缓存，无需手动清理内部缓存。",),
-    "show_config": ("`run_name` 是受支持的展示参数；仅在全局视图中标注缓存目录。",),
+    "set_config": (
+        "接受字典、字符串路径或 Path；JSON 可以是普通对象或含 custom_config 的快照。",
+        "文件验证完成后才更新配置；指定 plugin_name 浅更新插件块，否则浅更新顶层。",
+        "更新自动失效解析配置与规划缓存，无需手动清理内部缓存。",
+    ),
+    "get_config": (
+        "单项查询不校验其他选项；未知插件或选项抛出 KeyError。",
+        "adapter_name 仅覆盖本次查询的推断来源，显式值仍优先；不合并 run 或逐通道覆盖。",
+    ),
+    "show_config": (
+        '无参保留全局显式配置汇总；指定插件、show_source=True 或 view="options" 查询插件选项。',
+        "dict 输出仅用于选项视图；show_source=True 要求 show_current_values=True。",
+        "`run_name` 是受支持的展示参数；仅在全局视图中标注缓存目录。",
+    ),
+    "time_range": (
+        "整数边界的单位服从 time_domain；datetime 按 run epoch 转换，无时区边界采用 epoch 时区。",
+        "整数与 datetime 不可混用；两个开放边界不要求 epoch。缺少 epoch 可自动提取或明确报错。",
+        "不同时间域、time_field 和 endtime_field 隔离索引；硬件通道使用 board:channel。",
+    ),
     "get_lineage": ("只接收 `data_name`；递归状态由内部维护。",),
     "get_data": ("请求会按需解析依赖并复用有效缓存。",),
     "plot_lineage": ("`mermaid` 返回文本；`labview` 和 `plotly` 返回图形对象。",),
@@ -931,7 +951,10 @@ _CALLABLE_NOTES = {
 _CALLABLE_EXAMPLES = {
     "Context": """ctx = Context(config={\"data_root\": \"DAQ\", \"daq_adapter\": \"vx2730\"})\nctx.register(*profiles.cpu_default())""",
     "get_data": """peaks = ctx.get_data(\"run_001\", \"peaks\")""",
-    "show_config": """ctx.show_config()\nctx.show_config(run_name=\"run_001\")""",
+    "set_config": """from pathlib import Path\n\nctx.set_config({\"dt\": 4}, plugin_name=\"records\")\nctx.set_config(Path(\"settings.json\"))""",
+    "get_config": """value = ctx.get_config(\"records\", \"dt\")\nsource = ctx.get_config(\"records\", \"dt\", with_source=True)\nresolved = ctx.get_config(\"records\")""",
+    "show_config": """ctx.show_config()\nctx.show_config(run_name=\"run_001\")\nctx.show_config(\"records\", show_source=True)\noptions = ctx.show_config(view=\"options\", output=\"dict\")""",
+    "time_range": """from datetime import datetime, timedelta, timezone\n\nepoch = datetime(2024, 1, 1, tzinfo=timezone.utc)\nctx.set_epoch(\"run_001\", epoch)\nrecords = ctx.time_range(\"run_001\", \"records\", epoch, epoch + timedelta(seconds=1), channel=\"0:0\")""",
     "get_lineage": """lineage = ctx.get_lineage(\"peaks\")""",
     "plot_lineage": """figure = ctx.plot_lineage(\"peaks\", kind=\"plotly\", show_virtual_plugins=False)""",
     "clear_cache_for": """ctx.clear_cache_for(\"run_001\", \"peaks\", downstream=True)""",
@@ -971,11 +994,24 @@ def _callable_parameters(callable_obj: Any) -> tuple[AccessorParameterSpec, ...]
 
 def _context_spec(name: str, description: str) -> CallableDocumentationSpec:
     target = Context if name == "Context" else getattr(Context, name)
+    parameter_overrides = {
+        "set_config": {"config": "显式配置字典或 JSON 文件的字符串 / Path 路径。"},
+        "show_config": {
+            "data_name": "插件实例或 provides 名称；省略时按所选视图显示全局配置或全部插件。",
+            "output": "`display` 展示并返回 None；`dict` 静默返回选项元数据。",
+        },
+    }.get(name, {})
+    parameters = tuple(
+        AccessorParameterSpec(
+            parameter.name, parameter_overrides.get(parameter.name, parameter.description)
+        )
+        for parameter in _callable_parameters(target)
+    )
     return CallableDocumentationSpec(
         name,
         target,
         description,
-        _callable_parameters(target),
+        parameters,
         returns=_CALLABLE_RETURNS.get(name, "无返回值；结果通过 Context 状态或终端输出呈现。"),
         notes=_CALLABLE_NOTES.get(name, ()),
         example=_CALLABLE_EXAMPLES.get(name, ""),
@@ -992,7 +1028,6 @@ _CONTEXT_GROUP_RULES: tuple[tuple[str, str, str, tuple[str, ...]], ...] = (
         "创建 Context，注册或发现插件，并检查已提供的数据产物。",
         (
             "Context",
-            "from_config_json",
             "clone",
             "create_context_factory",
             "register",
@@ -1008,13 +1043,9 @@ _CONTEXT_GROUP_RULES: tuple[tuple[str, str, str, tuple[str, ...]], ...] = (
         (
             "set_config",
             "get_config",
-            "get_config_value",
-            "get_resolved_config",
-            "show_resolved_config",
             "show_config",
             "get_run_config",
             "get_adapter_info",
-            "list_plugin_configs",
         ),
     ),
     (
@@ -1027,7 +1058,6 @@ _CONTEXT_GROUP_RULES: tuple[tuple[str, str, str, tuple[str, ...]], ...] = (
             "time_range",
             "set_epoch",
             "get_epoch",
-            "get_data_time_range_absolute",
             "auto_extract_epoch",
         ),
     ),
@@ -1058,28 +1088,22 @@ _CONTEXT_GROUP_RULES: tuple[tuple[str, str, str, tuple[str, ...]], ...] = (
 # 方法描述兜底字典；未列出的方法会回退到 docstring 首行。
 _CONTEXT_DESCRIPTIONS: dict[str, str] = {
     "Context": "创建分析 Context；构造器不绑定某个 run。",
-    "from_config_json": "从 JSON 配置文件加载并应用配置。",
     "clone": "创建具有相同配置和插件注册的新 Context。",
     "create_context_factory": "构建可序列化的 context_factory 用于进程级执行器。",
     "register": "注册插件实例、插件类、模块或其序列。",
     "discover_and_register_plugins": "从 entry point 与配置目录发现插件。",
     "list_provided_data": "列出已注册的稳定数据名称。",
     "get_plugin": "按 `provides` 名称取得插件实例。",
-    "set_config": "设置全局或插件显式配置。",
-    "get_config": "读取插件的单项配置。",
-    "get_config_value": "读取单项配置及其解析来源。",
-    "get_resolved_config": "返回插件完整解析配置。",
-    "show_resolved_config": "打印解析配置。",
-    "show_config": "显示当前配置，并标识每个配置项对应的插件。",
+    "set_config": "从字典或 JSON 文件更新全局或插件显式配置。",
+    "get_config": "读取插件单项值、来源或完整解析配置。",
+    "show_config": "展示全局配置或插件选项，支持来源和字典输出。",
     "get_run_config": "读取特定 run 的 DAQ 配置。",
     "get_adapter_info": "获取 DAQ adapter 信息。",
-    "list_plugin_configs": "列出插件配置选项。",
     "get_data": "请求 run 的具名数据；未命中缓存时执行必要上游。",
     "build_time_index": "建立或刷新时间索引。",
-    "time_range": "在系统时间 ns 域查询范围。",
+    "time_range": "按整数时间域或 datetime 边界查询指定 run 的数据。",
     "set_epoch": "设置 run 的绝对时间 epoch。",
     "get_epoch": "读取 run 的 epoch。",
-    "get_data_time_range_absolute": "使用 datetime 边界查询绝对时间范围。",
     "auto_extract_epoch": "自动提取 run 的 epoch。",
     "resolve_dependencies": "返回目标依赖执行顺序。",
     "get_lineage": "返回插件 lineage 数据结构。",
@@ -1276,7 +1300,7 @@ _CONTEXT_NARRATIVE_SECTIONS = (
                 kind="list",
                 ordered=True,
                 items=(
-                    "执行前可用 `resolve_dependencies(data_name, run_id=run_id)` 查看依赖顺序，用 `get_resolved_config(data_name)` 检查配置；拓扑顺序不代表本次重算范围。",
+                    "执行前可用 `resolve_dependencies(data_name, run_id=run_id)` 查看依赖顺序，用 `get_config(data_name)` 检查配置；拓扑顺序不代表本次重算范围。",
                     "IO 密集型任务通常选 `thread`，CPU 密集型任务通常选 `process`；进程任务的函数、参数和 `Context` 工厂必须可 pickle。",
                     "复用执行器必须保持稳定的名称、类型和 `max_workers`；推荐使用 `with get_executor(...)`，不要依赖内部 `_executor_refs`。",
                     "多个 run 不共享可变 Context；使用 `BatchProcessor` 的 `context_factory` 或显式 `ctx.clone()`，让每个 run 的缓存和错误边界可追踪。",
@@ -1315,7 +1339,7 @@ _CONTEXT_NARRATIVE_SECTIONS = (
                 kind="list",
                 items=(
                     "执行计划异常：检查 `resolve_dependencies()`、`get_lineage()` 和执行日志。",
-                    "配置来源异常：检查 `get_resolved_config()`；不要只看传入 Context 的原始字典。",
+                    "配置来源异常：检查 `get_config()`；不要只看传入 Context 的原始字典。",
                     "并行任务泄漏或重复创建：检查执行器名称、`reuse`、`release_executor()` 与 `get_executor_manager().list_executors()`。",
                     "进程池失败：先确认函数/参数可序列化，再降低 `max_workers` 或切换到 `thread`；不要静默改变 `run_id` 或缓存目录。",
                 ),
@@ -1751,10 +1775,11 @@ def _adapter_callable_spec(
     notes: tuple[str, ...] = (),
     example: str = "",
 ) -> CallableDocumentationSpec:
+    parameter_help = _PARAMETER_HELP if name == "Context.get_config" else _ADAPTER_PARAMETER_HELP
     parameters = tuple(
         AccessorParameterSpec(
             param_name,
-            _ADAPTER_PARAMETER_HELP.get(param_name, f"`{param_name}` 的调用参数。"),
+            parameter_help.get(param_name, f"`{param_name}` 的调用参数。"),
         )
         for param_name in inspect.signature(callable_obj).parameters
         if param_name != "self"
@@ -1816,7 +1841,7 @@ ADAPTER_DOCUMENTATION_PAGE = CallableDocumentationPageSpec(
                         "ctx.register(*profiles.cpu_default())\n\n"
                         "# adapter 元数据与解析后的插件配置均可直接检查。\n"
                         "print(ctx.get_adapter_info())\n"
-                        'ctx.show_resolved_config("records")\n'
+                        'ctx.show_config("records", show_source=True)\n'
                         'records = ctx.get_data(run_id, "records")'
                     ),
                 ),
@@ -1839,16 +1864,16 @@ ADAPTER_DOCUMENTATION_PAGE = CallableDocumentationPageSpec(
                     ),
                 ),
                 _adapter_callable_spec(
-                    "Context.get_resolved_config",
-                    Context.get_resolved_config,
+                    "Context.get_config",
+                    Context.get_config,
                     "获取指定插件的最终配置，用于区分显式值、adapter 推断值与插件默认值。",
-                    returns="包含配置来源的 `ResolvedConfig`。",
+                    returns=_CALLABLE_RETURNS["get_config"],
                     notes=(
                         "传入字符串时，该插件必须已通过 `Context.register()` 注册。",
                         "adapter 名称和解析结果会参与配置签名与缓存 lineage；同名注册表格式替换后须新建 Context，已有 Context 不支持热替换。",
                     ),
                     example=(
-                        'resolved = ctx.get_resolved_config("records")\n'
+                        'resolved = ctx.get_config("records")\n'
                         "print(resolved.summary(verbose=True))"
                     ),
                 ),

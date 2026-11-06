@@ -130,13 +130,13 @@ def test_new_context_infers_replaced_registry_metadata(registered_adapter, tmp_p
     adapter, register = registered_adapter
     before = Context(storage_dir=str(tmp_path / "before"), config={"daq_adapter": adapter.name})
     before.register(MetadataConsumer)
-    assert before.get_resolved_config(MetadataConsumer.provides).get("dt_ns") == 2
+    assert before.get_config(MetadataConsumer.provides).get("dt_ns") == 2
 
     register(sampling_rate_hz=250e6)
     after = Context(storage_dir=str(tmp_path / "after"), config={"daq_adapter": adapter.name})
     after.register(MetadataConsumer)
 
-    resolved = after.get_resolved_config(MetadataConsumer.provides)
+    resolved = after.get_config(MetadataConsumer.provides)
     assert resolved.get("sampling_rate_hz") == 250e6
     assert resolved.get("dt_ns") == 4
     assert resolved.get("dt_ps") == 4000

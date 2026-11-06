@@ -204,7 +204,9 @@ def main():
 
             # 显示关键插件的配置
             print("\n" + "-" * 60)
-            ctx.show_resolved_config(verbose=args.verbose)
+            for plugin_name in ctx.list_provided_data():
+                print(ctx.get_config(plugin_name).summary(verbose=args.verbose))
+                print()
 
             return 0
 

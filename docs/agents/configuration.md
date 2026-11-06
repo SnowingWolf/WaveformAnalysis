@@ -239,7 +239,7 @@ ctx.set_config(
 
 ## 推荐实践
 - 全局设置 `daq_adapter`，减少链路配置漂移
-- 使用 `ctx.get_resolved_config()` 检查配置来源
+- 使用 `ctx.get_config(plugin)` 检查配置来源
 - 参数重命名要走兼容层并评估弃用窗口
 - 当同一插件需要按极性、板卡或通道做差异化控制时，优先在该插件的 `channel_config` 内分层表达，不要再拆多套 context
 - 若目录结构为 `/data/<run_id>/DAQ/RAW`，建议显式设置 `run_config_path`，避免默认 run 级配置路径不匹配：

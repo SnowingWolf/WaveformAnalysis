@@ -73,7 +73,7 @@ Context 模块采用 **Domain-Driven Design** 思想，将职责划分到四个�
 
 **关键方法**：
 ```python
-- get_resolved_config()                # 获取解析后配置
+- get_config()                # 获取解析后配置
 - get_run_config()                     # 获取运行配置
 - maybe_invalidate_run_config_cache()  # 运行配置变化失效
 - resolve_adapter_name_for_plugin()    # 解析插件 adapter
@@ -106,7 +106,7 @@ Context 模块采用 **Domain-Driven Design** 思想，将职责划分到四个�
 - build_time_index()                   # 构建时间索引
 - time_range()                         # 时间范围查询
 - set_epoch() / get_epoch()            # epoch 管理
-- get_data_time_range_absolute()       # 绝对时间查询
+- time_range(..., start_time=datetime) # 绝对时间边界同样使用 time_range
 ```
 
 ### 2.2 数据流与执行流程
@@ -356,19 +356,19 @@ report = ctx.get_performance_report()
 
 #### 🔴 重复的功能入口
 
-**问题**：`show_config()` 和 `list_plugin_configs()` 功能有重叠
+**已收敛**：配置展示统一到 `show_config()`。
 
 ```python
-# 两个方法都可以查看配置
-ctx.show_config("waveforms")           # 通过 show_config
-ctx.list_plugin_configs("waveforms")  # 专门的配置列表方法
+# 展示与程序化读取使用同一入口
+ctx.show_config("st_waveforms")
+options = ctx.show_config("st_waveforms", output="dict")
 ```
 
 **当前分工**：
 - `show_config()` 显示全局配置汇总，`run_name` 可用于标注缓存目录。
-- `show_config(data_name)` 保留指定插件展示，委托 `list_plugin_configs()`。
-- `list_plugin_configs(plugin_name)` 显示单个插件的配置清单。
-- `show_resolved_config(plugin_name)` 展示解析后的配置与来源。
+- `show_config(data_name)` 展示指定插件的配置清单。
+- `show_config(view="options", output="dict")` 返回全部插件的配置元数据。
+- `show_config(plugin_name, show_source=True)` 展示解析后的配置与来源。
 
 #### 🟡 多个缓存清理接口
 
@@ -389,12 +389,13 @@ ctx.set_config({'threshold': 15}, plugin_name='hit_threshold')  # 自动失效�
 
 通过代码分析，以下方法可能使用率较低：
 
-1. `from_config_json()` - 可能更常用 `set_config()`
+1. `from_config_json()` - 已合并到 `set_config(path)`
 2. `get_adapter_info()` - 除非需要查询 adapter 信息
 3. `get_performance_report()` - 仅在启用 stats 时有用
 4. `analyze_dependencies()` - 是高级功能，不是日常使用
 
-**当前边界**：以上 API 均保留。仓库调用频率不能代表外部用户依赖，不据此增加删除范围。
+**当前边界**：`from_config_json()` 已合并；`analyze_dependencies()` 已随高级诊断退役。
+`get_adapter_info()` 与 `get_performance_report()` 保留。仓库调用频率不能代表外部用户依赖，不据此增加删除范围。
 
 ### 5.3 性能瓶颈点
 
@@ -689,7 +690,7 @@ ctx.get_data(run_id, data_name)             # 获取数据
 ctx.set_config({...})                       # 设置配置
 ctx.get_config(plugin, name)                # 获取配置
 ctx.show_config(data_name=None)             # 显示配置
-ctx.list_plugin_configs(plugin_name)        # 列出插件配置
+ctx.show_config(plugin_name)                # 列出插件配置
 
 # === 缓存管理 ===
 ctx.clear_cache_for(run_id, data_name)      # 清理缓存

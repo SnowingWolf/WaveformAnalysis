@@ -70,7 +70,8 @@ def displayed(monkeypatch):
 def test_option_metadata_and_tables_match_both_config_views(
     config_context, displayed, show_full_help
 ):
-    result = config_context.list_plugin_configs(show_full_help=show_full_help)
+    result = config_context.show_config(view="options", output="dict")
+    config_context.show_config(view="options", show_full_help=show_full_help)
     overview, option_style = displayed
     options = option_style.data
 
@@ -131,7 +132,8 @@ def test_config_summary_keeps_explicit_value_while_option_list_resolves_it(tmp_p
 
     ctx = Context(storage_dir=str(tmp_path), config={"converted_config": {"threshold": "2"}})
     ctx.register(ConvertedPlugin)
-    result = ctx.list_plugin_configs()
+    result = ctx.show_config(view="options", output="dict")
+    ctx.show_config(view="options")
     listed = displayed[1].data.loc[("converted_config", "threshold")]
     assert result["converted_config"]["options"]["threshold"]["current_value"] == 2
     assert listed["current"] == "2"
@@ -145,7 +147,8 @@ def test_config_summary_keeps_explicit_value_while_option_list_resolves_it(tmp_p
 
 
 def test_default_only_config_view_keeps_columns_without_current_values(config_context, displayed):
-    result = config_context.list_plugin_configs(show_current_values=False)
+    result = config_context.show_config(view="options", output="dict", show_current_values=False)
+    config_context.show_config(view="options", show_current_values=False)
     overview, option_style = displayed
     assert list(overview.index) == ["alpha_config", "zeta_config"]
     assert overview["modified"].isna().all()
@@ -167,7 +170,7 @@ def test_config_tables_fall_back_to_terminal_without_ipython(
 ):
     monkeypatch.setitem(sys.modules, "IPython.display", None)
     if entry_point == "list":
-        config_context.list_plugin_configs(show_full_help=True)
+        config_context.show_config(view="options", show_full_help=True)
     else:
         config_context.show_config(show_usage=False, show_full_help=True)
     output = capsys.readouterr().out

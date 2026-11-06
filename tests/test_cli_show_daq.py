@@ -106,8 +106,16 @@ def test_cli_show_config_uses_monkeypatched_runtime_attributes(monkeypatch):
         def get_adapter_info(self):
             return None
 
-        def show_resolved_config(self, **kwargs):
+        def list_provided_data(self):
+            return ["fake-plugin"]
+
+        def get_config(self, plugin_name):
+            captured["config_plugin"] = plugin_name
+            return self
+
+        def summary(self, **kwargs):
             captured["show_kwargs"] = kwargs
+            return "resolved configuration"
 
     class _FakeProfiles:
         @staticmethod

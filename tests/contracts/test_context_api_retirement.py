@@ -61,6 +61,12 @@ def test_retired_context_members_are_absent(api_context):
         "analyze_dependencies",
         "analyze_cache",
         "cache_stats",
+        "get_config_value",
+        "get_resolved_config",
+        "show_resolved_config",
+        "from_config_json",
+        "list_plugin_configs",
+        "get_data_time_range_absolute",
     ):
         assert not hasattr(Context, name)
         assert not hasattr(api_context, name)
@@ -91,6 +97,11 @@ def test_context_signatures_expose_only_supported_parameters():
         "show_usage",
         "show_full_help",
         "run_name",
+        "view",
+        "output",
+        "show_current_values",
+        "show_source",
+        "adapter_name",
     )
 
 

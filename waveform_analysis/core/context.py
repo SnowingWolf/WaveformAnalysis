@@ -22,8 +22,9 @@ import inspect
 import json
 import logging
 import os
+from pathlib import Path
 import threading
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal, overload
 
 # 2. Third-party imports
 import numpy as np
@@ -197,21 +198,6 @@ class Context:
     _TIME_DOMAIN_SYSTEM_NS = "system_ns"
     _TIME_DOMAIN_RAW_PS = "raw_ps"
     _TIME_DOMAIN_CHOICES = frozenset({_TIME_DOMAIN_SYSTEM_NS, _TIME_DOMAIN_RAW_PS})
-
-    def from_config_json(
-        self,
-        config_json_path: str,
-        plugin_name: str | None = None,
-    ) -> None:
-        """
-        Load config from a JSON file and apply it to the current Context.
-
-        Args:
-            config_json_path: JSON file path. Relative paths are resolved from the current cwd.
-            plugin_name: Optional plugin namespace passed through to ``set_config``.
-        """
-        file_config = _extract_config_payload(_load_json_object(str(config_json_path)))
-        self.set_config(file_config, plugin_name=plugin_name)
 
     def __init__(
         self,
@@ -652,41 +638,74 @@ class Context:
     # Config Resolution
     # ===========================
 
-    def set_config(self, config: dict[str, Any], plugin_name: str | None = None):
+    def set_config(
+        self, config: dict[str, Any] | str | Path, plugin_name: str | None = None
+    ) -> None:
+        """Apply a configuration mapping or a JSON file to this Context.
+
+        JSON accepts a plain object or a snapshot containing ``custom_config``.
+        File loading and JSON validation finish before configuration is changed.
+        With ``plugin_name``, shallow-update that plugin's block; otherwise
+        shallow-update the top-level configuration (replacing supplied blocks).
+        """
+        if isinstance(config, str | Path):
+            config = _extract_config_payload(_load_json_object(str(config)))
+        elif not isinstance(config, dict):
+            raise TypeError("config must be a dict or a JSON file path")
         self._config_domain.set_config(config, plugin_name=plugin_name)
 
-    def get_config_value(
-        self,
-        plugin: Plugin,
-        name: str,
-        adapter_name: str | None = None,
-    ) -> ConfigValue:
-        return self._config_domain.get_config_value(plugin, name, adapter_name=adapter_name)
-
-    def get_config(self, plugin: Plugin, name: str) -> Any:
-        return self._config_domain.get_config(plugin, name)
-
-    def get_resolved_config(
+    @overload
+    def get_config(
         self,
         plugin: Plugin | str,
+        name: str,
+        *,
+        with_source: Literal[True],
         adapter_name: str | None = None,
-    ) -> ResolvedConfig:
-        return self._config_domain.get_resolved_config(plugin, adapter_name=adapter_name)
+    ) -> ConfigValue: ...
+
+    @overload
+    def get_config(
+        self,
+        plugin: Plugin | str,
+        name: str,
+        *,
+        with_source: Literal[False] = False,
+        adapter_name: str | None = None,
+    ) -> Any: ...
+
+    @overload
+    def get_config(
+        self,
+        plugin: Plugin | str,
+        name: None = None,
+        *,
+        with_source: bool = False,
+        adapter_name: str | None = None,
+    ) -> ResolvedConfig: ...
+
+    def get_config(
+        self,
+        plugin: Plugin | str,
+        name: str | None = None,
+        *,
+        with_source: bool = False,
+        adapter_name: str | None = None,
+    ) -> Any:
+        """Resolve one option, or all declared options when name is omitted.
+
+        A named option returns its validated value; ``with_source=True`` returns
+        its ConfigValue instead. With no name, return a ResolvedConfig including
+        sources. Single-option queries do not validate unrelated options.
+        ``adapter_name`` changes inference for this query only; explicit option
+        values still take precedence. Run/channel overrides are not merged here.
+        """
+        return self._config_domain.get_config(
+            plugin, name, with_source=with_source, adapter_name=adapter_name
+        )
 
     def get_run_config(self, run_id: str, refresh: bool = False) -> dict[str, Any]:
         return self._config_domain.get_run_config(run_id, refresh=refresh)
-
-    def show_resolved_config(
-        self,
-        plugin: Plugin | str | None = None,
-        verbose: bool = True,
-        adapter_name: str | None = None,
-    ) -> None:
-        self._config_domain.show_resolved_config(
-            plugin=plugin,
-            verbose=verbose,
-            adapter_name=adapter_name,
-        )
 
     def get_adapter_info(self, adapter_name: str | None = None) -> AdapterInfo | None:
         """获取 DAQ adapter 信息
@@ -742,50 +761,54 @@ class Context:
 
     def show_config(
         self,
-        data_name: str | None = None,
+        data_name: str | Plugin | None = None,
         show_usage: bool = True,
         show_full_help: bool = False,
         run_name: str | None = None,
-    ):
+        *,
+        view: str | None = None,
+        output: str = "display",
+        show_current_values: bool = True,
+        show_source: bool = False,
+        adapter_name: str | None = None,
+    ) -> dict[str, Any] | None:
+        """Display the global configuration summary or plugin option metadata.
+
+        No arguments keep the raw global summary. A plugin, ``show_source=True``
+        or ``view="options"`` selects resolved plugin options; without a plugin
+        the options view covers all registered plugins. ``output="dict"`` returns
+        the options metadata without displaying it. The default display returns
+        None. ``show_current_values=False`` inspects declarations without parsing
+        current values. ``run_name`` labels directories in the global summary.
         """
-        显示当前配置，并标识每个配置项对应的插件
-
-        Args:
-            data_name: 可选，指定插件名称以只显示该插件的配置
-            show_usage: 是否显示配置项被哪些插件使用（仅在显示全局配置时有效）
-            show_full_help: 是否显示完整 help 文本（默认截断）
-            run_name: 可选，显示缓存目录时使用的运行名（仅全局配置视图）。
-
-        Examples:
-            >>> # 显示全局配置，包含配置项使用情况
-            >>> ctx.show_config()
-
-            >>> # 显示特定插件的配置
-            >>> ctx.show_config('waveforms')
-
-            >>> # 显示全局配置，但不显示使用情况
-            >>> ctx.show_config(show_usage=False)
-
-            >>> # 显示指定运行的缓存目录
-            >>> ctx.show_config(run_name='run_001')
-
-        关联说明：
-            - 若 data_name 指定为插件名，会直接调用 list_plugin_configs 来展示该插件的“配置项清单”。
-            - 若 data_name 未指定，则展示“当前配置汇总”（全局/插件特定/未使用）。
-        """
-
-        if data_name and data_name in self._plugins:
-            # 显示特定插件的配置
-            self.list_plugin_configs(
-                plugin_name=data_name,
-                show_current_values=True,
-                verbose=True,
-                as_dataframe=True,
-                show_full_help=show_full_help,
-            )
-        else:
-            # 显示全局配置
+        selected_view = view or ("options" if data_name is not None or show_source else "summary")
+        if selected_view not in ("summary", "options"):
+            raise ValueError("view must be 'summary' or 'options'")
+        if output not in ("display", "dict"):
+            raise ValueError("output must be 'display' or 'dict'")
+        if selected_view == "summary":
+            if (
+                data_name is not None
+                or output != "display"
+                or show_source
+                or adapter_name is not None
+            ):
+                raise ValueError(
+                    "plugin selection, dict output and sources require the options view"
+                )
             self._show_global_config(show_usage, show_full_help=show_full_help, run_name=run_name)
+            return None
+        if show_source and not show_current_values:
+            raise ValueError("show_source requires show_current_values=True")
+        result = self._plugin_config_options(
+            data_name,
+            show_current_values=show_current_values,
+            display=output == "display",
+            show_full_help=show_full_help,
+            show_source=show_source,
+            adapter_name=adapter_name,
+        )
+        return result if output == "dict" else None
 
     def _register_from_module(
         self, module, allow_override: bool = False, require_spec: bool = False
@@ -1364,7 +1387,7 @@ class Context:
 
         # Filter config to only include tracked options
         config = {}
-        resolved = self.get_resolved_config(plugin)
+        resolved = self.get_config(plugin)
         for k in plugin.config_keys:
             opt = plugin.options.get(k)
             if opt and getattr(opt, "track", True):
@@ -1470,6 +1493,15 @@ class Context:
             ),
             "track": info.get("track", True),
             "_is_default": is_default,
+            **(
+                {
+                    "source": info["source"],
+                    "inferred_from": info.get("inferred_from"),
+                    "original_key": info.get("original_key"),
+                }
+                if "source" in info
+                else {}
+            ),
         }
 
     @staticmethod
@@ -1510,42 +1542,24 @@ class Context:
             styler = styler.apply(_highlight_modified, axis=1)
         return styler
 
-    def list_plugin_configs(
+    def _plugin_config_options(
         self,
-        plugin_name: str | None = None,
+        plugin: str | Plugin | None = None,
         show_current_values: bool = True,
-        verbose: bool = True,
-        as_dataframe: bool = True,
+        display: bool = True,
         show_full_help: bool = False,
+        show_source: bool = False,
+        adapter_name: str | None = None,
     ):
-        """
-        列出插件配置选项（支持 DataFrame 展示）
-
-        与 show_config 的关系：
-        - list_plugin_configs 面向“配置选项清单”，展示插件有哪些可配置项、默认值/当前值、修改状态。
-        - show_config 在指定 plugin_name 时会直接复用本方法，以确保展示样式一致。
-        - show_config 在未指定 plugin_name 时展示“当前配置汇总”（全局/插件特定/未使用）。
-
-        Returns:
-            默认仍返回 result dict；
-            如果 as_dataframe=True 且 verbose=True，会额外显示 DataFrame；
-        """
-
+        """Collect option metadata and optionally display the matching tables."""
         result: dict[str, Any] = {}
-
-        # 确定要显示的插件列表
-        if plugin_name is not None:
-            if plugin_name not in self._plugins:
-                print(f"❌ 插件 '{plugin_name}' 未注册")
-                print(f"已注册的插件: {', '.join(self._plugins.keys())}")
-                return {}
-            plugins_to_show = {plugin_name: self._plugins[plugin_name]}
-        else:
-            plugins_to_show = self._plugins
-
+        if isinstance(plugin, str):
+            plugin = self.get_plugin(plugin)
+        plugins_to_show = {plugin.provides: plugin} if plugin is not None else self._plugins
         if not plugins_to_show:
-            print("⚠️  没有已注册的插件")
-            return {}
+            if display:
+                print("⚠️  没有已注册的插件")
+            return result
 
         # 收集每个插件的配置信息
         for name, plugin in plugins_to_show.items():
@@ -1556,25 +1570,32 @@ class Context:
                 "options": {},
             }
 
+            if show_source:
+                plugin_info["adapter_name"] = (
+                    adapter_name
+                    if adapter_name is not None
+                    else self._config_domain.resolve_adapter_name_for_plugin(plugin)
+                )
             for opt_name, option in plugin.options.items():
                 opt_info = self._config_option_metadata(option)
-
-                # 获取当前配置值
                 if show_current_values:
-                    try:
-                        current_value = self._config_domain.get_config(plugin, opt_name)
-                        opt_info["current_value"] = current_value
-                        opt_info["is_default"] = current_value == option.default
-                    except KeyError:
-                        opt_info["current_value"] = None
-                        opt_info["is_default"] = True
-
+                    cv = self.get_config(
+                        plugin, opt_name, with_source=True, adapter_name=adapter_name
+                    )
+                    opt_info["current_value"] = cv.value
+                    opt_info["is_default"] = cv.value == option.default
+                    if show_source:
+                        opt_info.update(
+                            source=cv.source.value,
+                            original_key=cv.original_key,
+                            inferred_from=cv.inferred_from,
+                        )
                 plugin_info["options"][opt_name] = opt_info
 
             result[name] = plugin_info
 
         # DataFrame 展示
-        if verbose and as_dataframe:
+        if display:
             import pandas as pd
 
             # 在 notebook 中 display（若不可用则 fallback）
@@ -1595,6 +1616,7 @@ class Context:
                 plugin_rows.append(
                     {
                         "plugin": pname,
+                        **({"adapter": info["adapter_name"]} if show_source else {}),
                         "class": info["class"],
                         "version": info["version"],
                         "description": info["description"],
@@ -1869,14 +1891,23 @@ class Context:
         self,
         run_id: str,
         data_name: str,
-        start_time: int | None = None,
-        end_time: int | None = None,
+        start_time: int | datetime | None = None,
+        end_time: int | datetime | None = None,
         time_field: str | None = None,
         endtime_field: str | None = None,
         auto_build_index: bool = True,
         channel: int | HardwareChannel | tuple[int, int] | str | None = None,
         time_domain: str = _TIME_DOMAIN_SYSTEM_NS,
+        *,
+        auto_extract_epoch: bool = True,
     ) -> np.ndarray | list[np.ndarray]:
+        """Query integer time-axis bounds or datetime bounds relative to the run epoch.
+
+        Integer units follow time_domain: system_ns or raw_ps. Datetime bounds
+        are converted using the run epoch; missing epochs may be extracted when
+        enabled. Naive datetimes use the epoch timezone. None means an open bound;
+        two None bounds do not require an epoch. Mixed integer/datetime bounds fail.
+        """
         return self._time_domain.time_range(
             run_id,
             data_name,
@@ -1887,6 +1918,7 @@ class Context:
             auto_build_index=auto_build_index,
             channel=channel,
             time_domain=time_domain,
+            auto_extract_epoch=auto_extract_epoch,
         )
 
     def set_epoch(
@@ -1908,32 +1940,6 @@ class Context:
     ) -> Any:
         return self._time_domain.auto_extract_epoch(
             run_id, strategy=strategy, file_paths=file_paths
-        )
-
-    def get_data_time_range_absolute(
-        self,
-        run_id: str,
-        data_name: str,
-        start_dt: datetime | None = None,
-        end_dt: datetime | None = None,
-        time_field: str | None = None,
-        endtime_field: str | None = None,
-        auto_build_index: bool = True,
-        channel: int | HardwareChannel | tuple[int, int] | str | None = None,
-        auto_extract_epoch: bool = True,
-        time_domain: str = _TIME_DOMAIN_SYSTEM_NS,
-    ) -> np.ndarray | list[np.ndarray]:
-        return self._time_domain.get_data_time_range_absolute(
-            run_id,
-            data_name,
-            start_dt=start_dt,
-            end_dt=end_dt,
-            time_field=time_field,
-            endtime_field=endtime_field,
-            auto_build_index=auto_build_index,
-            channel=channel,
-            auto_extract_epoch=auto_extract_epoch,
-            time_domain=time_domain,
         )
 
     # ==========================

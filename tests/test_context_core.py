@@ -78,7 +78,7 @@ def test_context_config(tmp_path):
     assert data[0]["val"] == 10
 
 
-def test_context_from_config_json_loads_file(tmp_path):
+def test_context_set_config_json_loads_file(tmp_path):
     config_path = tmp_path / "context_config.json"
     config_path.write_text(
         json.dumps({"data_root": "DAQ", "threshold": 7}),
@@ -86,13 +86,13 @@ def test_context_from_config_json_loads_file(tmp_path):
     )
 
     ctx = Context(storage_dir=str(tmp_path / "cache"))
-    ctx.from_config_json(str(config_path))
+    ctx.set_config(str(config_path))
 
     assert ctx.config["data_root"] == "DAQ"
     assert ctx.config["threshold"] == 7
 
 
-def test_context_from_config_json_updates_existing_context_like_set_config(tmp_path):
+def test_context_set_config_json_updates_existing_context_like_set_config(tmp_path):
     config_path = tmp_path / "context_config.json"
     config_path.write_text(
         json.dumps({"data_root": "DAQ", "threshold": 7}),
@@ -100,33 +100,33 @@ def test_context_from_config_json_updates_existing_context_like_set_config(tmp_p
     )
 
     ctx = Context(storage_dir=str(tmp_path / "cache"), config={"threshold": 9})
-    ctx.from_config_json(str(config_path))
+    ctx.set_config(str(config_path))
 
     assert ctx.config["data_root"] == "DAQ"
     assert ctx.config["threshold"] == 7
 
 
-def test_context_from_config_json_requires_object(tmp_path):
+def test_context_set_config_json_requires_object(tmp_path):
     config_path = tmp_path / "context_config.json"
     config_path.write_text(json.dumps([1, 2, 3]), encoding="utf-8")
 
     ctx = Context(storage_dir=str(tmp_path / "cache"))
 
     with pytest.raises(ValueError, match="JSON object"):
-        ctx.from_config_json(str(config_path))
+        ctx.set_config(str(config_path))
 
 
-def test_context_from_config_json_supports_plugin_namespace(tmp_path):
+def test_context_set_config_json_supports_plugin_namespace(tmp_path):
     config_path = tmp_path / "plugin_config.json"
     config_path.write_text(json.dumps({"threshold": 11}), encoding="utf-8")
 
     ctx = Context(storage_dir=str(tmp_path / "cache"))
-    ctx.from_config_json(str(config_path), plugin_name="mock_plugin")
+    ctx.set_config(str(config_path), plugin_name="mock_plugin")
 
     assert ctx.config["mock_plugin"]["threshold"] == 11
 
 
-def test_context_from_config_json_accepts_custom_config_snapshot(tmp_path):
+def test_context_set_config_json_accepts_custom_config_snapshot(tmp_path):
     config_path = tmp_path / "runtime_config.json"
     config_path.write_text(
         json.dumps(
@@ -144,7 +144,7 @@ def test_context_from_config_json_accepts_custom_config_snapshot(tmp_path):
     )
 
     ctx = Context(storage_dir=str(tmp_path / "cache"))
-    ctx.from_config_json(str(config_path))
+    ctx.set_config(str(config_path))
 
     assert ctx.config["data_root"] == "DAQ"
     assert ctx.config["basic_features"]["area_range"] == [1800, 3000]

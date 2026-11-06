@@ -124,7 +124,7 @@ record_scale = RecordScalePlugin()
 ctx.register(record_scale)
 
 # 查看解析后的配置，再请求目标产物；get_data() 才会按需触发 DAG 执行。
-ctx.show_resolved_config("record_scale", verbose=True)
+ctx.show_config("record_scale", show_source=True)
 scaled = ctx.get_data("run_001", "record_scale")
 ```
 
@@ -175,12 +175,12 @@ ctx = Context(
 ctx.register(RecordScalePlugin())
 
 plugin = ctx.get_plugin("record_scale")
-scale_value = ctx.get_config_value(plugin, "scale")
+scale_value = ctx.get_config(plugin, "scale", with_source=True)
 print(scale_value.value, scale_value.source, scale_value.original_key)
 
 # 运行中修改配置会清除解析缓存；下一次读取时重新校验并生成新配置身份。
 ctx.set_config({"scale": 0.75}, plugin_name="record_scale")
-resolved = ctx.get_resolved_config("record_scale")
+resolved = ctx.get_config("record_scale")
 print(resolved.to_dict())
 ```
 
@@ -189,10 +189,10 @@ print(resolved.to_dict())
 | `ctx.register(...)` | 加入插件实例、类、模块或插件集 | Context 初始化阶段 |
 | `ctx.set_config(...)` | 修改全局或某个插件的原始配置 | 用户选择参数或运行前覆盖默认值 |
 | `ctx.get_config(plugin, name)` | 读取已经校验后的单个值 | `compute()` 内部计算 |
-| `ctx.get_config_value(plugin, name)` | 同时读取值、来源和原始键名 | 调试优先级、alias 或 adapter 推断 |
-| `ctx.get_resolved_config(plugin)` | 获取插件完整的解析配置 | 生成配置快照、比较 lineage |
-| `ctx.show_resolved_config(plugin, verbose=True)` | 打印按来源分组的配置 | 人工检查最终生效值 |
-| `ctx.list_plugin_configs(plugin_name, verbose=False)` | 返回选项定义与当前值字典 | 检查默认值、类型和修改状态 |
+| `ctx.get_config(plugin, name, with_source=True)` | 同时读取值、来源和原始键名 | 调试优先级、alias 或 adapter 推断 |
+| `ctx.get_config(plugin)` | 获取插件完整的解析配置 | 生成配置快照、比较 lineage |
+| `ctx.show_config(plugin, show_source=True)` | 展示带来源列的配置表 | 人工检查最终生效值 |
+| `ctx.show_config(plugin_name, output="dict")` | 返回选项定义与当前值字典 | 检查默认值、类型和修改状态 |
 | `ctx.show_config(data_name)` | 展示插件选项表；省略名称时展示全局配置分组 | 交互式查看配置概览 |
 
 显式配置可以在创建 Context 时传入，也可以用 `ctx.set_config(config)` 更新；传入
@@ -222,10 +222,10 @@ class ConfiguredPlugin(Plugin):
 ```
 
 插件内部使用 `context.get_config(self, name)` 只取值；需要判断值从哪里来时使用
-`context.get_config_value(self, name)`，它返回值、来源、原始键名和规范键名。需要一次查看插件
-全部配置时使用 `ctx.get_resolved_config("record_scale")`，可编程读取 `to_dict()`，或者使用
-`ctx.show_resolved_config("record_scale", verbose=True)` 查看 explicit、adapter inferred 和默认值
-分组。`track=False` 的选项不会进入用于 lineage 的配置快照，适合只影响日志或执行细节而不改变结果
+`context.get_config(self, name, with_source=True)`，它返回值、来源、原始键名和规范键名。需要一次查看插件
+全部配置时使用 `ctx.get_config("record_scale")`，可编程读取 `to_dict()`，或者使用
+`ctx.show_config("record_scale", show_source=True)` 查看 explicit、adapter inferred 和默认值
+来源。`track=False` 的选项不会进入用于 lineage 的配置快照，适合只影响日志或执行细节而不改变结果
 语义的参数；会改变结果的选项应保持默认的 `track=True`。
 
 ## 依赖解析与 lineage

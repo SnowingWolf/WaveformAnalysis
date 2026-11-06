@@ -1,6 +1,6 @@
 # Context API 优化计划
 
-> 状态：已确认精简公开缓存维护入口、摘要属性、冗余参数及进阶诊断包装；2026-11-05 补充诊断接口收敛。
+> 状态：已确认精简公开缓存维护入口、摘要属性、冗余参数及进阶诊断包装；配置和时间查询的六项入口合并见下表。
 > 范围：`waveform_analysis/core/context.py`、相关 domain、调用方与文档目录。
 > 用户迁移说明：[配置管理](../features/context/CONFIGURATION.md#context-api-迁移)。
 
@@ -17,6 +17,10 @@
 
 | 原形式 | 当前契约 | 调用方迁移 |
 | --- | --- | --- |
+| `get_config_value()` / `get_resolved_config()` | 统一为 `get_config()`。 | 单项来源使用 `with_source=True`；省略 `name` 返回完整 `ResolvedConfig`。 |
+| `show_resolved_config()` / `list_plugin_configs()` | 统一为 `show_config()`。 | 来源展示使用 `show_source=True`；选项元数据使用 `view="options", output="dict"`。 |
+| `from_config_json()` | `set_config()` 接受 JSON 路径。 | 保留 `plugin_name` 浅更新规则；无效文件不改变配置。 |
+| `get_data_time_range_absolute()` | `time_range()` 接受 datetime。 | 边界参数改为 `start_time` / `end_time`；不同时间域和字段隔离索引。 |
 | `clear_config_cache()` | 配置缓存维护成为私有 `_clear_config_cache()`。 | 用户通过 `set_config(...)` 修改配置，删除手动清理调用。 |
 | `clear_performance_caches()` | 私有 `_invalidate_planning_caches()` 调用缓存域 `invalidate_planning_caches()`。 | 用户删除手动维护调用；注册和配置更新负责自动失效。 |
 | `profiling_summary` | 删除便捷属性。 | 使用 `ctx.profiler.summary()`。 |
@@ -37,21 +41,21 @@
 | 分类 | 方法 | 用途 |
 | --- | --- | --- |
 | 核心数据 | `get_data`, `register`, `set_config`, `clear_cache_for` | 数据处理与缓存生命周期。 |
-| 配置读取 | `get_config`, `get_config_value`, `get_resolved_config` | 裸值、单项来源和完整解析结果。 |
-| 配置展示 | `show_config`, `list_plugin_configs`, `show_resolved_config` | 全局汇总、插件选项和解析来源。 |
+| 配置读取 | `get_config` | 裸值、单项来源和完整解析结果。 |
+| 配置展示 | `show_config` | 全局汇总、插件选项和解析来源。 |
 | 依赖与执行 | `get_lineage`, `resolve_dependencies`, `plot_lineage` | 缓存身份、拓扑顺序与普通依赖图。 |
 | 缓存与性能诊断 | `diagnose_cache`, `get_performance_report` | 缓存问题与实际插件执行统计；容量和修复统一走 CLI。 |
 | 时间 | `time_range`、epoch 和时间索引方法 | 时间查询、换算与索引生命周期。 |
 | 帮助 | `help` | 返回终端/Jupyter 可显示的结构化 `HelpDocument`，查询当前已注册插件。 |
 
-`show_config(data_name)` 仍会委托 `list_plugin_configs()` 显示插件配置清单，不能把全局视图说明理解为删除指定插件能力。
+`show_config(data_name)` 保留指定插件展示；选项清单由私有 helper 实现。
 
 ## 已完成的前序精简
 
 | API | 替代写法 | 决策 |
 | --- | --- | --- |
 | `register_plugin_()` | `register()` | 已删除，不保留兼容 facade。 |
-| `has_explicit_config(plugin, name, adapter_name=None)` | `get_config_value(plugin, name, adapter_name=...).source == ConfigSource.EXPLICIT` | 已确认直接删除，domain helper 一并收敛。 |
+| `has_explicit_config(plugin, name, adapter_name=None)` | `get_config(plugin, name, with_source=True, adapter_name=...).source == ConfigSource.EXPLICIT` | 已确认直接删除，domain helper 一并收敛。 |
 | `quickstart(template="basic")` | `help("examples")` 或[快速上手](../user-guide/QUICKSTART_GUIDE.md) | 已删除，静态帮助主题与 reserved name 同步删除。 |
 
 ## 实施与验收
@@ -61,7 +65,7 @@
 3. 同步 API catalog、参数说明、用户指南和活动架构文档；历史归档保持原样。
 4. 有意更新本轮删除涉及的内容覆盖基线，并生成当前 site model fixture。
 5. 通过文档同步、锚点检查、影响分析、schema 冒烟及真实隔离站点构建，暂存验证后的打包导出。
-6. 独立 Reviewer 审查通过后，由主流程提交本轮改动。
+6. 阻断式 Reviewer 审查通过后提交本轮改动；当前侧聊按限制由单 agent 顺序执行与复核，不宣称独立审查。
 
 前序精简证据见 `docs/agents/runs/current/context-api-retirement-20261029/task.yaml`；
 本轮诊断收敛证据与最终状态见 `docs/agents/runs/current/context-diagnostics-retirement-20261105/task.yaml`。

@@ -3,7 +3,7 @@
 配置管理综合示例
 
 这个示例展示了如何使用 WaveformAnalysis 的配置管理功能：
-1. list_plugin_configs() - 查看所有插件可用的配置选项
+1. show_config(view="options") - 查看所有插件可用的配置选项
 2. show_config() - 查看当前配置值和使用情况
 3. set_config() - 设置全局和插件特定配置
 """
@@ -36,9 +36,9 @@ def main():
     # ====================================================================
     print("\n\n步骤 2: 查看所有插件的配置选项")
     print("-" * 80)
-    print("使用 list_plugin_configs() 查看所有插件提供的配置选项...")
+    print("使用 show_config 的 options 视图查看所有插件提供的配置选项...")
     input("\n按 Enter 继续...")
-    ctx.list_plugin_configs()
+    ctx.show_config(view="options")
 
     # ====================================================================
     # 3. 设置全局配置
@@ -73,7 +73,7 @@ def main():
     # ====================================================================
     print("\n\n步骤 5: 设置插件特定配置")
     print("-" * 80)
-    print("为 waveforms 插件设置特定配置:")
+    print("为 st_waveforms 插件设置特定配置:")
     print("  - channel_executor: 'process'")
     print("  - channel_workers: 2")
 
@@ -82,7 +82,7 @@ def main():
             "channel_executor": "process",
             "channel_workers": 2,
         },
-        plugin_name="waveforms",
+        plugin_name="st_waveforms",
     )
     print("\n✓ 插件特定配置已设置")
 
@@ -100,17 +100,17 @@ def main():
     # ====================================================================
     print("\n\n步骤 7: 查看特定插件的详细配置")
     print("-" * 80)
-    print("使用 show_config('waveforms') 查看单个插件的详细配置...")
+    print("使用 show_config('st_waveforms') 查看单个插件的详细配置...")
     input("\n按 Enter 继续...")
-    ctx.show_config("waveforms")
+    ctx.show_config("st_waveforms")
 
     # ====================================================================
     # 8. 对比两种配置查看方法
     # ====================================================================
     print("\n\n步骤 8: 对比两种配置查看方法")
     print("-" * 80)
-    print("\nlist_plugin_configs() vs show_config() 的区别：\n")
-    print("📦 list_plugin_configs():")
+    print("\nshow_config 的 options 视图与全局汇总的区别：\n")
+    print("📦 show_config 的 options 视图:")
     print("   • 显示所有可用的配置选项（包括默认值）")
     print("   • 适合了解插件支持哪些配置")
     print("   • 显示帮助文本和类型信息")

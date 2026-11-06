@@ -563,15 +563,15 @@ class TestDeprecationInfo:
 class TestIntegration:
     """集成测试"""
 
-    def test_context_get_resolved_config(self):
-        """测试 Context.get_resolved_config()"""
+    def test_context_get_config(self):
+        """测试 Context.get_config()"""
         from waveform_analysis.core.context import Context
         from waveform_analysis.core.plugins.builtin.cpu import standard_plugins
 
         ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
         ctx.register(*standard_plugins)
 
-        resolved = ctx.get_resolved_config("st_waveforms")
+        resolved = ctx.get_config("st_waveforms")
         assert resolved.plugin_name == "st_waveforms"
         assert resolved.adapter_name == "vx2730"
 
