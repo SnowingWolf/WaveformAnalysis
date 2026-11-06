@@ -20,6 +20,7 @@ links and readers; edit the task record and rerun
 | `docs-build-skill` | `reviewing` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/docs-build-skill/task.yaml` |
 | `docs-index-cleanup-20261105` | `completed` | `generate_docs` | `light` | `staged` | `—` | `docs/agents/runs/current/docs-index-cleanup-20261105/task.yaml` |
 | `docs-pipeline-figures-20261105` | `completed` | `modify_code` | `standard` | `staged` | `—` | `docs/agents/runs/current/docs-pipeline-figures-20261105/task.yaml` |
+| `docs-toc-hierarchy-20261106` | `completed` | `modify_code` | `standard` | `staged` | `—` | `docs/agents/runs/current/docs-toc-hierarchy-20261106/task.yaml` |
 | `docs-visual-refresh-20261105` | `completed` | `modify_code` | `standard` | `staged` | `—` | `docs/agents/runs/current/docs-visual-refresh-20261105/task.yaml` |
 | `event-contract-hardening-20261103` | `completed` | `modify_plugin` | `strict` | `staged` | `—` | `docs/agents/runs/current/event-contract-hardening-20261103/task.yaml` |
 | `execution-correctness-20261030` | `completed` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/execution-correctness-20261030/task.yaml` |

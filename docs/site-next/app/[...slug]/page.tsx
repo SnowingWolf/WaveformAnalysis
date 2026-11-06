@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Breadcrumbs, GuideSections } from "@/components/DocPage";
 import { SiteShell } from "@/components/ServerSiteShell";
+import { guideTocItems } from "@/components/TableOfContents";
 import { allGuides, guideBySlug, loadSiteModel } from "@/lib/model";
 
 export const dynamicParams = false;
@@ -21,7 +22,7 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
   const siteModel = loadSiteModel();
   const guide = guideBySlug(siteModel, slug);
   if (!guide) return notFound();
-  const toc = guide.sections.map((section) => ({ id: section.id, label: section.title }));
+  const toc = guideTocItems(guide.sections);
   return <SiteShell model={siteModel} title={guide.title} toc={toc}>
     <article className="doc-article"><Breadcrumbs items={[{ label: guide.section }, { label: guide.title }]} /><header className="page-intro"><h1>{guide.title}</h1><p className="page-intro__subtitle">{guide.summary}</p></header>
       <GuideSections sections={guide.sections} />

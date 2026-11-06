@@ -7,8 +7,9 @@ import type { SiteShellModel } from "@/lib/search";
 import type { NavigationItem } from "@/lib/site-model";
 import { iconNames, Icon, type IconName } from "./icons";
 import { SearchDialog } from "./SearchDialog";
+import { TableOfContents, type TocItem } from "./TableOfContents";
 
-export type TocItem = { id: string; label: string };
+export type { TocItem } from "./TableOfContents";
 
 const headerLinks = [
   ["文档", "/"],
@@ -86,13 +87,6 @@ function SideNav({ model, pathname, instanceId, onNavigate }: { model: SiteShell
     })}
     <div className="side-nav__version"><span>版本</span><strong className="mono">{model.project.version}</strong></div>
   </nav>;
-}
-
-function TableOfContents({ items }: { items: TocItem[] }) {
-  return <aside className="toc" aria-label="本页目录">
-    <h2>本页内容</h2>
-    {items.length ? <nav>{items.map((item, index) => <a key={item.id} href={`#${item.id}`} className={index === 0 ? "is-current" : ""}>{item.label}</a>)}</nav> : <p>滚动查看本页内容</p>}
-  </aside>;
 }
 
 export function SiteShell({ model, children, toc = [], title = "文档", compactNav = false, fullBleed = false }: { model: SiteShellModel; children: ReactNode; toc?: TocItem[]; title?: string; compactNav?: boolean; fullBleed?: boolean }) {
