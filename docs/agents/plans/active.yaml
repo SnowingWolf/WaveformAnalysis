@@ -186,6 +186,14 @@ active_plans:
   condition: ReworkExecutionStarted
   task_file: docs/agents/runs/current/import-topology-optimization/task.yaml
   legacy_plan: docs/agents/runs/current/import-topology-optimization/legacy-plan.md
+- task_id: layered-cache-validation-20261104
+  state: completed
+  route: modify_code
+  workflow_cost: strict
+  workflow_shape: staged
+  condition: —
+  task_file: docs/agents/runs/current/layered-cache-validation-20261104/task.yaml
+  legacy_plan: docs/agents/runs/current/layered-cache-validation-20261104/legacy-plan.md
 - task_id: managed-workflow-mvp
   state: completed
   route: modify_code
@@ -195,7 +203,7 @@ active_plans:
   task_file: docs/agents/runs/current/managed-workflow-mvp/task.yaml
   legacy_plan: docs/agents/runs/current/managed-workflow-mvp/legacy-plan.md
 - task_id: peak-classification-test-plugin-20260917
-  state: —
+  state: reviewing
   route: modify_plugin
   workflow_cost: standard
   workflow_shape: staged
@@ -210,6 +218,14 @@ active_plans:
   condition: AllBlockingGatesPassed
   task_file: docs/agents/runs/current/peaks-run00600-optimization/task.yaml
   legacy_plan: docs/agents/runs/current/peaks-run00600-optimization/legacy-plan.md
+- task_id: remote-branch-integration-20261109
+  state: reviewing
+  route: modify_code
+  workflow_cost: strict
+  workflow_shape: staged
+  condition: —
+  task_file: docs/agents/runs/current/remote-branch-integration-20261109/task.yaml
+  legacy_plan: docs/agents/runs/current/remote-branch-integration-20261109/legacy-plan.md
 - task_id: retire-legacy-df-20261105
   state: completed
   route: modify_plugin
@@ -267,7 +283,7 @@ active_plans:
   task_file: docs/agents/runs/current/v1725-records-performance-g1/task.yaml
   legacy_plan: docs/agents/runs/current/v1725-records-performance-g1/legacy-plan.md
 - task_id: vx2730-bin-adapter-20260917
-  state: completed
+  state: reviewing
   route: modify_code
   workflow_cost: strict
   workflow_shape: staged
@@ -275,11 +291,11 @@ active_plans:
   task_file: docs/agents/runs/current/vx2730-bin-adapter-20260917/task.yaml
   legacy_plan: docs/agents/runs/current/vx2730-bin-adapter-20260917/legacy-plan.md
 - task_id: wa-data-default-20260918
-  state: completed
+  state: reviewing
   route: modify_code
   workflow_cost: strict
   workflow_shape: staged
-  condition: all_scoped_gates_pass
+  condition: —
   task_file: docs/agents/runs/current/wa-data-default-20260918/task.yaml
   legacy_plan: docs/agents/runs/current/wa-data-default-20260918/legacy-plan.md
 - task_id: waveform-doc-content-recovery-20260901

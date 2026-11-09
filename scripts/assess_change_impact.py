@@ -8,7 +8,10 @@ from pathlib import Path
 import subprocess
 import sys
 
+import yaml
+
 try:
+    from scripts.agent_workflow import SHA1_RE, validate_task
     from scripts.change_scope import (
         build_scope_report,
         classify_paths,
@@ -17,6 +20,7 @@ try:
         resolve_base,
     )
 except ImportError:  # direct ``python scripts/assess_change_impact.py`` execution
+    from agent_workflow import SHA1_RE, validate_task  # type: ignore[no-redef]
     from change_scope import (  # type: ignore[no-redef]
         build_scope_report,
         classify_paths,
@@ -27,6 +31,7 @@ except ImportError:  # direct ``python scripts/assess_change_impact.py`` executi
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 PLUGIN_ROOT = "waveform_analysis/core/plugins"
+RETIREMENTS_MANIFEST = "docs/agents/plugin-retirements.yaml"
 
 
 class PluginMeta:
@@ -205,7 +210,107 @@ def _risk_level(change_keys: list[str], version_changed: bool) -> str:
     return "low"
 
 
+def _approved_retirements() -> dict[tuple[str, str], dict[str, object]]:
+    """Validate explicit, reviewed retirements against their actual Git deletion."""
+    manifest_path = PROJECT_ROOT / RETIREMENTS_MANIFEST
+    if not manifest_path.exists():
+        return {}
+    manifest = yaml.safe_load(_read_file(manifest_path))
+    if not isinstance(manifest, dict) or set(manifest) != {"schema_version", "retirements"}:
+        raise ValueError(f"{RETIREMENTS_MANIFEST}: expected schema_version and retirements")
+    if (
+        type(manifest["schema_version"]) is not int
+        or manifest["schema_version"] != 1
+        or not isinstance(manifest["retirements"], list)
+    ):
+        raise ValueError(f"{RETIREMENTS_MANIFEST}: unsupported schema or invalid retirements")
+    workflow_manifest = yaml.safe_load(_read_file(PROJECT_ROOT / "docs/agents/index.yaml"))
+    approved: dict[tuple[str, str], dict[str, object]] = {}
+    for entry in manifest["retirements"]:
+        required = {"file", "class", "provides", "removal_commit", "approval_task"}
+        if not isinstance(entry, dict) or set(entry) != required:
+            raise ValueError(f"{RETIREMENTS_MANIFEST}: retirement must contain {sorted(required)}")
+        if any(not isinstance(value, str) or not value.strip() for value in entry.values()):
+            raise ValueError(f"{RETIREMENTS_MANIFEST}: retirement values must be non-empty strings")
+        file, class_name = entry["file"], entry["class"]
+        for key in ("file", "approval_task"):
+            path = Path(entry[key])
+            if path.is_absolute() or ".." in path.parts or path.as_posix() != entry[key]:
+                raise ValueError(f"retirement {key} must be a canonical repository-relative path")
+            if not (PROJECT_ROOT / path).resolve().is_relative_to(PROJECT_ROOT.resolve()):
+                raise ValueError(f"retirement {key} must stay inside the repository")
+        if not file.startswith(PLUGIN_ROOT + "/") or not file.endswith(".py"):
+            raise ValueError(f"retirement file must be under {PLUGIN_ROOT}: {file}")
+        identity = (file, class_name)
+        if identity in approved:
+            raise ValueError(f"duplicate retirement: {file}::{class_name}")
+        commit = entry["removal_commit"]
+        if not SHA1_RE.fullmatch(commit):
+            raise ValueError("removal_commit must be a full 40-character Git SHA")
+        ancestor = subprocess.run(
+            ["git", "merge-base", "--is-ancestor", commit, "HEAD"],
+            cwd=str(PROJECT_ROOT),
+            capture_output=True,
+            text=True,
+        )
+        if ancestor.returncode != 0:
+            raise ValueError(f"removal_commit is not a HEAD ancestor: {commit}: {ancestor.stderr}")
+        parent = _run_git(["rev-parse", f"{commit}^"]).strip()
+        before_src = _read_base_file(parent, file)
+        before = _extract_plugin_meta(before_src).get(class_name) if before_src else None
+        after_src = _read_base_file(commit, file)
+        after = _extract_plugin_meta(after_src) if after_src else {}
+        if before is None or before.provides != entry["provides"] or class_name in after:
+            raise ValueError(
+                f"removal_commit does not remove {file}::{class_name}/{entry['provides']}"
+            )
+        task_path = PROJECT_ROOT / entry["approval_task"]
+        task = yaml.safe_load(_read_file(task_path))
+        if not isinstance(task, dict):
+            raise ValueError(f"approval task must be a mapping: {entry['approval_task']}")
+        issues = validate_task(
+            task,
+            manifest=workflow_manifest,
+            task_path=task_path,
+            project_root=PROJECT_ROOT,
+        )
+        if issues:
+            raise ValueError(
+                f"invalid retirement approval {entry['approval_task']}: {'; '.join(issues)}"
+            )
+        spec, status = task["spec"], task["status"]
+        review = status["review"]
+        if (
+            spec["route"] not in {"retire_compat", "modify_plugin"}
+            or spec["workflow_cost"] != "strict"
+            or spec["workflow_shape"] != "staged"
+            or status["state"] != "completed"
+            or review.get("decision") != "approved"
+        ):
+            raise ValueError(
+                "retirement approval requires a completed strict/staged retirement or plugin review"
+            )
+        inventory = spec.get("compat_inventory", {})
+        confirmation = inventory.get("confirmation")
+        if not isinstance(confirmation, str) or not confirmation.strip():
+            raise ValueError("retirement approval requires explicit compat_inventory.confirmation")
+        gates = review.get("gate_results", {})
+        if gates.get("deletion_scope_confirmed", {}).get("status") != "PASS":
+            raise ValueError("retirement approval requires deletion_scope_confirmed PASS")
+        legacy_identity = f"{entry['provides']}/{class_name}"
+        if not any(
+            item.get("delete_action") == "remove"
+            and legacy_identity
+            in [value.strip() for value in item.get("legacy_form", "").split(";")]
+            for item in inventory.get("items", [])
+        ):
+            raise ValueError(f"retirement not approved for removal: {legacy_identity}")
+        approved[identity] = {**entry, "before": before.to_dict()}
+    return approved
+
+
 def assess(base: str, task: str | Path | None = None) -> dict[str, object]:
+    retirements = _approved_retirements()
     effective_base = resolve_base(base, task, project_root=PROJECT_ROOT)
     scope_report = (
         build_scope_report(base=base, task=task, project_root=PROJECT_ROOT)
@@ -290,6 +395,17 @@ def assess(base: str, task: str | Path | None = None) -> dict[str, object]:
                 }
             )
 
+    for record in records:
+        approval = retirements.get((record["file"], record["class"]))
+        record["approved_retirement"] = (
+            {key: approval[key] for key in ("removal_commit", "approval_task")}
+            if approval is not None
+            and record["changes"] == ["class_removed"]
+            and record["before"] == approval["before"]
+            and not record["downstream_plugins"]
+            else None
+        )
+
     summary = {
         "base": effective_base,
         "changed_plugin_files": changed_files,
@@ -299,6 +415,10 @@ def assess(base: str, task: str | Path | None = None) -> dict[str, object]:
             "medium": len([r for r in records if r["lineage_risk"] == "medium"]),
             "low": len([r for r in records if r["lineage_risk"] == "low"]),
         },
+        "approved_retirement_count": sum(bool(r["approved_retirement"]) for r in records),
+        "unapproved_high_risk_count": sum(
+            r["lineage_risk"] == "high" and not r["approved_retirement"] for r in records
+        ),
         "known_providers": sorted(provider_meta.keys()),
         "records": records,
         "scope": scope_report.to_dict() if scope_report is not None else None,
@@ -312,6 +432,8 @@ def _print_report(report: dict[str, object]) -> None:
     print("base: {}".format(report["base"]))
     print("changed plugin files: {}".format(len(report["changed_plugin_files"])))
     print("risk counts: high={high}, medium={medium}, low={low}".format(**report["risk_counts"]))
+    print("approved retirements: {}".format(report["approved_retirement_count"]))
+    print("unapproved high risks: {}".format(report["unapproved_high_risk_count"]))
     scope = report.get("scope")
     if scope:
         print("in-scope changed paths: {}".format(len(scope["in_scope_paths"])))
@@ -337,6 +459,8 @@ def _print_report(report: dict[str, object]) -> None:
         print("- {file} :: {class}".format(**rec))
         print("  changes: {}".format(", ".join(rec["changes"])))
         print("  lineage risk: {}".format(rec["lineage_risk"]))
+        if rec["approved_retirement"]:
+            print("  approved retirement: {}".format(rec["approved_retirement"]))
         if rec["downstream_plugins"]:
             print("  downstream: {}".format(", ".join(rec["downstream_plugins"])))
         else:
@@ -371,7 +495,7 @@ def main() -> int:
         out.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
         print(f"JSON report written to {out}")
 
-    high = report["risk_counts"]["high"]
+    high = report["unapproved_high_risk_count"]
     return 1 if high > 0 or report.get("scope_error") else 0
 
 

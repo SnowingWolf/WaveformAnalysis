@@ -1,0 +1,17 @@
+schema_version: 1
+retirements:
+  - file: waveform_analysis/core/plugins/builtin/df/plugin.py
+    class: DataFramePlugin
+    provides: df
+    removal_commit: 223e16cc51ad17bd681156f4b8b4a3f543b0f7e5
+    approval_task: docs/agents/runs/current/retire-legacy-df-20261105/task.yaml
+  - file: waveform_analysis/core/plugins/builtin/df_events/plugin.py
+    class: GroupedEventsPlugin
+    provides: df_events
+    removal_commit: 223e16cc51ad17bd681156f4b8b4a3f543b0f7e5
+    approval_task: docs/agents/runs/current/retire-legacy-df-20261105/task.yaml
+  - file: waveform_analysis/core/plugins/builtin/df_paired/plugin.py
+    class: PairedEventsPlugin
+    provides: df_paired
+    removal_commit: 223e16cc51ad17bd681156f4b8b4a3f543b0f7e5
+    approval_task: docs/agents/runs/current/retire-legacy-df-20261105/task.yaml

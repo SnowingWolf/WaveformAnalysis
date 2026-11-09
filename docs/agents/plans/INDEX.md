@@ -31,9 +31,11 @@ links and readers; edit the task record and rerun
 | `hit-merged-profiler-run00600` | `completed` | `modify_plugin` | `standard` | `staged` | `—` | `docs/agents/runs/current/hit-merged-profiler-run00600/task.yaml` |
 | `hit-threshold-ragged-optimization` | `planning` | `modify_plugin` | `standard` | `staged` | `NeedsRevalidation` | `docs/agents/runs/current/hit-threshold-ragged-optimization/task.yaml` |
 | `import-topology-optimization` | `executing` | `modify_code` | `strict` | `staged` | `ReworkExecutionStarted` | `docs/agents/runs/current/import-topology-optimization/task.yaml` |
+| `layered-cache-validation-20261104` | `completed` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/layered-cache-validation-20261104/task.yaml` |
 | `managed-workflow-mvp` | `completed` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/managed-workflow-mvp/task.yaml` |
-| `peak-classification-test-plugin-20260917` | `—` | `modify_plugin` | `standard` | `staged` | `—` | `docs/agents/runs/current/peak-classification-test-plugin-20260917/task.yaml` |
+| `peak-classification-test-plugin-20260917` | `reviewing` | `modify_plugin` | `standard` | `staged` | `—` | `docs/agents/runs/current/peak-classification-test-plugin-20260917/task.yaml` |
 | `peaks-run00600-optimization` | `completed` | `modify_plugin` | `strict` | `staged` | `AllBlockingGatesPassed` | `docs/agents/runs/current/peaks-run00600-optimization/task.yaml` |
+| `remote-branch-integration-20261109` | `reviewing` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/remote-branch-integration-20261109/task.yaml` |
 | `retire-legacy-df-20261105` | `completed` | `modify_plugin` | `strict` | `staged` | `—` | `docs/agents/runs/current/retire-legacy-df-20261105/task.yaml` |
 | `run00601-full-chain-performance` | `failed` | `modify_plugin` | `strict` | `staged` | `—` | `docs/agents/runs/current/run00601-full-chain-performance/task.yaml` |
 | `run00601-records-buffer-8m` | `completed` | `modify_plugin` | `strict` | `staged` | `—` | `docs/agents/runs/current/run00601-records-buffer-8m/task.yaml` |
@@ -41,8 +43,8 @@ links and readers; edit the task record and rerun
 | `system-hardening-20261029` | `completed` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/system-hardening-20261029/task.yaml` |
 | `v1725-merged-parts-cleanup` | `completed` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/v1725-merged-parts-cleanup/task.yaml` |
 | `v1725-records-performance-g1` | `reviewing` | `modify_plugin` | `strict` | `staged` | `—` | `docs/agents/runs/current/v1725-records-performance-g1/task.yaml` |
-| `vx2730-bin-adapter-20260917` | `completed` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/vx2730-bin-adapter-20260917/task.yaml` |
-| `wa-data-default-20260918` | `completed` | `modify_code` | `strict` | `staged` | `all_scoped_gates_pass` | `docs/agents/runs/current/wa-data-default-20260918/task.yaml` |
+| `vx2730-bin-adapter-20260917` | `reviewing` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/vx2730-bin-adapter-20260917/task.yaml` |
+| `wa-data-default-20260918` | `reviewing` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/wa-data-default-20260918/task.yaml` |
 | `waveform-doc-content-recovery-20260901` | `completed` | `modify_code` | `standard` | `staged` | `—` | `docs/agents/runs/current/waveform-doc-content-recovery-20260901/task.yaml` |
 | `waveform-doc-lineage-density-20260901` | `completed` | `modify_code` | `standard` | `staged` | `AllBlockingGatesPass` | `docs/agents/runs/current/waveform-doc-lineage-density-20260901/task.yaml` |
 | `waveform-doc-nested-nav-20260902` | `completed` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/waveform-doc-nested-nav-20260902/task.yaml` |

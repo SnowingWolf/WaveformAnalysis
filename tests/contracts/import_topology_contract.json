@@ -575,7 +575,7 @@
     }
   },
   "signatures": {
-    "waveform_analysis.Context": "(config: 'dict[str, Any] | None' = None, storage_backend: 'Any | None' = None, storage_dir: 'str | None' = None, external_plugin_dirs: 'list[str] | None' = None, auto_discover_plugins: 'bool' = False, stats_mode: 'str' = 'off', stats_log_file: 'str | None' = None) -> 'None'",
+    "waveform_analysis.Context": "(config: 'dict[str, Any] | None' = None, storage_backend: 'Any | None' = None, storage_dir: 'str | None' = None, external_plugin_dirs: 'list[str] | None' = None, auto_discover_plugins: 'bool' = False, stats_mode: 'str' = 'off', stats_log_file: 'str | None' = None, base: 'str | None' = None) -> 'None'",
     "waveform_analysis.Option": "(default: Any = None, type: type | tuple | None = None, help: str = '', validate: collections.abc.Callable | None = None, track: bool = True, unit: str | None = None, internal_unit: str | None = None, choices: list[typing.Any] | None = None, min_value: float | None = None, max_value: float | None = None, deprecated: bool = False, deprecated_message: str = '', alias: str | None = None)",
     "waveform_analysis.Plugin": "()",
     "waveform_analysis.core.Chunk": "(data: numpy.ndarray, start: int, end: int, run_id: str = 'unknown', data_type: str = 'raw', data_kind: str = 'waveforms', time_field: str = 'time', dt_field: str = 'dt', length_field: str = 'length', endtime_field: str = 'endtime', dt: float | None = None, metadata: dict | None = None)",

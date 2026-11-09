@@ -24,7 +24,7 @@ def test_old_path_is_new_bundle():
 def test_plugin_metadata():
     plugin = RawFileNamesPlugin()
     assert plugin.provides == "raw_files"
-    assert plugin.version == "0.0.2"
+    assert plugin.version == "0.0.3"
     assert plugin.output_schema.kind == "list"
 
 

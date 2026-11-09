@@ -1,0 +1,211 @@
+api_version: waveform-analysis/agent-task/v1
+kind: AgentTask
+metadata:
+  id: layered-cache-validation-20261104
+  generation: 1
+  created_at: '2026-11-04T11:55:48Z'
+  updated_at: '2026-11-04T12:16:36Z'
+spec:
+  goal: Implement a published immutable shared lower cache with private writable upper
+    cache
+  route: modify_code
+  workflow_cost: strict
+  workflow_shape: staged
+  risk_level: high
+  scope:
+    base_sha: 0709cffd0f143b7c645acba1ebb37008cf42683b
+    allowed_paths:
+    - waveform_analysis/
+    - tests/
+    - docs/
+    - examples/
+    - site_dist/
+    - scripts/
+  acceptance_criteria:
+  - Published records and wave_pool snapshots are immutable, lineage and schema and
+    dependency and run-config pinned, lower mismatch or missing fails before any private
+    cache hit or recomputation, upper nodes write only private cache.
+  - Publication uses independent initial copies and atomic destination creation; subsequent
+    immutable snapshots may reuse proven immutable files safely.
+  - End-to-end synthetic tests demonstrate isolated private writes, pinned lineage
+    and run-config failure, lower corruption and missing failure, and preservation
+    of published data.
+  required_gates:
+  - targeted_tests
+  - generate_docs
+  - assess_change_impact
+  - schema_compat_check
+  - doc_sync
+  - doc_anchors
+  - blocking_review
+  assignment:
+    planner_role: planner
+    executor_role: executor.code
+    reviewer_role: reviewer
+status:
+  state: completed
+  transitions:
+  - from: created
+    to: planning
+    at: '2026-11-04T11:55:48Z'
+    actor: planner
+    condition: task_initialized
+  - from: planning
+    to: ready_for_execution
+    at: '2026-11-04T11:55:48Z'
+    actor: planner
+    condition: plan_brief_ready
+  - from: ready_for_execution
+    to: executing
+    at: '2026-11-04T11:55:48Z'
+    actor: executor.code
+    condition: executor_assigned
+  - from: executing
+    to: reviewing
+    at: '2026-11-04T12:14:10Z'
+    actor: executor.code
+    condition: execution_report_ready
+  - from: reviewing
+    to: completed
+    at: '2026-11-04T12:16:36Z'
+    actor: reviewer
+    condition: all_blocking_gates_pass
+  plan_sha256: ca058edfceee7f1d83580b87dcbe63eb32939f3aa10680456d750d705f5f2211
+  execution:
+    summary: Implemented Context base/publish, frozen lower DAG with private upper
+      writes, immutable snapshot publication and version reuse, clone/factory/preview
+      guards, tests/examples/docs.
+    executor: root integrating gpt-6.1-terra/xhigh agents
+    plan_sha256: ca058edfceee7f1d83580b87dcbe63eb32939f3aa10680456d750d705f5f2211
+    worktree: /home/wxy/.codex/worktrees/layered-cache-validation/WaveformAnalysis
+    branch: codex/layered-cache-validation
+    verification:
+      targeted_tests:
+        status: PASS
+        result: 26 layered, 155 core (1 skip), 20 site and 2 final refreshed fixture
+          checks passed
+        evidence:
+        - /tmp/wa-layered-cache-validation-20261104/layered-final.log
+        - /tmp/wa-layered-cache-validation-20261104/core-regression-allowed.log
+        - /tmp/wa-layered-cache-validation-20261104/site-tests-final.log
+        - /tmp/wa-layered-cache-validation-20261104/site-fixture-reviewed.log
+      generate_docs:
+        status: PASS
+        result: auto and agent commands passed
+        evidence:
+        - /tmp/wa-layered-cache-validation-20261104/generate-auto.log
+        - /tmp/wa-layered-cache-validation-20261104/generate-agent.log
+      assess_change_impact:
+        status: PASS
+        result: no scientific plugin contract changes
+        evidence:
+        - /tmp/wa-layered-cache-validation-20261104/impact.log
+      schema_compat_check:
+        status: PASS
+        result: synthetic smoke events=12; new dtype is test fixture only
+        evidence:
+        - /tmp/wa-layered-cache-validation-20261104/schema.log
+      doc_sync:
+        status: PASS
+        result: PASS
+        evidence:
+        - /tmp/wa-layered-cache-validation-20261104/doc-sync-reviewed.log
+      doc_anchors:
+        status: PASS
+        result: 0 errors, 0 warnings
+        evidence:
+        - /tmp/wa-layered-cache-validation-20261104/doc-sync-reviewed.log
+      format_hooks:
+        status: PASS
+        result: all hooks passed
+        evidence:
+        - /tmp/wa-layered-cache-validation-20261104/final-hooks.log
+      docs_build:
+        status: PASS
+        result: npm install/check/build and staged output validated
+        evidence:
+        - /tmp/waveform-doc-build/runs/layered-cache-validation-20261104-reviewed/report.json
+      example:
+        status: PASS
+        result: zero lower recompute, readonly shared mmap, 8-byte private payloads,
+          v2 reused inode and new shared analysis
+        evidence:
+        - /tmp/wa-layered-cache-validation-20261104/example-final/report.json
+    build_input_fingerprint: bb7e2c41af282b38440ce55a04b8b46ee98c25d682e19fd121bab97c17e4dcb7
+    limitations:
+    - Linux renameat2; materialized nonempty uncompressed ndarray MemmapStorage payloads
+      only
+    - Producer must have completed; caller guarantees related products share a batch.
+      Sorted key locks protect copying, not historical generation identity
+    - Metadata/schema/size validation, no full byte hashes; use OS access controls
+      for external writers
+    - Initial publication copies payloads; no blanket cache <= raw guarantee
+    - No full real run 00196 rerun/publication; builtin V1725 records_view uses synthetic
+      fixtures
+    original_checkout: No writes by this task. Unrelated untracked docs/agents/runs/current/adapter-layout-20261104/
+      appeared during work and is preserved.
+  review:
+    task_id: layered-cache-validation-20261104
+    reviewer_actor: reviewer
+    workflow_cost: strict
+    workflow_shape: staged
+    plan_sha256: ca058edfceee7f1d83580b87dcbe63eb32939f3aa10680456d750d705f5f2211
+    decision: approved
+    gate_results:
+      targeted_tests:
+        status: PASS
+        detail: 'PASS: layered 26; core 155 passed, 1 skipped; site 20 and final fixture
+          2 passed'
+      generate_docs:
+        status: PASS
+        detail: 'PASS: auto and agent generation'
+      assess_change_impact:
+        status: PASS
+        detail: 'PASS: no plugin contract changes'
+      schema_compat_check:
+        status: PASS
+        detail: 'PASS: synthetic smoke events=12; dtype addition is test fixture'
+      doc_sync:
+        status: PASS
+        detail: PASS
+      doc_anchors:
+        status: PASS
+        detail: 'PASS: 0 errors, 0 warnings'
+      blocking_review:
+        status: PASS
+        detail: 'PASS: independent code, test, guide and final site artifact review'
+    blocking_findings: []
+    residual_risks:
+    - Caller must ensure producer completion and same-generation records and wave_pool;
+      locks guarantee a stable copy window, not historical batch identity.
+    - Only nonempty uncompressed non-object ndarray payloads in MemmapStorage are
+      supported; publication requires Linux renameat2.
+    - Metadata, lineage, schema and size validation do not prove payload byte integrity;
+      read-only files require external directory permission or mount controls.
+    - Initial publication creates copies; no general claim that total cache size is
+      less than raw data.
+    - Synthetic records_view and test fixtures were validated; no full real run 00196
+      publication or execution was performed.
+    follow_up_actions:
+    - Complete scoped implementation commit and handoff; preserve unrelated changes
+      in the original checkout.
+    evidence:
+      execution_record: docs/agents/runs/current/layered-cache-validation-20261104/task.yaml
+      tests: /tmp/wa-layered-cache-validation-20261104/layered-final.log
+      core: /tmp/wa-layered-cache-validation-20261104/core-regression-allowed.log
+      site: /tmp/wa-layered-cache-validation-20261104/site-tests-final.log
+      build: /tmp/waveform-doc-build/runs/layered-cache-validation-20261104-reviewed/report.json
+      example: /tmp/wa-layered-cache-validation-20261104/example-final/report.json
+      input_fingerprint: bb7e2c41af282b38440ce55a04b8b46ee98c25d682e19fd121bab97c17e4dcb7
+    prior_failures: Initial restricted worktree run failed to create default ./wa_data;
+      full core subset passed in an authorized writable environment. Earlier site
+      route failure fixed and rerun passed.
+    implementation_commit: 6b9b1ab70484e181cbe3b12ad7ef0a8c59cca239
+  approval: {}
+  handoff:
+    implementation_commit: 6b9b1ab70484e181cbe3b12ad7ef0a8c59cca239
+    branch: codex/layered-cache-validation
+    original_checkout: Unmodified by this task; unrelated adapter-layout task remains
+      untouched.
+    git_status: clean after implementation commit; final task closure commit follows
+    git_diff_stat: empty after implementation commit

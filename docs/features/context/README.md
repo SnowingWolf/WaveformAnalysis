@@ -11,6 +11,7 @@ Context 相关的功能文档，包括依赖查询、血缘可视化、缓存诊
 | 文档 | 说明 |
 |------|------|
 | [配置管理](CONFIGURATION.md) | 配置管理功能 |
+| [分层缓存](LAYERED_CACHE.md) | 发布共享基础快照并使用私人缓存 |
 | [Plugin DAG、lineage 与缓存](../../architecture/PLUGIN_DAG_LINEAGE_CACHE.md) | 依赖、缓存与诊断边界 |
 | [数据产物与波形访问](../../architecture/DATA_PRODUCTS.md) | records-backed 波形构建边界 |
 | [血缘可视化](LINEAGE_VISUALIZATION_GUIDE.md) | 血缘可视化功能使用指南 |

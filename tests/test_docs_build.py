@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 
 import pytest
 
@@ -12,6 +13,17 @@ ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location("docs_build", ROOT / "scripts/docs_build.py")
 docs_build = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(docs_build)
+
+
+@pytest.mark.parametrize("dont_write_bytecode", [False, True])
+def test_import_preserves_bytecode_setting(monkeypatch, dont_write_bytecode):
+    monkeypatch.setattr(sys, "dont_write_bytecode", dont_write_bytecode)
+    spec = importlib.util.spec_from_file_location("docs_build_import_test", SPEC.origin)
+    module = importlib.util.module_from_spec(spec)
+
+    spec.loader.exec_module(module)
+
+    assert sys.dont_write_bytecode is dont_write_bytecode
 
 
 def tree_hash(root):
@@ -57,8 +69,10 @@ def fake_npm(monkeypatch):
 def test_default_isolation_and_duplicate(tmp_path, fake_npm):
     old = ROOT / "waveform_analysis/documentation/site_dist"
     before = tree_hash(old)
+    bytecode_setting = sys.dont_write_bytecode
     report = docs_build.build(ROOT, "one", tmp_path, command_runner=fake_npm)
     assert report["status"] == "success", report
+    assert sys.dont_write_bytecode is bytecode_setting
     assert tree_hash(old) == before
     assert [c["exit_status"] for c in report["commands"]] == [0, 0, 0]
     evidence = tmp_path / "runs/one/report.json"
@@ -72,12 +86,14 @@ def test_default_isolation_and_duplicate(tmp_path, fake_npm):
 def test_failure_report_and_exit(tmp_path, monkeypatch):
     old = ROOT / "waveform_analysis/documentation/site_dist"
     before = tree_hash(old)
+    bytecode_setting = sys.dont_write_bytecode
 
     def fail(command, **kwargs):
         raise subprocess.CalledProcessError(17, command)
 
     report = docs_build.build(ROOT, "fail", tmp_path, True, command_runner=fail)
     assert report["status"] == "failed"
+    assert sys.dont_write_bytecode is bytecode_setting
     assert report["commands"][0]["exit_status"] == 17
     assert tree_hash(old) == before
     assert json.loads(Path(report["artifacts"]["report"]).read_text())["error"]

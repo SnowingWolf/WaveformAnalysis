@@ -26,6 +26,7 @@
 依赖查询、血缘可视化、缓存诊断、配置管理等。正式产物、缓存与波形访问的架构边界见下方专题。
 
 - [配置管理](context/CONFIGURATION.md)
+- [分层缓存](context/LAYERED_CACHE.md)
 - [Plugin DAG、lineage 与缓存](../architecture/PLUGIN_DAG_LINEAGE_CACHE.md)
 - [数据产物与波形访问](../architecture/DATA_PRODUCTS.md)
 - [血缘可视化](context/LINEAGE_VISUALIZATION_GUIDE.md)

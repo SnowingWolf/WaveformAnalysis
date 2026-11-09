@@ -112,7 +112,7 @@ def test_site_model_v1_uses_real_plugin_and_guide_facts_without_html():
     assert json.dumps(model, ensure_ascii=False).find("<html") < 0
     assert SITE_MODEL_SCHEMA_PATH.is_file()
     assert len(model["source_indexes"]) == 11
-    assert sum(bool(guide.get("source")) for guide in model["guides"]) == 35
+    assert sum(bool(guide.get("source")) for guide in model["guides"]) == 36
     reference = next(section for section in model["navigation"] if section["id"] == "reference")
     cli_navigation = next(item for item in reference["items"] if item["href"] == "/cli/")
     assert [(item["label"], item["href"]) for item in cli_navigation["children"]] == [
@@ -256,6 +256,7 @@ def test_site_fixture_uses_current_context_and_contract_guides():
         "/plugins/reference/ADAPTER_SYSTEM_GUIDE/",
         "/plugins/reference/ADAPTER_PLUGIN_BEHAVIOR/",
         "/features/context/CONFIGURATION/",
+        "/features/context/LAYERED_CACHE/",
         "/features/context/DEPENDENCY_ANALYSIS_GUIDE/",
         "/architecture/plugin-cache-architecture/",
         "/architecture/plugin-dag-lineage-cache/",
@@ -355,8 +356,8 @@ def test_public_guide_baseline_tracks_source_and_typed_content_independently():
     guides = {
         (guide["route"], guide["source"]): guide for guide in model["guides"] if guide.get("source")
     }
-    assert len(guides) == 35
-    assert len(baseline["guides"]) == 35
+    assert len(guides) == 36
+    assert len(baseline["guides"]) == 36
     for expected in baseline["guides"]:
         actual = guides[(expected["route"], expected["source"])]
         source_path = project_root / expected["source"]

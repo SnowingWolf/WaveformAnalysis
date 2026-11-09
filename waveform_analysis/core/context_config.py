@@ -141,6 +141,12 @@ class ContextConfigDomain:
         if not path:
             return
 
+        base = self.ctx._published_cache
+        if base is not None and os.path.commonpath(
+            [os.path.realpath(path), str(base.base.resolve())]
+        ) == str(base.base.resolve()):
+            raise ValueError("custom_config_json_path cannot write into published base")
+
         payload = {
             "run_id": run_id,
             "requested_data_name": data_name,
@@ -373,6 +379,10 @@ class ContextConfigDomain:
     def prepare_readonly_request(self, run_id: str, data_name: str) -> bool:
         """Check run-config freshness without changing cache files or state."""
         self.ctx._last_run_id = run_id
+        base = self.ctx._published_cache
+        if base is not None and data_name in base.manifest["nodes"]:
+            base.validate_request(run_id, data_name)
+            return False
         pending = [data_name]
         visited = set()
         while pending:

@@ -44,6 +44,10 @@ Context 的日常诊断入口为 `diagnose_cache(run_id)` 和 `get_performance_r
 run 配置文件使用 `get_run_config(run_id)` 读取，校验和硬件通道展开由独立配置函数处理。
 已删除的便捷包装、执行预览和高级依赖分析见[Context API 迁移](../features/context/CONFIGURATION.md#context-api-迁移)。
 
+使用 `Context(base=已发布快照, storage_dir=私人目录)` 时，请求会先验证冻结的上游身份，
+共享产物只读，下游缺失产物可以计算并写入私人目录。生产者通过 `publish()` 创建新版本；
+具体发布前提、格式限制与示例见[分层缓存](../features/context/LAYERED_CACHE.md)。
+
 ## Plugin 身份与输出契约
 
 最小插件由四个互相配合的声明组成：`provides` 标识产物，`depends_on` 标识输入，`version` 标识

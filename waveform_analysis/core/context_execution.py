@@ -375,6 +375,11 @@ class ContextExecutionDomain:
         bar_name: str | None,
         skip_cache_check: bool = False,
     ) -> None:
+        base = self.ctx._published_cache
+        if base is not None:
+            base.validate_request(run_id, name)
+            if name in base.manifest["nodes"]:
+                raise RuntimeError(f"Cannot execute frozen published node {name!r}")
         key = self.ctx.key_for(run_id, name)
         if not skip_cache_check:
             if self.ctx._cache_domain.get_cached_data(run_id, name) is not None:
@@ -411,6 +416,8 @@ class ContextExecutionDomain:
         **kwargs,
     ) -> Any:
         with self.ctx.profiler.timeit("context.run_plugin"):
+            if self.ctx._published_cache is not None:
+                self.ctx._published_cache.validate_request(run_id, data_name)
             self.check_reentrancy(run_id, data_name)
             tracker = None
             bar_name = None

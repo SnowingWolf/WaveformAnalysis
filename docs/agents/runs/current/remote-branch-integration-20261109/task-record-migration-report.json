@@ -1,0 +1,41 @@
+{
+  "at": "2026-11-09T09:25:32Z",
+  "source_commit": "f437d57936850f8775eca43238842a34bbe6f729",
+  "tasks": [
+    {
+      "task": "docs-build-skill",
+      "state": "reviewing",
+      "reason": "Original record has no terminal Reviewer decision."
+    },
+    {
+      "task": "hit-merged-profiler-run00600",
+      "state": "completed",
+      "reason": "Preserved original named independent review and recorded passing gates; no new benchmark claim."
+    },
+    {
+      "task": "peaks-run00600-optimization",
+      "state": "completed",
+      "reason": "Original required verification entries and independent terminal verdict already pass; unrelated non-blocking performance failure is retained."
+    },
+    {
+      "task": "run00601-records-buffer-8m",
+      "state": "completed",
+      "reason": "Original named reviewer approved integration with recorded tests/performance and explicit release-skip limitations."
+    },
+    {
+      "task": "peak-classification-test-plugin-20260917",
+      "state": "reviewing",
+      "reason": "Legacy schema and no recorded independent staged review; original evidence retained without a fresh completion claim."
+    },
+    {
+      "task": "wa-data-default-20260918",
+      "state": "reviewing",
+      "reason": "Legacy schema and missing independent reviewer evidence; historical site baseline failure retained."
+    },
+    {
+      "task": "vx2730-bin-adapter-20260917",
+      "state": "reviewing",
+      "reason": "Self-review and known full-suite/doc-sync failures remain unapproved; no historical FAIL was rewritten as PASS."
+    }
+  ]
+}

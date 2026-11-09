@@ -758,7 +758,10 @@ candidate_pairs = accessor.pairs[mask]
 
 _PARAMETER_HELP = {
     "storage_backend": "可选存储后端实例。",
-    "storage_dir": "本地缓存目录。",
+    "storage_dir": "本地可写缓存目录。",
+    "base": "可选的已发布共享基础快照目录。",
+    "targets": "要发布的一个产物名称或名称列表。",
+    "destination": "发布快照的新目录；不得已存在。",
     "config": "Context 的显式配置字典。",
     "external_plugin_dirs": "额外插件发现目录。",
     "auto_discover_plugins": "是否在构造时自动发现插件。",
@@ -892,6 +895,7 @@ _CALLABLE_RETURNS = {
     "plot_lineage": "图形对象或 Mermaid 文本，取决于 `kind`。",
     "help": "结构化 `HelpDocument`。",
     "clear_cache_for": "已清理的缓存条目数。",
+    "publish": "新建的快照目录路径。",
     "diagnose_cache": "诊断问题列表。",
     "corner_hist": "`(matplotlib.figure.Figure, numpy.ndarray)`。",
     "plot_waveforms": "交互式 Plotly figure；Plotly 缺失时返回 `None`。",
@@ -932,6 +936,7 @@ _CALLABLE_NOTES = {
     "plot_lineage": ("`mermaid` 返回文本；`labview` 和 `plotly` 返回图形对象。",),
     "clear_cache_for": ("设置 `downstream=True` 前应确认影响范围。",),
     "diagnose_cache": ("仅检查并返回问题，不修改缓存；修复使用缓存 CLI。",),
+    "publish": ("目标须是已经持久化的非空、未压缩 ndarray；发布后不要修改共享快照。",),
     "corner_hist": (
         "对数坐标要求对应数据和范围为正数；对称对数坐标可保留负值和零。",
         "叠加绘图不会重复执行 tight layout；需要时请在最后手工调用一次。",
@@ -958,6 +963,7 @@ _CALLABLE_EXAMPLES = {
     "get_lineage": """lineage = ctx.get_lineage(\"peaks\")""",
     "plot_lineage": """figure = ctx.plot_lineage(\"peaks\", kind=\"plotly\", show_virtual_plugins=False)""",
     "clear_cache_for": """ctx.clear_cache_for(\"run_001\", \"peaks\", downstream=True)""",
+    "publish": """ctx.publish(\"run_001\", [\"records\", \"wave_pool\"], \"/shared/wa/run_001-v1\")""",
     "plot_waveforms": """figure = plot_waveforms(waveforms, event_index=0, channels=[\"0:3\"])""",
     "plot_peak_channels_with_sum": """fig, axes = plot_peak_channels_with_sum(919, context=ctx, run_id=\"run_001\")""",
     "create_peak_plotter": """plot_peak = create_peak_plotter(ctx, \"run_001\")\nfig, axes = plot_peak(919)""",
@@ -1078,6 +1084,7 @@ _CONTEXT_GROUP_RULES: tuple[tuple[str, str, str, tuple[str, ...]], ...] = (
         "缓存与诊断",
         "缓存 key 由 run、代码、版本、配置和输出契约决定。",
         (
+            "publish",
             "clear_cache_for",
             "diagnose_cache",
             "key_for",
@@ -1110,6 +1117,7 @@ _CONTEXT_DESCRIPTIONS: dict[str, str] = {
     "plot_lineage": "渲染 `labview`、`plotly` 或 `mermaid` DAG。",
     "help": "返回结构化帮助文档。",
     "get_performance_report": "获取插件性能统计报告。",
+    "publish": "将已物化产物发布到新的共享基础快照。",
     "clear_cache_for": "清理指定 run 的缓存。",
     "diagnose_cache": "检查缓存问题，不执行修复。",
     "key_for": "获取数据类型和 run 的唯一键。",

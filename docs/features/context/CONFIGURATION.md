@@ -9,6 +9,10 @@ Context 未显式传入 `storage_dir` 时，默认将缓存和处理产物写入
 `data_root` 仍用于定位原始 DAQ 数据，默认值为 `DAQ`。如需使用其他缓存位置，请显式传入
 `storage_dir`。
 
+需要多人共享固定上游产物、各自计算下游时，可使用 `Context(base=..., storage_dir=...)`；
+`base` 指向发布快照，`storage_dir` 为私人可写缓存。使用步骤和限制见
+[分层缓存](LAYERED_CACHE.md)。
+
 批量调用的 `storage_dir_strategy="readonly"` 是任务访问策略，不是插件配置项。它保留原缓存目录，
 不写配置快照或 `_run_config_state.json`；若请求链依赖 run 配置，必须已有与当前配置匹配的
 持久化状态和磁盘结果，否则明确报缓存不可用。普通调用仍遵循现有配置同步与失效规则。

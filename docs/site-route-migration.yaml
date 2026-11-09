@@ -73,6 +73,8 @@ mappings:
     to: /features/context/ABSOLUTE_TIME_GUIDE/
   - from: /features/context/BATCH_PROCESSOR.html
     to: /features/context/BATCH_PROCESSOR/
+  - from: /features/context/LAYERED_CACHE.html
+    to: /features/context/LAYERED_CACHE/
   - from: /features/context/CONFIGURATION.html
     to: /features/context/CONFIGURATION/
   - from: /features/context/DEPENDENCY_ANALYSIS_GUIDE.html

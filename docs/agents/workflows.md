@@ -354,6 +354,21 @@ python scripts/assess_change_impact.py --base HEAD
 2. 已列出下游受影响插件列表
 3. 若存在 `output_dtype/depends_on` 变化且 `version` 未变，必须打回
 
+影响分析仍将插件类删除报告为 `high`。已经完成独立审查的退役，可在
+`docs/agents/plugin-retirements.yaml` 中登记精确的文件、类、`provides`、删除提交和批准任务。
+仅当变更恰为 `class_removed`、当前依赖图没有残留下游、删除提交是 HEAD 祖先，
+且该提交父版本的元数据与本次比较的删除前元数据完全一致时，才计为已批准退役。
+删除提交本身必须实际删除该类；批准任务必须通过 AgentTask 验证，保持规范 spec 摘要与
+计划、Reviewer 审查摘要一致，使用 `retire_compat` 或 `modify_plugin` route、
+`strict/staged` 流程并处于 `completed`，Reviewer 决定为 `approved`。
+其中 `compat_inventory.confirmation` 必须非空，对应的 `provides/Class` 必须作为
+`legacy_form` 的完整项（多项用分号分隔）获准 `delete_action=remove`，并有
+`deletion_scope_confirmed=PASS`。历史批准记录不得为消除 CI 报错而改写。
+
+报告分别列出原始风险数、已批准退役数和未批准高风险数。只有未批准高风险或任务范围错误
+导致退出码 1；清单或批准证据无效则清晰报错并退出 2。没有退役清单时沿用原有阻断行为。
+该机制不批准类新增、重命名、dtype、依赖或其他契约变化。
+
 ## Workflow: schema_compat_check
 
 ### 目标
