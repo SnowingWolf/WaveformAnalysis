@@ -2,9 +2,9 @@ api_version: waveform-analysis/agent-task/v1
 kind: AgentTask
 metadata:
   id: remote-branch-integration-20261109
-  generation: 3
+  generation: 4
   created_at: '2026-11-09T09:23:27Z'
-  updated_at: '2026-11-09T09:44:45Z'
+  updated_at: '2026-11-09T09:52:50Z'
 spec:
   goal: 保留恢复证据清理已合并远程分支，补齐PR依赖并修复CI，将验证后的现行功能与分层缓存整合至develop
   route: modify_code
@@ -21,6 +21,7 @@ spec:
     - examples/
     - scripts/scaffold_plugin.py
     - scripts/assess_change_impact.py
+    - .github/workflows/python-tests.yml
   acceptance_criteria:
   - 9个授权分支删除且完整恢复记录进入审计产物
   - 前序基础、采集重组、API文档和分层缓存保留原提交身份并有完整PR清单
@@ -63,6 +64,8 @@ spec:
   - Allow only exact, previously reviewed plugin removals through impact exit gate
     using verified retirement manifest; preserve high-risk reporting and reject all
     unapproved changes
+  - Fetch complete history for both Python CI jobs so historical approval ancestry
+    can be verified; do not skip evidence checks
   - Independent blocking review, scoped commit(s), integration PR to develop; merge
     only validated candidate and update source PR state from actual ancestry
   scope_out:
@@ -136,7 +139,28 @@ status:
     to: reviewing
     at: '2026-11-09T09:44:45Z'
     actor: executor.code
-  plan_sha256: eda40f7944f5876ad1345c38b2ea18bbc354b468399e834ec8492ed38b4e5a77
+  - from: reviewing
+    to: rework_required
+    at: '2026-11-09T09:52:28Z'
+    actor: reviewer
+  - from: rework_required
+    to: planning
+    at: '2026-11-09T09:52:29Z'
+    actor: planner
+    scope_changed: true
+  - from: planning
+    to: ready_for_execution
+    at: '2026-11-09T09:52:29Z'
+    actor: planner
+  - from: ready_for_execution
+    to: executing
+    at: '2026-11-09T09:52:29Z'
+    actor: executor.code
+  - from: executing
+    to: reviewing
+    at: '2026-11-09T09:52:50Z'
+    actor: executor.code
+  plan_sha256: 069aa8c693fa9f8f911bb9df0ef49f64dcd11c16150ff98144e97b42d1905c48
   execution:
     executor_role: executor.code
     actions_taken:
@@ -151,7 +175,10 @@ status:
       high-risk classification
     - Regenerated reviewed guide baselines/model/packaged export using isolated final
       build
+    - Reproduced shallow checkout failure and added fetch-depth0 to Python CI without
+      altering test matrix or approval verification
     changed_paths:
+    - .github/workflows/python-tests.yml
     - docs/agents/plans/INDEX.md
     - docs/agents/plans/active.yaml
     - docs/agents/plugin-retirements.yaml
@@ -362,6 +389,15 @@ status:
       evidence: /tmp/waveform-remote-branches-20261109/ci/cache-demo.log
     - command: git diff --check and recovery/ancestry check
       result: PASS; exactly9restore refs map to original heads; master unchanged
+    - command: Clone depth1 then assess --baseHEAD; fetch --unshallow then same assess
+      result: Expected exit2 with missing historical SHA; after full history same
+        command exit0
+      evidence:
+      - /tmp/waveform-remote-branches-20261109/ci/shallow-impact.log
+      - /tmp/waveform-remote-branches-20261109/ci/full-history-impact.log
+    - command: Workflow YAML and doc_sync after history fix
+      result: PASS both checkout fetch-depth0, Python3.10/3.11/3.12 preserved; anchors
+        zero errors/warnings
     open_risks:
     - Remote final integration PR CI has not yet run; merge into develop is conditional
       on it passing
@@ -376,9 +412,9 @@ status:
   review:
     reviewer_actor: integration_reviewer
     decision: approved
-    review_scope: local integration candidate; develop merge conditional on remote
-      CI
-    plan_sha256: eda40f7944f5876ad1345c38b2ea18bbc354b468399e834ec8492ed38b4e5a77
+    review_scope: local candidate and gen4 full-history CI fix; develop merge conditional
+      on remote checks
+    plan_sha256: 069aa8c693fa9f8f911bb9df0ef49f64dcd11c16150ff98144e97b42d1905c48
     gate_results:
       python_tests: PASS
       lint: PASS
@@ -391,17 +427,16 @@ status:
       reviewer: PASS
     blocking_findings: []
     residual_risks:
-    - Remote integration PR CI pending; do not merge until all required matrix/workflow/documentation/commit-description
-      checks pass
-    - Historical release review PRs preserved; unpushed local worktree commits excluded
+    - Remote latest integration PR matrix and all workflows must pass before develop
+      merge
     follow_up_actions:
-    - Commit and push reviewed merge candidate
-    - Open final integration PR targeting develop, verify checks, merge only approved
-      head
-    - Record remote merge ancestry and final master identity after integration
+    - Push reviewed full-history configuration fix
+    - Refresh exact PR commit list
+    - Wait latest-head remote CI, merge develop, record actual ancestry and final
+      task completion
   approval: {}
   handoff:
-    commit_status: Independent local review approved; scoped merge commit prepared
-      in this turn
-    develop_merge_status: pending remote CI; task remains reviewing until actual integration
+    commit_status: Code candidate5efcf332 committed; gen4 CI configuration fix locally
+      approved and prepared
+    develop_merge_status: pending latest-head remote CI
     master_unchanged: a736cde49c17ac683301c93e5d78ecbb4c613ab9

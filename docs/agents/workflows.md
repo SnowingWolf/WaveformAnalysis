@@ -368,6 +368,8 @@ python scripts/assess_change_impact.py --base HEAD
 报告分别列出原始风险数、已批准退役数和未批准高风险数。只有未批准高风险或任务范围错误
 导致退出码 1；清单或批准证据无效则清晰报错并退出 2。没有退役清单时沿用原有阻断行为。
 该机制不批准类新增、重命名、dtype、依赖或其他契约变化。
+批准核验需要读取删除提交及其父提交，运行影响检查的 CI 应使用完整 Git 历史
+（`actions/checkout` 的 `fetch-depth: 0`）；历史缺失会明确失败，不能跳过批准校验。
 
 ## Workflow: schema_compat_check
 
