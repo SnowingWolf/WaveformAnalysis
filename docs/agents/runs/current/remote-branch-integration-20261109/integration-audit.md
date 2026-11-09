@@ -44,3 +44,25 @@ PR12仅一个Python3.10运行的速度测试为0.94x，低于0.95阈值；其余
 ## 恢复
 
 九个删除分支的完整SHA映射见remote-branches-before.json，逐项恢复命令见remote-branches-restoration.md；本地另保留独立恢复refs。所有原提交仍可从master到达。
+
+## 最终远端结果
+
+PR #19 于 2026-11-09 10:08:07 UTC 合入 develop，合并提交为
+`b0e8f764639e30d1d143c070cb3f12a4fd899a8b`，被审查候选为 `3ea6b6f8`。
+合并前 14 个适用远端检查全部成功：Python 3.10/3.11/3.12、慢测试、文档源检查及
+站点构建、Agent Workflow、提交清单检查；计数包括同一候选的 push 与 PR 检查。
+逐项结果见 [remote-pr19-passed-checks.json](remote-pr19-passed-checks.json)。
+
+六个源头均已验证为 develop 的祖先，完整 SHA 见
+[develop-ancestry-after.json](develop-ancestry-after.json)。master 仍为
+`a736cde49c17ac683301c93e5d78ecbb4c613ab9`。
+源 PR #12/#13/#14/#15/#16 已注明通过 #19 整合并关闭；历史 #7/#17/#18 保留待审。
+
+依照仓库硬约束，为 develop 配置了 required `commit-description` 状态检查。
+[修改前](develop-protection-before.json) 为 404（未保护），
+[修改后](develop-protection-after.json) 要求该检查，且禁止 force push 和删除分支。
+若所有者将来明确要求完全撤回这项设置，原状态对应
+`gh api -X DELETE repos/SnowingWolf/WaveformAnalysis/branches/develop/protection`；
+这会移除当前 required check，不符合现行仓库要求，本轮不执行。
+
+本次收尾仅保存已发生的结果、审查与恢复证据，并同步生成的任务导航；没有新的功能变更。

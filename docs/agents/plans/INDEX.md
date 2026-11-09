@@ -35,7 +35,7 @@ links and readers; edit the task record and rerun
 | `managed-workflow-mvp` | `completed` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/managed-workflow-mvp/task.yaml` |
 | `peak-classification-test-plugin-20260917` | `reviewing` | `modify_plugin` | `standard` | `staged` | `—` | `docs/agents/runs/current/peak-classification-test-plugin-20260917/task.yaml` |
 | `peaks-run00600-optimization` | `completed` | `modify_plugin` | `strict` | `staged` | `AllBlockingGatesPassed` | `docs/agents/runs/current/peaks-run00600-optimization/task.yaml` |
-| `remote-branch-integration-20261109` | `reviewing` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/remote-branch-integration-20261109/task.yaml` |
+| `remote-branch-integration-20261109` | `completed` | `modify_code` | `strict` | `staged` | `—` | `docs/agents/runs/current/remote-branch-integration-20261109/task.yaml` |
 | `retire-legacy-df-20261105` | `completed` | `modify_plugin` | `strict` | `staged` | `—` | `docs/agents/runs/current/retire-legacy-df-20261105/task.yaml` |
 | `run00601-full-chain-performance` | `failed` | `modify_plugin` | `strict` | `staged` | `—` | `docs/agents/runs/current/run00601-full-chain-performance/task.yaml` |
 | `run00601-records-buffer-8m` | `completed` | `modify_plugin` | `strict` | `staged` | `—` | `docs/agents/runs/current/run00601-records-buffer-8m/task.yaml` |

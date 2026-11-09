@@ -1,0 +1,15 @@
+{
+  "develop": "b0e8f764639e30d1d143c070cb3f12a4fd899a8b",
+  "master": "a736cde49c17ac683301c93e5d78ecbb4c613ab9",
+  "master_unchanged": true,
+  "all_source_heads_are_develop_ancestors": true,
+  "source_heads": {
+    "foundation": "0709cffd0f143b7c645acba1ebb37008cf42683b",
+    "adapter": "863e4a4e80c5fce5e91482bf6105f287a03d38e6",
+    "acquisition": "b90ce1263be6d55ac858a45393fdf9be85d825ae",
+    "api_docs": "f437d57936850f8775eca43238842a34bbe6f729",
+    "layered_cache": "29fb90f220932c8952a63057696b73ed3ef12da3",
+    "reviewed_candidate": "3ea6b6f89ccf9b8a82a90f747d53073c408d4eeb"
+  },
+  "merge_pr": 19
+}

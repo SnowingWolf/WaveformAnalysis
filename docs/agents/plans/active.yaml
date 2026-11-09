@@ -219,7 +219,7 @@ active_plans:
   task_file: docs/agents/runs/current/peaks-run00600-optimization/task.yaml
   legacy_plan: docs/agents/runs/current/peaks-run00600-optimization/legacy-plan.md
 - task_id: remote-branch-integration-20261109
-  state: reviewing
+  state: completed
   route: modify_code
   workflow_cost: strict
   workflow_shape: staged

@@ -4,7 +4,7 @@ metadata:
   id: remote-branch-integration-20261109
   generation: 4
   created_at: '2026-11-09T09:23:27Z'
-  updated_at: '2026-11-09T09:52:50Z'
+  updated_at: '2026-11-09T10:19:07Z'
 spec:
   goal: 保留恢复证据清理已合并远程分支，补齐PR依赖并修复CI，将验证后的现行功能与分层缓存整合至develop
   route: modify_code
@@ -79,7 +79,7 @@ spec:
     latest_source: f437d57936850f8775eca43238842a34bbe6f729
     cache_source: 29fb90f220932c8952a63057696b73ed3ef12da3
 status:
-  state: reviewing
+  state: completed
   transitions:
   - from: created
     to: planning
@@ -160,6 +160,11 @@ status:
     to: reviewing
     at: '2026-11-09T09:52:50Z'
     actor: executor.code
+  - from: reviewing
+    to: completed
+    at: '2026-11-09T10:19:07Z'
+    actor: reviewer
+    condition: all_blocking_gates_pass
   plan_sha256: 069aa8c693fa9f8f911bb9df0ef49f64dcd11c16150ff98144e97b42d1905c48
   execution:
     executor_role: executor.code
@@ -177,6 +182,14 @@ status:
       build
     - Reproduced shallow checkout failure and added fetch-depth0 to Python CI without
       altering test matrix or approval verification
+    - Configured develop required commit-description check per repository policy;
+      retained prior 404 and current protection snapshots
+    - Merged PR 19 at reviewed candidate 3ea6b6f8 after 14 remote checks passed; merge
+      commit b0e8f764 preserves all source heads
+    - Updated and closed source PRs 12/13/14/15/16 with integration destination; kept
+      historical PRs 7/17/18 open for separate review
+    - Recorded final remote checks, ancestry, branch protection and recovery evidence
+      in tracked task directory
     changed_paths:
     - .github/workflows/python-tests.yml
     - docs/agents/plans/INDEX.md
@@ -319,6 +332,10 @@ status:
     - waveform_analysis/documentation/site_dist/visualizations/statistical-plots/index.html
     - waveform_analysis/documentation/site_dist/visualizations/waveform-plots/index.html
     - waveform_analysis/documentation/site_docs/catalog.py
+    - docs/agents/runs/current/remote-branch-integration-20261109/develop-ancestry-after.json
+    - docs/agents/runs/current/remote-branch-integration-20261109/remote-pr19-passed-checks.json
+    - docs/agents/runs/current/remote-branch-integration-20261109/develop-protection-before.json
+    - docs/agents/runs/current/remote-branch-integration-20261109/develop-protection-after.json
     commands_run:
     - command: Full fast pytest -m not slow
       result: 2393 passed,5 skipped,1 failed only old35guide expectation; corrected36
@@ -398,11 +415,31 @@ status:
     - command: Workflow YAML and doc_sync after history fix
       result: PASS both checkout fetch-depth0, Python3.10/3.11/3.12 preserved; anchors
         zero errors/warnings
+    - command: PR19 latest-head GitHub checks
+      result: PASS, 14 checks; Python 3.10/3.11/3.12 and slow suite, documentation
+        sources/build, Agent Workflow and commit-description; includes applicable
+        push and PR checks
+      evidence: docs/agents/runs/current/remote-branch-integration-20261109/remote-pr19-passed-checks.json
+    - command: GitHub PR19 merge API and six git merge-base --is-ancestor checks against
+        origin/develop
+      result: PASS; PR 19 merged at 2026-11-09T10:08:07Z, commit b0e8f764639e30d1d143c070cb3f12a4fd899a8b;
+        all source heads included; master unchanged
+      evidence: docs/agents/runs/current/remote-branch-integration-20261109/develop-ancestry-after.json
+    - command: Read develop branch protection before and after required-status configuration
+      result: Prior 404 (unprotected); now commit-description required; force pushes
+        and deletions disabled
+      evidence:
+      - docs/agents/runs/current/remote-branch-integration-20261109/develop-protection-before.json
+      - docs/agents/runs/current/remote-branch-integration-20261109/develop-protection-after.json
+    - command: Closeout strict AgentTask validation and check_doc_sync.sh --base b0e8f764639e30d1d143c070cb3f12a4fd899a8b
+      result: PASS; 46 valid current records; generated task navigation synchronized;
+        Doc Anchors zero errors and zero warnings; git diff --check passed
+      evidence:
+      - /tmp/waveform-remote-branches-20261109/ci/closeout-agent-workflow.log
+      - /tmp/waveform-remote-branches-20261109/ci/closeout-doc-sync.log
     open_risks:
-    - Remote final integration PR CI has not yet run; merge into develop is conditional
-      on it passing
-    - Historical release PRs and four old reviewing tasks are preserved, not treated
-      as approved new integration
+    - Historical release PRs 7/17/18 remain open for separate review; four old tasks
+      faithfully remain reviewing
     - No real DAQ processing or detector-data performance claim
     requested_review_focus:
     - precise removal approval trust boundaries
@@ -412,8 +449,8 @@ status:
   review:
     reviewer_actor: integration_reviewer
     decision: approved
-    review_scope: local candidate and gen4 full-history CI fix; develop merge conditional
-      on remote checks
+    review_scope: Approved candidate 3ea6b6f8, fourteen successful remote checks,
+      actual PR 19 develop merge, source ancestry and metadata-only closeout
     plan_sha256: 069aa8c693fa9f8f911bb9df0ef49f64dcd11c16150ff98144e97b42d1905c48
     gate_results:
       python_tests: PASS
@@ -427,16 +464,31 @@ status:
       reviewer: PASS
     blocking_findings: []
     residual_risks:
-    - Remote latest integration PR matrix and all workflows must pass before develop
-      merge
+    - Historical release PRs 7/17/18 remain open for separate review; four old tasks
+      faithfully remain reviewing
+    - No real DAQ processing or detector-data performance claim
     follow_up_actions:
-    - Push reviewed full-history configuration fix
-    - Refresh exact PR commit list
-    - Wait latest-head remote CI, merge develop, record actual ancestry and final
-      task completion
+    - Master integration remains a future user decision; no release performed
+    closeout_review:
+      reviewer: integration_reviewer
+      decision: approved
+      scope: Pure metadata closeout and required generated task navigation
+      findings: []
+      evidence: Independent Reviewer verified JSON snapshots, 14 unique successful
+        checks, six source ancestors, actual PR and protection states, unchanged gen4
+        digest, current and simulated completed schema validity, and diff whitespace
+      permission: Allowed reviewing -> completed and scoped metadata commit/PR; no
+        functional test rerun required
   approval: {}
   handoff:
-    commit_status: Code candidate5efcf332 committed; gen4 CI configuration fix locally
-      approved and prepared
-    develop_merge_status: pending latest-head remote CI
+    commit_status: 已提交：5efcf332777723f20cd5c04a08fc6ca886669f4c and 3ea6b6f89ccf9b8a82a90f747d53073c408d4eeb;
+      merged into develop by b0e8f764639e30d1d143c070cb3f12a4fd899a8b; 本提交记录 metadata
+      closeout
+    develop_merge_status: PR 19 merged at 2026-11-09T10:08:07Z after all 14 applicable
+      checks passed
+    develop_merge_commit: b0e8f764639e30d1d143c070cb3f12a4fd899a8b
     master_unchanged: a736cde49c17ac683301c93e5d78ecbb4c613ab9
+    source_prs: 12/13/14/15/16 closed with explicit integrated-via-19 notes; historical
+      7/17/18 remain open
+    recovery: Nine exact deleted refs remain recoverable from tracked SHA mapping,
+      restore commands, local backup refs and original master ancestry
