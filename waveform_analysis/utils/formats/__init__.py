@@ -15,8 +15,13 @@ register_module_aliases(
             "generic",
             "registry",
             "v1725",
+            "v1725.reader",
+            "v1725.numba",
             "v1725_numba",
             "vx2730",
+            "vx2730.csv",
+            "vx2730.binary",
+            "vx2730_bin",
         )
     }
 )

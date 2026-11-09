@@ -1,6 +1,6 @@
 provides: events
 plugin_class: EventPlugin
-version: 0.0.3
+version: 0.1.0
 depends_on:
   - s1_s2_pairs
   - position_reconstruction

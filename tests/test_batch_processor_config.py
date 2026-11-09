@@ -167,5 +167,56 @@ class TestBatchProcessorConfigGrid:
 
         batch1 = result["results"][1]["batch"]
         assert len(batch1["results"]) == 2
+        assert batch1["results"]["run_1"][0]["value"] == 10
+        assert batch1["results"]["run_2"][0]["value"] == 20
         assert batch1["meta"]["run_1"]["status"] == "success"
         assert batch1["meta"]["run_2"]["status"] == "success"
+
+    @pytest.mark.parametrize("mode", ["serial", "thread", "process"])
+    @pytest.mark.parametrize("explicit_factory", [False, True])
+    def test_config_values_reach_each_worker(self, tmp_path, mode, explicit_factory):
+        ctx = Context(storage_dir=str(tmp_path / "base"))
+        ctx.register(ConfigurableDataPlugin)
+        factory_ctx = Context(storage_dir=str(tmp_path / "factory"))
+        factory_ctx.register(ConfigurableDataPlugin)
+        factory_ctx.set_config({"multiplier": 11}, plugin_name="configurable_data")
+        configs = [{"multiplier": 2}, {"multiplier": 7}, {}]
+
+        result = BatchProcessor(ctx).process_runs_with_config_grid(
+            ["run_1", "run_3"],
+            "configurable_data",
+            "configurable_data",
+            configs,
+            max_workers=1 if mode == "serial" else 2,
+            executor_type="process" if mode == "process" else "thread",
+            context_factory=factory_ctx.create_context_factory() if explicit_factory else None,
+            show_progress=False,
+            jupyter_mode=True,
+        )
+
+        assert result["configs"] == configs
+        # The no-factory serial path updates the original Context cumulatively;
+        # factories start from their captured configuration for every run.
+        last_multiplier = 11 if explicit_factory else (7 if mode == "serial" else 1)
+        for index, multiplier in enumerate((2, 7, last_multiplier)):
+            item = result["results"][index]
+            assert item["config_index"] == index
+            assert item["config"] == configs[index]
+            assert item["batch"]["errors"] == {}
+            assert item["batch"]["ordered_run_ids"] == ["run_1", "run_3"]
+            for run_id, base in (("run_1", 1), ("run_3", 3)):
+                assert item["batch"]["results"][run_id][0]["value"] == base * multiplier
+
+    def test_empty_config_grid_does_not_invoke_factory(self, tmp_path):
+        def fail_factory():
+            pytest.fail("Empty grid must not create a worker Context")
+
+        result = BatchProcessor(Context(storage_dir=str(tmp_path))).process_runs_with_config_grid(
+            ["run_1"],
+            "configurable_data",
+            "configurable_data",
+            [],
+            context_factory=fail_factory,
+            show_progress=False,
+        )
+        assert result == {"configs": [], "results": []}

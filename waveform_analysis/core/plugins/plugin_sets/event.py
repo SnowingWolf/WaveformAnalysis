@@ -24,10 +24,7 @@ def plugins_events():
     - EventPlugin: Complete event reconstruction (v0.0.0)
 
     .. deprecated::
-        Legacy plugins (GroupedEventsPlugin, HitGroupedPlugin, PairedEventsPlugin)
-        are deprecated and will be removed in a future version.
-        GroupedEventsPlugin and PairedEventsPlugin have been moved to the
-        ``tabular`` plugin set because they produce DataFrame (tabular) outputs.
+        HitGroupedPlugin is deprecated and will be removed in a future version.
     """
     from waveform_analysis.core.plugins.builtin.energy_reconstruction import (
         EnergyReconstructionPlugin,
@@ -54,8 +51,6 @@ def plugins_events():
     ]
 
     # Legacy deprecated plugins (kept for backward compatibility)
-    # NOTE: GroupedEventsPlugin and PairedEventsPlugin have been moved to the
-    # ``tabular`` plugin set (they emit DataFrame tabular outputs).
     try:
         from waveform_analysis.core.plugins.builtin.hit_grouped import HitGroupedPlugin
 

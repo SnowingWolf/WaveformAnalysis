@@ -8,8 +8,7 @@ from typing import Any
 
 import numpy as np
 
-from .config import CompatManager, ConfigResolver, ConfigValue, ResolvedConfig
-from .config.run_config import resolve_run_hardware_channels, validate_run_config
+from .config import CompatManager, ConfigResolver, ResolvedConfig
 from .plugins.core.base import Plugin
 
 
@@ -42,40 +41,41 @@ class ContextConfigDomain:
         else:
             self.ctx.config.update(config)
 
-        self.ctx.clear_config_cache()
-        self.ctx.clear_performance_caches()
+        self.ctx._clear_config_cache()
+        self.ctx._invalidate_planning_caches()
         self.ctx._run_config_cache.clear()
         self.ctx._run_config_hash_loaded.clear()
 
     def raise_if_removed_data_name(self, data_name: str) -> None:
-        replacement = self.ctx._REMOVED_DATA_NAME_ALIASES.get(data_name)
-        if replacement is None:
+        guidance = self.ctx._REMOVED_DATA_NAMES.get(data_name)
+        if guidance is None:
             return
         raise ValueError(
-            f"Data name '{data_name}' has been removed. Please use '{replacement}' instead."
+            f"Data name '{data_name}' has been removed. {guidance} "
+            "See docs/user-guide/DF_RETIREMENT.md for migration details."
         )
 
-    def get_config_value(
+    def get_config(
         self,
-        plugin: Plugin,
-        name: str,
+        plugin: Plugin | str,
+        name: str | None = None,
+        *,
+        with_source: bool = False,
         adapter_name: str | None = None,
-    ) -> ConfigValue:
+    ) -> Any:
+        if isinstance(plugin, str):
+            plugin = self.ctx.get_plugin(plugin)
         if adapter_name is None:
             adapter_name = self.resolve_adapter_name_for_plugin(plugin)
         resolver = self.ensure_config_resolver()
-        return resolver.resolve_value(
-            plugin=plugin,
-            name=name,
-            config=self.ctx.config,
-            adapter_name=adapter_name,
+        if name is None:
+            return resolver.resolve(
+                plugin=plugin, config=self.ctx.config, adapter_name=adapter_name
+            )
+        value = resolver.resolve_value(
+            plugin=plugin, name=name, config=self.ctx.config, adapter_name=adapter_name
         )
-
-    def get_config(self, plugin: Plugin, name: str) -> Any:
-        return self.get_config_value(plugin, name).value
-
-    def resolve_config_value(self, plugin: Plugin, name: str) -> Any:
-        return self.get_config(plugin, name)
+        return value if with_source else value.value
 
     def resolve_adapter_name_for_plugin(
         self,
@@ -101,22 +101,6 @@ class ContextConfigDomain:
             return cv.value
         return resolved_adapter
 
-    def get_resolved_config(
-        self,
-        plugin: Plugin | str,
-        adapter_name: str | None = None,
-    ) -> ResolvedConfig:
-        if isinstance(plugin, str):
-            if plugin not in self.ctx._plugins:
-                raise KeyError(f"Plugin '{plugin}' is not registered")
-            plugin = self.ctx._plugins[plugin]
-
-        if adapter_name is None:
-            adapter_name = self.resolve_adapter_name_for_plugin(plugin)
-
-        resolver = self.ensure_config_resolver()
-        return resolver.resolve(plugin=plugin, config=self.ctx.config, adapter_name=adapter_name)
-
     def make_config_signature(self, raw_config: dict[str, Any]) -> str:
         def default(value: Any) -> str:
             if isinstance(value, np.ndarray):
@@ -133,7 +117,7 @@ class ContextConfigDomain:
         return self.make_config_signature(payload)
 
     def ensure_plugin_config_validated(self, plugin: Plugin) -> dict[str, Any]:
-        resolved = self.get_resolved_config(plugin)
+        resolved = self.get_config(plugin)
         signature = self.make_resolved_config_signature(resolved)
         cache_key = (plugin.provides, signature)
         if cache_key in self.ctx._resolved_config_cache:
@@ -156,6 +140,12 @@ class ContextConfigDomain:
         path = self.get_custom_config_sync_path(run_id)
         if not path:
             return
+
+        base = self.ctx._published_cache
+        if base is not None and os.path.commonpath(
+            [os.path.realpath(path), str(base.base.resolve())]
+        ) == str(base.base.resolve()):
+            raise ValueError("custom_config_json_path cannot write into published base")
 
         payload = {
             "run_id": run_id,
@@ -370,67 +360,61 @@ class ContextConfigDomain:
             except Exception as exc:
                 self.ctx.logger.warning("Failed to read run config '%s': %s", config_path, exc)
 
+        if cached_hash != current_hash:
+            self.ctx._plugin_domain.invalidate_version_checks()
         self.ctx._run_config_cache[run_id] = result
         self.ctx._run_config_hash_cache[run_id] = current_hash
         return result
 
-    def validate_run_config(self, run_id: str, require_identity: bool = False) -> None:
-        run_config = self.get_run_config(run_id)
-        validate_run_config(run_config, require_identity=require_identity)
-
-    def get_run_hardware_channels(
-        self,
-        run_id: str,
-        *,
-        validate: bool = True,
-    ) -> dict[str, dict[str, Any]]:
-        run_config = self.get_run_config(run_id)
-        return resolve_run_hardware_channels(run_config, validate=validate)
-
-    def get_plugin_run_config(self, plugin: Plugin | str, run_id: str) -> dict[str, Any]:
-        plugin_name = plugin if isinstance(plugin, str) else plugin.provides
-        run_config = self.get_run_config(run_id)
-        plugins_block = run_config.get("plugins", {})
-        if isinstance(plugins_block, dict):
-            plugin_block = plugins_block.get(plugin_name)
-            if isinstance(plugin_block, dict):
-                return plugin_block
-
-        plugin_config = self.ctx.config.get(plugin_name)
-        if isinstance(plugin_config, dict):
-            runs_block = plugin_config.get("runs", {})
-            if isinstance(runs_block, dict):
-                run_block = runs_block.get(run_id)
-                if isinstance(run_block, dict):
-                    return run_block
-        return {}
-
-    def show_resolved_config(
-        self,
-        plugin: Plugin | str | None = None,
-        verbose: bool = True,
-        adapter_name: str | None = None,
-    ) -> None:
-        if adapter_name is None:
-            adapter_name = self.ctx.config.get("daq_adapter")
-
-        if plugin is None:
-            plugins_to_show = list(self.ctx._plugins.values())
-        elif isinstance(plugin, str):
-            if plugin not in self.ctx._plugins:
-                print(f"Plugin '{plugin}' is not registered")
-                return
-            plugins_to_show = [self.ctx._plugins[plugin]]
-        else:
-            plugins_to_show = [plugin]
-
-        for p in plugins_to_show:
-            resolved = self.get_resolved_config(p, adapter_name=adapter_name)
-            print(resolved.summary(verbose=verbose))
-            print()
-
-    def prepare_request(self, run_id: str, data_name: str) -> None:
+    def prepare_request(self, run_id: str, data_name: str) -> bool:
+        """Prepare a request; return whether it must bypass memory cache."""
         self.raise_if_removed_data_name(data_name)
+        if self.ctx._cache_readonly:
+            return self.prepare_readonly_request(run_id, data_name)
         self.sync_custom_config_json(run_id, data_name)
         self.ctx._last_run_id = run_id
         self.maybe_invalidate_run_config_cache(run_id)
+        return False
+
+    def prepare_readonly_request(self, run_id: str, data_name: str) -> bool:
+        """Check run-config freshness without changing cache files or state."""
+        self.ctx._last_run_id = run_id
+        base = self.ctx._published_cache
+        if base is not None and data_name in base.manifest["nodes"]:
+            base.validate_request(run_id, data_name)
+            return False
+        pending = [data_name]
+        visited = set()
+        while pending:
+            name = pending.pop()
+            if name in visited or name not in self.ctx._plugins:
+                continue
+            visited.add(name)
+            plugin = self.ctx._plugins[name]
+            if getattr(plugin, "uses_run_config", False):
+                break
+            pending.extend(self.ctx._plugin_domain.get_dependency_names(plugin, run_id=run_id))
+        else:
+            return False
+
+        # run_config is not part of lineage. Its persisted state is therefore
+        # required, and memory results cannot prove their per-result freshness.
+        # Reload the disk entry after verifying state instead of trusting them.
+        current_hash, _config_path = self.compute_run_config_hash(run_id)
+        state_path = self.get_run_config_hash_state_path(run_id)
+        if current_hash is None or not os.path.isfile(state_path):
+            raise FileNotFoundError(
+                f"Readonly cache freshness cannot be verified for run_id={run_id!r}, "
+                f"data_name={data_name!r}: run_config hash state is unavailable."
+            )
+        with open(state_path, encoding="utf-8") as fh:
+            state = json.load(fh)
+        previous_hash = state.get("run_config_hash") if isinstance(state, dict) else None
+        if previous_hash != current_hash:
+            raise FileNotFoundError(
+                f"Readonly cache is stale or unverified for run_id={run_id!r}, "
+                f"data_name={data_name!r}: run_config hash does not match persisted state."
+            )
+        if self.ctx._run_config_hash_cache.get(run_id) != current_hash:
+            self.ctx._plugin_domain.invalidate_version_checks()
+        return True

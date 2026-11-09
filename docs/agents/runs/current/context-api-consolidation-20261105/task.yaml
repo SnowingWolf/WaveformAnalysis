@@ -1,0 +1,412 @@
+api_version: waveform-analysis/agent-task/v1
+kind: AgentTask
+metadata:
+  id: context-api-consolidation-20261105
+  generation: 1
+  created_at: '2026-11-05T13:30:37Z'
+  updated_at: '2026-11-06T02:58:37Z'
+spec:
+  goal: 统一 Context 配置读写和展示、时间范围查询，删除六个重复公开入口并迁移调用、测试和文档。
+  route: retire_compat
+  workflow_cost: strict
+  workflow_shape: staged
+  risk_level: medium
+  scope:
+    base_sha: f65413d84cd80cda93b8e26baa9aa88d51036c86
+    allowed_paths:
+    - waveform_analysis/
+    - tests/
+    - docs/
+    - examples/
+    - scripts/
+    - AGENTS.md
+  acceptance_criteria:
+  - 六个重复 Context 方法退出，单项与全量配置解析、文件导入、配置来源和元数据保留
+  - 时间查询支持整数和 datetime，时间轴索引隔离，查询边界和通道语义保留
+  - 调用、文档、打包站点及契约测试同步，gates 与分阶段复核通过并 scoped 提交
+  required_gates:
+  - compat_inventory_ready
+  - deletion_scope_confirmed
+  - targeted_tests
+  - generate_docs
+  - doc_sync
+  - doc_anchors
+  - assess_change_impact
+  - schema_compat_check
+  - docs_build
+  - reviewer
+  assignment:
+    planner_role: planner
+    executor_role: executor.config
+    reviewer_role: reviewer
+  authorization:
+    request: 按照这个进行执行；这些也合并；按照新方案合并
+    source: Direct user approval of the concrete API consolidation proposals
+    side_conversation: User prohibits subagents; one agent executes sequential Planner,
+      Executor and blocking Reviewer roles. No claim of independent review.
+  compat_inventory:
+  - legacy_form: Context.get_config_value
+    canonical_form: get_config(plugin, name, with_source=True)
+    runtime_surface: public_python_api
+    risk_level: medium
+    delete_action: remove; migrate consumers without compatibility alias
+    user_confirmation: Approved in annotated consolidation request
+  - legacy_form: Context.get_resolved_config
+    canonical_form: get_config(plugin)
+    runtime_surface: public_python_api
+    risk_level: medium
+    delete_action: remove; migrate consumers without compatibility alias
+    user_confirmation: Approved in annotated consolidation request
+  - legacy_form: Context.show_resolved_config
+    canonical_form: show_config(plugin, show_source=True)
+    runtime_surface: public_python_api
+    risk_level: medium
+    delete_action: remove; migrate consumers without compatibility alias
+    user_confirmation: Approved in annotated consolidation request
+  - legacy_form: Context.from_config_json
+    canonical_form: set_config(Path(json_file))
+    runtime_surface: public_python_api
+    risk_level: medium
+    delete_action: remove; migrate consumers without compatibility alias
+    user_confirmation: Approved in annotated consolidation request
+  - legacy_form: Context.list_plugin_configs
+    canonical_form: show_config(view="options", output="dict")
+    runtime_surface: public_python_api
+    risk_level: medium
+    delete_action: remove; migrate consumers without compatibility alias
+    user_confirmation: Approved in annotated consolidation request
+  - legacy_form: Context.get_data_time_range_absolute
+    canonical_form: time_range with datetime start_time/end_time
+    runtime_surface: public_python_api
+    risk_level: medium
+    delete_action: remove; migrate consumers without compatibility alias
+    user_confirmation: Approved in annotated consolidation request
+  scope_out:
+  - No plugin algorithm/options/dtype/version changes
+  - No publish or PR
+  - No subagent or other chat interaction
+  - No unrelated configuration-table semantics cleanup
+  execution_policy:
+    review: Single-agent sequential blocking audit as required by the side-conversation
+      restriction
+    python: /home/wxy/anaconda3/envs/pyroot-kernel/bin/python
+    commit: Scoped commit after all required checks; no unrelated changes
+status:
+  state: completed
+  transitions:
+  - from: created
+    to: planning
+    at: '2026-11-05T13:30:37Z'
+    actor: planner
+  - from: planning
+    to: ready_for_execution
+    at: '2026-11-05T13:30:37Z'
+    actor: planner
+  - from: ready_for_execution
+    to: executing
+    at: '2026-11-05T13:30:37Z'
+    actor: executor.config
+  - from: executing
+    to: reviewing
+    at: '2026-11-06T02:57:50Z'
+    actor: executor.config
+  - from: reviewing
+    to: completed
+    at: '2026-11-06T02:58:37Z'
+    actor: reviewer
+  plan_sha256: a39575e29ccd97fbfa30bb1a73d0cc5613863afc64918653485ba7b818e24582
+  execution:
+    task_id: context-api-consolidation-20261105
+    workflow_cost: strict
+    workflow_shape: staged
+    changed_paths:
+    - AGENTS.md
+    - docs/agents/configuration.md
+    - docs/agents/plans/INDEX.md
+    - docs/agents/plans/active.yaml
+    - docs/agents/runs/current/context-api-consolidation-20261105/task.yaml
+    - docs/agents/workflows.md
+    - docs/architecture/ARCHITECTURE.md
+    - docs/architecture/PLUGIN_DAG_LINEAGE_CACHE.md
+    - docs/architecture/context_analysis.md
+    - docs/architecture/context_api_optimization_plan.md
+    - docs/cli/WAVEFORM_PROCESS.md
+    - docs/features/context/ABSOLUTE_TIME_GUIDE.md
+    - docs/features/context/CONFIGURATION.md
+    - docs/plugins/PLUGIN_SYSTEM_OVERVIEW.md
+    - docs/plugins/reference/ADAPTER_SYSTEM_GUIDE.md
+    - docs/site-content-baseline.json
+    - docs/site-next/fixture/site-model.v1.json
+    - docs/user-guide/EXAMPLES_GUIDE.md
+    - examples/config_management_example.py
+    - examples/list_plugin_configs_example.py
+    - scripts/benchmark_peak_pipeline.py
+    - tests/contracts/test_cli_import_contract.py
+    - tests/contracts/test_context_api_consolidation.py
+    - tests/contracts/test_context_api_retirement.py
+    - tests/test_adapter_info_contract.py
+    - tests/test_cli_show_daq.py
+    - tests/test_context_core.py
+    - tests/test_context_simplification.py
+    - waveform_analysis/cli.py
+    - waveform_analysis/core/config/tests/test_config.py
+    - waveform_analysis/core/context.py
+    - waveform_analysis/core/context_config.py
+    - waveform_analysis/core/context_time.py
+    - waveform_analysis/documentation/site_dist/404.html
+    - waveform_analysis/documentation/site_dist/404/index.html
+    - waveform_analysis/documentation/site_dist/_not-found/index.html
+    - waveform_analysis/documentation/site_dist/accessors/index.html
+    - waveform_analysis/documentation/site_dist/accessors/peak-channel-accessor/index.html
+    - waveform_analysis/documentation/site_dist/accessors/records-view/index.html
+    - waveform_analysis/documentation/site_dist/accessors/s1-s2-pair-accessor/index.html
+    - waveform_analysis/documentation/site_dist/adapters/adapter/index.html
+    - waveform_analysis/documentation/site_dist/adapters/index.html
+    - waveform_analysis/documentation/site_dist/architecture/PROJECT_STRUCTURE/index.html
+    - waveform_analysis/documentation/site_dist/architecture/accessor-analysis/index.html
+    - waveform_analysis/documentation/site_dist/architecture/data-products/index.html
+    - waveform_analysis/documentation/site_dist/architecture/index.html
+    - waveform_analysis/documentation/site_dist/architecture/plugin-cache-architecture/index.html
+    - waveform_analysis/documentation/site_dist/architecture/plugin-dag-lineage-cache/index.html
+    - waveform_analysis/documentation/site_dist/architecture/system/index.html
+    - waveform_analysis/documentation/site_dist/cli/WAVEFORM_CACHE/index.html
+    - waveform_analysis/documentation/site_dist/cli/WAVEFORM_DOCS/index.html
+    - waveform_analysis/documentation/site_dist/cli/WAVEFORM_PROCESS/index.html
+    - waveform_analysis/documentation/site_dist/cli/index.html
+    - waveform_analysis/documentation/site_dist/contexts/context/index.html
+    - waveform_analysis/documentation/site_dist/contexts/index.html
+    - waveform_analysis/documentation/site_dist/development/CONTRACT_TESTS/index.html
+    - waveform_analysis/documentation/site_dist/development/contributing/COMMIT_CONVENTION/index.html
+    - waveform_analysis/documentation/site_dist/development/contributing/DOC_ANCHOR_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/development/contributing/IMPORT_STYLE_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/development/index.html
+    - waveform_analysis/documentation/site_dist/development/plugin-development/PLUGIN_SCAFFOLD/index.html
+    - waveform_analysis/documentation/site_dist/development/plugin-development/PLUGIN_SPEC_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/development/plugin-development/plugin_guide/index.html
+    - waveform_analysis/documentation/site_dist/development/worktrees/index.html
+    - waveform_analysis/documentation/site_dist/features/advanced/PROGRESS_TRACKING_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/context/ABSOLUTE_TIME_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/context/BATCH_PROCESSOR/index.html
+    - waveform_analysis/documentation/site_dist/features/context/CONFIGURATION/index.html
+    - waveform_analysis/documentation/site_dist/features/context/DEPENDENCY_ANALYSIS_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/context/LINEAGE_VISUALIZATION_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/index.html
+    - waveform_analysis/documentation/site_dist/features/utils/ADAPTIVE_2D_SAMPLING_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/utils/DAQ_ANALYZER_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/utils/PDF_EXPORT_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/visualizations/POSITION_DASHBOARD_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/index.html
+    - waveform_analysis/documentation/site_dist/lineage/index.html
+    - waveform_analysis/documentation/site_dist/plugins/basic_features/index.html
+    - waveform_analysis/documentation/site_dist/plugins/cache_analysis/index.html
+    - waveform_analysis/documentation/site_dist/plugins/energy_reconstruction/index.html
+    - waveform_analysis/documentation/site_dist/plugins/events/index.html
+    - waveform_analysis/documentation/site_dist/plugins/filtered_waveforms/index.html
+    - waveform_analysis/documentation/site_dist/plugins/guides/STREAMING_PLUGINS_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_grouped/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_merge_clusters/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_merged/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_merged_components/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_merged_features/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_threshold/index.html
+    - waveform_analysis/documentation/site_dist/plugins/index.html
+    - waveform_analysis/documentation/site_dist/plugins/overview/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peak_classification/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_channels/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_components/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_features/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_waveform_pool/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_waveforms/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklets/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaks/index.html
+    - waveform_analysis/documentation/site_dist/plugins/position_reconstruction/index.html
+    - waveform_analysis/documentation/site_dist/plugins/raw_files/index.html
+    - waveform_analysis/documentation/site_dist/plugins/records/index.html
+    - waveform_analysis/documentation/site_dist/plugins/records_asymmetry_mask/index.html
+    - waveform_analysis/documentation/site_dist/plugins/records_detector_mask/index.html
+    - waveform_analysis/documentation/site_dist/plugins/records_veto_mask/index.html
+    - waveform_analysis/documentation/site_dist/plugins/reference/ADAPTER_PLUGIN_BEHAVIOR/index.html
+    - waveform_analysis/documentation/site_dist/plugins/reference/ADAPTER_SYSTEM_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/plugins/s1_s2_pair_candidates/index.html
+    - waveform_analysis/documentation/site_dist/plugins/s1_s2_pairs/index.html
+    - waveform_analysis/documentation/site_dist/plugins/st_waveforms/index.html
+    - waveform_analysis/documentation/site_dist/plugins/wave_pool/index.html
+    - waveform_analysis/documentation/site_dist/plugins/wave_pool_filtered/index.html
+    - waveform_analysis/documentation/site_dist/plugins/waveform_width/index.html
+    - waveform_analysis/documentation/site_dist/plugins/waveform_width_integral/index.html
+    - waveform_analysis/documentation/site_dist/search-index.v1.json
+    - waveform_analysis/documentation/site_dist/site-manifest.json
+    - waveform_analysis/documentation/site_dist/site-model.v1.json
+    - waveform_analysis/documentation/site_dist/user-guide/DF_RETIREMENT/index.html
+    - waveform_analysis/documentation/site_dist/user-guide/EXAMPLES_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/user-guide/QUICKSTART_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/user-guide/docs-build/index.html
+    - waveform_analysis/documentation/site_dist/user-guide/index.html
+    - waveform_analysis/documentation/site_dist/visualizations/index.html
+    - waveform_analysis/documentation/site_dist/visualizations/position-dashboard/index.html
+    - waveform_analysis/documentation/site_dist/visualizations/statistical-plots/index.html
+    - waveform_analysis/documentation/site_dist/visualizations/waveform-plots/index.html
+    - waveform_analysis/documentation/site_docs/catalog.py
+    actions_taken:
+    - Merged six approved public wrappers into get_config, set_config, show_config
+      and time_range without compatibility aliases.
+    - Preserved narrow single-option resolution, full ResolvedConfig/source metadata,
+      plugin adapter precedence and atomic JSON import.
+    - Preserved display versus silent metadata access and migrated CLI output through
+      get_config(...).summary().
+    - Unified integer/datetime time bounds and separated query engines by time domain
+      and field pair.
+    - Migrated consumers, examples, contracts, user/architecture docs, API catalog,
+      baseline, fixture and packaged site.
+    commands_run:
+    - command: /home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m pytest tests/contracts/test_context_api_consolidation.py
+        tests/contracts/test_context_api_retirement.py tests/contracts/test_cli_import_contract.py
+        tests/test_context_core.py tests/test_context_simplification.py tests/test_adapter_info_contract.py
+        tests/test_cli_show_daq.py tests/test_context_core_time.py tests/test_time_range_query.py
+        tests/test_time_conversion.py tests/test_run_config_cache_invalidation.py
+        waveform_analysis/core/config/tests/test_config.py
+      result: 'PASS: 235 tests; later added epoch-unit/empty-input cases checked separately
+        below'
+      log: /tmp/context-consolidation-tests.log
+    - command: /home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m pytest tests/contracts/test_context_api_consolidation.py
+        -q -o addopts= --no-cov
+      result: 'PASS: 28 final consolidation contracts, including single-value scope,
+        sources, file atomicity, time units/fields, datetime, channel and empty cases'
+      log: /tmp/context-consolidation-final-contracts.log
+    - command: /home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m pytest tests/test_site_model.py
+        -q -o addopts= --no-cov
+      result: 'PASS: 21 site-model tests after correcting catalog return text and
+        intentional API-retirement baseline'
+      log: /tmp/context-consolidation-site-tests.log
+    - command: Focused documentation/site/help tests
+      result: Initial 82 passed, 1 skipped, 2 failed; both failures were in site_model
+        and were corrected and passed in the 21-test rerun above
+      log: /tmp/context-consolidation-doc-tests.log
+    - command: Execute examples/config_management_example.py and examples/list_plugin_configs_example.py
+        using temporary storage
+      result: PASS
+      log: /tmp/context-consolidation-examples.log
+    - command: /home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m waveform_analysis.documentation.cli
+        generate plugins-auto -o docs/plugins/reference/builtin/auto/
+      result: 'PASS: 34 generated files, no plugin changes'
+      log: /tmp/context-consolidation-generate-auto.log
+    - command: /home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m waveform_analysis.documentation.cli
+        generate plugins-agent -o docs/plugins/reference/agent/
+      result: 'PASS: 34 generated files, no plugin changes'
+      log: /tmp/context-consolidation-generate-agent.log
+    - command: /home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/assess_change_impact.py
+        --base HEAD
+      result: 'PASS: 0 changed plugin files; no plugin-contract changes'
+      log: /tmp/context-consolidation-impact.log
+    - command: /home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/schema_compat_check.py
+        --base HEAD --run-smoke
+      result: 'PASS: 0 dtype changes; 24 records and 12 peaks in smoke chain'
+      log: /tmp/context-consolidation-schema.log
+    - command: WAVEFORM_PYTHON=/home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/check_doc_sync.sh
+      result: 'PASS: manifest and repository-wide anchors, 0 errors/warnings'
+      log: /tmp/context-consolidation-doc-sync.log
+    - command: /home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/check_doc_anchors.py
+        --check-sync --base HEAD
+      result: PASS
+      log: /tmp/context-consolidation-anchors.log
+    - command: PYTHONPATH=/mnt/data/Run3/WaveformAnalysis /home/wxy/anaconda3/envs/pyroot-kernel/bin/python
+        scripts/docs_build.py build --workspace /mnt/data/Run3/WaveformAnalysis --run-id
+        context-api-consolidation-20261106-2 --stage-output
+      result: 'PASS: npm ci, TypeScript and Next build exit 0; 91 HTML pages staged'
+      report: /tmp/waveform-doc-build/runs/context-api-consolidation-20261106-2/report.json
+    - command: /home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m ruff check <16
+        changed Python files>; ruff format --check <same files>
+      result: Lint PASS; format 15 PASS, context.py differs only in pre-existing formatting,
+        confirmed against HEAD. No unrelated reformat.
+    - command: git status --short; git diff --stat; git diff --check
+      result: Inspected scoped diff and generated export; whitespace PASS
+    additional_evidence:
+    - 'AST comparison: exactly six planned public methods removed; get_data/get_lineage/resolve_dependencies/key_for/clear_cache_for/get_run_config/get_performance_report
+      unchanged.'
+    - 'Active-source scan: old names only remain in migration/history documentation,
+      absence assertions and unrelated test-double private helper.'
+    - External export and packaged export each contain 91 HTML pages; new parameter
+      names and all six migration entries verified. This is content-presence/structure
+      evidence, not a byte-identity claim.
+    resolved_environment_issue:
+      failed_run: context-api-consolidation-20261106-1
+      error: Could not parse output from TypeScript's --showConfig; Aborted (134)
+      resolution: Sandbox-outside retry auto-approved; identical runtime and documentation
+        source passed all build/type gates. Failed artifacts retained.
+      failed_report: /tmp/waveform-doc-build/runs/context-api-consolidation-20261106-1/report.json
+    requested_review_focus:
+    - Removal scope and unchanged execution methods
+    - Configuration precedence, validation and file import boundaries
+    - Time-domain index isolation and datetime conversion
+    - Documentation and packaged-export consistency
+    open_risks:
+    - 'Intentional breaking public API migration: external callers must follow docs/features/context/CONFIGURATION.md;
+      no compatibility aliases.'
+    - Single-agent sequential blocking audit per user side-conversation restriction,
+      not independent review.
+    - Focused regression and smoke coverage, not a full repository test suite or production-data
+      validation.
+    commit_status: 未提交：全部技术验证已通过，等待阻断复核记录后进行 scoped commit。
+  review:
+    reviewer: root (single-agent sequential blocking review)
+    decision: approved
+    plan_sha256: a39575e29ccd97fbfa30bb1a73d0cc5613863afc64918653485ba7b818e24582
+    gate_results:
+      compat_inventory_ready: PASS
+      deletion_scope_confirmed: PASS
+      targeted_tests: PASS
+      generate_docs: PASS
+      doc_sync: PASS
+      doc_anchors: PASS
+      assess_change_impact: PASS
+      schema_compat_check: PASS
+      docs_build: PASS
+      reviewer: PASS
+    blocking_findings: []
+    assessment:
+    - Confirmed the exact six approved public removals and four canonical APIs. No
+      extra runtime or plugin surface was removed.
+    - Reviewed named/full configuration resolution, source/default distinction, plugin
+      adapter precedence, query-only overrides, unit conversion and file validation
+      before mutation.
+    - Reviewed datetime/integer boundary validation, epoch switches, explicit run_id,
+      board/channel filtering and time-domain/field-specific index ownership.
+    - Reviewed CLI, examples, source documentation, catalog, fixture/baseline and
+      both actual static exports. Old names remain only as migration/history or absence
+      assertions.
+    - Observed passing targeted tests, impact/schema/doc gates and successful external
+      build, and verified existing formatter differences against HEAD.
+    - Review conducted by the same agent under the direct user restriction on subagents;
+      no independent-review claim.
+    resolved_findings:
+    - Catalog return text containing a raw double-quoted option tripped the serialized-content
+      assertion; changed prose and reran the site-model tests.
+    - The baseline member for the adapter reference now names Context.get_config;
+      Context coverage baseline removes only approved retired members.
+    - Sandbox Node build failure resolved by an auto-approved external retry with
+      all original build and type gates retained.
+    residual_risks:
+    - 'Intentional breaking public API migration: external callers must follow docs/features/context/CONFIGURATION.md;
+      no compatibility aliases.'
+    - Single-agent sequential blocking audit per user side-conversation restriction,
+      not independent review.
+    - Focused regression and smoke coverage, not a full repository test suite or production-data
+      validation.
+    - Existing Context formatting differences are unchanged; lint passed.
+    commit_handoff: Approved for scoped local commit of this record, source, tests,
+      docs and validated packaged export.
+  approval:
+    evidence:
+    - 用户已批准本次六项公开入口合并；单agent顺序执行与复核。
+    plan_sha256: a39575e29ccd97fbfa30bb1a73d0cc5613863afc64918653485ba7b818e24582
+    approved_at: '2026-11-05T13:30:37Z'
+    actor: planner
+  handoff:
+    commit_status: 本记录与本轮代码、测试、文档和打包产物在同一 scoped commit 交付；完整 SHA 见 Git 历史及最终回复。
+    branch: codex/retire-legacy-df
+    commit_subject: 'refactor: consolidate Context configuration and time APIs'
+    summary: 配置读写展示统一到 get_config/set_config/show_config；绝对时间并入 time_range；六个重复入口移除。
+    migration: docs/features/context/CONFIGURATION.md#context-api-迁移
+    documentation_build: /tmp/waveform-doc-build/runs/context-api-consolidation-20261106-2/report.json
+    pending_actions: []

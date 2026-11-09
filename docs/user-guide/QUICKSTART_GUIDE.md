@@ -314,7 +314,7 @@ from waveform_analysis.plugins import profiles
 
 def main():
     # 1. 初始化 Context
-    ctx = Context(storage_dir='./strax_data')
+    ctx = Context(storage_dir='./wa_data')
     ctx.register(*profiles.cpu_default())
 
     # 2. 设置配置
@@ -359,7 +359,7 @@ if __name__ == '__main__':
 
 ### 预期
 
-- **缓存位置**: `./strax_data/`
+- **缓存位置**: `./wa_data/`
 - **输出**: NumPy 结构化数组
 
 ---
@@ -377,7 +377,7 @@ from waveform_analysis import Context, get_streaming_context
 from waveform_analysis.plugins import profiles
 
 # 初始化
-ctx = Context(storage_dir='./strax_data')
+ctx = Context(storage_dir='./wa_data')
 ctx.register(*profiles.cpu_default())
 ctx.set_config({'data_root': 'DAQ', 'daq_adapter': 'vx2730'})
 
@@ -463,13 +463,13 @@ ctx.set_config({'daq_adapter': 'my_daq'})
 | 查看文档指南 | `ctx.help()` 或查看 `docs/` 目录 |
 | 查看配置 | `ctx.show_config()` |
 | 血缘可视化 | `ctx.plot_lineage('basic_features')` |
-| 预览执行 | `ctx.preview_execution('run_001', 'basic_features')` |
+| 查看依赖 | `ctx.resolve_dependencies('basic_features', run_id='run_001')` |
 
 ### CLI 命令
 
 ```bash
 # 处理数据
-waveform-process --run-name run_001 --verbose
+waveform-process --run-name run_001 --target basic_features --verbose
 
 # 扫描 DAQ 目录
 waveform-process --scan-daq --daq-root DAQ

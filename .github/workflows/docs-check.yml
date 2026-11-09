@@ -3,21 +3,59 @@ name: Documentation Check
 on:
   push:
     paths:
-      - 'waveform_analysis/core/plugins/**'
-      - 'waveform_analysis/documentation/**'
-      - 'docs/site-next/**'
-      - 'docs/plugins/**'
+      - 'waveform_analysis/**'
+      - 'docs/**'
+      - 'scripts/docs_build.py'
+      - 'scripts/build_docs_site_dist.py'
+      - 'tests/test_doc_links.py'
+      - 'tests/test_site_guides.py'
+      - 'tests/test_site_model.py'
+      - 'pyproject.toml'
       - '.github/workflows/docs-check.yml'
   pull_request:
     paths:
-      - 'waveform_analysis/core/plugins/**'
-      - 'waveform_analysis/documentation/**'
-      - 'docs/site-next/**'
-      - 'docs/plugins/**'
+      - 'waveform_analysis/**'
+      - 'docs/**'
+      - 'scripts/docs_build.py'
+      - 'scripts/build_docs_site_dist.py'
+      - 'tests/test_doc_links.py'
+      - 'tests/test_site_guides.py'
+      - 'tests/test_site_model.py'
+      - 'pyproject.toml'
       - '.github/workflows/docs-check.yml'
 
+permissions:
+  contents: read
+
 jobs:
+  source-checks:
+    name: Documentation sources
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python dependencies
+        run: python -m pip install -e ".[dev,docgen]"
+
+      - name: Check local links and fragments
+        run: python -m waveform_analysis.documentation.cli check links --docs-dir docs
+
+      - name: Check documentation coverage
+        run: python -m waveform_analysis.documentation.cli check coverage --strict --fail-on-warning
+
+      - name: Check navigation and content contracts
+        run: >-
+          python -m pytest -q
+          tests/test_doc_links.py
+          tests/test_site_guides.py
+          tests/test_site_model.py
+
   doc-coverage:
+    needs: source-checks
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -47,10 +85,6 @@ jobs:
         run: |
           python -m waveform_analysis.documentation.cli generate plugins-auto -o docs/plugins/reference/builtin/auto/
           python -m waveform_analysis.documentation.cli generate plugins-agent -o docs/plugins/reference/agent/
-
-      - name: Check documentation coverage
-        run: |
-          python -m waveform_analysis.documentation.cli check coverage --strict --fail-on-warning
 
       - name: Build and validate Next static site
         run: |

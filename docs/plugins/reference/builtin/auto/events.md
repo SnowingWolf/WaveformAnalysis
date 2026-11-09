@@ -5,7 +5,7 @@ profile: "auto"
 provides: "events"
 plugin_class: "EventPlugin"
 module: "waveform_analysis.core.plugins.builtin.events.plugin"
-version: "0.0.3"
+version: "0.1.0"
 summary: "Complete event reconstruction from S1-S2 pairs and position"
 depends_on: ["s1_s2_pairs", "position_reconstruction"]
 declared_depends_on: ["s1_s2_pairs", "position_reconstruction"]
@@ -17,7 +17,7 @@ output_kind: "structured_array"
 execution_kind: "static"
 narrative_source: "source"
 narrative_source_reason: null
-source_fingerprint: "f40afade8aefd9aff2e666625178afd057773f52f5b0678ca8370cedccac5c11"
+source_fingerprint: "09946607af3c70db3a094f0241e7d86da07ff42cf4ecfcc2bead6fcd7ad60204"
 generated: true
 ---
 # events
@@ -33,16 +33,18 @@ Complete event reconstruction from S1-S2 pairs and position
 
 输出: - events: 完整事件记录
 
-v0.0.0 状态: - 仅建立数据结构和依赖关系 - 基本特征从输入数据复制 - 拓扑特征使用占位值（预留接口） - 质量评估使用简单阈值检查
+输入契约: - selected 配对和位置表的 pair_id 必须唯一且成员完全一致 - 按 pair_id 对齐坐标及质量标志，输出保持 selected 配对顺序 - 重复、缺失或多余位置记录抛出 ValueError；双方空表返回空 EVENT_DTYPE
 
-未来版本计划: - v0.1.0: 基础特征提取和质量检查 - v0.2.0: 拓扑特征计算（需要通道波形信息） - v0.3.0: 高级质量评估 - v1.0.0: 完整的事件重建和分类
+当前行为: - 仅建立数据结构和依赖关系 - 基本特征从输入数据复制 - 拓扑特征使用占位值（预留接口） - 质量评估使用简单阈值检查
+
+未来版本计划: - v0.2.0: 拓扑特征计算（需要通道波形信息） - v0.3.0: 高级质量评估 - v1.0.0: 完整的事件重建和分类
 
 | Item | Value |
 | --- | --- |
 | Provides | `events` |
 | Plugin Class | `EventPlugin` |
 | Module | `waveform_analysis.core.plugins.builtin.events.plugin` |
-| Version | `0.0.3` |
+| Version | `0.1.0` |
 | Category | 事件分析 |
 | Output Container | `structured_array` |
 | Execution Mode | `static` |
@@ -51,7 +53,7 @@ v0.0.0 状态: - 仅建立数据结构和依赖关系 - 基本特征从输入数
 | Timeout | `none` |
 | Side Effect | no |
 | Narrative Source | `source` |
-| Source Fingerprint | `f40afade8aefd9aff2e666625178afd057773f52f5b0678ca8370cedccac5c11` |
+| Source Fingerprint | `09946607af3c70db3a094f0241e7d86da07ff42cf4ecfcc2bead6fcd7ad60204` |
 
 ### Dependencies
 

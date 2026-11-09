@@ -33,6 +33,21 @@ flowchart LR
 节点，Storage 复用或保存结果，最后由调用方或 Accessor 读取正式产物。插件实例可以被多个 run
 复用，因此插件内部的每一次数据访问都必须显式带上 `run_id`。
 
+批量处理若指定 `storage_dir_strategy="readonly"`，Context 只返回有效缓存，未命中时报告错误，
+不会执行缺失的插件或消费可能继续计算的惰性流。该策略不改变 Plugin 的输出契约或 lineage，
+也不约束回调直接执行文件 I/O。具体缓存与配置有效性要求见
+[批量处理说明](../features/context/BATCH_PROCESSOR.md)。
+
+Context 的日常诊断入口为 `diagnose_cache(run_id)` 和 `get_performance_report()`：前者只检查
+缓存问题，后者在启用统计后报告实际插件执行情况。缓存容量、条目和修复由 `waveform-cache` CLI
+提供；依赖结构仍可通过 `resolve_dependencies()` 与 `plot_lineage()` 查看。
+run 配置文件使用 `get_run_config(run_id)` 读取，校验和硬件通道展开由独立配置函数处理。
+已删除的便捷包装、执行预览和高级依赖分析见[Context API 迁移](../features/context/CONFIGURATION.md#context-api-迁移)。
+
+使用 `Context(base=已发布快照, storage_dir=私人目录)` 时，请求会先验证冻结的上游身份，
+共享产物只读，下游缺失产物可以计算并写入私人目录。生产者通过 `publish()` 创建新版本；
+具体发布前提、格式限制与示例见[分层缓存](../features/context/LAYERED_CACHE.md)。
+
 ## Plugin 身份与输出契约
 
 最小插件由四个互相配合的声明组成：`provides` 标识产物，`depends_on` 标识输入，`version` 标识
@@ -90,11 +105,19 @@ class RecordScalePlugin(Plugin):
 子类。注册阶段会调用 `Plugin.validate()`，并检查 `provides`、依赖格式、`Option`、`save_when`、
 `output_kind` 和输出 schema。
 
+带版本约束的依赖写为 `("upstream", ">=1.0,<2.0")`。已注册的上游不兼容时，注册会明确失败。
+晚注册、覆盖或按 run 变化的动态约束会在请求返回缓存或执行之前检查；显式约束无法验证时也会失败。
+兼容的检查结果会复用，并随注册、配置变更和缓存清理失效。
+
+正式结果始终通过 `context.get_data(run_id, provides)` 读取；计算后不再自动创建同名 Context 属性，
+手工设置属性也不会向依赖图注入结果。内部显式注入的已有结果只能满足同一个 run 的依赖。
+预览无法解析完整依赖图时会返回 `error`，已有目标缓存不会把缺失上游隐藏为空计划。
+
 ```python
 from waveform_analysis import Context
 from waveform_analysis.plugins import profiles
 
-# Context 保存配置、插件注册表和 Storage；storage_dir 可按项目需要指定。
+# Context 保存配置、插件注册表和 Storage；未指定 storage_dir 时，缓存默认写入 ./wa_data/。
 ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
 
 # profile 返回一组已经组织好的插件；register() 会逐个加入注册表。
@@ -105,13 +128,28 @@ record_scale = RecordScalePlugin()
 ctx.register(record_scale)
 
 # 查看解析后的配置，再请求目标产物；get_data() 才会按需触发 DAG 执行。
-ctx.show_resolved_config("record_scale", verbose=True)
+ctx.show_config("record_scale", show_source=True)
 scaled = ctx.get_data("run_001", "record_scale")
 ```
+
+`data_root` 仍用于定位原始 DAQ 数据，默认值为 `DAQ`；它不再作为缓存目录。需要把缓存写到其他
+位置时，应显式传入 `storage_dir`。
 
 如果同一个 `provides` 已经注册，默认会拒绝覆盖；只有明确传入 `allow_override=True` 才会替换旧
 实现。严格的 `require_spec=True` 还会要求插件提供有效的 `spec()` 或 `SPEC`，适合在插件集成和
 发布前检查时使用。注册覆盖或插件版本变化会清理相关执行计划、lineage 和配置缓存。
+
+开发模式的 `PluginHotReloader` 要求插件定义于可导入模块；`watch_plugin()` 会拒绝
+`__main__` 或 `__mp_main__` 中的类并抛出 `ValueError`，避免重新执行脚本入口。
+它按监控类的模块名和类名，从重新加载的模块中取得新类，
+校验 `provides` 与监控产物一致后实例化并注册。显式 `plugin_class` 同样按其模块名和类名选择
+新类。只有注册成功，才更新监控记录中的文件状态；失败会保留待更新状态，以便后续重试。
+`reload_plugin()` 会抛出加载或注册异常，批量或自动重载会记录失败并继续检查其他插件。
+代码行为发生变化时仍须按版本策略更新 `version`。
+
+`Plugin.timeout` 默认应保持 `None`；Context 需要计算时会明确拒绝非 `None` 的值，
+目前不支持逐插件强制超时。独立函数超时的线程与平台限制见
+[超时支持边界](../architecture/ARCHITECTURE.md#超时支持边界)。
 
 配置项可以通过类属性 `options`、`@option` 或 `@takes_config` 声明。
 
@@ -141,12 +179,12 @@ ctx = Context(
 ctx.register(RecordScalePlugin())
 
 plugin = ctx.get_plugin("record_scale")
-scale_value = ctx.get_config_value(plugin, "scale")
+scale_value = ctx.get_config(plugin, "scale", with_source=True)
 print(scale_value.value, scale_value.source, scale_value.original_key)
 
 # 运行中修改配置会清除解析缓存；下一次读取时重新校验并生成新配置身份。
 ctx.set_config({"scale": 0.75}, plugin_name="record_scale")
-resolved = ctx.get_resolved_config("record_scale")
+resolved = ctx.get_config("record_scale")
 print(resolved.to_dict())
 ```
 
@@ -155,14 +193,20 @@ print(resolved.to_dict())
 | `ctx.register(...)` | 加入插件实例、类、模块或插件集 | Context 初始化阶段 |
 | `ctx.set_config(...)` | 修改全局或某个插件的原始配置 | 用户选择参数或运行前覆盖默认值 |
 | `ctx.get_config(plugin, name)` | 读取已经校验后的单个值 | `compute()` 内部计算 |
-| `ctx.get_config_value(plugin, name)` | 同时读取值、来源和原始键名 | 调试优先级、alias 或 adapter 推断 |
-| `ctx.get_resolved_config(plugin)` | 获取插件完整的解析配置 | 生成配置快照、比较 lineage |
-| `ctx.show_resolved_config(plugin, verbose=True)` | 打印按来源分组的配置 | 人工检查最终生效值 |
+| `ctx.get_config(plugin, name, with_source=True)` | 同时读取值、来源和原始键名 | 调试优先级、alias 或 adapter 推断 |
+| `ctx.get_config(plugin)` | 获取插件完整的解析配置 | 生成配置快照、比较 lineage |
+| `ctx.show_config(plugin, show_source=True)` | 展示带来源列的配置表 | 人工检查最终生效值 |
+| `ctx.show_config(plugin_name, output="dict")` | 返回选项定义与当前值字典 | 检查默认值、类型和修改状态 |
+| `ctx.show_config(data_name)` | 展示插件选项表；省略名称时展示全局配置分组 | 交互式查看配置概览 |
 
 显式配置可以在创建 Context 时传入，也可以用 `ctx.set_config(config)` 更新；传入
-`plugin_name="record_scale"` 时，更新只写入该插件的配置块。更新后 Context 会清除配置和相关性能
-缓存，下次读取时重新解析。配置值经过 `Option` 的类型、choices、范围、单位和自定义校验；旧名称
+`plugin_name="record_scale"` 时，更新只写入该插件的配置块。更新后 Context 自动失效解析配置、运行配置和
+规划缓存（lineage、缓存键与执行计划），下次读取时重新解析。配置值经过 `Option` 的类型、choices、范围、单位和自定义校验；旧名称
 alias 如果存在，会先规范化为当前选项名。
+
+配置使用者应调用 `set_config()`，无需直接调用内部缓存维护方法。旧的公开配置/规划缓存维护入口
+已移除，具体迁移见[配置管理](../features/context/CONFIGURATION.md#context-api-迁移)。
+`show_config(run_name=...)` 仍受支持，`run_name` 仅标注全局配置视图的缓存目录。
 
 ```python
 from waveform_analysis.plugins import Option, option, takes_config
@@ -182,10 +226,10 @@ class ConfiguredPlugin(Plugin):
 ```
 
 插件内部使用 `context.get_config(self, name)` 只取值；需要判断值从哪里来时使用
-`context.get_config_value(self, name)`，它返回值、来源、原始键名和规范键名。需要一次查看插件
-全部配置时使用 `ctx.get_resolved_config("record_scale")`，可编程读取 `to_dict()`，或者使用
-`ctx.show_resolved_config("record_scale", verbose=True)` 查看 explicit、adapter inferred 和默认值
-分组。`track=False` 的选项不会进入用于 lineage 的配置快照，适合只影响日志或执行细节而不改变结果
+`context.get_config(self, name, with_source=True)`，它返回值、来源、原始键名和规范键名。需要一次查看插件
+全部配置时使用 `ctx.get_config("record_scale")`，可编程读取 `to_dict()`，或者使用
+`ctx.show_config("record_scale", show_source=True)` 查看 explicit、adapter inferred 和默认值
+来源。`track=False` 的选项不会进入用于 lineage 的配置快照，适合只影响日志或执行细节而不改变结果
 语义的参数；会改变结果的选项应保持默认的 `track=True`。
 
 ## 依赖解析与 lineage
@@ -521,6 +565,10 @@ wave_pool/plugin.py       # provides: wave_pool
 
 ## 新增 Bundle 检查单
 
+本节适用于加入主仓库的内置插件。独立分发的外置插件见
+[外置插件接入](../development/plugin-development/plugin_guide.md#外置插件接入)，
+无需创建内置 bundle manifest 或修改主仓库导出表。
+
 1. 创建 `builtin/<provides>/`，确保目录名与 `provides` 一致。
 2. 在 `manifest.yaml` 声明唯一 `provides`、`plugin_class`、version 和依赖。
 3. 在 `plugin.py` 实现单一职责的插件类。
@@ -762,7 +810,8 @@ hit_threshold (v1.0.0) -> hit_merged (v1.2.0) -> hit_merged_features (v1.1.0)
 
 #### 依赖版本约束
 
-插件不直接声明依赖插件的版本约束。依赖关系通过 `provides` 名称解析，版本管理由缓存 lineage 自动处理。
+`depends_on` 和动态依赖均支持 `(provides, version_spec)` 元组，约束表达式采用 PEP 440。
+Context 检查上游版本是否满足约束；缓存 lineage 同时记录实际版本，两者共同约束结果复用。
 
 ### 升级 Checklist
 
@@ -810,11 +859,14 @@ Plugin Set 是最小可复用插件组，每个 set 只关注单一职责。
 | Set | 插件 | 说明 |
 | --- | --- | --- |
 | `io` | RawFileNamesPlugin | 扫描并分组原始文件 |
-| `waveform` | WaveformsPlugin, FilteredWaveformsPlugin, RecordsPlugin | 波形提取、滤波与 records 构建 |
-| `basic_features` | BasicFeaturesPlugin, WaveformWidthIntegralPlugin | 基础特征计算 |
-| `tabular` | DataFramePlugin, GroupedEventsPlugin, PairedEventsPlugin | DataFrame 表格化输出，包括 legacy 事件分组与配对表 |
-| `events` | S1S2PairCandidatesPlugin, S1S2PairSelectionPlugin, PositionReconstructionPlugin, EventPlugin, HitGroupedPlugin | 事件构建、S1/S2 配对、位置重建与 legacy hit 分组 |
-| `peaks` | HitFinderPlugin, RecordsAsymmetryMaskPlugin, RecordsDetectorMaskPlugin, RecordsVetoMaskPlugin, ThresholdHitPlugin, HitMergeClustersPlugin, HitMergePlugin, HitMergedComponentsPlugin, HitMergedFeaturesPlugin, PeakletPlugin, PeakletComponentsPlugin, PeakletWaveformPlugin, PeakletWaveformPoolPlugin, PeakletFeaturesPlugin, PeakletChannelsPlugin, PeaksPlugin, WaveformWidthPlugin, S1S2ClassifierPlugin, PeakletS1S2ClassifierPlugin | 峰值检测、asymmetry 后通道角色分流、轻量 peaklet 聚类、records-backed peaklet 波形/特征、最终 peaks 输出与 S1/S2 分类 |
+| `waveform` | WaveformsPlugin, FilteredWaveformsPlugin, RecordsPlugin, WavePoolPlugin, WavePoolFilteredPlugin | 结构化波形、滤波与 records-backed 波形访问 |
+| `hit` | HitFinderPlugin, RecordsAsymmetryMaskPlugin, RecordsDetectorMaskPlugin, RecordsVetoMaskPlugin, ThresholdHitPlugin, HitMergeClustersPlugin, HitMergePlugin, HitMergedComponentsPlugin, HitMergedFeaturesPlugin | 寻峰、通道角色分流、hit 筛选与合并 |
+| `peaks` | PeakletComponentsPlugin, PeakletPlugin, PeakletWaveformPlugin, PeakletWaveformPoolPlugin, PeakletFeaturesPlugin, PeakletChannelsPlugin, PeaksPlugin, WaveformWidthPlugin, S1S2ClassifierPlugin, PeakClassificationPlugin | peaklet 构建、波形和特征、最终 peaks 与分类；S1S2ClassifierPlugin 为保留的弃用插件 |
+| `basic_features` | BasicFeaturesPlugin, WaveformWidthIntegralPlugin | 单记录基础特征与宽度积分 |
+| `events` | S1S2PairCandidatesPlugin, S1S2PairSelectionPlugin, PositionReconstructionPlugin, EnergyReconstructionPlugin, EventPlugin, HitGroupedPlugin | S1/S2 配对与事件重建；HitGroupedPlugin 为保留的弃用插件 |
+
+内置 `tabular` 集合和 `df → df_events → df_paired` 已退役。分析表可由现行产物显式转换，
+旧符合表与 S1/S2 配对的语义不同，见[退役迁移说明](../user-guide/DF_RETIREMENT.md)。
 
 `plugins_peaks()` 中 `peaklets` 是轻量聚类产物，旧的 `area`、`height`、
 `max_time`、`width`、`rise_time`、`fall_time` 字段由 `peaklet_features`
@@ -867,17 +919,17 @@ ctx.register(*profiles.cpu_default())
 `cpu_default()` 等价于：
 
 ```
-io + waveform + peaks + basic_features + tabular + events
+io + waveform + hit + peaks + basic_features + events
 ```
 
 ---
 
 ## Profile 选择
 
-CLI 可通过 `--profile` 选择执行链路：
+CLI 可通过 `--profile` 选择注册的插件集合，普通处理还必须用 `--target` 明确输出产物：
 
 ```bash
-waveform-process --run-name run_001 --profile cpu
+waveform-process --run-name run_001 --profile cpu --target basic_features
 ```
 
 目前 `streaming` 与 `jax` 仍为占位 Profile，会提示未实现。

@@ -38,7 +38,7 @@
 ### 场景 4: 排查缓存/执行链问题
 1. `docs/agents/workflows.md`
 2. `docs/agents/lifecycle.md`
-3. `docs/features/context/PREVIEW_EXECUTION.md`
+3. `docs/cli/WAVEFORM_CACHE.md`
 4. `docs/architecture/PLUGIN_DAG_LINEAGE_CACHE.md`
 
 ### 场景 5: 文档同步与发布前检查
@@ -79,7 +79,7 @@
 - 删除 legacy/compat 路径：选 `retire_compat`；先写 `compat_inventory`，再定删除范围。
 - 只做文档生成、引用同步或锚点检查：选 `generate_docs`；代码契约变化带来的文档同步继承源 route 成本。
 - 只跑测试、影响分析、schema 检查、性能检查或发布检查：选对应 QA route（`run_tests` / `assess_change_impact` / `schema_compat_check` / `performance_regression_check` / `release_artifact_sync`）。
-- 排查缓存、执行预览或 lineage 问题：选 `debug_cache`，并优先准备明确的 `run_id`。
+- 排查缓存、执行链或 lineage 问题：选 `debug_cache`，并优先准备明确的 `run_id`。
 
 ## Hard Rules
 - Python 3.10+ 基线：允许使用 `str | Path` 等 3.10+ 语法。
@@ -208,9 +208,9 @@ waveform-cache diagnose --run <run_id> --dry-run
 
 ### CLI
 ```bash
-waveform-process --run-name <run_name> --verbose
+waveform-process --run-name <run_name> --target basic_features --verbose
 waveform-process --scan-daq --daq-root DAQ
-waveform-process --show-daq --daq-root DAQ
+waveform-process --show-daq <run_name> --daq-root DAQ
 ```
 
 ## Architecture Essentials
@@ -230,7 +230,7 @@ waveform-process --show-daq --daq-root DAQ
 1. `provides` 唯一、语义稳定。
 2. `depends_on` 与 `resolve_depends_on()` 一致。
 3. `options` 的默认值、类型、help 明确。
-4. `version` 在行为变更时升级（详见 [插件 Version 升级策略](docs/plugins/PLUGIN_VERSION_POLICY.md)）。
+4. `version` 在行为变更时升级（详见 [插件 Version 升级策略](docs/plugins/PLUGIN_SYSTEM_OVERVIEW.md#插件-version-升级策略)）。
    - **行为变更**包括：算法逻辑变更、内部实现路径变更（如从 Python 循环改为 Numba）、新增字段/配置、修改默认参数。
    - 契约破坏性变更（删除字段、改变字段类型/语义）必须升级 MAJOR。
    - 算法路径变更或新增功能应升级 MINOR。
@@ -241,7 +241,7 @@ waveform-process --show-daq --daq-root DAQ
 ## Configuration Rules
 - 配置优先级：显式配置 > adapter 推断 > 插件默认值。
 - 推荐全局配置 `daq_adapter`，避免链路内插件不一致。
-- 使用 `ctx.get_resolved_config()` / `ctx.show_resolved_config()` 检查来源。
+- 使用 `ctx.get_config(plugin)` / `ctx.show_config(show_source=True)` 检查来源。
 
 ## Testing Rules
 - 发现目录：`tests/`，模式见 `pyproject.toml`。
@@ -302,7 +302,7 @@ waveform-process --show-daq --daq-root DAQ
 - Accessor 与分析查询：`docs/architecture/ACCESSOR_ANALYSIS.md`
 - 分析查询与批量运行：`docs/architecture/ACCESSOR_ANALYSIS.md`
 - 配置：`docs/features/context/CONFIGURATION.md`
-- 执行预览：`docs/features/context/PREVIEW_EXECUTION.md`
+- 缓存诊断：`docs/cli/WAVEFORM_CACHE.md`
 - 流式插件：`docs/features/plugin/STREAMING_PLUGINS_GUIDE.md`
 - 执行器管理：`docs/architecture/ARCHITECTURE.md#执行器管理框架`
 - CLI: `docs/cli/WAVEFORM_PROCESS.md`

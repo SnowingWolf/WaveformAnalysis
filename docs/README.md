@@ -72,7 +72,7 @@ pip install -e ".[dev]"
 ./scripts/run_tests.sh
 
 # 常用 CLI
-waveform-process --run-name <run_name> --verbose
+waveform-process --run-name <run_name> --target basic_features --verbose
 waveform-process --scan-daq --daq-root DAQ
 waveform-process --show-daq --daq-root DAQ
 ```
@@ -80,5 +80,6 @@ waveform-process --show-daq --daq-root DAQ
 ## 维护说明（面向文档维护者）
 
 - Agent 入口规则以 [AGENTS.md](../AGENTS.md) 为唯一真源。
-- `CLAUDE.md` 与 `docs/agents/*` 为兼容入口，新增入口规则优先更新 `AGENTS.md`。
+- Agent 生命周期、执行流程与机器契约分别以 [lifecycle.md](agents/lifecycle.md)、[workflows.md](agents/workflows.md) 和 `docs/agents/index.yaml` 为准；`CLAUDE.md` 与 `docs/agents/protocol/artifacts/` 下的旧模板是兼容入口。
 - 用户可见的功能变更，请同步更新对应子目录文档（`features/`、`plugins/`、`architecture/` 等）。
+- 文档正文、网站导航、生成参考和打包站点的维护边界及验证步骤，见[文档维护与隔离构建](agents/docs-build.md)。

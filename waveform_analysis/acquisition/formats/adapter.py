@@ -13,10 +13,10 @@ Examples:
     >>>
     >>> # 扫描目录
     >>> channel_files = adapter.scan_run("DAQ", "run_001")
-    >>> print(f"找到 {len(channel_files)} 个通道")
+    >>> print(f"找到 {len(channel_files)} 个文件组")
     >>>
     >>> # 加载单个通道
-    >>> data = adapter.load_channel("DAQ", "run_001", channel=0)
+    >>> data = adapter.load_channel("DAQ", "run_001", channel=0, board=0)
     >>> print(f"加载 {len(data)} 条记录")
     >>>
     >>> # 提取并转换
@@ -105,14 +105,15 @@ class DAQAdapter:
         return self.directory_layout.get_run_path(data_root, run_name)
 
     def scan_run(self, data_root: str, run_name: str) -> dict[int, list[Path]]:
-        """扫描运行目录，返回按通道分组的文件
+        """扫描运行目录，返回按目录布局分组的文件
 
         Args:
             data_root: 数据根目录
             run_name: 运行名称
 
         Returns:
-            按通道分组的文件路径字典: {channel_id: [path1, path2, ...]}
+            文件组路径字典: {group_id: [path1, path2, ...]}。组键来自文件名，
+            不保证是物理通道；真实 board/channel 以记录内容为准。
 
         Raises:
             FileNotFoundError: 如果目录不存在
@@ -124,7 +125,7 @@ class DAQAdapter:
 
         groups = self.directory_layout.group_files_by_channel(raw_path)
 
-        # 转换为简单的 channel -> [paths] 格式
+        # 保留目录布局的文件组键，不将其解释为物理通道。
         return {ch: [f["path"] for f in files] for ch, files in groups.items()}
 
     def scan_run_detailed(self, data_root: str, run_name: str) -> dict[int, list[dict]]:
@@ -135,9 +136,9 @@ class DAQAdapter:
             run_name: 运行名称
 
         Returns:
-            按通道分组的详细文件信息:
+            按目录布局分组的详细文件信息（组键不是物理通道契约）:
             {
-                channel_id: [
+                group_id: [
                     {'path': Path, 'index': int, 'filename': str},
                     ...
                 ],
@@ -154,99 +155,112 @@ class DAQAdapter:
 
         return self.directory_layout.group_files_by_channel(raw_path)
 
+    def _iter_run_chunks(
+        self,
+        data_root: str,
+        run_name: str,
+        chunk_size: int = 10,
+        show_progress: bool = False,
+    ) -> Iterator[tuple[np.ndarray, np.ndarray, np.ndarray]]:
+        """读取唯一候选文件，保留组内顺序和各组的首文件读取策略。"""
+        if chunk_size <= 0:
+            raise ValueError("chunk_size must be positive")
+        seen: set[Path] = set()
+        for paths in self.scan_run(data_root, run_name).values():
+            unique_paths = []
+            for path in paths:
+                if path not in seen:
+                    seen.add(path)
+                    unique_paths.append(path)
+            if not unique_paths:
+                continue
+            for data in self.format_reader.read_files_generator(
+                unique_paths, chunk_size, show_progress=show_progress
+            ):
+                if len(data) == 0:
+                    continue
+                if data.dtype.names:
+                    boards, channels = data["board"], data["channel"]
+                else:
+                    columns = self.format_spec.columns
+                    boards, channels = data[:, columns.board], data[:, columns.channel]
+                yield data, boards, channels
+
     def load_channel(
-        self, data_root: str, run_name: str, channel: int, show_progress: bool = False
+        self,
+        data_root: str,
+        run_name: str,
+        channel: int,
+        show_progress: bool = False,
+        *,
+        board: int,
     ) -> np.ndarray:
-        """加载单个通道的数据
+        """按实际记录中的板卡和通道加载原始数据。
 
-        Args:
-            data_root: 数据根目录
-            run_name: 运行名称
-            channel: 通道编号
-            show_progress: 是否显示进度条
-
-        Returns:
-            该通道的数据数组
+        ``board`` 必须显式传入。文件组键不参与通道选择，返回值保留读取器的
+        dtype、二维或结构化布局及原生时间戳，不做单位转换。
 
         Raises:
-            ValueError: 如果通道不存在
-            FileNotFoundError: 如果目录不存在
+            ValueError: 运行中没有该 (board, channel) 的记录，包括空运行。
+            FileNotFoundError: 运行目录不存在。
         """
-        channel_files = self.scan_run(data_root, run_name)
-
-        if channel not in channel_files:
-            available = sorted(channel_files.keys())
-            raise ValueError(f"通道 {channel} 不存在。可用通道: {available}")
-
-        file_paths = channel_files[channel]
-        return self.format_reader.read_files(file_paths, show_progress=show_progress)
+        chunks = []
+        for data, boards, channels in self._iter_run_chunks(
+            data_root, run_name, show_progress=show_progress
+        ):
+            selected = (boards == board) & (channels == channel)
+            if np.any(selected):
+                chunks.append(data[selected])
+        if not chunks:
+            raise ValueError(f"通道 ({board}, {channel}) 不存在：运行中没有该硬件通道的记录")
+        return np.concatenate(chunks)
 
     def load_all_channels(
         self,
         data_root: str,
         run_name: str,
-        n_channels: int | None = None,
+        *,
         show_progress: bool = False,
-    ) -> list[np.ndarray]:
-        """加载所有通道的数据
+    ) -> dict[tuple[int, int], np.ndarray]:
+        """一次读取所有文件组，按实际记录的 (board, channel) 返回原始数组。
 
-        Args:
-            data_root: 数据根目录
-            run_name: 运行名称
-            n_channels: 预期的通道数（可选）
-            show_progress: 是否显示进度条
-
-        Returns:
-            每个通道数据的列表
+        仅包含有记录的硬件通道，空运行返回空字典；不填充缺失通道。每个通道
+        保持文件扫描和记录顺序，dtype、数组布局和时间戳单位由读取器决定。
         """
-        channel_files = self.scan_run(data_root, run_name)
-
-        if not channel_files:
-            return []
-
-        # 确定通道范围
-        max_channel = max(channel_files.keys())
-        if n_channels is not None:
-            max_channel = max(max_channel, n_channels - 1)
-
-        result = []
-        for ch in range(max_channel + 1):
-            if ch in channel_files:
-                data = self.format_reader.read_files(
-                    channel_files[ch], show_progress=(show_progress and ch == 0)
-                )
-                result.append(data)
-            else:
-                # 通道不存在，返回空数组
-                result.append(np.array([]).reshape(0, 0))
-
-        return result
+        chunks: dict[tuple[int, int], list[np.ndarray]] = {}
+        for data, boards, channels in self._iter_run_chunks(
+            data_root, run_name, show_progress=show_progress
+        ):
+            keys, inverse = np.unique(
+                np.column_stack((boards, channels)), axis=0, return_inverse=True
+            )
+            for index, (board, channel) in enumerate(keys):
+                key = (int(board), int(channel))
+                chunks.setdefault(key, []).append(data[inverse == index])
+        return {key: np.concatenate(parts) for key, parts in chunks.items()}
 
     def load_channel_generator(
-        self, data_root: str, run_name: str, channel: int, chunk_size: int = 10
+        self,
+        data_root: str,
+        run_name: str,
+        channel: int,
+        chunk_size: int = 10,
+        *,
+        board: int,
     ) -> Iterator[np.ndarray]:
-        """生成器模式加载通道数据
+        """逐块筛选指定 (board, channel)，只生成非空的原始记录数组。
 
-        Args:
-            data_root: 数据根目录
-            run_name: 运行名称
-            channel: 通道编号
-            chunk_size: 每次返回的文件数量
-
-        Yields:
-            每个 chunk 的数据数组
-
-        Raises:
-            ValueError: 如果通道不存在
+        ``board`` 必须显式传入。遍历所有候选文件后若没有匹配记录则抛出
+        ValueError；目录不存在时抛出 FileNotFoundError。chunk_size 必须为正。
         """
-        channel_files = self.scan_run(data_root, run_name)
-
-        if channel not in channel_files:
-            available = sorted(channel_files.keys())
-            raise ValueError(f"通道 {channel} 不存在。可用通道: {available}")
-
-        file_paths = channel_files[channel]
-        yield from self.format_reader.read_files_generator(file_paths, chunk_size)
+        found = False
+        for data, boards, channels in self._iter_run_chunks(data_root, run_name, chunk_size):
+            selected = (boards == board) & (channels == channel)
+            if np.any(selected):
+                found = True
+                yield data[selected]
+        if not found:
+            raise ValueError(f"通道 ({board}, {channel}) 不存在：运行中没有该硬件通道的记录")
 
     def extract_columns(self, data: np.ndarray) -> dict[str, np.ndarray]:
         """从数据中提取各列
@@ -361,7 +375,7 @@ def get_adapter(name: str) -> DAQAdapter:
 
     Examples:
         >>> adapter = get_adapter("vx2730")
-        >>> data = adapter.load_channel("DAQ", "run_001", channel=0)
+        >>> data = adapter.load_channel("DAQ", "run_001", channel=0, board=0)
     """
     if name not in _ADAPTER_REGISTRY:
         available = list(_ADAPTER_REGISTRY.keys())

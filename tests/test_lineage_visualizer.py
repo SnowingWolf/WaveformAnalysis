@@ -1,3 +1,5 @@
+import pytest
+
 from waveform_analysis.core.foundation.model import (
     EdgeModel,
     LineageGraphModel,
@@ -9,6 +11,7 @@ from waveform_analysis.utils.visualization.lineage_visualizer import (
     _layout_nodes_source_to_target,
     _node_heights_for,
     _reorder_layers,
+    plot_lineage_labview,
     plot_lineage_plotly,
 )
 
@@ -335,3 +338,71 @@ def test_layout_keeps_many_ports_inside_their_node_and_separates_tall_nodes():
     sibling_y = pos["sibling"][1]
     sibling_half_height = heights["sibling"] / 2
     assert abs(target_y - sibling_y) >= target_half_height + sibling_half_height
+
+
+@pytest.mark.parametrize("interactive", [False, True])
+def test_matplotlib_lineage_keeps_nodes_wires_and_style_overrides(
+    monkeypatch, tmp_path, interactive
+):
+    import matplotlib.pyplot as plt
+
+    shown = []
+    monkeypatch.setattr(plt, "show", lambda: shown.append(True))
+    model = LineageGraphModel(
+        nodes={"source": _node("source", 0), "target": _node("target", 1)},
+        edges=[_edge("source", "target")],
+    )
+    output_path = tmp_path / "lineage.png"
+
+    figure = plot_lineage_labview(
+        model,
+        "target",
+        interactive=interactive,
+        data_wires=True,
+        save_path=str(output_path),
+        node_width=4.0,
+        verbose=2,
+    )
+    try:
+        axes = figure.axes[0]
+        assert shown == [True]
+        assert axes.get_title() == "Data Lineage: target"
+        assert {text.get_text() for text in axes.texts} >= {"source", "target", "np.ndarray"}
+        nodes = [patch for patch in axes.patches if patch.get_zorder() == 3]
+        assert len(nodes) == 2
+        assert all(node.get_width() == 4.0 and node.get_linewidth() == 2 for node in nodes)
+        assert len(axes.lines) == 1
+        assert output_path.stat().st_size > 0
+    finally:
+        plt.close(figure)
+
+
+@pytest.mark.parametrize("renderer", [plot_lineage_labview, plot_lineage_plotly])
+@pytest.mark.parametrize(
+    "retired_parameter",
+    [
+        "analysis_result",
+        "highlight_critical_path",
+        "highlight_bottlenecks",
+        "highlight_parallel_groups",
+    ],
+)
+def test_lineage_renderers_reject_retired_analysis_parameters(renderer, retired_parameter):
+    model = LineageGraphModel(nodes={"source": _node("source", 0)})
+
+    with pytest.raises(TypeError, match=retired_parameter):
+        renderer(model, "source", **{retired_parameter: True})
+
+
+def test_plotly_lineage_keeps_style_overrides_without_display(monkeypatch):
+    import plotly.graph_objects as go
+
+    shown = []
+    monkeypatch.setattr(go.Figure, "show", lambda self: shown.append(True))
+    model = LineageGraphModel(nodes={"source": _node("source", 0)})
+
+    figure = plot_lineage_plotly(model, "source", show=False, node_width=4.0, verbose=2)
+
+    assert not shown
+    assert figure.layout.title.text == "Data Lineage: source"
+    assert any(shape.x1 - shape.x0 == 4.0 for shape in figure.layout.shapes)

@@ -5,7 +5,7 @@ profile: "agent"
 provides: "position_reconstruction"
 plugin_class: "PositionReconstructionPlugin"
 module: "waveform_analysis.core.plugins.builtin.position_reconstruction.plugin"
-version: "0.4.0"
+version: "0.4.1"
 summary: "Reconstruct 3D position from S1-S2 pairs using vectorized CoG method"
 depends_on: ["s1_s2_pairs", "peaklet_channels"]
 declared_depends_on: ["s1_s2_pairs", "peaklet_channels"]
@@ -17,7 +17,7 @@ output_kind: "structured_array"
 execution_kind: "static"
 narrative_source: "source"
 narrative_source_reason: null
-source_fingerprint: "f20c76e90074744afc736f96da93d7c411de9c26a3b3e9d105415a01f3293de9"
+source_fingerprint: "6f0f752dccffde6bfdc6f63e7feedf70b9c0359d9eb661e0d17ddd72a9937c04"
 generated: true
 ---
 # position_reconstruction
@@ -33,6 +33,8 @@ Reconstruct 3D position from S1-S2 pairs using vectorized CoG method
 
 输出: - position_reconstruction: 位置重建结果
 
+输入失败语义: - peaklet_channels 读取异常直接传播，损坏的结构、必需字段或字段类型抛出 ValueError - 合法空通道表、无匹配贡献或低 S2 信号保持 NaN 位置及相应质量标志
+
 v0.2.0 功能: - Z 坐标: 基于 drift_time * drift_velocity（向量化） - XY 坐标: 电荷重心法 (Center of Gravity, 向量化) * 批量加载所有通道数据 * 预计算 PMT 映射表 * 使用 NumPy 广播加速计算 - 质量评估: 边缘事件检测、低信号标记（向量化）
 
 性能优化: - 避免 Python for 循环 - 批量处理所有事件 - 预计算和缓存映射关系 - 典型性能提升: 10-100x（取决于事件数）
@@ -44,7 +46,7 @@ v0.2.0 功能: - Z 坐标: 基于 drift_time * drift_velocity（向量化） - X
 | Provides | `position_reconstruction` |
 | Plugin Class | `PositionReconstructionPlugin` |
 | Module | `waveform_analysis.core.plugins.builtin.position_reconstruction.plugin` |
-| Version | `0.4.0` |
+| Version | `0.4.1` |
 | Category | 其他 |
 | Output Container | `structured_array` |
 | Execution Mode | `static` |
@@ -53,7 +55,7 @@ v0.2.0 功能: - Z 坐标: 基于 drift_time * drift_velocity（向量化） - X
 | Timeout | `none` |
 | Side Effect | no |
 | Narrative Source | `source` |
-| Source Fingerprint | `f20c76e90074744afc736f96da93d7c411de9c26a3b3e9d105415a01f3293de9` |
+| Source Fingerprint | `6f0f752dccffde6bfdc6f63e7feedf70b9c0359d9eb661e0d17ddd72a9937c04` |
 
 ### Dependencies
 

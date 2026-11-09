@@ -8,9 +8,11 @@
 - Processing/Data: 数据处理与查询导出
 
 ## 数据流（简版）
-`raw_files -> st_waveforms -> (filtered_waveforms) -> features/hit -> df -> events`
+`raw_files -> st_waveforms -> (filtered_waveforms) -> basic_features/hit`
 
 `raw_files -> records + wave_pool -> (wave_pool_filtered) -> record-backed features/hit`
+
+`hit_threshold -> hit_merged -> peaklets -> peaklet_features -> peaks -> s1_s2_pairs -> events`
 
 ## Records 相关约定
 - `records` 与 `wave_pool` 是正式插件产物

@@ -103,14 +103,19 @@ def test_cli_show_config_uses_monkeypatched_runtime_attributes(monkeypatch):
         def register(self, *plugins):
             captured["plugins"] = plugins
 
-        def set_config(self, config):
-            captured["runtime_config"] = config
-
         def get_adapter_info(self):
             return None
 
-        def show_resolved_config(self, **kwargs):
+        def list_provided_data(self):
+            return ["fake-plugin"]
+
+        def get_config(self, plugin_name):
+            captured["config_plugin"] = plugin_name
+            return self
+
+        def summary(self, **kwargs):
             captured["show_kwargs"] = kwargs
+            return "resolved configuration"
 
     class _FakeProfiles:
         @staticmethod
@@ -127,4 +132,9 @@ def test_cli_show_config_uses_monkeypatched_runtime_attributes(monkeypatch):
     assert code == 0
     assert captured["profile"] == "cpu"
     assert captured["plugins"] == ("fake-plugin",)
+    assert captured["config"] == {
+        "data_root": "DAQ",
+        "n_channels": 2,
+        "daq_adapter": "vx2730",
+    }
     assert captured["show_kwargs"] == {"verbose": True}

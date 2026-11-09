@@ -4,6 +4,11 @@
 
 本目录包含 peaklet 检测流程的可视化演示脚本。
 
+## 分层缓存示例
+
+运行 `python examples/layered_cache.py --output-dir /tmp/wa-layered-demo` 可在新目录中
+使用合成数据演示共享快照和私人缓存。步骤与适用限制见[分层缓存指南](../docs/features/context/LAYERED_CACHE.md)。
+
 ## 脚本说明
 
 ### `demo_peaklet_visualization.py`

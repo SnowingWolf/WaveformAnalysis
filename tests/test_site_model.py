@@ -104,15 +104,15 @@ def test_site_model_v1_uses_real_plugin_and_guide_facts_without_html():
     assert all(guide["summary"] != "---" for guide in model["guides"])
 
     records = next(plugin for plugin in model["plugins"] if plugin["provides"] == "records")
-    assert records["version"] == "0.16.0"
+    assert records["version"] == "0.17.0"
     assert records["dependsOn"][0] == "raw_files"
     assert records["fields"]
     wave_pool = next(plugin for plugin in model["plugins"] if plugin["provides"] == "wave_pool")
-    assert wave_pool["version"] == "0.16.0"
+    assert wave_pool["version"] == "0.17.0"
     assert json.dumps(model, ensure_ascii=False).find("<html") < 0
     assert SITE_MODEL_SCHEMA_PATH.is_file()
     assert len(model["source_indexes"]) == 11
-    assert sum(bool(guide.get("source")) for guide in model["guides"]) == 34
+    assert sum(bool(guide.get("source")) for guide in model["guides"]) == 36
     reference = next(section for section in model["navigation"] if section["id"] == "reference")
     cli_navigation = next(item for item in reference["items"] if item["href"] == "/cli/")
     assert [(item["label"], item["href"]) for item in cli_navigation["children"]] == [
@@ -192,6 +192,83 @@ def test_site_model_preserves_rich_reference_content_and_accessor_classification
         == ["overview", "configuration", "output", "usage"]
         for plugin in model["plugins"]
     )
+
+
+def test_context_reference_exposes_supported_api_and_migration():
+    model = build_site_model(Path(__file__).parents[1])
+    context = next(page for page in model["contexts"] if page["slug"] == "context")
+    members = {member["name"]: member for group in context["groups"] for member in group["members"]}
+
+    assert (
+        not {
+            "clear_config_cache",
+            "clear_performance_caches",
+            "profiling_summary",
+            "_clear_config_cache",
+            "_invalidate_planning_caches",
+            "validate_run_config",
+            "get_run_hardware_channels",
+            "get_plugin_run_config",
+            "preview_execution",
+            "analyze_dependencies",
+            "analyze_cache",
+            "cache_stats",
+        }
+        & members.keys()
+    )
+    assert [item["name"] for item in members["get_lineage"]["parameters"]] == ["data_name"]
+    assert [item["name"] for item in members["diagnose_cache"]["parameters"]] == [
+        "run_id",
+        "verbose",
+    ]
+    assert "run_name" in {item["name"] for item in members["show_config"]["parameters"]}
+    assert "run_id" not in {item["name"] for item in members["show_config"]["parameters"]}
+    assert "show_config(run_name=" in members["show_config"]["example"]
+    migration = next(section for section in context["sections"] if section["id"] == "api-migration")
+    text = json.dumps(migration, ensure_ascii=False)
+    assert all(
+        name in text
+        for name in (
+            "set_config",
+            "clear_cache_for",
+            "ctx.profiler.summary()",
+            "diagnose_cache",
+            "waveform-cache",
+        )
+    )
+
+
+def test_site_fixture_uses_current_context_and_contract_guides():
+    root = Path(__file__).parents[1]
+    model = build_site_model(root)
+    fixture = json.loads((root / "docs/site-next/fixture/site-model.v1.json").read_text())
+    current_context = next(page for page in model["contexts"] if page["slug"] == "context")
+    fixture_context = next(page for page in fixture["contexts"] if page["slug"] == "context")
+    assert fixture_context == current_context
+    assert next(page for page in fixture["contexts"] if page["slug"] == "adapter") == next(
+        page for page in model["contexts"] if page["slug"] == "adapter"
+    )
+    for provides in ("raw_files", "records", "wave_pool"):
+        assert next(page for page in fixture["plugins"] if page["provides"] == provides) == next(
+            page for page in model["plugins"] if page["provides"] == provides
+        )
+    affected = {
+        "/plugins/reference/ADAPTER_SYSTEM_GUIDE/",
+        "/plugins/reference/ADAPTER_PLUGIN_BEHAVIOR/",
+        "/features/context/CONFIGURATION/",
+        "/features/context/LAYERED_CACHE/",
+        "/features/context/DEPENDENCY_ANALYSIS_GUIDE/",
+        "/architecture/plugin-cache-architecture/",
+        "/architecture/plugin-dag-lineage-cache/",
+        "/architecture/system/",
+        "/development/plugin-development/PLUGIN_SPEC_GUIDE/",
+        "/features/context/BATCH_PROCESSOR/",
+        "/plugins/overview/",
+    }
+    current_guides = {page["route"]: page for page in model["guides"]}
+    fixture_guides = {page["route"]: page for page in fixture["guides"]}
+    for route in affected:
+        assert fixture_guides[route] == current_guides[route]
 
 
 def test_site_model_meets_pre_next_rich_content_coverage_baseline():
@@ -279,8 +356,8 @@ def test_public_guide_baseline_tracks_source_and_typed_content_independently():
     guides = {
         (guide["route"], guide["source"]): guide for guide in model["guides"] if guide.get("source")
     }
-    assert len(guides) == 34
-    assert len(baseline["guides"]) == 34
+    assert len(guides) == 36
+    assert len(baseline["guides"]) == 36
     for expected in baseline["guides"]:
         actual = guides[(expected["route"], expected["source"])]
         source_path = project_root / expected["source"]
@@ -303,6 +380,16 @@ def test_public_guide_baseline_tracks_source_and_typed_content_independently():
             block["kind"] for section in actual["sections"] for block in section["blocks"]
         ] == expected["block_types"]
         assert _independent_guide_counts(actual["sections"]) == expected["content_counts"]
+
+
+def test_retired_dataframe_plugins_are_absent_from_published_model():
+    model = build_site_model(Path(__file__).parents[1])
+    retired = {"df", "df_events", "df_paired"}
+    assert not retired.intersection(plugin["provides"] for plugin in model["plugins"])
+    assert not retired.intersection(node["id"] for node in model["lineage"]["nodes"])
+    routes = {route["path"] for route in model["routes"]}
+    assert not routes.intersection(f"/plugins/{name}/" for name in retired)
+    assert "/user-guide/DF_RETIREMENT/" in routes
 
 
 def test_markdown_blocks_preserve_ordered_lists_links_multiple_code_and_tables():
@@ -431,3 +518,21 @@ def test_markdown_nested_lists_keep_starts_links_continuations_and_boundaries():
     assert blocks[3]["list_tree"]["start"] == 0
     assert blocks[4]["list_tree"]["ordered"] is False
     assert sections[1]["title"] == "Next"
+
+
+def test_adapter_reference_exposes_hardware_key_contract_and_migration():
+    model = build_site_model(Path(__file__).parents[1])
+    adapter = next(page for page in model["contexts"] if page["slug"] == "adapter")
+    members = {member["name"]: member for group in adapter["groups"] for member in group["members"]}
+    assert {"get_adapter_vx2730", "get_adapter_vx2730_bin", "get_adapter_v1725"} <= members.keys()
+    for name in ("load_channel", "load_channel_generator"):
+        member = members[f"DAQAdapter.{name}"]
+        assert "board" in {parameter["name"] for parameter in member["parameters"]}
+        assert "board=0" in member["example"]
+        assert "原生时间戳" in member["returns"]
+    all_channels = members["DAQAdapter.load_all_channels"]
+    assert "n_channels" not in {parameter["name"] for parameter in all_channels["parameters"]}
+    assert "(board, channel)" in all_channels["returns"]
+    assert "不填充缺失键" in " ".join(all_channels["notes"])
+    info_notes = " ".join(members["Context.get_adapter_info"]["notes"])
+    assert "clear_adapter_info_cache" in info_notes and "新建 Context" in info_notes

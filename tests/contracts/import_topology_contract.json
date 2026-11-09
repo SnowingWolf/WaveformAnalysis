@@ -34,7 +34,9 @@
         "CompressionManager",
         "IntegrityChecker"
       ],
-      "allowed_additions_after_facade": ["plugins"],
+      "allowed_additions_after_facade": [
+        "plugins"
+      ],
       "dir_contains": [
         "Context",
         "Plugin",
@@ -238,9 +240,6 @@
         "WaveformStructConfig",
         "HitFinderPlugin",
         "BasicFeaturesPlugin",
-        "DataFramePlugin",
-        "GroupedEventsPlugin",
-        "PairedEventsPlugin",
         "RecordsPlugin",
         "WavePoolPlugin",
         "WavePoolFilteredPlugin",
@@ -267,9 +266,7 @@
       ],
       "dir_public": [
         "BasicFeaturesPlugin",
-        "DataFramePlugin",
         "FilteredWaveformsPlugin",
-        "GroupedEventsPlugin",
         "HitFinderPlugin",
         "HitGroupedPlugin",
         "HitMergeClustersPlugin",
@@ -277,7 +274,6 @@
         "HitMergedComponentsPlugin",
         "HitMergedFeaturesPlugin",
         "Option",
-        "PairedEventsPlugin",
         "PeakletChannelsPlugin",
         "PeakletComponentsPlugin",
         "PeakletFeaturesPlugin",
@@ -397,7 +393,13 @@
     },
     "waveform_analysis.cli": {
       "all": null,
-      "dir_contains": ["Context", "DAQAnalyzer", "Path", "main", "profiles"],
+      "dir_contains": [
+        "Context",
+        "DAQAnalyzer",
+        "Path",
+        "main",
+        "profiles"
+      ],
       "dir_public": [
         "Context",
         "DAQAnalyzer",
@@ -420,9 +422,6 @@
         "WaveformStructConfig",
         "HitFinderPlugin",
         "BasicFeaturesPlugin",
-        "DataFramePlugin",
-        "GroupedEventsPlugin",
-        "PairedEventsPlugin",
         "RecordsPlugin",
         "WavePoolPlugin",
         "WavePoolFilteredPlugin",
@@ -445,9 +444,6 @@
         "WaveformStructConfig",
         "HitFinderPlugin",
         "BasicFeaturesPlugin",
-        "DataFramePlugin",
-        "GroupedEventsPlugin",
-        "PairedEventsPlugin",
         "RecordsPlugin",
         "WavePoolPlugin",
         "WavePoolFilteredPlugin",
@@ -473,10 +469,7 @@
         "HitFinderPlugin",
         "BasicFeaturesPlugin",
         "BASIC_FEATURES_DTYPE",
-        "DataFramePlugin",
         "EventPlugin",
-        "GroupedEventsPlugin",
-        "PairedEventsPlugin",
         "PositionReconstructionPlugin",
         "EnergyReconstructionPlugin",
         "ENERGY_RECONSTRUCTION_DTYPE",
@@ -565,7 +558,10 @@
       ]
     },
     "waveform_analysis.core.plugins.plugin_sets": {
-      "all": ["PLUGIN_SETS", "get_plugin_set"],
+      "all": [
+        "PLUGIN_SETS",
+        "get_plugin_set"
+      ],
       "dir_contains": [
         "PLUGIN_SETS",
         "get_plugin_set",
@@ -574,13 +570,12 @@
         "plugins_hit",
         "plugins_io",
         "plugins_peaks",
-        "plugins_tabular",
         "plugins_waveform"
       ]
     }
   },
   "signatures": {
-    "waveform_analysis.Context": "(config: 'dict[str, Any] | None' = None, storage_backend: 'Any | None' = None, storage_dir: 'str | None' = None, external_plugin_dirs: 'list[str] | None' = None, auto_discover_plugins: 'bool' = False, stats_mode: 'str' = 'off', stats_log_file: 'str | None' = None) -> 'None'",
+    "waveform_analysis.Context": "(config: 'dict[str, Any] | None' = None, storage_backend: 'Any | None' = None, storage_dir: 'str | None' = None, external_plugin_dirs: 'list[str] | None' = None, auto_discover_plugins: 'bool' = False, stats_mode: 'str' = 'off', stats_log_file: 'str | None' = None, base: 'str | None' = None) -> 'None'",
     "waveform_analysis.Option": "(default: Any = None, type: type | tuple | None = None, help: str = '', validate: collections.abc.Callable | None = None, track: bool = True, unit: str | None = None, internal_unit: str | None = None, choices: list[typing.Any] | None = None, min_value: float | None = None, max_value: float | None = None, deprecated: bool = False, deprecated_message: str = '', alias: str | None = None)",
     "waveform_analysis.Plugin": "()",
     "waveform_analysis.core.Chunk": "(data: numpy.ndarray, start: int, end: int, run_id: str = 'unknown', data_type: str = 'raw', data_kind: str = 'waveforms', time_field: str = 'time', dt_field: str = 'dt', length_field: str = 'length', endtime_field: str = 'endtime', dt: float | None = None, metadata: dict | None = None)",
@@ -597,7 +592,6 @@
     "waveform_analysis.core.plugins.plugin_sets.plugins_hit": "()",
     "waveform_analysis.core.plugins.plugin_sets.plugins_peaks": "()",
     "waveform_analysis.core.plugins.plugin_sets.plugins_basic_features": "()",
-    "waveform_analysis.core.plugins.plugin_sets.plugins_tabular": "()",
     "waveform_analysis.core.plugins.plugin_sets.plugins_events": "()",
     "waveform_analysis.core.plugins.plugin_sets.get_plugin_set": "(name: str)",
     "waveform_analysis.utils.DAQAnalyzer": "(daq_root: 'str | Path' = 'DAQ', daq_adapter: 'str | DAQAdapter | None' = None, directory_layout: 'DirectoryLayout | None' = None, max_waves_for_channels: 'int' = 1000) -> 'None'",
@@ -715,7 +709,12 @@
       "parse_files_generator"
     ]
   ],
-  "cli_patch_points": ["Context", "DAQAnalyzer", "Path", "profiles"],
+  "cli_patch_points": [
+    "Context",
+    "DAQAnalyzer",
+    "Path",
+    "profiles"
+  ],
   "profiles": {
     "registry_keys": [
       "cpu",
@@ -738,7 +737,6 @@
       "hit",
       "peaks",
       "basic_features",
-      "tabular",
       "events"
     ],
     "factory_names": [
@@ -747,7 +745,6 @@
       "plugins_hit",
       "plugins_peaks",
       "plugins_basic_features",
-      "plugins_tabular",
       "plugins_events"
     ]
   },
@@ -779,9 +776,6 @@
     "peak_classification",
     "basic_features",
     "waveform_width_integral",
-    "df",
-    "df_events",
-    "df_paired",
     "s1_s2_pair_candidates",
     "s1_s2_pairs",
     "position_reconstruction",

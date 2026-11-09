@@ -24,7 +24,7 @@
 ### 扫描全部运行并显示概览
 
 ```python
-from waveform_analysis.utils.daq.daq_analyzer import DAQAnalyzer
+from waveform_analysis.acquisition.runs import DAQAnalyzer
 
 analyzer = DAQAnalyzer(daq_root="DAQ")
 analyzer.scan_all_runs()
@@ -34,8 +34,8 @@ analyzer.display_overview()
 ### 使用 DAQ 适配器或自定义目录布局
 
 ```python
-from waveform_analysis.utils.daq.daq_analyzer import DAQAnalyzer
-from waveform_analysis.utils.formats import get_adapter
+from waveform_analysis.acquisition.runs import DAQAnalyzer
+from waveform_analysis.acquisition.formats import get_adapter
 
 adapter = get_adapter("vx2730")
 analyzer = DAQAnalyzer(daq_root="DAQ", daq_adapter=adapter)
@@ -43,8 +43,8 @@ analyzer.scan_all_runs().display_overview()
 ```
 
 ```python
-from waveform_analysis.utils.daq.daq_analyzer import DAQAnalyzer
-from waveform_analysis.utils.formats import DirectoryLayout
+from waveform_analysis.acquisition.runs import DAQAnalyzer
+from waveform_analysis.acquisition.formats import DirectoryLayout
 
 layout = DirectoryLayout(raw_subdir="RAW")
 analyzer = DAQAnalyzer(daq_root="DAQ", directory_layout=layout)

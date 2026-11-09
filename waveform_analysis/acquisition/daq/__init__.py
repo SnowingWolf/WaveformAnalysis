@@ -9,9 +9,9 @@ __all__ = [
 ]
 
 _LAZY_ATTRS: dict[str, tuple[str, str | None]] = {
-    "DAQAnalyzer": (".daq_analyzer", "DAQAnalyzer"),
-    "DAQRun": (".daq_run", "DAQRun"),
-    "adapt_daq_run": (".daq", "adapt_daq_run"),
+    "DAQAnalyzer": ("waveform_analysis.acquisition.runs.analyzer", "DAQAnalyzer"),
+    "DAQRun": ("waveform_analysis.acquisition.runs.run", "DAQRun"),
+    "adapt_daq_run": ("waveform_analysis.acquisition.runs.adapters", "adapt_daq_run"),
 }
 
 

@@ -133,11 +133,12 @@ adapter-placement 兼容检查，缺少 lineage 元数据的历史 key 不会复
 
 1. **内存命中**：`_get_data_from_memory` 校验 `_results_lineage` 中的 key。
 2. **磁盘命中**：`key_for` 得到当前 key，共享解析器按“规范 key → 可证明等价的历史 key”校验；
-   validity、执行预览和实际加载使用同一解析结果。
+   validity 判断和实际加载使用同一解析结果。
 3. **执行计划**：`resolve_execution_plan` 拓扑序 + `compute_needed_set` 剪枝未命中节点。
 4. **执行**：只跑缺失节点，`save_plugin_result` 写盘。
 
-`preview_execution` 走相同的依赖与缓存判断，但不执行目标，适合在大规模运行前确认重算范围。
+`resolve_dependencies(target, run_id=run_id)` 可查看依赖顺序，`get_lineage(target)` 可查看缓存身份；
+两者都不报告本次缓存命中或重算范围。
 
 ```mermaid
 flowchart TD
@@ -185,17 +186,39 @@ flowchart TD
 | `register` / 覆盖注册 | 清该 `provides` 的谱系/hash/key 缓存与计划缓存 |
 | `clear_cache_for(run_id, name, downstream=True)` | 清内存 `_results`，可选删磁盘，沿下游递归 |
 | 节点重算后级联失效 | 逐下游 pop 谱系/键缓存，再用新鲜谱系复查磁盘，失败的加入执行集重算 |
-| `clear_performance_caches` | 全清性能缓存 dict |
-| 配置变化（`set_config`） | 清 resolved config 与性能缓存 |
+| 内部 `_invalidate_planning_caches()` | 由缓存域的 `invalidate_planning_caches()` 清理规划、lineage 与键缓存 |
+| 配置变化（`set_config`） | 自动清 resolved config、运行配置与规划缓存；无需用户手动维护 |
+
+用户通过 `set_config()` 更新配置，通过 `clear_cache_for()` 清理指定运行的产物。
+内部 `_clear_config_cache()` 与 `_invalidate_planning_caches()` 不属于公开 API。
 
 级联失效的意义：上游谱系变化后，仅清上游自身缓存不够——下游的缓存里内嵌旧上游身份。必须沿 DAG 对
 每个下游失效并用新鲜谱系复查，才能避免命中基于旧身份的磁盘结果。
 
 ## 9. 存储层抽象
 
-`Context._storage_call` 统一封装存储方法调用，自动判断方法是否接受 `run_id`；`_get_storage_for_data_name`
+`Context._storage_call` 统一以 `run_id=` 关键字调用存储方法；`_get_storage_for_data_name`
 允许按 data_name 选择不同后端（`plugin_backends`），默认使用 `self.storage`。这样 key/lineage 逻辑与
 具体后端（memmap、压缩、DB）解耦，新增后端不影响缓存身份。
+
+自定义后端的 `exists`、`save_memmap`、`load_memmap`、`save_metadata`、`get_metadata`、`delete`、
+`list_keys`、`get_size`、`save_stream` 和 `finalize_save` 均须接受可选的 `run_id=None` 关键字。
+若提供 DataFrame 能力，`save_dataframe` 和 `load_dataframe` 也遵守此约定。Context 不再探测旧签名；
+缺少参数会报 `TypeError`；元数据读取中的签名错误及非 `OSError` 异常会传播，`OSError` 仍按缓存读取失败处理。Protocol 的运行时检查仅确认方法存在。
+
+Memmap 以显式 run 定位目录，`list_keys(None)` 返回空列表。SQLite 单键操作仍按完整 key 寻址；
+`list_keys(None)` 返回全部数组键，指定 run 时按字面量 `f"{run_id}-"` 前缀筛选，不包含仅有元数据的键。
+该前缀规则不能保证任意含连字符运行名之间的严格隔离，既有键格式和存储布局保持不变。
+DataFrame 是可选能力，内置 SQLite 尚不支持；Context 的生成器落盘仍依赖 Memmap 文件接口。
+两后端的 `get_size` 仍分别返回记录数（Memmap）和字节数（SQLite）。
+
+### 缓存入口迁移
+
+内存和磁盘查找、只读过滤及命中统计统一由 `ContextCacheDomain` 承担。
+`RuntimeCacheManager` 类及其 `waveform_analysis.core.storage` 和 `cache_manager` 模块导入路径已移除。
+读取结果使用 `ctx.get_data(run_id, name)`；它在缓存缺失时会计算，并非旧 `check_cache()` 的纯探测替代。
+缓存问题检查使用 `ctx.diagnose_cache(run_id)`；条目、容量与修复使用 `waveform-cache` CLI。
+执行前的缓存命中与重算范围预览已退役。
 
 ## 10. 相关文档
 

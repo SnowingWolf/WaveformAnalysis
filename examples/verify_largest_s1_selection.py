@@ -28,7 +28,7 @@ def verify_largest_s1_logic():
     print("验证 S1-S2 配对逻辑：是否选择最大 S1")
     print("=" * 80)
 
-    ctx = Context(storage_dir="./strax_data")
+    ctx = Context(storage_dir="./wa_data")
     ctx.register(
         RawFilesPlugin(),
         WaveformsPlugin(),

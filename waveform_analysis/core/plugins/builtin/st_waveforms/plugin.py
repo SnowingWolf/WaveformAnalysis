@@ -65,7 +65,7 @@ def _parse_file_to_npy(
     """Parse a single file and persist to .npy to avoid large IPC payloads."""
     import tempfile
 
-    from waveform_analysis.acquisition.io import parse_and_stack_files
+    from waveform_analysis.acquisition.file_io import parse_and_stack_files
 
     ch_idx, file_idx, fp, skiprows, chunksize, delimiter, engine = args
     arr = parse_and_stack_files(
@@ -1067,6 +1067,11 @@ class WaveformsPlugin(Plugin):
 
         if isinstance(daq_adapter, str):
             daq_adapter = daq_adapter.lower()
+        if daq_adapter == "vx2730_bin":
+            raise ValueError(
+                "st_waveforms is not supported for vx2730_bin; "
+                "use records / wave_pool (input_source='raw_files') instead"
+            )
 
         # ========== 文件级并行配置 ==========
         if n_jobs is None:
@@ -1228,7 +1233,7 @@ class WaveformsPlugin(Plugin):
         """扁平化文件读取：全局文件池并行解析，之后按通道聚合。"""
         from concurrent.futures import as_completed
 
-        from waveform_analysis.acquisition.io import parse_and_stack_files
+        from waveform_analysis.acquisition.file_io import parse_and_stack_files
         from waveform_analysis.core.execution.manager import get_executor
 
         engine = (parse_engine or "auto").lower()

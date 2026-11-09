@@ -1,0 +1,248 @@
+api_version: waveform-analysis/agent-task/v1
+kind: AgentTask
+version: 1
+task_id: corner-hist-bincount-optimization
+state: completed
+metadata:
+  id: corner-hist-bincount-optimization
+  generation: 1
+  created_at: '2026-09-17T00:00:00+08:00'
+  updated_at: '2026-09-16T17:21:54Z'
+spec:
+  goal: Optimize corner_hist histogram calculation with shared NumPy bin indices and
+    bincount while preserving plotting, numerical, and monkeypatch compatibility.
+  route: modify_code
+  workflow_cost: strict
+  workflow_shape: staged
+  lifecycle_profile: reviewed_change
+  risk_level: high
+  target: /mnt/data/Run3/WaveformAnalysis
+  base_revision: 01968d301ecfb1239463fe309d007a9a2c2a49a9
+  scope:
+    base_sha: 01968d301ecfb1239463fe309d007a9a2c2a49a9
+    allowed_paths:
+    - waveform_analysis/visualization/statistical_plots.py
+    - waveform_analysis/visualization/statistical/histogram.py
+    - tests/test_corner_hist_performance.py
+    - docs/agents/runs/current/corner-hist-bincount-optimization/task.yaml
+    scope_in:
+    - Cache one extended bin index per variable after global filtering.
+    - Build 1D and 2D histograms with NumPy bincount while preserving output orientation
+      and semantics.
+    - Use ax.stairs for diagonal plots and retain the historical statistical_plots
+      histogram aliases and monkeypatch behavior.
+    - Add small-data correctness and regression tests for scales, weights, filtering,
+      boundaries, and edge cases.
+    - Measure matched performance when the 38M-point workload is safe to run.
+    scope_out:
+    - /mnt/data/Run3/WaveformAnalysis-release
+    - Changes to public plugin contracts or package version.
+    - New public precomputed/cache API in this task.
+    - New thread/process/Numba-parallel execution.
+    - Changes to show_ticklabels; its default remains None.
+  compatibility:
+    public_signature: unchanged
+    return_value: unchanged
+    monkeypatch_target: statistical_plots._safe_histogram2d remains a module-global
+      alias and patched functions use the legacy path.
+    reference_backend: _safe_histogram2d and _histogram2d_core remain independently
+      usable and behaviorally unchanged.
+  required_gates:
+  - assess_change_impact
+  - schema_compat_check
+  - doc_sync
+  - doc_anchors
+  - targeted_tests
+  - matched_benchmark_or_explicit_resource_block
+  executor_role: executor.code
+  assignment:
+    planner_role: planner
+    executor_role: executor.code
+    reviewer_role: reviewer
+  acceptance_criteria:
+  - Existing corner_hist parameters and (fig, axes) return behavior remain unchanged.
+  - Linear, log, and symlog bins match NumPy/reference backend at right edges and
+    out of bounds.
+  - Weights, min_count, density, norm, ranges, triangle, label_mode, and overlays
+    remain compatible.
+  - Existing related tests plus new equivalence tests pass.
+  - Matched benchmark reports timing, RSS, workload, runtime, and caveats without
+    overstating speedup.
+  - Strict gates and scoped commit handoff are recorded.
+  agent_profile: scientific-performance
+  profile_plan:
+  - Treat the new path as a matched numerical/performance comparison with explicit
+    cold/warm and memory caveats.
+  - Verify rightmost-edge, sentinel, dtype, shape, density, and floating accumulation
+    semantics against NumPy/reference backend.
+  - Do not claim 38M speedup if memory or workload equivalence cannot be measured
+    safely.
+  blocking_assumptions:
+  - Target is the main develop checkout only, as explicitly confirmed by the user.
+  - Existing tests and source are the current baseline; unrelated worktree changes
+    remain out of scope.
+assignment:
+  planner: /root/planner
+  executor: /root/executor_rework
+  reviewer: /root/reviewer
+status:
+  state: completed
+  transitions:
+  - from: created
+    to: planning
+    at: '2026-09-17T00:00:00+08:00'
+    actor: root
+  - from: planning
+    to: ready_for_execution
+    at: '2026-09-17T00:05:00+08:00'
+    actor: root
+    condition: plan_received
+  - from: ready_for_execution
+    to: executing
+    at: '2026-09-17T00:06:00+08:00'
+    actor: root
+    condition: main_develop_confirmed
+  - from: executing
+    to: reviewing
+    at: '2026-09-17T01:00:00+08:00'
+    actor: root
+    condition: execution_report_ready
+  - from: reviewing
+    to: rework_required
+    at: '2026-09-17T01:10:00+08:00'
+    actor: reviewer
+    condition: blocking_findings
+  - from: rework_required
+    to: executing
+    at: '2026-09-16T17:07:42Z'
+    actor: executor
+    condition: rework_scope_unchanged
+  - from: executing
+    to: reviewing
+    at: '2026-09-16T17:20:47Z'
+    actor: executor
+    condition: rework_execution_report_ready
+  - from: reviewing
+    to: completed
+    at: '2026-09-16T17:21:54Z'
+    actor: reviewer
+    condition: all_blocking_gates_pass
+  plan_sha256: 77743d6805e2bf438b74d0fe4b7ba61b9b5f63e48d4277a813160a06ffacb7eb
+  planning:
+    planner: /root/planner
+    result: plan received; strict staged execution required.
+  execution:
+    baseline:
+      workload: 38000000 points x 5 variables, float64 lognormal, 201 non-uniform
+        log edges, weights, log scales, lower triangle, tight_layout=False
+      seed: 20260917
+      python: /home/wxy/anaconda3/envs/pyroot-kernel/bin/python
+      elapsed_seconds: 21.3548
+      max_rss_kb: 3583952
+      axes_shape:
+      - 5
+      - 5
+      artists: 15
+      matched_repetitions_on_clean_release_source:
+        source_checkout: /mnt/data/Run3/WaveformAnalysis-release
+        source_file_hashes_match_target_head: true
+        times_seconds:
+        - 28.123711
+        - 22.950415
+        - 23.00409
+        median_seconds: 23.00409
+        max_rss_kb:
+        - 4298296
+        - 4315976
+        - 4319172
+    changed_paths:
+    - waveform_analysis/visualization/statistical/histogram.py
+    - waveform_analysis/visualization/statistical_plots.py
+    - tests/test_corner_hist_performance.py
+    actions_taken:
+    - Added private extended-index and bincount helpers with NumPy histogram edge
+      semantics.
+    - Reused one index per variable and one canonical pair histogram for full triangles.
+    - Replaced default diagonal ax.hist path with ax.stairs and preserved density
+      normalization.
+    - Preserved the module-global _safe_histogram2d monkeypatch fallback.
+    - Added correctness, density, pair-reuse, and edge-case tests.
+    - Reworked edge validation and non-float64 weighted 1D fallback after reviewer
+      findings.
+    - Added rectangular full-triangle value checks and an explicit monkeypatch/no-bincount
+      regression test.
+    commands_run:
+    - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m pytest --no-cov -q tests/test_corner_hist_performance.py
+      (41 passed)
+    - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m pytest --no-cov -q tests/test_corner_hist_performance.py
+      (49 passed after rework)
+    - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m pytest --no-cov -q tests/test_corner_hist_performance.py
+      tests/contracts/test_utils_public_surface_snapshot.py tests/test_utils_init.py (76 passed)
+    - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m pytest --no-cov -q tests/contracts/test_utils_public_surface_snapshot.py
+      tests/test_utils_init.py (25 passed)
+    - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m ruff check waveform_analysis/visualization/statistical_plots.py
+      waveform_analysis/visualization/statistical/histogram.py tests/test_corner_hist_performance.py
+      (passed)
+    benchmark:
+      workload: 38000000 points x 5 variables, float64 lognormal, 201 non-uniform
+        log edges, weights, log scales, lower triangle, tight_layout=False
+      seed: 20260917
+      baseline_source: /mnt/data/Run3/WaveformAnalysis-release (relevant source hashes
+        equal target HEAD)
+      baseline_times_seconds:
+      - 28.123711
+      - 22.950415
+      - 23.00409
+      baseline_median_seconds: 23.00409
+      baseline_max_rss_kb:
+      - 4298296
+      - 4315976
+      - 4319172
+      candidate_source: /mnt/data/Run3/WaveformAnalysis
+      candidate_times_seconds:
+      - 7.073815
+      - 7.044359
+      - 7.08563
+      candidate_median_seconds: 7.073815
+      candidate_max_rss_kb:
+      - 3592640
+      - 3609940
+      - 3627612
+      median_speedup: 3.252
+      axes_shape:
+      - 5
+      - 5
+      artists_each_run: 15
+      caveat: warm matched synthetic workload; tight_layout and cold JIT excluded;
+        baseline and candidate are separate clean processes/checkouts.
+    open_risks:
+    - Full user-requested precomputed histogram/cache API was intentionally deferred
+      to a separate strict task.
+    - 38M timing is a measured synthetic workload, not the user's original data file.
+    requested_review_focus:
+    - Verify numerical equivalence and monkeypatch compatibility before commit.
+    - Check public surface and backend __all__ impact.
+    - Check all strict gates and commit scoping.
+  review:
+    decision: approved
+    reviewer_actor: /root/reviewer
+    reviewer: /root/reviewer
+    plan_sha256: 77743d6805e2bf438b74d0fe4b7ba61b9b5f63e48d4277a813160a06ffacb7eb
+    gate_results:
+      assess_change_impact: PASS
+      schema_compat_check: PASS
+      doc_sync: PASS
+      doc_anchors: PASS
+      targeted_tests: PASS
+      matched_benchmark_or_explicit_resource_block: PASS
+    blocking_findings: []
+    residual_risks:
+    - Repository-wide doc sync still reports pre-existing stale docs/agents/plans
+      generated files; task-scoped doc sync and anchors pass.
+    - Benchmark is warm synthetic input, separate clean release/candidate processes,
+      and excludes cold JIT/tight_layout.
+    - Public precomputed/cache API deferred to a separate strict task.
+    review_report: Luna Max reviewer approved after edge fallback, dtype fallback,
+      full-triangle, and monkeypatch regressions were addressed.
+  approval: {}
+  handoff: {}

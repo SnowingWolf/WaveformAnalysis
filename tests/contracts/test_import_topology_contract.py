@@ -127,8 +127,7 @@ def test_profiles_plugin_sets_and_standard_plugins_are_stable():
     expected_sets = contract["plugin_sets"]
     assert list(plugin_sets.PLUGIN_SETS) == expected_sets["registry_keys"]
     assert expected_sets["factory_names"] == [
-        f"plugins_{name}"
-        for name in ("io", "waveform", "hit", "peaks", "basic_features", "tabular", "events")
+        f"plugins_{name}" for name in ("io", "waveform", "hit", "peaks", "basic_features", "events")
     ]
     for name in expected_sets["registry_keys"]:
         factory_name = f"plugins_{name}"

@@ -1,0 +1,365 @@
+api_version: waveform-analysis/agent-task/v1
+kind: AgentTask
+metadata:
+  id: acquisition-layout
+  generation: 1
+  created_at: '2026-11-04T12:40:36Z'
+  updated_at: '2026-11-04T12:51:14Z'
+spec:
+  goal: 将采集模块重组为runs、formats和file_io，保持旧导入及读取行为兼容
+  route: modify_code
+  workflow_cost: strict
+  workflow_shape: staged
+  risk_level: medium
+  scope:
+    base_sha: 863e4a4e80c5fce5e91482bf6105f287a03d38e6
+    allowed_paths:
+    - waveform_analysis/acquisition/
+    - waveform_analysis/utils/
+    - waveform_analysis/__init__.py
+    - waveform_analysis/cli.py
+    - waveform_analysis/core/processing/loader.py
+    - waveform_analysis/core/plugins/builtin/st_waveforms/plugin.py
+    - tests/
+    - docs/
+    - waveform_analysis/documentation/
+  acceptance_criteria:
+  - Real implementations have a single home under runs and file_io, without reverse
+    dependencies on compatibility shims
+  - Historical imports, identities, pickle paths, monkeypatch seams and parsing behavior
+    remain compatible
+  - Targeted regressions, route gates and independent blocking review pass before
+    scoped commits and stacked PR
+  required_gates:
+  - targeted_tests
+  - generate_docs
+  - assess_change_impact
+  - schema_compat_check
+  - doc_sync
+  - doc_anchors
+  - reviewer
+  assignment:
+    planner_role: planner
+    executor_role: executor.code
+    reviewer_role: reviewer
+    planner: acquisition_planner
+    executors:
+    - acquisition_io
+    - acquisition_runs
+    - root integration and documentation
+    reviewer: acquisition_reviewer
+  authorization:
+    source: User explicitly requested implementation of the complete acquisition layout
+      plan
+    decision: Implement, validate, review, commit and open follow-up PR from PR12
+      latest head
+  implementation_plan:
+  - Move backend implementations and real orchestration into file_io; remove proven
+    overridden unused definitions; preserve io patch seams and function identity
+  - Move run, analyzer, discovery and adapter implementations into runs; map old package
+    and module names using existing alias utility
+  - Update internal consumers, canonical exports and affected live documentation;
+    leave historical reports intact
+  - Run baseline and post-change regression suite, fresh-process alias/pickle/optional-backend
+    tests, fixed gates and independent blocking review
+  - Commit source stages after review; publish follow-up draft PR targeting codex/adapter-layout
+    while PR12 is unmerged
+  scope_out:
+  - No parser algorithm, error handling, dtype, configuration, plugin version or concurrency
+    policy changes
+  - No splitting DAQAnalyzer presentation responsibilities
+  - No deletion of public compatibility import paths
+  compatibility_decisions:
+  - acquisition.io and utils.io alias the canonical orchestration module, preserving
+    module globals used for monkeypatch
+  - Keep historic class/function serialization identifiers
+  - Thin old daq/readers modules or registered aliases provide old paths without duplicate
+    execution
+  baseline:
+    sha: 863e4a4e80c5fce5e91482bf6105f287a03d38e6
+    working_tree: clean
+    branch: codex/acquisition-layout
+    pr12_state: open draft, head 863e4a4e80c5fce5e91482bf6105f287a03d38e6
+    targeted_tests: 52 passed, 2 pre-existing deprecation warnings; /tmp/wa-acquisition-layout/baseline.log
+status:
+  state: completed
+  transitions:
+  - from: created
+    to: planning
+    at: '2026-11-04T12:40:36Z'
+    actor: planner
+  - from: planning
+    to: ready_for_execution
+    at: '2026-11-04T12:40:36Z'
+    actor: planner
+  - from: ready_for_execution
+    to: executing
+    at: '2026-11-04T12:40:36Z'
+    actor: executor.code
+  - from: executing
+    to: reviewing
+    at: '2026-11-04T12:50:08Z'
+    actor: executor.code
+  - from: reviewing
+    to: completed
+    at: '2026-11-04T12:51:14Z'
+    actor: reviewer
+  plan_sha256: f4f8c78694490fbebf69600381e3c0cd3eddcdfbecbd4b8d334194ac2e0d8d99
+  execution:
+    executor_role: executor.code
+    changed_paths:
+    - docs/agents/plans/INDEX.md
+    - docs/agents/plans/active.yaml
+    - docs/architecture/ARCHITECTURE.md
+    - docs/cli/WAVEFORM_PROCESS.md
+    - docs/features/utils/DAQ_ANALYZER_GUIDE.md
+    - docs/plugins/reference/agent/st_waveforms.md
+    - docs/plugins/reference/builtin/auto/st_waveforms.md
+    - docs/site-content-baseline.json
+    - docs/site-next/fixture/site-model.v1.json
+    - waveform_analysis/__init__.py
+    - waveform_analysis/acquisition/__init__.py
+    - waveform_analysis/acquisition/daq/__init__.py
+    - waveform_analysis/acquisition/daq/daq.py
+    - waveform_analysis/acquisition/daq/daq_analyzer.py
+    - waveform_analysis/acquisition/daq/daq_run.py
+    - waveform_analysis/acquisition/daq/discovery.py
+    - waveform_analysis/acquisition/daq/models.py
+    - waveform_analysis/acquisition/daq/presentation.py
+    - waveform_analysis/acquisition/daq/service.py
+    - waveform_analysis/acquisition/formats/vx2730/csv.py
+    - waveform_analysis/acquisition/io.py
+    - waveform_analysis/acquisition/readers/__init__.py
+    - waveform_analysis/acquisition/readers/base_csv.py
+    - waveform_analysis/acquisition/readers/orchestrator.py
+    - waveform_analysis/acquisition/readers/polars_backend.py
+    - waveform_analysis/acquisition/readers/pyarrow_backend.py
+    - waveform_analysis/cli.py
+    - waveform_analysis/core/plugins/builtin/st_waveforms/plugin.py
+    - waveform_analysis/core/processing/loader.py
+    - waveform_analysis/documentation/site_dist/404.html
+    - waveform_analysis/documentation/site_dist/404/index.html
+    - waveform_analysis/documentation/site_dist/_not-found/index.html
+    - waveform_analysis/documentation/site_dist/accessors/index.html
+    - waveform_analysis/documentation/site_dist/accessors/peak-channel-accessor/index.html
+    - waveform_analysis/documentation/site_dist/accessors/records-view/index.html
+    - waveform_analysis/documentation/site_dist/accessors/s1-s2-pair-accessor/index.html
+    - waveform_analysis/documentation/site_dist/adapters/adapter/index.html
+    - waveform_analysis/documentation/site_dist/adapters/index.html
+    - waveform_analysis/documentation/site_dist/architecture/PROJECT_STRUCTURE/index.html
+    - waveform_analysis/documentation/site_dist/architecture/accessor-analysis/index.html
+    - waveform_analysis/documentation/site_dist/architecture/data-products/index.html
+    - waveform_analysis/documentation/site_dist/architecture/index.html
+    - waveform_analysis/documentation/site_dist/architecture/plugin-cache-architecture/index.html
+    - waveform_analysis/documentation/site_dist/architecture/plugin-dag-lineage-cache/index.html
+    - waveform_analysis/documentation/site_dist/architecture/system/index.html
+    - waveform_analysis/documentation/site_dist/cli/WAVEFORM_CACHE/index.html
+    - waveform_analysis/documentation/site_dist/cli/WAVEFORM_DOCS/index.html
+    - waveform_analysis/documentation/site_dist/cli/WAVEFORM_PROCESS/index.html
+    - waveform_analysis/documentation/site_dist/cli/index.html
+    - waveform_analysis/documentation/site_dist/contexts/context/index.html
+    - waveform_analysis/documentation/site_dist/contexts/index.html
+    - waveform_analysis/documentation/site_dist/development/CONTRACT_TESTS/index.html
+    - waveform_analysis/documentation/site_dist/development/contributing/COMMIT_CONVENTION/index.html
+    - waveform_analysis/documentation/site_dist/development/contributing/DOC_ANCHOR_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/development/contributing/IMPORT_STYLE_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/development/index.html
+    - waveform_analysis/documentation/site_dist/development/plugin-development/PLUGIN_SCAFFOLD/index.html
+    - waveform_analysis/documentation/site_dist/development/plugin-development/PLUGIN_SPEC_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/development/plugin-development/plugin_guide/index.html
+    - waveform_analysis/documentation/site_dist/development/worktrees/index.html
+    - waveform_analysis/documentation/site_dist/features/advanced/PROGRESS_TRACKING_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/context/ABSOLUTE_TIME_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/context/BATCH_PROCESSOR/index.html
+    - waveform_analysis/documentation/site_dist/features/context/CONFIGURATION/index.html
+    - waveform_analysis/documentation/site_dist/features/context/DEPENDENCY_ANALYSIS_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/context/LINEAGE_VISUALIZATION_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/index.html
+    - waveform_analysis/documentation/site_dist/features/utils/ADAPTIVE_2D_SAMPLING_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/utils/DAQ_ANALYZER_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/utils/PDF_EXPORT_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/visualizations/POSITION_DASHBOARD_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/index.html
+    - waveform_analysis/documentation/site_dist/lineage/index.html
+    - waveform_analysis/documentation/site_dist/plugins/basic_features/index.html
+    - waveform_analysis/documentation/site_dist/plugins/cache_analysis/index.html
+    - waveform_analysis/documentation/site_dist/plugins/df/index.html
+    - waveform_analysis/documentation/site_dist/plugins/df_events/index.html
+    - waveform_analysis/documentation/site_dist/plugins/df_paired/index.html
+    - waveform_analysis/documentation/site_dist/plugins/energy_reconstruction/index.html
+    - waveform_analysis/documentation/site_dist/plugins/events/index.html
+    - waveform_analysis/documentation/site_dist/plugins/filtered_waveforms/index.html
+    - waveform_analysis/documentation/site_dist/plugins/guides/STREAMING_PLUGINS_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_grouped/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_merge_clusters/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_merged/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_merged_components/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_merged_features/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_threshold/index.html
+    - waveform_analysis/documentation/site_dist/plugins/index.html
+    - waveform_analysis/documentation/site_dist/plugins/overview/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peak_classification/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_channels/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_components/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_features/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_waveform_pool/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_waveforms/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklets/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaks/index.html
+    - waveform_analysis/documentation/site_dist/plugins/position_reconstruction/index.html
+    - waveform_analysis/documentation/site_dist/plugins/raw_files/index.html
+    - waveform_analysis/documentation/site_dist/plugins/records/index.html
+    - waveform_analysis/documentation/site_dist/plugins/records_asymmetry_mask/index.html
+    - waveform_analysis/documentation/site_dist/plugins/records_detector_mask/index.html
+    - waveform_analysis/documentation/site_dist/plugins/records_veto_mask/index.html
+    - waveform_analysis/documentation/site_dist/plugins/reference/ADAPTER_PLUGIN_BEHAVIOR/index.html
+    - waveform_analysis/documentation/site_dist/plugins/reference/ADAPTER_SYSTEM_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/plugins/s1_s2_pair_candidates/index.html
+    - waveform_analysis/documentation/site_dist/plugins/s1_s2_pairs/index.html
+    - waveform_analysis/documentation/site_dist/plugins/st_waveforms/index.html
+    - waveform_analysis/documentation/site_dist/plugins/wave_pool/index.html
+    - waveform_analysis/documentation/site_dist/plugins/wave_pool_filtered/index.html
+    - waveform_analysis/documentation/site_dist/plugins/waveform_width/index.html
+    - waveform_analysis/documentation/site_dist/plugins/waveform_width_integral/index.html
+    - waveform_analysis/documentation/site_dist/search-index.v1.json
+    - waveform_analysis/documentation/site_dist/site-manifest.json
+    - waveform_analysis/documentation/site_dist/site-model.v1.json
+    - waveform_analysis/documentation/site_dist/user-guide/EXAMPLES_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/user-guide/QUICKSTART_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/user-guide/docs-build/index.html
+    - waveform_analysis/documentation/site_dist/user-guide/index.html
+    - waveform_analysis/documentation/site_dist/visualizations/index.html
+    - waveform_analysis/documentation/site_dist/visualizations/position-dashboard/index.html
+    - waveform_analysis/documentation/site_dist/visualizations/statistical-plots/index.html
+    - waveform_analysis/documentation/site_dist/visualizations/waveform-plots/index.html
+    - waveform_analysis/utils/__init__.py
+    - waveform_analysis/utils/daq/__init__.py
+    - waveform_analysis/utils/daq/daq.py
+    - waveform_analysis/utils/daq/daq_analyzer.py
+    - waveform_analysis/utils/daq/daq_run.py
+    - waveform_analysis/utils/io.py
+    - docs/agents/runs/current/acquisition-layout/task.yaml
+    - tests/contracts/test_file_io_layout.py
+    - tests/contracts/test_runs_layout.py
+    - waveform_analysis/acquisition/README.md
+    - waveform_analysis/acquisition/file_io/__init__.py
+    - waveform_analysis/acquisition/file_io/csv_pandas.py
+    - waveform_analysis/acquisition/file_io/csv_polars.py
+    - waveform_analysis/acquisition/file_io/csv_pyarrow.py
+    - waveform_analysis/acquisition/file_io/orchestration.py
+    - waveform_analysis/acquisition/runs/__init__.py
+    - waveform_analysis/acquisition/runs/adapters.py
+    - waveform_analysis/acquisition/runs/analyzer.py
+    - waveform_analysis/acquisition/runs/discovery.py
+    - waveform_analysis/acquisition/runs/run.py
+    actions_taken:
+    - Moved generic CSV backends and actual orchestration into file_io; removed overwritten
+      duplicate definitions
+    - Moved run discovery, models, analyzer and adapter implementation into runs;
+      retained thin daq package and old module aliases
+    - Updated internal consumers and active documentation to canonical paths
+    - Added actual import-order, serialization, monkeypatch and optional-import regression
+      cases
+    command_results:
+    - command: pre-change targeted baseline
+      result: PASS 52; 2 pre-existing deprecation warnings
+      evidence: /tmp/wa-acquisition-layout/baseline.log
+    - command: post-change integrated adapter/CSV/runs/loader/contracts suite
+      result: PASS 308; 8 existing warnings
+      evidence: /tmp/wa-acquisition-layout/integration.log
+    - command: final file_io contract suite with absent optional imports
+      result: PASS 45
+      evidence: /tmp/wa-acquisition-layout/file-io-optional-import-tests.log
+    - command: pre/post process-pool differential on two synthetic CSV files
+      result: Both versions fail to pickle nested parser and return empty; behavior
+        unchanged, not successful reading
+      evidence: /tmp/wa-acquisition-layout/process-pool-differential.log
+    - command: generate plugins-auto
+      result: PASS
+      evidence: /tmp/wa-acquisition-layout/plugins-auto.log
+    - command: generate plugins-agent
+      result: PASS
+      evidence: /tmp/wa-acquisition-layout/plugins-agent.log
+    - command: assess_change_impact --base HEAD
+      result: PASS
+      evidence: /tmp/wa-acquisition-layout/impact.log
+    - command: schema_compat_check --base HEAD --run-smoke
+      result: PASS
+      evidence: /tmp/wa-acquisition-layout/schema.log
+    - command: site model and guide tests
+      result: 33 PASS initially; one stale source-baseline failure fixed by regenerating
+        three modified guide baseline records; affected test PASS after fix
+      evidence:
+      - /tmp/wa-acquisition-layout/docs-tests.log
+      - /tmp/wa-acquisition-layout/docs-tests-baseline.log
+    - command: docs_build.py build --workspace current checkout --run-id acquisition-layout-20261104-03
+        --stage-output
+      result: PASS npm ci, TypeScript and Next static export; previous sandbox runs
+        exited 139 and 134; identical third run outside sandbox passed without config
+        changes
+      evidence: /tmp/waveform-doc-build/runs/acquisition-layout-20261104-03/report.json
+    - command: BeautifulSoup inspection of three affected generated pages
+      result: PASS main text, headings and code contain canonical runs/file_io imports;
+        no browser visual QA for this text-only change
+      evidence: /tmp/waveform-doc-build/runs/acquisition-layout-20261104-03/site/
+    - command: check_doc_sync.sh --task
+      result: PASS
+      evidence: /tmp/wa-acquisition-layout/doc-sync.log
+    - command: check_doc_anchors --check-sync --task
+      result: PASS
+      evidence: /tmp/wa-acquisition-layout/anchors.log
+    - command: render_agent_docs.py --check
+      result: PASS
+      evidence: /tmp/wa-acquisition-layout/render-check.log
+    open_risks: &id001
+    - Existing generic CSV process-pool path cannot pickle nested parser; both old
+      and new versions return empty output after logging errors. No successful process-pool
+      reading claim; unrelated fix deferred.
+    - First two sandboxed docs builds crashed in Node/TypeScript; third unsandboxed
+      identical build succeeded. Cause not established.
+    commit:
+      status: committed
+      shas: &id002
+      - 483bd30b99480769ef79be1b35dd28d1870a86f1
+      - 3ec285be9bfbe580a7eb0573e38e110aca5c4cd8
+      - a41f572347ce043b8cb8eb293a6cade6942ede9c
+      pre_commit_hooks: PASS all source and documentation stage hooks
+  review:
+    reviewer: acquisition_reviewer
+    reviewer_actor: reviewer
+    decision: approved
+    plan_sha256: f4f8c78694490fbebf69600381e3c0cd3eddcdfbecbd4b8d334194ac2e0d8d99
+    gate_results:
+      targeted_tests: PASS
+      generate_docs: PASS
+      assess_change_impact: PASS
+      schema_compat_check: PASS
+      doc_sync: PASS
+      doc_anchors: PASS
+      reviewer: PASS
+    blocking_findings: []
+    summary: Independent source AST, import identity, test and final generated-artifact
+      review approved; implementations unique, canonical imports avoid compatibility
+      shims, historical pickle and actual patch dispatch covered.
+    evidence:
+    - /tmp/wa-acquisition-layout/integration.log
+    - /tmp/wa-acquisition-layout/file-io-optional-import-tests.log
+    - /tmp/waveform-doc-build/runs/acquisition-layout-20261104-03/report.json
+    residual_risks: *id001
+    completion_allowed: true
+  approval: {}
+  handoff:
+    commit_status: committed
+    commit_shas: *id002
+    summary: Independent review approved; file_io, runs/consumers and docs/site committed
+      in three stages. This handoff update is a separate metadata commit. Follow-up
+      PR targets codex/adapter-layout while PR12 remains unmerged.
+    validation:
+    - 308 integration tests PASS; final file_io contract suite 45 PASS including fresh
+      absent optional imports
+    - '34 doc tests covered: 33 initially passed, one source baseline corrected and
+      its test passed'
+    - Fixed gates, docs/anchors, real external static build03, independent review
+      and commit hooks PASS
+    remaining_limitations: *id001

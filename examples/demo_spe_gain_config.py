@@ -1,253 +1,57 @@
 #!/usr/bin/env python
-"""
-单光子增益（SPE Gain）配置示例
+"""无需 DAQ 的 SPE 面积标定演示：逐 board:channel 显式换算。
 
-本示例展示如何设置和使用单光子增益参数 gain_adc_per_pe。
-gain_adc_per_pe 表示每个光电子对应的 ADC 计数值。
-
-配置后，DataFrame 插件会自动添加校准后的列：
-- area_pe: 峰面积（单位：光电子数）
-- height_pe: 峰高（单位：光电子数）
+basic_features.area 是 ADC 采样值之和，未乘 dt；gain_adc_per_pe 在本示例中
+存放匹配采样间隔、积分窗口及基线方法的 SPE 面积增益（ADC·sample/PE）。
+height 仍是 ADC 幅度，需要另行测得的峰高增益才能标定。Context 不自动增加 PE 列。
 """
 
-from waveform_analysis import Context
-from waveform_analysis.plugins import (
-    BasicFeaturesPlugin,
-    DataFramePlugin,
-    WaveformsPlugin,
+import numpy as np
+import pandas as pd
+
+from waveform_analysis.core.hardware import (
+    get_gain_adc_per_pe,
+    resolve_channel_value_map,
+    unique_hardware_channels,
 )
-from waveform_analysis.plugins import (
-    RawFileNamesPlugin as RawFilesPlugin,
-)
+from waveform_analysis.plugins import BasicFeaturesPlugin
 
 
-def example_1_global_gain_config():
-    """
-    示例 1: 全局增益配置
-
-    为所有通道设置统一的增益值。
-    """
-    print("=" * 80)
-    print("示例 1: 全局增益配置")
-    print("=" * 80)
-
-    ctx = Context(storage_dir="./strax_data")
-    ctx.register(
-        RawFilesPlugin(),
-        WaveformsPlugin(),
-        BasicFeaturesPlugin(),
-        DataFramePlugin(),
+def calibrate_area(features: np.ndarray, gain_config: dict[str, float]) -> pd.DataFrame:
+    """把单记录特征转表；没有标定的通道 area_pe 为 NaN。"""
+    # 外部标定值必须有效；不要把错误标定默默当成缺少标定。
+    if any(not np.isfinite(value) or value <= 0 for value in gain_config.values()):
+        raise ValueError("SPE 面积增益必须为有限的正数，单位为 ADC·sample/PE")
+    df = pd.DataFrame(features)
+    gain_map = resolve_channel_value_map(
+        gain_config,
+        "demo_run",
+        unique_hardware_channels(df["board"].to_numpy(), df["channel"].to_numpy()),
+        plugin_name="analysis",
+        value_name="gain_adc_per_pe",
     )
-
-    # 方式 1: 为所有通道设置相同的增益（假设所有通道增益为 15.0 ADC/PE）
-    gain_config = {
-        "0:0": 15.0,  # board 0, channel 0
-        "0:1": 15.0,  # board 0, channel 1
-        "0:2": 15.0,  # board 0, channel 2
-        "0:3": 15.0,  # board 0, channel 3
-    }
-
-    ctx.set_config({"gain_adc_per_pe": gain_config})
-
-    print("✓ 已设置全局增益配置")
-    print(f"  配置内容: {gain_config}")
-    print("\n使用 ctx.show_config() 查看配置...")
-    ctx.show_config("df")
-
-
-def example_2_per_channel_gain_config():
-    """
-    示例 2: 逐通道增益配置
-
-    为每个通道设置不同的增益值（真实场景）。
-    """
-    print("\n" + "=" * 80)
-    print("示例 2: 逐通道增益配置（不同通道不同增益）")
-    print("=" * 80)
-
-    ctx = Context(storage_dir="./strax_data")
-    ctx.register(
-        RawFilesPlugin(),
-        WaveformsPlugin(),
-        BasicFeaturesPlugin(),
-        DataFramePlugin(),
+    gains = np.array(
+        [get_gain_adc_per_pe(gain_map, row.board, row.channel) for row in df.itertuples()],
+        dtype=float,
     )
-
-    # 方式 2: 为每个通道设置不同的增益（基于实际标定结果）
-    gain_config = {
-        "0:0": 12.5,  # board 0, channel 0: 12.5 ADC/PE
-        "0:1": 13.2,  # board 0, channel 1: 13.2 ADC/PE
-        "0:2": 11.8,  # board 0, channel 2: 11.8 ADC/PE
-        "0:3": 14.1,  # board 0, channel 3: 14.1 ADC/PE
-    }
-
-    ctx.set_config({"gain_adc_per_pe": gain_config})
-
-    print("✓ 已设置逐通道增益配置")
-    print("  配置内容:")
-    for ch, gain in gain_config.items():
-        print(f"    {ch}: {gain} ADC/PE")
+    df["area_pe"] = df["area"] / gains
+    return df
 
 
-def example_3_plugin_specific_gain_config():
-    """
-    示例 3: 插件特定增益配置
-
-    直接为 DataFrame 插件设置增益配置。
-    """
-    print("\n" + "=" * 80)
-    print("示例 3: 插件特定增益配置")
-    print("=" * 80)
-
-    ctx = Context(storage_dir="./strax_data")
-    ctx.register(
-        RawFilesPlugin(),
-        WaveformsPlugin(),
-        BasicFeaturesPlugin(),
-        DataFramePlugin(),
-    )
-
-    # 方式 3: 直接为 df 插件设置增益
-    gain_config = {
-        "0:0": 15.3,
-        "0:1": 14.7,
-        "0:2": 15.8,
-        "0:3": 15.1,
-    }
-
-    ctx.set_config({"gain_adc_per_pe": gain_config}, plugin_name="df")
-
-    print("✓ 已为 df 插件设置增益配置")
-    print(f"  配置内容: {gain_config}")
-
-
-def example_4_run_specific_gain_config():
-    """
-    示例 4: Run 特定增益配置
-
-    在处理数据时为特定 run 设置增益。
-    """
-    print("\n" + "=" * 80)
-    print("示例 4: Run 特定增益配置")
-    print("=" * 80)
-
-    ctx = Context(storage_dir="./strax_data")
-    ctx.register(
-        RawFilesPlugin(),
-        WaveformsPlugin(),
-        BasicFeaturesPlugin(),
-        DataFramePlugin(),
-    )
-
-    # 方式 4: 通过 run 配置设置增益
-    # 这种方式允许不同的 run 使用不同的增益值
-
-    # 假设你有一个 run_config.yaml 文件，内容如下：
-    run_config_example = """
-    plugins:
-      df:
-        gain_adc_per_pe:
-          "0:0": 15.0
-          "0:1": 15.0
-          "0:2": 15.0
-          "0:3": 15.0
-    """
-
-    print("Run 配置文件示例 (run_config.yaml):")
-    print(run_config_example)
-    print("\n注意：这种方式需要在 DAQ 目录下创建 run_config.yaml 文件")
-
-
-def example_5_effect_of_gain():
-    """
-    示例 5: 增益配置的效果
-
-    展示配置增益后 DataFrame 中会增加哪些列。
-    """
-    print("\n" + "=" * 80)
-    print("示例 5: 增益配置的效果")
-    print("=" * 80)
-
-    print("\n配置 gain_adc_per_pe 后，DataFrame 会自动添加以下校准列：\n")
-    print("  原始列 (ADC单位) → 校准列 (PE单位)")
-    print("  " + "-" * 50)
-    print("  area             → area_pe      (峰面积，单位：光电子数)")
-    print("  height           → height_pe    (峰高，单位：光电子数)")
-    print()
-    print("转换公式:")
-    print("  area_pe = area / gain_adc_per_pe")
-    print("  height_pe = height / gain_adc_per_pe")
-    print()
-    print("示例：如果某个峰的 area=150 ADC，gain_adc_per_pe=15.0")
-    print("      则 area_pe = 150 / 15.0 = 10.0 PE（即 10 个光电子）")
-
-
-def example_6_multi_board_config():
-    """
-    示例 6: 多板卡配置
-
-    为多个板卡设置增益。
-    """
-    print("\n" + "=" * 80)
-    print("示例 6: 多板卡增益配置")
-    print("=" * 80)
-
-    ctx = Context(storage_dir="./strax_data")
-    ctx.register(
-        RawFilesPlugin(),
-        WaveformsPlugin(),
-        BasicFeaturesPlugin(),
-        DataFramePlugin(),
-    )
-
-    # 方式 6: 多板卡配置
-    gain_config = {
-        # Board 0
-        "0:0": 12.5,
-        "0:1": 13.2,
-        "0:2": 11.8,
-        "0:3": 14.1,
-        # Board 1
-        "1:0": 15.3,
-        "1:1": 14.7,
-        "1:2": 15.8,
-        "1:3": 15.1,
-    }
-
-    ctx.set_config({"gain_adc_per_pe": gain_config})
-
-    print("✓ 已设置多板卡增益配置")
-    print(f"  Board 0: {len([k for k in gain_config if k.startswith('0:')])} 个通道")
-    print(f"  Board 1: {len([k for k in gain_config if k.startswith('1:')])} 个通道")
-
-
-def main():
-    """运行所有示例"""
-    print("\n" + "=" * 80)
-    print("单光子增益（SPE Gain）配置完整示例")
-    print("=" * 80)
-    print("\ngain_adc_per_pe 参数说明:")
-    print("  • 含义：每个光电子对应的 ADC 计数值")
-    print("  • 单位：ADC counts / photoelectron")
-    print("  • 格式：字典，键为 'board:channel' 格式")
-    print("  • 作用：配置后自动添加 area_pe 和 height_pe 列")
-    print()
-
-    example_1_global_gain_config()
-    example_2_per_channel_gain_config()
-    example_3_plugin_specific_gain_config()
-    example_4_run_specific_gain_config()
-    example_5_effect_of_gain()
-    example_6_multi_board_config()
-
-    print("\n" + "=" * 80)
-    print("示例完成！")
-    print("=" * 80)
-    print("\n推荐使用方式:")
-    print("  1. 如果所有 run 使用相同增益 → 使用全局配置（示例 1-3）")
-    print("  2. 如果不同 run 使用不同增益 → 使用 run_config.yaml（示例 4）")
-    print("  3. 增益值通常通过单光子响应标定获得")
-    print()
+def main() -> None:
+    # 真实分析时改为 features = ctx.get_data(run_id, "basic_features")。
+    features = np.zeros(3, dtype=BasicFeaturesPlugin.output_dtype)
+    features["record_id"] = [0, 1, 2]
+    features["board"] = [0, 1, 1]
+    features["channel"] = [0, 0, 1]
+    features["area"] = [150.0, 300.0, 80.0]
+    features["height"] = [20.0, 25.0, 10.0]
+    # 同一 channel 在不同 board 上是不同的硬件通道；故意不配置 1:1。
+    gain_config = {"0:0": 15.0, "1:0": 30.0}
+    df = calibrate_area(features, gain_config)
+    print(df[["record_id", "board", "channel", "area", "area_pe", "height"]])
+    print("前两条各为 10 PE；1:1 未标定，area_pe 为 NaN；height 保留 ADC 单位。")
+    print("换算在分析层完成。修改增益后须重新生成分析表及其导出文件。")
 
 
 if __name__ == "__main__":

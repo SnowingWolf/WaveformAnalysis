@@ -2,6 +2,7 @@
 Batch processing utilities for Context.
 """
 
+from collections.abc import Callable
 from concurrent.futures import (
     FIRST_COMPLETED,
     ProcessPoolExecutor,
@@ -9,12 +10,14 @@ from concurrent.futures import (
     as_completed,
     wait,
 )
+from contextlib import contextmanager
+from functools import partial
 import logging
 import shutil
 import tempfile
 import time
 import traceback
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any
 
 from waveform_analysis.core.cancellation import CancellationToken
 from waveform_analysis.core.foundation.progress import ProgressTracker
@@ -24,7 +27,7 @@ logger = logging.getLogger(__name__)
 export, __all__ = exporter()
 
 
-def _build_error_info(exc: Exception) -> Dict[str, str]:
+def _build_error_info(exc: Exception) -> dict[str, str]:
     return {
         "type": type(exc).__name__,
         "message": str(exc),
@@ -32,8 +35,16 @@ def _build_error_info(exc: Exception) -> Dict[str, str]:
     }
 
 
-def _apply_storage_dir_strategy(context: Any, strategy: str) -> Optional[str]:
-    if strategy == "shared":
+def _create_configured_context(
+    context_factory: Callable[[], Any], config: dict[str, Any], plugin_name: str
+) -> Any:
+    context = context_factory()
+    context.set_config(config, plugin_name=plugin_name)
+    return context
+
+
+def _apply_storage_dir_strategy(context: Any, strategy: str) -> str | None:
+    if strategy in ("shared", "readonly"):
         return None
 
     temp_dir = tempfile.mkdtemp(prefix="batch_cache_")
@@ -48,9 +59,31 @@ def _apply_storage_dir_strategy(context: Any, strategy: str) -> Optional[str]:
     return temp_dir
 
 
-def _cleanup_temp_dir(temp_dir: Optional[str], clean_temp_cache: bool) -> None:
+def _cleanup_temp_dir(temp_dir: str | None, clean_temp_cache: bool) -> None:
     if temp_dir and clean_temp_cache:
         shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+@contextmanager
+def _task_storage_scope(context: Any, strategy: str, clean_temp_cache: bool):
+    if strategy == "readonly":
+        from waveform_analysis.core.context import Context
+
+        if not isinstance(context, Context):
+            raise TypeError("storage_dir_strategy='readonly' requires a Context instance")
+        previous = context._cache_readonly
+        context._cache_readonly = True
+        try:
+            yield
+        finally:
+            context._cache_readonly = previous
+        return
+
+    temp_dir = _apply_storage_dir_strategy(context, strategy)
+    try:
+        yield
+    finally:
+        _cleanup_temp_dir(temp_dir, clean_temp_cache)
 
 
 def _run_single_task(
@@ -60,21 +93,20 @@ def _run_single_task(
     storage_dir_strategy: str,
     clean_temp_cache: bool,
     retries: int,
-    retry_on: Optional[Tuple[type, ...]],
-) -> Tuple[str, Any, Optional[Dict[str, str]], Dict[str, Any]]:
+    retry_on: tuple[type, ...] | None,
+) -> tuple[str, Any, dict[str, str] | None, dict[str, Any]]:
     from waveform_analysis.core.cancellation import TaskCancelledException
 
     start_time = time.time()
     attempts = 0
-    error_info: Optional[Dict[str, str]] = None
+    error_info: dict[str, str] | None = None
 
     while True:
         attempts += 1
-        context = context_factory()
-        temp_dir = _apply_storage_dir_strategy(context, storage_dir_strategy)
-
         try:
-            data = context.get_data(run_id, data_name)
+            context = context_factory()
+            with _task_storage_scope(context, storage_dir_strategy, clean_temp_cache):
+                data = context.get_data(run_id, data_name)
             meta = {
                 "status": "success",
                 "elapsed": time.time() - start_time,
@@ -94,7 +126,6 @@ def _run_single_task(
             retry_types = retry_on or ()
             should_retry = attempts <= retries and retry_types and isinstance(exc, retry_types)
             if should_retry:
-                _cleanup_temp_dir(temp_dir, clean_temp_cache)
                 continue
             meta = {
                 "status": "failed",
@@ -102,8 +133,6 @@ def _run_single_task(
                 "attempts": attempts,
             }
             return run_id, None, error_info, meta
-        finally:
-            _cleanup_temp_dir(temp_dir, clean_temp_cache)
 
 
 def _run_single_custom_task(
@@ -113,19 +142,18 @@ def _run_single_custom_task(
     storage_dir_strategy: str,
     clean_temp_cache: bool,
     retries: int,
-    retry_on: Optional[Tuple[type, ...]],
-) -> Tuple[str, Any, Optional[Dict[str, str]], Dict[str, Any]]:
+    retry_on: tuple[type, ...] | None,
+) -> tuple[str, Any, dict[str, str] | None, dict[str, Any]]:
     start_time = time.time()
     attempts = 0
-    error_info: Optional[Dict[str, str]] = None
+    error_info: dict[str, str] | None = None
 
     while True:
         attempts += 1
-        context = context_factory()
-        temp_dir = _apply_storage_dir_strategy(context, storage_dir_strategy)
-
         try:
-            data = func(context, run_id)
+            context = context_factory()
+            with _task_storage_scope(context, storage_dir_strategy, clean_temp_cache):
+                data = func(context, run_id)
             meta = {
                 "status": "success",
                 "elapsed": time.time() - start_time,
@@ -137,7 +165,6 @@ def _run_single_custom_task(
             retry_types = retry_on or ()
             should_retry = attempts <= retries and retry_types and isinstance(exc, retry_types)
             if should_retry:
-                _cleanup_temp_dir(temp_dir, clean_temp_cache)
                 continue
             meta = {
                 "status": "failed",
@@ -145,8 +172,6 @@ def _run_single_custom_task(
                 "attempts": attempts,
             }
             return run_id, None, error_info, meta
-        finally:
-            _cleanup_temp_dir(temp_dir, clean_temp_cache)
 
 
 @export
@@ -177,9 +202,9 @@ class BatchProcessor:
 
     def _resolve_context_factory(
         self,
-        context_factory: Optional[Callable[[], Any]],
+        context_factory: Callable[[], Any] | None,
         executor_type: str,
-    ) -> Optional[Callable[[], Any]]:
+    ) -> Callable[[], Any] | None:
         if context_factory is not None:
             return context_factory
 
@@ -196,23 +221,23 @@ class BatchProcessor:
 
     def process_runs(
         self,
-        run_ids: List[str],
+        run_ids: list[str],
         data_name: str,
-        max_workers: Optional[int] = None,
-        context_factory: Optional[Callable[[], Any]] = None,
+        max_workers: int | None = None,
+        context_factory: Callable[[], Any] | None = None,
         executor_type: str = "thread",
         storage_dir_strategy: str = "shared",
         clean_temp_cache: bool = True,
         show_progress: bool = True,
         on_error: str = "continue",  # 'continue', 'stop', 'raise'
-        progress_tracker: Optional[ProgressTracker] = None,
-        cancellation_token: Optional[CancellationToken] = None,
-        jupyter_mode: Optional[bool] = None,
+        progress_tracker: ProgressTracker | None = None,
+        cancellation_token: CancellationToken | None = None,
+        jupyter_mode: bool | None = None,
         progress_update_interval: float = 0.5,
         poll_interval: float = 0.1,
         retries: int = 0,
-        retry_on: Optional[Tuple[type, ...]] = None,
-    ) -> Dict[str, Any]:
+        retry_on: tuple[type, ...] | None = None,
+    ) -> dict[str, Any]:
         """
         批量处理多个run (优化版: 支持Jupyter环境)
 
@@ -220,7 +245,7 @@ class BatchProcessor:
             run_ids: 运行ID列表
             data_name: 要处理的数据名称
             max_workers: 最大并行工作进程数
-            context_factory: 并行时为每个任务创建独立 Context 的工厂函数
+            context_factory: 为每个任务及重试创建独立 Context 的工厂函数
                 - thread 模式可自动使用 ctx.clone()
                 - process 模式会尝试 ctx.create_context_factory()
             executor_type: 执行器类型 ("thread" 或 "process")
@@ -260,9 +285,9 @@ class BatchProcessor:
         if jupyter_mode:
             self.logger.debug("Running in Jupyter-optimized mode (polling-based)")
 
-        results: Dict[str, Any] = {}
-        errors: Dict[str, Dict[str, str]] = {}
-        meta: Dict[str, Dict[str, Any]] = {}
+        results: dict[str, Any] = {}
+        errors: dict[str, dict[str, str]] = {}
+        meta: dict[str, dict[str, Any]] = {}
         ordered_run_ids = list(run_ids)
         start_time = time.time()
 
@@ -283,7 +308,7 @@ class BatchProcessor:
             use_parallel = False
             max_workers = 1
 
-        if not use_parallel and storage_dir_strategy != "shared":
+        if not use_parallel and context_factory is None and storage_dir_strategy == "per_worker":
             self.logger.warning("storage_dir_strategy is ignored in serial mode; using 'shared'.")
             storage_dir_strategy = "shared"
 
@@ -375,8 +400,8 @@ class BatchProcessor:
         def _record_outcome(
             run_id: str,
             data: Any,
-            error_info: Optional[Dict[str, str]],
-            meta_info: Dict[str, Any],
+            error_info: dict[str, str] | None,
+            meta_info: dict[str, Any],
         ) -> None:
             meta[run_id] = meta_info
             if data is not None:
@@ -384,7 +409,7 @@ class BatchProcessor:
             if error_info is not None:
                 errors[run_id] = error_info
 
-        def _mark_skipped(remaining: List[str]) -> None:
+        def _mark_skipped(remaining: list[str]) -> None:
             for run_id in remaining:
                 if run_id not in meta:
                     meta[run_id] = {"status": "skipped", "elapsed": 0.0, "attempts": 0}
@@ -407,7 +432,13 @@ class BatchProcessor:
                     while True:
                         attempts += 1
                         try:
-                            data = self.context.get_data(run_id, data_name)
+                            context = (
+                                context_factory() if context_factory is not None else self.context
+                            )
+                            with _task_storage_scope(
+                                context, storage_dir_strategy, clean_temp_cache
+                            ):
+                                data = context.get_data(run_id, data_name)
                             _record_outcome(
                                 run_id,
                                 data,
@@ -539,7 +570,10 @@ class BatchProcessor:
                                     _mark_skipped([future_to_run[f] for f in pending])
                                     stop_processing = True
                                     if on_error == "raise":
-                                        raise
+                                        raise RuntimeError(
+                                            f"Batch task {run_id!r} failed: "
+                                            f"{error_info['type']}: {error_info['message']}"
+                                        )
                                     break
 
                                 pending_progress_count += 1
@@ -587,7 +621,10 @@ class BatchProcessor:
                                 )
                                 stop_processing = True
                                 if on_error == "raise":
-                                    raise
+                                    raise RuntimeError(
+                                        f"Batch task {run_id!r} failed: "
+                                        f"{error_info['type']}: {error_info['message']}"
+                                    )
                                 break
 
                             pending_progress_count += 1
@@ -629,22 +666,22 @@ class BatchProcessor:
 
     def process_func(
         self,
-        run_ids: List[str],
+        run_ids: list[str],
         func: Callable,
-        max_workers: Optional[int] = None,
-        context_factory: Optional[Callable[[], Any]] = None,
+        max_workers: int | None = None,
+        context_factory: Callable[[], Any] | None = None,
         executor_type: str = "thread",
         storage_dir_strategy: str = "shared",
         clean_temp_cache: bool = True,
         show_progress: bool = True,
         on_error: str = "continue",
-        progress_tracker: Optional[Any] = None,
-        jupyter_mode: Optional[bool] = None,
+        progress_tracker: Any | None = None,
+        jupyter_mode: bool | None = None,
         progress_update_interval: float = 0.5,
         poll_interval: float = 0.1,
         retries: int = 0,
-        retry_on: Optional[Tuple[type, ...]] = None,
-    ) -> Dict[str, Any]:
+        retry_on: tuple[type, ...] | None = None,
+    ) -> dict[str, Any]:
         """
         使用自定义函数批量处理 (优化版: 支持Jupyter环境)
 
@@ -652,7 +689,7 @@ class BatchProcessor:
             run_ids: 运行ID列表
             func: 处理函数 func(context, run_id) -> result
             max_workers: 最大并行工作进程数
-            context_factory: 并行时为每个任务创建独立 Context 的工厂函数
+            context_factory: 为每个任务及重试创建独立 Context 的工厂函数
                 - thread 模式可自动使用 ctx.clone()
                 - process 模式会尝试 ctx.create_context_factory()
             executor_type: 执行器类型 ("thread" 或 "process")
@@ -680,9 +717,9 @@ class BatchProcessor:
         if jupyter_mode is None:
             jupyter_mode = is_notebook_environment()
 
-        results: Dict[str, Any] = {}
-        errors: Dict[str, Dict[str, str]] = {}
-        meta: Dict[str, Dict[str, Any]] = {}
+        results: dict[str, Any] = {}
+        errors: dict[str, dict[str, str]] = {}
+        meta: dict[str, dict[str, Any]] = {}
         ordered_run_ids = list(run_ids)
         start_time = time.time()
 
@@ -703,7 +740,7 @@ class BatchProcessor:
             use_parallel = False
             max_workers = 1
 
-        if not use_parallel and storage_dir_strategy != "shared":
+        if not use_parallel and context_factory is None and storage_dir_strategy == "per_worker":
             self.logger.warning("storage_dir_strategy is ignored in serial mode; using 'shared'.")
             storage_dir_strategy = "shared"
 
@@ -776,8 +813,8 @@ class BatchProcessor:
         def _record_outcome(
             run_id: str,
             data: Any,
-            error_info: Optional[Dict[str, str]],
-            meta_info: Dict[str, Any],
+            error_info: dict[str, str] | None,
+            meta_info: dict[str, Any],
         ) -> None:
             meta[run_id] = meta_info
             if data is not None:
@@ -785,7 +822,7 @@ class BatchProcessor:
             if error_info is not None:
                 errors[run_id] = error_info
 
-        def _mark_skipped(remaining: List[str]) -> None:
+        def _mark_skipped(remaining: list[str]) -> None:
             for run_id in remaining:
                 if run_id not in meta:
                     meta[run_id] = {"status": "skipped", "elapsed": 0.0, "attempts": 0}
@@ -799,7 +836,13 @@ class BatchProcessor:
                     while True:
                         attempts += 1
                         try:
-                            data = func(self.context, run_id)
+                            context = (
+                                context_factory() if context_factory is not None else self.context
+                            )
+                            with _task_storage_scope(
+                                context, storage_dir_strategy, clean_temp_cache
+                            ):
+                                data = func(context, run_id)
                             _record_outcome(
                                 run_id,
                                 data,
@@ -892,7 +935,10 @@ class BatchProcessor:
                                     _mark_skipped([future_to_run[f] for f in pending])
                                     stop_processing = True
                                     if on_error == "raise":
-                                        raise
+                                        raise RuntimeError(
+                                            f"Batch task {run_id!r} failed: "
+                                            f"{error_info['type']}: {error_info['message']}"
+                                        )
                                     break
 
                                 pending_progress_count += 1
@@ -924,7 +970,10 @@ class BatchProcessor:
                                 )
                                 stop_processing = True
                                 if on_error == "raise":
-                                    raise
+                                    raise RuntimeError(
+                                        f"Batch task {run_id!r} failed: "
+                                        f"{error_info['type']}: {error_info['message']}"
+                                    )
                                 break
 
                             pending_progress_count += 1
@@ -955,24 +1004,24 @@ class BatchProcessor:
 
     def process_runs_with_config_grid(
         self,
-        run_ids: List[str],
+        run_ids: list[str],
         data_name: str,
         plugin_name: str,
-        configs: List[Dict[str, Any]],
-        max_workers: Optional[int] = None,
-        context_factory: Optional[Callable[[], Any]] = None,
+        configs: list[dict[str, Any]],
+        max_workers: int | None = None,
+        context_factory: Callable[[], Any] | None = None,
         executor_type: str = "process",
         storage_dir_strategy: str = "shared",
         clean_temp_cache: bool = True,
         show_progress: bool = True,
         on_error: str = "continue",
-        jupyter_mode: Optional[bool] = None,
+        jupyter_mode: bool | None = None,
         progress_update_interval: float = 0.5,
         poll_interval: float = 0.1,
         retries: int = 0,
-        retry_on: Optional[Tuple[type, ...]] = None,
+        retry_on: tuple[type, ...] | None = None,
         tmp_cache: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         配置网格扫参批处理
 
@@ -982,7 +1031,7 @@ class BatchProcessor:
             plugin_name: 目标插件名称
             configs: 配置列表（每个元素为 dict）
             max_workers: 最大并行工作进程数
-            context_factory: 并行时为每个任务创建独立 Context 的工厂函数
+            context_factory: 为每个任务及重试创建独立 Context 的工厂函数
                 - thread 模式可自动使用 ctx.clone()
                 - process 模式会尝试 ctx.create_context_factory()
             executor_type: 执行器类型 ("thread" 或 "process")
@@ -1000,13 +1049,17 @@ class BatchProcessor:
         Returns:
             结果字典 {"configs": configs, "results": [ {config, batch} ... ]}
         """
-        results: List[Dict[str, Any]] = []
+        results: list[dict[str, Any]] = []
 
         parallel_requested = max_workers is None or (max_workers is not None and max_workers > 1)
         if parallel_requested:
             context_factory = self._resolve_context_factory(context_factory, executor_type)
 
         if tmp_cache:
+            if storage_dir_strategy == "readonly":
+                raise ValueError(
+                    "tmp_cache=True is incompatible with storage_dir_strategy='readonly'"
+                )
             storage_dir_strategy = "per_worker"
             if context_factory is None:
                 self.logger.warning(
@@ -1017,8 +1070,6 @@ class BatchProcessor:
             if context_factory is None:
                 ctx = self.context
                 ctx.set_config(config, plugin_name=plugin_name)
-                if hasattr(ctx, "clear_performance_caches"):
-                    ctx.clear_performance_caches()
 
                 batch = self.process_runs(
                     run_ids=run_ids,
@@ -1026,7 +1077,7 @@ class BatchProcessor:
                     max_workers=1,
                     context_factory=None,
                     executor_type=executor_type,
-                    storage_dir_strategy="shared",
+                    storage_dir_strategy=storage_dir_strategy,
                     clean_temp_cache=clean_temp_cache,
                     show_progress=show_progress,
                     on_error=on_error,
@@ -1038,19 +1089,15 @@ class BatchProcessor:
                 )
             else:
 
-                def _config_factory(config=config) -> Any:
-                    ctx = context_factory()
-                    ctx.set_config(config, plugin_name=plugin_name)
-                    if hasattr(ctx, "clear_performance_caches"):
-                        ctx.clear_performance_caches()
-
-                    return ctx
+                config_factory = partial(
+                    _create_configured_context, context_factory, config, plugin_name
+                )
 
                 batch = self.process_runs(
                     run_ids=run_ids,
                     data_name=data_name,
                     max_workers=max_workers,
-                    context_factory=_config_factory,
+                    context_factory=config_factory,
                     executor_type=executor_type,
                     storage_dir_strategy=storage_dir_strategy,
                     clean_temp_cache=clean_temp_cache,

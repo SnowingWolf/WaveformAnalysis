@@ -1,0 +1,349 @@
+api_version: waveform-analysis/agent-task/v1
+kind: AgentTask
+metadata:
+  id: system-hardening-20261029
+  generation: 5
+  created_at: '2026-10-28T17:37:02Z'
+  updated_at: '2026-10-28T18:02:22Z'
+spec:
+  goal: 落实缓存并发正确性、性能基准可信度和批量只读语义；建立有界性能基线并审查内存与并发收益。
+  route: modify_code
+  workflow_cost: strict
+  workflow_shape: staged
+  risk_level: high
+  scope:
+    base_sha: 3f17f56cba359830b8a45ae2e27ce30918a94b87
+    allowed_paths:
+    - waveform_analysis/core/storage/memmap.py
+    - waveform_analysis/core/context.py
+    - waveform_analysis/core/context_cache.py
+    - waveform_analysis/core/context_execution.py
+    - waveform_analysis/core/data/batch_processor.py
+    - scripts/performance_regression_check.py
+    - scripts/_quality_common.py
+    - scripts/benchmark_system_workload.py
+    - tests/test_storage.py
+    - tests/test_agent_quality_checks.py
+    - tests/test_system_workload_benchmark.py
+    - docs/architecture/ACCESSOR_ANALYSIS.md
+    - docs/architecture/PLUGIN_DAG_LINEAGE_CACHE.md
+    - docs/features/context/BATCH_PROCESSOR.md
+    - docs/agents/workflows.md
+    - docs/agents/runs/current/system-hardening-20261029/
+    - docs/agents/plans/
+    - docs/plugins/reference/
+    - docs/development/performance/
+    - scripts/README.md
+    - waveform_analysis/core/context_config.py
+    - tests/test_context_memory_release.py
+    - tests/test_performance_regression_check.py
+    - docs/features/context/CONFIGURATION.md
+    - tests/test_batch_processor_readonly.py
+    - docs/plugins/PLUGIN_SYSTEM_OVERVIEW.md
+  acceptance_criteria:
+  - 竞争写者始终共享同一锁身份，写入与删除不能绕过互斥，回归测试覆盖受控竞争。
+  - 性能比较无有效旧版基准或目标数据时明确失败，报告实际运行来源。
+  - BatchProcessor readonly 复用现有缓存，缺失即失败且无计算和缓存写入，文档明确外部回调边界。
+  - 代表性基线固定输入、资源与缓存/JIT状态，每次实验独立输出且不修改已有数据。
+  - 主 agent 阻断审查与仓库所需 gates 通过后仅提交本轮文件。
+  - Explicit memory cache clearing releases matching Context attribute references
+    while preserving other-run and user-replaced references.
+  required_gates:
+  - assess_change_impact
+  - schema_compat_check
+  - doc_sync
+  - doc_anchors
+  - targeted_tests
+  - generate_docs
+  - workload_baseline
+  - reviewer
+  assignment:
+    planner_role: planner
+    executor_role: executor.code
+    reviewer_role: reviewer
+    executors:
+      cache_lock: gpt-6.1-sol/xhigh
+      performance_gate: gpt-6.1-sol/xhigh
+      batch_readonly: gpt-6.1-sol/xhigh
+      workload_baseline: gpt-6.1-sol/xhigh
+      memory_release: gpt-6.1-sol/xhigh
+    reviewer: 'root: inspect diffs and evidence; issue blocking rework before completion'
+  scope_out:
+  - No changes to physics algorithms or plugin output contracts
+  - No full raw-data scans or hashes
+  - No changes to existing experiment outputs or live acquisition
+  - No speculative global concurrency or eviction defaults before representative measurements
+  execution_policy:
+    python: /home/wxy/anaconda3/envs/pyroot-kernel/bin/python
+    benchmark: bounded isolated inputs; retain prior outputs; compare under matched
+      conditions
+    commit: root only, scoped after review and gates
+status:
+  state: completed
+  transitions:
+  - from: created
+    to: planning
+    at: '2026-10-28T17:37:02Z'
+    actor: planner
+  - from: planning
+    to: ready_for_execution
+    at: '2026-10-28T17:38:09Z'
+    actor: planner
+    condition: plan_brief_ready
+  - from: ready_for_execution
+    to: executing
+    at: '2026-10-28T17:38:09Z'
+    actor: executor.code
+    condition: executor_assigned
+  - from: executing
+    to: reviewing
+    at: '2026-10-28T17:43:18Z'
+    actor: executor.code
+  - from: reviewing
+    to: rework_required
+    at: '2026-10-28T17:43:19Z'
+    actor: reviewer
+  - from: rework_required
+    to: planning
+    at: '2026-10-28T17:43:19Z'
+    actor: planner
+    condition: scope_changed
+    scope_changed: true
+  - from: planning
+    to: ready_for_execution
+    at: '2026-10-28T17:43:19Z'
+    actor: planner
+    condition: plan_brief_ready
+  - from: ready_for_execution
+    to: executing
+    at: '2026-10-28T17:43:19Z'
+    actor: executor.code
+    condition: executor_assigned
+  - from: executing
+    to: reviewing
+    at: '2026-10-28T17:47:47Z'
+    actor: executor.code
+  - from: reviewing
+    to: rework_required
+    at: '2026-10-28T17:47:47Z'
+    actor: reviewer
+  - from: rework_required
+    to: planning
+    at: '2026-10-28T17:47:47Z'
+    actor: planner
+    condition: scope_changed
+    scope_changed: true
+  - from: planning
+    to: ready_for_execution
+    at: '2026-10-28T17:47:48Z'
+    actor: planner
+    condition: plan_brief_ready
+  - from: ready_for_execution
+    to: executing
+    at: '2026-10-28T17:47:48Z'
+    actor: executor.code
+    condition: executor_assigned
+  - from: executing
+    to: reviewing
+    at: '2026-10-28T17:52:49Z'
+    actor: executor.code
+  - from: reviewing
+    to: rework_required
+    at: '2026-10-28T17:52:49Z'
+    actor: reviewer
+  - from: rework_required
+    to: planning
+    at: '2026-10-28T17:52:49Z'
+    actor: planner
+    condition: scope_changed
+    scope_changed: true
+  - from: planning
+    to: ready_for_execution
+    at: '2026-10-28T17:52:50Z'
+    actor: planner
+    condition: plan_brief_ready
+  - from: ready_for_execution
+    to: executing
+    at: '2026-10-28T17:52:50Z'
+    actor: executor.code
+    condition: executor_assigned
+  - from: executing
+    to: reviewing
+    at: '2026-10-28T17:58:03Z'
+    actor: executor.code
+  - from: reviewing
+    to: rework_required
+    at: '2026-10-28T17:58:04Z'
+    actor: reviewer
+  - from: rework_required
+    to: planning
+    at: '2026-10-28T17:58:04Z'
+    actor: planner
+    condition: scope_changed
+    scope_changed: true
+  - from: planning
+    to: ready_for_execution
+    at: '2026-10-28T17:58:04Z'
+    actor: planner
+    condition: plan_brief_ready
+  - from: ready_for_execution
+    to: executing
+    at: '2026-10-28T17:58:04Z'
+    actor: executor.code
+    condition: executor_assigned
+  - from: executing
+    to: reviewing
+    at: '2026-10-28T17:59:30Z'
+    actor: executor.code
+    condition: execution_report_ready
+  - from: reviewing
+    to: rework_required
+    at: '2026-10-28T18:01:14Z'
+    actor: reviewer
+    condition: precommit_gate_failed
+  - from: rework_required
+    to: executing
+    at: '2026-10-28T18:01:14Z'
+    actor: executor.code
+    condition: scope_unchanged
+  - from: executing
+    to: reviewing
+    at: '2026-10-28T18:02:00Z'
+    actor: executor.code
+    condition: rework_execution_report_ready
+  - from: reviewing
+    to: completed
+    at: '2026-10-28T18:02:22Z'
+    actor: reviewer
+    condition: all_blocking_gates_pass
+  plan_sha256: 43f0529fbcb9cba00d02b78e963748ddba7a88a142aa354220c657a53649f164
+  execution:
+    summary: Five gpt-6.1-sol/xhigh executors delivered scoped fixes and bounded measurements;
+      root inspected diffs, requested cleanup-finally and benchmark-boundary repairs,
+      and validated combined behavior.
+    runtime: /home/wxy/anaconda3/envs/pyroot-kernel/bin/python
+    changes:
+    - Stable memmap lock inode, serialized delete, temporary cleanup before unlock
+      with guaranteed release, and os.replace for individual data/metadata files.
+    - Isolated identical performance harness for base/current, verified import provenance,
+      fail-closed missing/invalid baseline and samples.
+    - Batch readonly uses original valid cache, refuses compute/lazy streams and disk
+      clears, avoids config writes, and checks run-config disk state.
+    - Explicit memory clear removes matching Context attribute references while preserving
+      other-run, reserved and user-replaced references.
+    - Bounded V1725 single-file benchmark records cold-JIT, warm recomputation, cache
+      mapping/touch, exact output comparisons and sampled process-tree RSS.
+    - Required Ruff commit hook modernized existing batch_processor type annotations;
+      remaining imports removed and batch regressions rerun.
+    commands_run:
+    - command: python -m waveform_analysis.documentation.cli generate plugins-auto
+        -o docs/plugins/reference/builtin/auto/
+      result: PASS; stale installed waveform-docs entrypoint was bypassed using the
+        canonical current module
+    - command: python -m waveform_analysis.documentation.cli generate plugins-agent
+        -o docs/plugins/reference/agent/
+      result: PASS; no generated plugin documentation changes
+    - command: python scripts/assess_change_impact.py --base 3f17f56cba359830b8a45ae2e27ce30918a94b87
+      result: PASS; zero plugin contract changes
+    - command: python scripts/schema_compat_check.py --base 3f17f56cba359830b8a45ae2e27ce30918a94b87
+        --run-smoke
+      result: PASS; zero dtype changes; smoke counts raw_files=2, st_waveforms=24,
+        hit=0, df=24, events=12
+    - command: python -m pytest -q -o addopts= tests/test_storage.py tests/test_storage_backends.py
+        tests/test_compression.py tests/test_integrity.py tests/test_batch_processor_readonly.py
+        tests/test_batch_processor_basic.py tests/test_batch_processor_config.py tests/test_batch_processor_errors.py
+        tests/test_batch_processor_runtime.py tests/test_context_memory_release.py
+        tests/test_context_core.py tests/test_context_core_clone.py tests/test_run_config_cache_invalidation.py
+        tests/test_performance_regression_check.py tests/test_system_workload_benchmark.py
+      result: 242 passed, 1 skipped, 13 warnings; storage/readonly/memory patches
+        final; benchmark subsequently added three boundary cases
+    - command: python -m pytest -q -o addopts= tests/test_system_workload_benchmark.py
+        tests/test_agent_quality_checks.py -k 'not performance_regression_check_cli_runs
+        and not schema_compat_check_cli_with_smoke'
+      result: 12 passed, 2 deselected; all six final benchmark tests pass
+    - command: TMPDIR=/tmp/wa-performance-gate-20261029-I8udEP python scripts/performance_regression_check.py
+        --base HEAD --targets st_waveforms,hit,hit_threshold --repeats 1 --time-threshold-pct
+        500 --mem-threshold-pct 500 --json-out /tmp/wa-performance-gate-20261029-I8udEP/performance.json
+      result: PASS after required temporary-worktree permission; one repeat and relaxed
+        500% thresholds validate CLI execution/provenance only, not the normal 10%/15%
+        performance gate or a speedup claim.
+    - command: python scripts/render_agent_docs.py --write; WAVEFORM_PYTHON=<runtime>
+        scripts/check_doc_sync.sh
+      result: PASS; includes render --check and check_doc_anchors --check-sync --base
+        HEAD, 29 anchors, zero errors/warnings
+    - command: python -m black --check <each changed Python file>; python -m ruff
+        check <changed Python files except batch_processor>; baseline/current batch_processor
+        Ruff comparison
+      result: PASS after formatting benchmark; existing 71 batch_processor typing
+        diagnostics unchanged. Multi-file Black stalled in sandbox, single-file checks
+        passed.
+    - command: git diff --check; python scripts/change_scope.py report --task docs/agents/runs/current/system-hardening-20261029/task.yaml
+        --base HEAD
+      result: PASS; all modified/untracked deliverables in scope
+    - command: python -m ruff check waveform_analysis/core/data/batch_processor.py;
+        python -m black --check waveform_analysis/core/data/batch_processor.py; python
+        -m pytest -q -o addopts= tests/test_batch_processor_readonly.py tests/test_batch_processor_basic.py
+        tests/test_batch_processor_config.py tests/test_batch_processor_errors.py
+        tests/test_batch_processor_runtime.py
+      result: PASS; 50 passed after required pre-commit hook modernized existing typing
+        annotations. Root removed remaining obsolete imports and reviewed mechanical
+        changes. No Ruff diagnostics remain in the file.
+    workload_evidence: docs/agents/runs/current/system-hardening-20261029/workload-results.json
+    workload_result: Four completed independent workers on one 6095288-byte b1 V1725
+      file; exact equality within each config and cache state; metadata unchanged.
+      One matched-matrix attempt failed on missing baseline dependency and remains
+      recorded. Cross-source hits are not equivalent.
+    memory_result: Original records worker retained records/wave_pool after explicit
+      clear; three post-fix hit workers retained none of the target arrays. No allocator
+      RSS-reduction claim.
+    logs: /tmp/wa-system-hardening-20261029/
+    open_risks:
+    - No full-run, peaks, b0 or file-fanout throughput claim; no global concurrency/eviction
+      default changes.
+  review:
+    reviewer: root
+    decision: approved
+    plan_sha256: 43f0529fbcb9cba00d02b78e963748ddba7a88a142aa354220c657a53649f164
+    gate_results:
+      assess_change_impact: PASS
+      schema_compat_check: PASS
+      doc_sync: PASS
+      doc_anchors: PASS
+      targeted_tests: PASS
+      generate_docs: PASS
+      workload_baseline: PASS
+      reviewer: PASS
+    blocking_findings: []
+    assessment: Reviewed production diffs, tests and measurement boundaries. Repaired
+      missing cleanup-finally, bounded-worker interruption handling, unsupported benchmark
+      flag, formatter drift and documentation sync warnings before approval. Reviewed
+      mandatory hook type-annotation modernization; 50 post-hook batch tests and full-file
+      lint pass.
+    residual_risks:
+    - Lock serialization covers participating memmap/stream writers and delete, not
+      standalone metadata/finalize or DataFrame writers; no two-file transaction.
+    - Stable lock files remain; legacy processes or external unlink can still break
+      lock identity. Existing delete does not reclaim compressed/parquet/pickle remnants.
+    - Readonly governs Context cache access, not external I/O by callbacks, factories,
+      custom hooks, logging or custom Storage.
+    - Explicit clearing does not reclaim caller-held references or guarantee RSS release;
+      existing concurrent _set_data attribute assignment and automatic lineage cleanup
+      were not redesigned.
+    - Different waveform sources have different selections, baseline and record IDs;
+      no cross-source speedup accepted. Matched-matrix attempt lacked a baseline producer.
+    - RSS watchdog samples every 20 ms, not a cgroup hard cap. One b1 file is not
+      a full-run or peaks benchmark.
+    - Installed waveform-docs launcher is stale; canonical module invocation passed.
+      Existing fork/timeout warnings remain; batch typing diagnostics were resolved
+      by the mandatory hook cleanup.
+    follow_up_actions:
+    - Before changing wave_source or concurrency defaults, define an equivalent b0/peaks
+      workload and confirm physics selection and baseline contracts.
+  approval: {}
+  handoff:
+    commit_status: committed
+    commit_hash: a14b116b84b7bdb649f0418ddac82f0105951f8f
+    summary: Implementation, tests, documentation and bounded workload evidence committed
+      after root review; all required commit hooks passed. Lifecycle closure commit
+      follows.
+    reviewer: root

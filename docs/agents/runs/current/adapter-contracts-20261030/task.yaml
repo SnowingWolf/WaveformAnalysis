@@ -1,0 +1,547 @@
+api_version: waveform-analysis/agent-task/v1
+kind: AgentTask
+metadata:
+  id: adapter-contracts-20261030
+  generation: 4
+  created_at: '2026-10-30T08:30:39Z'
+  updated_at: '2026-10-30T09:00:51Z'
+spec:
+  goal: 修复DAQ适配器通道契约、元数据缓存和分卷处理；文档作为最后统一更新的明确待办。
+  route: retire_compat
+  workflow_cost: strict
+  workflow_shape: staged
+  risk_level: medium
+  scope:
+    base_sha: 7a38b462a4486a88147a39fd7b7b313bef67087c
+    allowed_paths:
+    - waveform_analysis/acquisition/formats/adapter.py
+    - waveform_analysis/acquisition/formats/v1725.py
+    - waveform_analysis/acquisition/formats/vx2730_bin.py
+    - waveform_analysis/core/config/adapter_info.py
+    - waveform_analysis/core/config/__init__.py
+    - waveform_analysis/core/config/tests/test_config.py
+    - waveform_analysis/core/processing/loader.py
+    - waveform_analysis/core/plugins/builtin/st_waveforms/plugin.py
+    - tests/test_daq_adapter_integration.py
+    - tests/test_daq_adapter_specs.py
+    - tests/test_daq_adapter_v1725.py
+    - tests/test_daq_adapter_vx2730_bin.py
+    - tests/test_adapter_channel_contract.py
+    - tests/test_adapter_info_contract.py
+    - tests/contracts/test_adapter_migration.py
+    - tests/test_site_model.py
+    - tests/test_site_guides.py
+    - waveform_analysis/documentation/site_docs/catalog.py
+    - waveform_analysis/documentation/site_dist/
+    - docs/
+    - waveform_analysis/core/plugins/builtin/raw_files/
+    - waveform_analysis/core/plugins/builtin/records/
+    - waveform_analysis/core/plugins/builtin/wave_pool/
+    - waveform_analysis/acquisition/formats/__init__.py
+    - waveform_analysis/acquisition/formats/vx2730.py
+    - waveform_analysis/documentation/site_model.py
+  acceptance_criteria:
+  - Physical-channel access requires explicit board/channel and filters actual event metadata; all-channel
+    output uses hardware keys and streaming/full results agree. File discovery groups and raw_files shape
+    remain separate from channel identities.
+  - AdapterInfo uses one conversion path without global stale cache, use_cache parameter or clear-cache
+    export; unknown adapters return None, broken registered metadata raises.
+  - V1725 segments sort by integer index; VX2730 BIN supports explicitly identified headerless continuations
+    while validating format, truncation and independent stream boundaries.
+  - Only supported adapter/API migration is applied; cache/version impact reviewed with ingress version
+    changes if required. No physical output field/unit or unrelated algorithm changes.
+  - After source code and behavioral tests stabilize, finish the deferred documentation/API/fixture/baseline/generated-reference/packaged-site
+    update TODO, then run required gates and independent blocking review before commit.
+  required_gates:
+  - compat_inventory_ready
+  - deletion_scope_confirmed
+  - targeted_tests
+  - assess_change_impact
+  - schema_compat_check
+  - doc_sync
+  - doc_anchors
+  - generate_docs
+  - docs_build
+  - reviewer
+  assignment:
+    planner_role: planner
+    executor_role: executor.config
+    reviewer_role: reviewer
+    planner: root
+    executors:
+    - 'adapter_channels: gpt-6.1-sol/high'
+    - 'adapter_info: gpt-6.1-sol/high'
+    - 'adapter_bin: gpt-6.1-sol/high'
+    - 'adapter_segments: gpt-6.1-sol/high'
+    - 'adapter_docs: gpt-6.1-sol/high (final documentation phase only)'
+    reviewer: 'adapter_review: gpt-6.1-sol/high; root integration review'
+  authorization:
+    source: Direct user approval of proposed adapter solution, followed by documentation timing instructions
+    request: 对的按照这个执行；文档等到最后统一更新；加入文档更新的代办
+    decision: Proceed with scoped code fixes and explicit migrations. Keep documentation update pending
+      until code and tests stabilize. Preserve requested gpt-6.1-sol/high delegation settings.
+  scope_out:
+  - No new adapter framework, no merge of distinct format readers.
+  - No changes to formal raw_files output schema or records/wave_pool field units.
+  - No arbitrary heuristic fallback for malformed binary files.
+  - No edits to old results, raw acquisition files, archived reports or unrelated dirty work.
+  - No publication/deployment; retain legacy module aliases and serialization identities.
+  compat_inventory:
+  - legacy_form: load_channel/load_channel_generator without board
+    canonical_form: Explicit board=... and channel=..., filtered from event metadata
+    runtime_surface: public_python_api
+    risk_level: medium
+    delete_action: Require board and migrate examples/callers after code stabilizes
+    user_confirmation: Approved proposed hardware-key contract
+  - legacy_form: load_all_channels positional channel-index list and n_channels padding
+    canonical_form: Mapping keyed by (board, channel), populated by recorded hardware channels
+    runtime_surface: public_python_api
+    risk_level: medium
+    delete_action: Replace boardless result and retire padding argument
+    user_confirmation: Approved same physical-channel rule for all-channel access
+  - legacy_form: get_adapter_info(use_cache=...), clear_adapter_info_cache() and global cache
+    canonical_form: Fresh get_adapter_info(name), single from_adapter_object conversion
+    runtime_surface: public_python_api
+    risk_level: medium
+    delete_action: Remove redundant cache parameter/helper/export
+    user_confirmation: Approved removing redundant AdapterInfo cache and documenting migration
+  execution_policy:
+    python: /home/wxy/anaconda3/envs/pyroot-kernel/bin/python
+    evidence: /tmp/wa-adapter-contracts-20261030-01; preserve previous review fixtures/evidence.
+    documentation: Deferred until code and behavioral tests stabilize, then update all affected docs and
+      packaged site in one final phase.
+    commit: Root scoped commit after independent review and gates.
+  cache_version_decision:
+    raw_files: '0.0.2 -> 0.0.3: segment ordering bug fix; lineage propagates downstream.'
+    records: 'Explicit 0.17.0 from inherited 0.16.0: newly supported BIN continuation input parsing.'
+    wave_pool: Explicit 0.17.0 matching records bundle ingestion; no dtype or unit change.
+    st_waveforms: No direct version bump; it rejects vx2730_bin and gets raw_files sort changes through
+      dependency lineage.
+    manifests: Synchronize alongside code version declarations; generated references deferred to final
+      documentation phase.
+  execution_backend:
+    adapter_io: python control flow and NumPy/memmap; existing reader backend unchanged
+    concurrency: No new concurrency layers or worker configuration.
+  documentation_todo:
+    id: documentation_final
+    title: 最后统一更新文档、API目录和打包站点
+    depends_on:
+    - code_stable
+    - behavioral_regressions_pass
+    items:
+    - Adapter system/behavior guides and configuration/architecture migration notes
+    - API catalog signatures, hardware-key examples and retired AdapterInfo cache helpers
+    - Generated plugin references, source examples, fixture and baseline
+    - Fresh external documentation build, packaged export and targeted HTML inspection
+status:
+  state: completed
+  transitions:
+  - from: created
+    to: planning
+    at: '2026-10-30T08:30:40Z'
+    actor: planner
+  - from: planning
+    to: ready_for_execution
+    at: '2026-10-30T08:30:40Z'
+    actor: planner
+  - from: ready_for_execution
+    to: executing
+    at: '2026-10-30T08:30:40Z'
+    actor: executor.config
+  - from: executing
+    to: reviewing
+    at: '2026-10-30T08:35:58Z'
+    actor: executor.config
+  - from: reviewing
+    to: rework_required
+    at: '2026-10-30T08:35:58Z'
+    actor: reviewer
+  - from: rework_required
+    to: planning
+    at: '2026-10-30T08:35:58Z'
+    actor: planner
+    scope_changed: true
+  - from: planning
+    to: ready_for_execution
+    at: '2026-10-30T08:35:59Z'
+    actor: planner
+  - from: ready_for_execution
+    to: executing
+    at: '2026-10-30T08:35:59Z'
+    actor: executor.config
+  - from: executing
+    to: reviewing
+    at: '2026-10-30T08:42:46Z'
+    actor: executor.config
+  - from: reviewing
+    to: rework_required
+    at: '2026-10-30T08:42:46Z'
+    actor: reviewer
+  - from: rework_required
+    to: planning
+    at: '2026-10-30T08:42:46Z'
+    actor: planner
+    scope_changed: true
+  - from: planning
+    to: ready_for_execution
+    at: '2026-10-30T08:42:47Z'
+    actor: planner
+  - from: ready_for_execution
+    to: executing
+    at: '2026-10-30T08:42:47Z'
+    actor: executor.config
+  - from: executing
+    to: reviewing
+    at: '2026-10-30T08:50:58Z'
+    actor: executor.config
+  - from: reviewing
+    to: rework_required
+    at: '2026-10-30T08:50:58Z'
+    actor: reviewer
+  - from: rework_required
+    to: planning
+    at: '2026-10-30T08:50:59Z'
+    actor: planner
+    scope_changed: true
+  - from: planning
+    to: ready_for_execution
+    at: '2026-10-30T08:50:59Z'
+    actor: planner
+  - from: ready_for_execution
+    to: executing
+    at: '2026-10-30T08:50:59Z'
+    actor: executor.config
+  - from: executing
+    to: reviewing
+    at: '2026-10-30T08:56:42Z'
+    actor: executor.config
+  - from: reviewing
+    to: completed
+    at: '2026-10-30T08:59:05Z'
+    actor: reviewer
+  plan_sha256: 49183f3875e5307c6ca31b6f4db556b03a3347abcb3b6c54ff08c23d9245921d
+  execution:
+    executor_role: executor.config
+    summary: Adapter source fixes integrated; 355 behavioral regressions passed before the final documentation
+      phase. Deferred documentation TODO completed with 34 Python and 6 TypeScript tests, a fresh successful
+      external Next build and packaged-HTML content inspection.
+    changed_paths:
+    - docs/agents/plans/INDEX.md
+    - docs/agents/plans/active.yaml
+    - docs/agents/runs/current/adapter-contracts-20261030/task.yaml
+    - docs/architecture/ARCHITECTURE.md
+    - docs/architecture/DATA_PRODUCTS.md
+    - docs/architecture/PLUGIN_DAG_LINEAGE_CACHE.md
+    - docs/features/context/CONFIGURATION.md
+    - docs/plugins/reference/ADAPTER_PLUGIN_BEHAVIOR.md
+    - docs/plugins/reference/ADAPTER_SYSTEM_GUIDE.md
+    - docs/plugins/reference/agent/INDEX.md
+    - docs/plugins/reference/agent/raw_files.md
+    - docs/plugins/reference/agent/records.md
+    - docs/plugins/reference/agent/wave_pool.md
+    - docs/plugins/reference/builtin/auto/INDEX.md
+    - docs/plugins/reference/builtin/auto/raw_files.md
+    - docs/plugins/reference/builtin/auto/records.md
+    - docs/plugins/reference/builtin/auto/wave_pool.md
+    - docs/site-content-baseline.json
+    - docs/site-next/fixture/site-model.v1.json
+    - docs/site-next/lib/site-model.test.ts
+    - docs/site-next/lib/site-model.ts
+    - tests/test_adapter_channel_contract.py
+    - tests/test_adapter_info_contract.py
+    - tests/test_daq_adapter_integration.py
+    - tests/test_daq_adapter_v1725.py
+    - tests/test_daq_adapter_vx2730_bin.py
+    - tests/test_site_guides.py
+    - tests/test_site_model.py
+    - waveform_analysis/acquisition/formats/__init__.py
+    - waveform_analysis/acquisition/formats/adapter.py
+    - waveform_analysis/acquisition/formats/v1725.py
+    - waveform_analysis/acquisition/formats/vx2730.py
+    - waveform_analysis/acquisition/formats/vx2730_bin.py
+    - waveform_analysis/core/config/__init__.py
+    - waveform_analysis/core/config/adapter_info.py
+    - waveform_analysis/core/config/tests/test_config.py
+    - waveform_analysis/core/plugins/builtin/raw_files/manifest.yaml
+    - waveform_analysis/core/plugins/builtin/raw_files/plugin.py
+    - waveform_analysis/core/plugins/builtin/records/manifest.yaml
+    - waveform_analysis/core/plugins/builtin/records/plugin.py
+    - waveform_analysis/core/plugins/builtin/wave_pool/manifest.yaml
+    - waveform_analysis/core/plugins/builtin/wave_pool/plugin.py
+    - waveform_analysis/documentation/site_dist/404.html
+    - waveform_analysis/documentation/site_dist/404/index.html
+    - waveform_analysis/documentation/site_dist/_not-found/index.html
+    - waveform_analysis/documentation/site_dist/accessors/index.html
+    - waveform_analysis/documentation/site_dist/accessors/peak-channel-accessor/index.html
+    - waveform_analysis/documentation/site_dist/accessors/records-view/index.html
+    - waveform_analysis/documentation/site_dist/accessors/s1-s2-pair-accessor/index.html
+    - waveform_analysis/documentation/site_dist/adapters/adapter/index.html
+    - waveform_analysis/documentation/site_dist/adapters/index.html
+    - waveform_analysis/documentation/site_dist/architecture/PROJECT_STRUCTURE/index.html
+    - waveform_analysis/documentation/site_dist/architecture/accessor-analysis/index.html
+    - waveform_analysis/documentation/site_dist/architecture/data-products/index.html
+    - waveform_analysis/documentation/site_dist/architecture/index.html
+    - waveform_analysis/documentation/site_dist/architecture/plugin-cache-architecture/index.html
+    - waveform_analysis/documentation/site_dist/architecture/plugin-dag-lineage-cache/index.html
+    - waveform_analysis/documentation/site_dist/architecture/system/index.html
+    - waveform_analysis/documentation/site_dist/cli/WAVEFORM_CACHE/index.html
+    - waveform_analysis/documentation/site_dist/cli/WAVEFORM_DOCS/index.html
+    - waveform_analysis/documentation/site_dist/cli/WAVEFORM_PROCESS/index.html
+    - waveform_analysis/documentation/site_dist/cli/index.html
+    - waveform_analysis/documentation/site_dist/contexts/context/index.html
+    - waveform_analysis/documentation/site_dist/contexts/index.html
+    - waveform_analysis/documentation/site_dist/development/CONTRACT_TESTS/index.html
+    - waveform_analysis/documentation/site_dist/development/contributing/COMMIT_CONVENTION/index.html
+    - waveform_analysis/documentation/site_dist/development/contributing/DOC_ANCHOR_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/development/contributing/IMPORT_STYLE_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/development/index.html
+    - waveform_analysis/documentation/site_dist/development/plugin-development/PLUGIN_SCAFFOLD/index.html
+    - waveform_analysis/documentation/site_dist/development/plugin-development/PLUGIN_SPEC_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/development/plugin-development/plugin_guide/index.html
+    - waveform_analysis/documentation/site_dist/development/worktrees/index.html
+    - waveform_analysis/documentation/site_dist/features/advanced/PROGRESS_TRACKING_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/context/ABSOLUTE_TIME_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/context/BATCH_PROCESSOR/index.html
+    - waveform_analysis/documentation/site_dist/features/context/CONFIGURATION/index.html
+    - waveform_analysis/documentation/site_dist/features/context/DEPENDENCY_ANALYSIS_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/context/LINEAGE_VISUALIZATION_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/index.html
+    - waveform_analysis/documentation/site_dist/features/utils/ADAPTIVE_2D_SAMPLING_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/utils/DAQ_ANALYZER_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/utils/PDF_EXPORT_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/visualizations/POSITION_DASHBOARD_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/index.html
+    - waveform_analysis/documentation/site_dist/lineage/index.html
+    - waveform_analysis/documentation/site_dist/plugins/basic_features/index.html
+    - waveform_analysis/documentation/site_dist/plugins/cache_analysis/index.html
+    - waveform_analysis/documentation/site_dist/plugins/df/index.html
+    - waveform_analysis/documentation/site_dist/plugins/df_events/index.html
+    - waveform_analysis/documentation/site_dist/plugins/df_paired/index.html
+    - waveform_analysis/documentation/site_dist/plugins/energy_reconstruction/index.html
+    - waveform_analysis/documentation/site_dist/plugins/events/index.html
+    - waveform_analysis/documentation/site_dist/plugins/filtered_waveforms/index.html
+    - waveform_analysis/documentation/site_dist/plugins/guides/STREAMING_PLUGINS_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_grouped/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_merge_clusters/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_merged/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_merged_components/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_merged_features/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_threshold/index.html
+    - waveform_analysis/documentation/site_dist/plugins/index.html
+    - waveform_analysis/documentation/site_dist/plugins/overview/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peak_classification/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_channels/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_components/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_features/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_waveform_pool/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_waveforms/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklets/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaks/index.html
+    - waveform_analysis/documentation/site_dist/plugins/position_reconstruction/index.html
+    - waveform_analysis/documentation/site_dist/plugins/raw_files/index.html
+    - waveform_analysis/documentation/site_dist/plugins/records/index.html
+    - waveform_analysis/documentation/site_dist/plugins/records_asymmetry_mask/index.html
+    - waveform_analysis/documentation/site_dist/plugins/records_detector_mask/index.html
+    - waveform_analysis/documentation/site_dist/plugins/records_veto_mask/index.html
+    - waveform_analysis/documentation/site_dist/plugins/reference/ADAPTER_PLUGIN_BEHAVIOR/index.html
+    - waveform_analysis/documentation/site_dist/plugins/reference/ADAPTER_SYSTEM_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/plugins/s1_s2_pair_candidates/index.html
+    - waveform_analysis/documentation/site_dist/plugins/s1_s2_pairs/index.html
+    - waveform_analysis/documentation/site_dist/plugins/st_waveforms/index.html
+    - waveform_analysis/documentation/site_dist/plugins/wave_pool/index.html
+    - waveform_analysis/documentation/site_dist/plugins/wave_pool_filtered/index.html
+    - waveform_analysis/documentation/site_dist/plugins/waveform_width/index.html
+    - waveform_analysis/documentation/site_dist/plugins/waveform_width_integral/index.html
+    - waveform_analysis/documentation/site_dist/search-index.v1.json
+    - waveform_analysis/documentation/site_dist/site-manifest.json
+    - waveform_analysis/documentation/site_dist/site-model.v1.json
+    - waveform_analysis/documentation/site_dist/user-guide/EXAMPLES_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/user-guide/QUICKSTART_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/user-guide/docs-build/index.html
+    - waveform_analysis/documentation/site_dist/user-guide/index.html
+    - waveform_analysis/documentation/site_dist/visualizations/index.html
+    - waveform_analysis/documentation/site_dist/visualizations/position-dashboard/index.html
+    - waveform_analysis/documentation/site_dist/visualizations/statistical-plots/index.html
+    - waveform_analysis/documentation/site_dist/visualizations/waveform-plots/index.html
+    - waveform_analysis/documentation/site_docs/catalog.py
+    - waveform_analysis/documentation/site_model.py
+    actions_taken:
+    - Require explicit board on physical-channel reads; filter recorded hardware metadata; return all-channel
+      mapping without padding; keep raw dtype and native timestamps.
+    - Remove redundant global AdapterInfo cache, use_cache argument and clear helper/export; use one conversion
+      path, preserve unknown-name semantics and propagate invalid registered metadata.
+    - Sort canonical V1725 segments numerically; resolve explicit VX2730 BIN continuations consistently
+      for full, generator, streaming and count paths; preserve headed subsets and reject invalid boundaries.
+    - Bump raw_files to 0.0.3 and records/wave_pool to 0.17.0 with matching manifests; verify version-only
+      cache key separation while holding current source fixed and unchanged output dtype declarations.
+    - After behavioral source stabilization, update adapter guides/API catalog/configuration/architecture/generated
+      references/examples, affected fixture/baseline records and Python/TS version validation.
+    - Build fresh isolated documentation export and replace packaged site_dist only after static-export
+      validation; inspect eight affected HTML pages and parsed model equality.
+    command_results:
+    - command: python -m pytest -q -o addopts= --no-cov tests/test_adapter_channel_contract.py tests/test_adapter_info_contract.py
+        tests/test_daq_adapter_specs.py tests/test_daq_adapter_integration.py tests/test_daq_adapter_vx2730.py
+        tests/test_daq_adapter_vx2730_bin.py tests/test_daq_adapter_v1725.py tests/test_daq_vx2730_time_fix.py
+        waveform_analysis/core/config/tests/test_config.py tests/test_records_builder_hardware_channel.py
+        tests/test_records_sorting.py tests/test_records_view.py tests/test_waveforms_streaming_records_compat.py
+        tests/plugins/test_records_plugin_dependencies.py tests/plugins/test_plugin_auto_config_records.py
+        tests/test_run_config_cache_invalidation.py tests/contracts/test_core_lazy_exports.py tests/contracts/test_plugin_lazy_exports.py
+      result: PASS 355; 16 existing multiprocessing fork warnings
+      evidence: /tmp/wa-adapter-contracts-20261030-01/integration-code.log
+    - command: python -m pytest -q -o addopts= --no-cov tests/test_site_model.py tests/test_site_guides.py
+      result: PASS 34; two existing deprecation warnings
+      evidence: /tmp/wa-adapter-contracts-20261030-01/docs-site-pytest.log
+    - command: npm test -- lib/site-model.test.ts (latest copied sources, isolated build dependencies)
+      result: PASS 6
+      evidence: /tmp/wa-adapter-contracts-20261030-01/docs-ts-model-test.log
+    - command: python -m waveform_analysis.documentation.cli generate plugins-auto -o docs/plugins/reference/builtin/auto/
+      result: PASS; final records/wave_pool metadata regenerated after description corrections
+      evidence:
+      - /tmp/wa-adapter-contracts-20261030-01/plugins-auto.log
+      - /tmp/wa-adapter-contracts-20261030-01/docs-generate-auto-records.log
+      - /tmp/wa-adapter-contracts-20261030-01/docs-generate-auto-wave-pool.log
+    - command: python -m waveform_analysis.documentation.cli generate plugins-agent -o docs/plugins/reference/agent/
+      result: PASS; final records/wave_pool metadata regenerated after description corrections
+      evidence:
+      - /tmp/wa-adapter-contracts-20261030-01/plugins-agent.log
+      - /tmp/wa-adapter-contracts-20261030-01/docs-generate-agent-records.log
+      - /tmp/wa-adapter-contracts-20261030-01/docs-generate-agent-wave-pool.log
+    - command: python scripts/assess_change_impact.py --base HEAD
+      result: PASS; dynamic/inherited-version changes additionally reviewed manually
+      evidence: /tmp/wa-adapter-contracts-20261030-01/impact.log
+    - command: python scripts/schema_compat_check.py --base HEAD --run-smoke
+      result: PASS; zero dtype changes; smoke raw_files2/st_waveforms24/hit0/df24/events12
+      evidence: /tmp/wa-adapter-contracts-20261030-01/schema.log
+    - command: WAVEFORM_PYTHON=<pyroot-kernel> scripts/check_doc_sync.sh --task <task.yaml>
+      result: PASS
+      evidence: /tmp/wa-adapter-contracts-20261030-01/docs-sync.log
+    - command: python scripts/check_doc_anchors.py --check-sync --task <task.yaml> --base HEAD
+      result: PASS; zero errors/warnings
+      evidence: /tmp/wa-adapter-contracts-20261030-01/docs-anchors.log
+    - command: PYTHONPATH=<workspace> python scripts/docs_build.py build --workspace <workspace> --run-id
+        adapter-contracts-20261030-02 --stage-output
+      result: PASS; npm ci, TypeScript and Next build all exit0; 182 exported files
+      evidence: /tmp/waveform-doc-build/runs/adapter-contracts-20261030-02/report.json
+    - command: Targeted BeautifulSoup/parsed-JSON artifact inspection
+      result: PASS; 8 rendered HTML pages, 11 affected fixture records, build/package model equality
+      evidence: /tmp/wa-adapter-contracts-20261030-01/docs-artifact-check.txt
+    - command: Ruff, Black per changed Python file, git diff --check, render_agent_docs.py --check, strict
+        workflow validate
+      result: PASS
+      evidence:
+      - /tmp/wa-adapter-contracts-20261030-01/integration-ruff.txt
+      - /tmp/wa-adapter-contracts-20261030-01/docs-ruff.log
+      - /tmp/wa-adapter-contracts-20261030-01/docs-black.log
+    - command: Repository pre-commit hooks; python -m pytest -q -o addopts= --no-cov tests/test_site_guides.py
+        after Ruff import ordering
+      result: Initial hook fixed only standard-library import ordering in one test; Black, whitespace,
+        YAML and file-size hooks passed. Affected guide tests PASS 14. Retry commit will rerun hooks.
+      evidence: /tmp/wa-adapter-contracts-20261030-01/docs-guides-posthook.log
+    compat_items_removed:
+    - Boardless physical-channel loading
+    - n_channels padding and positional all-channel lists
+    - AdapterInfo process-global cache/use_cache/clear helper export
+    compat_items_kept:
+    - Legacy utils.formats import aliases and module/serialization identities
+    - Formal raw_files list-of-groups schema
+    - Reader output dtype, native timestamps and normalized records/wave_pool field units
+    deferred_todos:
+    - id: documentation_final
+      title: 最后统一更新文档、API目录和打包站点
+      depends_on:
+      - code_stable
+      - behavioral_regressions_pass
+      items:
+      - Adapter system/behavior guides and configuration/architecture migration notes
+      - API catalog signatures, hardware-key examples and retired AdapterInfo cache helpers
+      - Generated plugin references, source examples, fixture and baseline
+      - Fresh external documentation build, packaged export and targeted HTML inspection
+      status: completed
+      prerequisites_evidence: /tmp/wa-adapter-contracts-20261030-01/integration-code.log:355PASS before
+        documentation execution
+      completion_evidence:
+      - /tmp/wa-adapter-contracts-20261030-01/docs-site-pytest.log:34PASS
+      - /tmp/wa-adapter-contracts-20261030-01/docs-ts-model-test.log:6PASS
+      - /tmp/waveform-doc-build/runs/adapter-contracts-20261030-02/report.json:success
+      - /tmp/wa-adapter-contracts-20261030-01/docs-artifact-check.txt
+    validation_rework:
+    - Documentation baseline content-count keys corrected without lowering rich-page minima; final 34
+      tests pass.
+    - Build run01 exposed a stale TypeScript records-version constant; fixed Python/TS metadata validators
+      and test expectation, plus invalid guide records_view imports. Fresh run02 succeeds; run01 failure
+      evidence retained.
+    open_risks:
+    - Public channel/cache helper API changes require the documented caller migration; old signatures
+      intentionally have no compatibility alias.
+    - Hardware filtering reads all candidate file groups and all-channel access materializes results;
+      no performance benchmark or speedup claim.
+    - Row counting checks metadata and alignment only; later-event waveform lengths are validated during
+      actual reading.
+    - Existing Context objects do not hot reload replaced registered adapter specifications; create a
+      new Context after replacement.
+    not_executed_and_why:
+    - No production/raw acquisition data writes, deployment, full-dataset integrity scan or new performance
+      experiment; none required for these fixes.
+    requested_review_focus:
+    - Explicit board/key migration and error boundaries
+    - BIN anchored continuation semantics and corrupt-file rejection
+    - Cache invalidation versions/manifests and unchanged fields/units
+    - Deferred documentation completion, generated export and accurate migration examples
+    commit:
+      status: committed
+      sha: 6cc7a40b13138018db9eb27223bdc039434ee1d9
+      pre_commit_hooks: PASS Ruff, Black25, whitespace, EOF, YAML and added-file-size checks
+  review:
+    reviewer: adapter_review (gpt-6.1-sol/high), independent read-only blocking review
+    reviewer_actor: reviewer
+    decision: approved
+    plan_sha256: 49183f3875e5307c6ca31b6f4db556b03a3347abcb3b6c54ff08c23d9245921d
+    gate_results:
+      compat_inventory_ready: PASS
+      deletion_scope_confirmed: PASS
+      targeted_tests: PASS
+      assess_change_impact: PASS
+      schema_compat_check: PASS
+      doc_sync: PASS
+      doc_anchors: PASS
+      generate_docs: PASS
+      docs_build: PASS
+      reviewer: PASS
+    blocking_findings: []
+    summary: Independent source, migration, version/manifest and final packaged HTML review approved.
+      355 behavioral tests, 34 documentation tests, 6 TypeScript tests and fresh02 real build evidence
+      verified. Documentation TODO completed after source stabilization.
+    evidence:
+    - /tmp/wa-adapter-contracts-20261030-01/execution-final.json
+    - /tmp/waveform-doc-build/runs/adapter-contracts-20261030-02/report.json
+    - /tmp/wa-adapter-contracts-20261030-01/docs-artifact-check.txt
+    - /tmp/wa-adapter-contracts-20261030-01/precommit-black-check.log
+    residual_risks:
+    - Public channel/cache helper API changes require the documented caller migration; old signatures
+      intentionally have no compatibility alias.
+    - Hardware filtering reads all candidate file groups and all-channel access materializes results;
+      no performance benchmark or speedup claim.
+    - Row counting checks metadata and alignment only; later-event waveform lengths are validated during
+      actual reading.
+    - Existing Context objects do not hot reload replaced registered adapter specifications; create a
+      new Context after replacement.
+    completion_allowed: true
+    follow_up_actions:
+    - Root scoped commit after this approval; record implementation SHA in final task handoff.
+    scope_changed: false
+  approval: {}
+  handoff:
+    commit_status: committed
+    commit_sha: 6cc7a40b13138018db9eb27223bdc039434ee1d9
+    summary: Reviewed implementation, tests, final documentation and packaged export committed. Documentation
+      TODO completed after source stabilization. This handoff record is closed in a separate scoped task-record
+      commit.
+    verification:
+    - 355 behavioral tests, 34 documentation tests, 6 TypeScript tests PASS
+    - Post-hook affected guide tests 14 PASS
+    - Fresh isolated documentation build run02 and targeted packaged HTML checks PASS
+    - Independent adapter_review approved generation4/current plan; no blocking findings
+    - Pre-commit hooks all PASS
+    - git status --short and git diff --stat inspected; no unrelated pending changes
+    evidence_directory: /tmp/wa-adapter-contracts-20261030-01

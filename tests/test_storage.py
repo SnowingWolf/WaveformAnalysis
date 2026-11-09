@@ -2,7 +2,11 @@
 Storage 模块测试
 """
 
+from concurrent.futures import ThreadPoolExecutor
+import fcntl
 import json
+import os
+from threading import Event
 
 import numpy as np
 import pandas as pd
@@ -37,7 +41,7 @@ class TestMemmapStorage:
         MemmapStorage(str(storage_path))
         assert storage_path.exists()
 
-    def test_get_paths(self, storage, test_run_id):
+    def test_get_paths(self, storage, tmp_path, test_run_id):
         """测试路径生成"""
         bin_path, meta_path, lock_path = storage._get_paths("test_key", test_run_id)
 
@@ -46,6 +50,24 @@ class TestMemmapStorage:
         assert lock_path.endswith("test_key.lock")
         # 验证路径包含 run_id
         assert test_run_id in bin_path
+        assert not (tmp_path / test_run_id).exists()
+
+    @pytest.mark.parametrize(
+        ("method_name", "expected"),
+        [
+            ("get_metadata", None),
+            ("load_memmap", None),
+            ("load_dataframe", None),
+            ("exists", False),
+            ("get_size", 0),
+            ("delete", None),
+        ],
+    )
+    def test_missing_key_does_not_create_run_directory(
+        self, storage, tmp_path, test_run_id, method_name, expected
+    ):
+        assert getattr(storage, method_name)("missing", test_run_id) == expected
+        assert not (tmp_path / test_run_id).exists()
 
     def test_save_metadata(self, storage, tmp_path, test_run_id):
         """测试元数据保存"""
@@ -109,7 +131,7 @@ class TestMemmapStorage:
         assert (data_dir / "data_key.json").exists()
 
     def test_save_stream_cleanup_on_error(self, storage, sample_dtype, tmp_path, test_run_id):
-        """测试 save_stream 在写入失败时清理临时文件和锁"""
+        """失败时清理临时文件并释放锁，保留共享锁文件。"""
 
         def bad_stream():
             # 有效的首个 chunk
@@ -124,9 +146,102 @@ class TestMemmapStorage:
         with pytest.raises(Exception):
             storage.save_stream("bad_key", bad_stream(), sample_dtype, run_id=test_run_id)
 
-        # 临时文件和锁应已被清理
+        # 临时文件已清理，稳定的锁 inode 可以再次获取。
         assert not tmp_bin.exists()
-        assert not lock.exists()
+        assert lock.exists()
+        lock_fd = storage._acquire_lock(str(lock), timeout=0.1)
+        try:
+            assert lock_fd is not None
+        finally:
+            storage._release_lock(lock_fd, str(lock))
+
+    def test_save_stream_cleanup_does_not_remove_next_writer_tempfile(
+        self, storage, sample_dtype, tmp_path, test_run_id, monkeypatch
+    ):
+        key = "consecutive_writers"
+        first_data = np.array([(1000, 0, 1.5)], dtype=sample_dtype)
+        next_data = np.array([(2000, 1, 2.5)], dtype=sample_dtype)
+        next_writer_opened = Event()
+        finish_next_writer = Event()
+        release_lock = storage._release_lock
+        next_write = None
+
+        def next_stream():
+            # save_stream has opened its temporary file before consuming us.
+            next_writer_opened.set()
+            assert finish_next_writer.wait(5)
+            yield next_data
+
+        with ThreadPoolExecutor(max_workers=1) as executor:
+
+            def start_next_writer_after_release(fd, lock_path):
+                nonlocal next_write
+                release_lock(fd, lock_path)
+                if next_write is None:
+                    next_write = executor.submit(
+                        storage.save_stream, key, next_stream(), sample_dtype, run_id=test_run_id
+                    )
+                    assert next_writer_opened.wait(5)
+
+            monkeypatch.setattr(storage, "_release_lock", start_next_writer_after_release)
+            try:
+                storage.save_stream(key, [first_data], sample_dtype, run_id=test_run_id)
+                assert (tmp_path / test_run_id / "_cache" / f"{key}.bin.tmp").exists()
+            finally:
+                finish_next_writer.set()
+            assert next_write.result(timeout=5) == 1
+
+        np.testing.assert_array_equal(storage.load_memmap(key, test_run_id), next_data)
+
+    def test_save_stream_releases_lock_when_tempfile_check_fails(
+        self, storage, sample_dtype, test_run_id, monkeypatch
+    ):
+        key = "cleanup_failure"
+        data = np.array([(1000, 0, 1.5)], dtype=sample_dtype)
+        bin_path, _, lock_path = storage._get_paths(key, test_run_id)
+        exists = os.path.exists
+
+        def fail_tempfile_check(path):
+            if path == bin_path + ".tmp":
+                raise RuntimeError("cleanup inspection failed")
+            return exists(path)
+
+        monkeypatch.setattr(os.path, "exists", fail_tempfile_check)
+        with pytest.raises(RuntimeError, match="cleanup inspection failed"):
+            storage.save_stream(key, [data], sample_dtype, run_id=test_run_id)
+
+        lock_fd = storage._acquire_lock(lock_path, timeout=0.01)
+        try:
+            assert lock_fd is not None
+        finally:
+            storage._release_lock(lock_fd, lock_path)
+
+    @pytest.mark.parametrize("replacement", ["binary", "metadata"])
+    def test_failed_replacement_preserves_previous_cache(
+        self, storage, sample_dtype, test_run_id, monkeypatch, replacement
+    ):
+        key = "replace_key"
+        data = np.array([(1000, 0, 1.5)], dtype=sample_dtype)
+        storage.save_stream(key, [data], sample_dtype, run_id=test_run_id)
+        metadata = storage.get_metadata(key, test_run_id)
+        bin_path, meta_path, _ = storage._get_paths(key, test_run_id)
+        target = bin_path if replacement == "binary" else meta_path
+        replace = os.replace
+
+        def fail_replacement(source, destination):
+            if destination == target:
+                raise OSError("replacement failed")
+            return replace(source, destination)
+
+        monkeypatch.setattr(os, "replace", fail_replacement)
+        with pytest.raises(OSError, match="replacement failed"):
+            if replacement == "binary":
+                storage.save_stream(key, [data[:0], data], sample_dtype, run_id=test_run_id)
+            else:
+                storage.save_metadata(key, {"replacement": True}, test_run_id)
+
+        assert storage.get_metadata(key, test_run_id) == metadata
+        np.testing.assert_array_equal(storage.load_memmap(key, test_run_id), data)
 
     def test_delete(self, storage, sample_dtype, test_run_id):
         """测试删除数据"""
@@ -136,6 +251,29 @@ class TestMemmapStorage:
 
         storage.delete("delete_key", test_run_id)
         assert not storage.exists("delete_key", test_run_id)
+
+    def test_delete_preserves_writer_lock_and_data_on_timeout(
+        self, storage, sample_dtype, test_run_id, monkeypatch
+    ):
+        key = "locked_delete"
+        data = np.array([(1000, 0, 1.5)], dtype=sample_dtype)
+        storage.save_stream(key, [data], sample_dtype, run_id=test_run_id)
+        _, _, lock_path = storage._get_paths(key, test_run_id)
+        lock_fd = storage._acquire_lock(lock_path)
+        inode = os.fstat(lock_fd).st_ino
+        acquire_lock = storage._acquire_lock
+        monkeypatch.setattr(storage, "_acquire_lock", lambda path: acquire_lock(path, timeout=0.01))
+        try:
+            with pytest.raises(RuntimeError, match="Could not acquire lock"):
+                storage.delete(key, test_run_id)
+            assert storage.exists(key, test_run_id)
+            assert os.stat(lock_path).st_ino == inode
+        finally:
+            storage._release_lock(lock_fd, lock_path)
+
+        storage.delete(key, test_run_id)
+        assert not storage.exists(key, test_run_id)
+        assert os.stat(lock_path).st_ino == inode
 
     def test_list_keys(self, storage, sample_dtype, test_run_id):
         """测试列出所有 key"""
@@ -164,11 +302,51 @@ class TestMemmapStorage:
         lock_fd = storage._acquire_lock(lock_path)
         assert lock_fd is not None, "Should acquire lock successfully"
 
-        # Release lock
+        inode = os.fstat(lock_fd).st_ino
         storage._release_lock(lock_fd, lock_path)
+        assert os.stat(lock_path).st_ino == inode
 
-        # Lock file may still exist but should be releasable
-        # (fcntl locks are released when fd is closed)
+    def test_old_inode_waiter_excludes_new_contenders(self, storage, test_run_id, monkeypatch):
+        """Open a waiting fd before release, then contend through the same path."""
+        _, _, lock_path = storage._get_paths("lock_handoff", test_run_id)
+        owner_fd = storage._acquire_lock(lock_path)
+        inode = os.fstat(owner_fd).st_ino
+        waiter_fd = None
+        newcomer_fd = None
+        flock = fcntl.flock
+
+        def release_owner_before_waiter_flock(fd, operation):
+            nonlocal owner_fd
+            if owner_fd is not None and operation == (fcntl.LOCK_EX | fcntl.LOCK_NB):
+                # _acquire_lock has already opened the waiting fd on the old inode.
+                released_fd = owner_fd
+                owner_fd = None
+                storage._release_lock(released_fd, lock_path)
+            return flock(fd, operation)
+
+        monkeypatch.setattr(fcntl, "flock", release_owner_before_waiter_flock)
+        try:
+            waiter_fd = storage._acquire_lock(lock_path)
+            assert waiter_fd is not None
+            assert os.fstat(waiter_fd).st_ino == inode
+            newcomer_fd = storage._acquire_lock(lock_path, timeout=0.01)
+            assert newcomer_fd is None
+            assert os.stat(lock_path).st_ino == inode
+        finally:
+            for fd in (owner_fd, waiter_fd, newcomer_fd):
+                storage._release_lock(fd, lock_path)
+
+    def test_release_without_descriptor_keeps_active_lock(self, storage, test_run_id):
+        _, _, lock_path = storage._get_paths("active_lock", test_run_id)
+        lock_fd = storage._acquire_lock(lock_path)
+        contender_fd = None
+        try:
+            storage._release_lock(None, lock_path)
+            contender_fd = storage._acquire_lock(lock_path, timeout=0.01)
+            assert contender_fd is None
+        finally:
+            storage._release_lock(contender_fd, lock_path)
+            storage._release_lock(lock_fd, lock_path)
 
     def test_load_memmap_not_exists(self, storage, test_run_id):
         """测试加载不存在的 memmap"""

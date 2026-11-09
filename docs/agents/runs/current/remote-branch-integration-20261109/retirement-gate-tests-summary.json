@@ -1,0 +1,20 @@
+{
+  "evidence_type": "observed_stdout_summary",
+  "working_directory": "/mnt/data/Run3/WaveformAnalysis",
+  "command": "PYTHONPATH=$PWD /home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m pytest tests/test_agent_quality_checks.py -m 'not slow' --no-cov -q",
+  "exit_code": 0,
+  "observed_stdout_summary": {
+    "platform": "linux",
+    "python": "3.12.4",
+    "pytest": "8.4.2",
+    "collected": 29,
+    "selected": 27,
+    "deselected": 2,
+    "passed": 27,
+    "duration_seconds": 11.59,
+    "terminal_summary": "27 passed, 2 deselected in 11.59s"
+  },
+  "complete_log_saved": false,
+  "provenance": "Actual tool stdout observed for exec session 31749; completion returned exit_code 0.",
+  "tests_rerun_for_this_record": false
+}

@@ -19,34 +19,24 @@
 ## 基本用法
 
 ```bash
-waveform-cache [全局选项] <命令> [命令选项]
+waveform-cache <命令> [选项]
 ```
 
-**重要**: 全局选项（如 `--storage-dir` 和 `--verbose`）**必须**在子命令之前指定。如果放在子命令之后，会被识别为未识别的参数。
+`--storage-dir` 和 `--verbose` 是各子命令共用的选项，必须放在子命令之后。
 
-**正确示例**:
 ```bash
-# ✅ 正确：全局选项在子命令之前
-waveform-cache --storage-dir ./outputs/_cache stats --detailed
-waveform-cache --storage-dir ./outputs/_cache info
+waveform-cache stats --storage-dir ./wa_data --detailed
+waveform-cache info --storage-dir ./wa_data --verbose
 ```
 
-**错误示例**:
-```bash
-# ❌ 错误：全局选项在子命令之后（会导致错误）
-waveform-cache stats --detailed --storage-dir ./outputs/_cache
-```
+## 通用选项
 
----
-
-## 全局选项
-
-全局选项必须在子命令之前指定。
+以下选项可用于每个子命令：
 
 | 参数 | 简写 | 类型 | 默认值 | 说明 |
 |------|------|------|--------|------|
-| `--storage-dir` | - | str | "./strax_data" | 缓存存储目录。**必须在子命令之前指定** |
-| `--verbose` | `-v` | flag | False | 显示详细信息。**必须在子命令之前指定** |
+| `--storage-dir` | - | str | "./wa_data" | Context 存储根目录，放在子命令之后 |
+| `--verbose` | `-v` | flag | False | 显示详细信息，放在子命令之后 |
 
 ---
 
@@ -75,8 +65,8 @@ waveform-cache info --run run_001
 # 显示详细信息
 waveform-cache info --detailed
 
-# 使用自定义存储目录（注意：--storage-dir 必须在 info 之前）
-waveform-cache --storage-dir ./outputs/_cache info --detailed
+# 使用自定义存储目录（--storage-dir 放在 info 之后）
+waveform-cache info --storage-dir ./outputs/_cache --detailed
 ```
 
 ---
@@ -106,9 +96,9 @@ waveform-cache stats --detailed
 waveform-cache stats --export cache_stats.json
 waveform-cache stats --export cache_stats.csv
 
-# 使用自定义存储目录（注意：--storage-dir 必须在 stats 之前）
-waveform-cache --storage-dir ./outputs/_cache stats --detailed
-waveform-cache --storage-dir ./outputs/_cache stats --export cache_stats.json
+# 使用自定义存储目录（--storage-dir 放在 stats 之后）
+waveform-cache stats --storage-dir ./outputs/_cache --detailed
+waveform-cache stats --storage-dir ./outputs/_cache --export cache_stats.json
 ```
 
 ---
@@ -263,8 +253,8 @@ waveform-cache info
 waveform-cache stats --detailed --export cache_report.json
 
 # 使用自定义存储目录
-waveform-cache --storage-dir ./outputs/_cache info
-waveform-cache --storage-dir ./outputs/_cache stats --detailed --export cache_report.json
+waveform-cache info --storage-dir ./outputs/_cache
+waveform-cache stats --storage-dir ./outputs/_cache --detailed --export cache_report.json
 ```
 
 ### 场景 2: 诊断和修复问题
@@ -309,24 +299,18 @@ waveform-cache clean --run run_001 --strategy oldest --days 30 --no-dry-run
 
 ### 常见错误
 
-1. **未识别的参数错误**
-   ```
-   waveform-cache: error: unrecognized arguments: --storage-dir ./outputs/_cache
-   ```
-   **原因**: `--storage-dir` 是全局选项，必须在子命令之前指定。
+1. **参数顺序错误**
 
-   **解决**: 将 `--storage-dir` 移到子命令之前：
+   `--storage-dir` 和 `--verbose` 属于子命令选项。放在命令名前会导致参数解析失败；
+   将它们移到命令名之后：
+
    ```bash
-   # ❌ 错误
-   waveform-cache stats --detailed --storage-dir ./outputs/_cache
-
-   # ✅ 正确
-   waveform-cache --storage-dir ./outputs/_cache stats --detailed
+   waveform-cache stats --storage-dir ./wa_data --detailed
    ```
 
 2. **存储目录不存在**
    ```
-   警告: 存储目录不存在: ./strax_data
+   警告: 存储目录不存在: ./wa_data
    将创建空的缓存目录...
    ```
    解决: 工具会自动创建目录，或使用 `--storage-dir` 指定正确路径
@@ -341,7 +325,7 @@ waveform-cache clean --run run_001 --strategy oldest --days 30 --no-dry-run
 
 ## 注意事项
 
-1. **参数顺序**: **全局选项必须在子命令之前指定**。`--storage-dir` 和 `--verbose` 必须放在子命令（如 `stats`、`info`）之前，否则会出现"未识别的参数"错误。
+1. **参数顺序**: `--storage-dir` 和 `--verbose` 必须放在子命令（如 `stats`、`info`）之后。
 2. **默认 Dry-Run**: 清理和修复操作默认是预览模式，需要 `--no-dry-run` 才会实际执行
 3. **存储目录**: 确保 `--storage-dir` 指向正确的缓存目录
 4. **数据安全**: 清理操作不可逆，建议先使用 `--dry-run` 预览

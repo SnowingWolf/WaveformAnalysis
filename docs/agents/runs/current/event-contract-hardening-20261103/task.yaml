@@ -1,0 +1,1085 @@
+api_version: waveform-analysis/agent-task/v1
+kind: AgentTask
+metadata:
+  id: event-contract-hardening-20261103
+  generation: 3
+  created_at: '2026-11-03T12:16:47Z'
+  updated_at: '2026-11-03T12:56:29Z'
+spec:
+  goal: 修复事件按 pair_id 关联与输入失败语义，并强制插件依赖版本约束；保持正常数据的数值、dtype 和单位契约。
+  route: modify_plugin
+  workflow_cost: strict
+  workflow_shape: staged
+  risk_level: medium
+  scope:
+    base_sha: 8a96416284561f2f5b55ca83365cce2418409fb0
+    allowed_paths:
+    - waveform_analysis/core/context.py
+    - waveform_analysis/core/context_plugins.py
+    - waveform_analysis/core/context_execution.py
+    - waveform_analysis/core/context_cache.py
+    - waveform_analysis/core/plugins/builtin/events/plugin.py
+    - waveform_analysis/core/plugins/builtin/events/manifest.yaml
+    - waveform_analysis/core/plugins/builtin/events/tests/test_events.py
+    - waveform_analysis/core/plugins/builtin/position_reconstruction/plugin.py
+    - waveform_analysis/core/plugins/builtin/position_reconstruction/manifest.yaml
+    - waveform_analysis/core/plugins/builtin/position_reconstruction/tests/test_position_reconstruction.py
+    - tests/plugins/test_plugin_versioning.py
+    - tests/test_context_plugin_domain.py
+    - tests/contracts/test_execution_correctness.py
+    - docs/agents/plugins.md
+    - docs/architecture/PLUGIN_DAG_LINEAGE_CACHE.md
+    - docs/plugins/reference/builtin/auto/INDEX.md
+    - docs/plugins/reference/builtin/auto/events.md
+    - docs/plugins/reference/builtin/auto/position_reconstruction.md
+    - docs/plugins/reference/agent/INDEX.md
+    - docs/plugins/reference/agent/events.md
+    - docs/plugins/reference/agent/position_reconstruction.md
+    - docs/agents/runs/current/event-contract-hardening-20261103/task.yaml
+    - docs/plugins/PLUGIN_SYSTEM_OVERVIEW.md
+    - docs/site-content-baseline.json
+    - docs/site-next/fixture/site-model.v1.json
+    - waveform_analysis/documentation/site_dist/
+    - waveform_analysis/core/context_config.py
+    - docs/agents/plans/INDEX.md
+    - docs/agents/plans/active.yaml
+    - docs/features/context/CONFIGURATION.md
+  acceptance_criteria:
+  - events preserves selected-pair input order and aligns every position value and
+    position-derived quality flag by pair_id, including reordered/nonconsecutive IDs;
+    existing event dtype, IDs, timing units and topology placeholders remain unchanged.
+  - Selected pair IDs and position pair IDs are unique and have exactly equal membership.
+    Duplicate selected IDs, duplicate positions, missing positions and extra positions
+    fail clearly. Empty selected pairs with empty typed positions return empty EVENT_DTYPE;
+    only one side empty is a membership error.
+  - position_reconstruction propagates unexpected upstream get_data failures. Non-array,
+    non-1D/unstructured, missing-field or incompatible identity/area schema from a
+    consumed peaklet_channels input fails clearly, including malformed empty input;
+    no broad exception-to-NaN fallback remains.
+  - Legitimate no-selection, all-S2-below-threshold, valid empty peaklet_channels,
+    absent matching channel contributions and nonpositive/unknown-hardware contributions
+    keep their current empty/NaN and flag semantics. Existing CoG numerical equivalence,
+    duplicate-S2 refill, duplicate-layout-key and drift-unit tests pass.
+  - Explicit dependency version constraints are enforced rather than logged-and-ignored;
+    incompatible already registered providers reject consumer registration without
+    partial registry mutation. Registration order, provider override and run-dependent
+    dynamic constraints cannot permit incompatible compute or invalid cached-result
+    retrieval at the necessary request/plan boundary.
+  - Compatible constraints, unconstrained dependencies, normal registry override/cache
+    invalidation and legacy run-independent resolver signatures continue to work.
+    Reuse execution-plan/registry invalidation caches; do not rewalk the DAG on every
+    memory hit or require absent unconstrained providers merely to read valid cache.
+  - Constrained dependency checks cannot silently succeed if a required version validator
+    is unavailable or a constrained provider version/spec is invalid. Keep the existing
+    unconstrained semantic_version compatibility behavior outside this check; do not
+    add a general dependency framework.
+  - Plugin versions and manifests are synchronized, output schemas/units stay stable,
+    generated Auto/Agent references and minimal behavior documentation match the final
+    implementation; all required gates pass and an independent blocking Reviewer accepts
+    before a scoped integration commit.
+  - 'R1: After a dynamic run-aware constraint has been validated, both public get_run_config(run_id,
+    refresh=True) after an external run-config edit and readonly external run-config
+    plus persisted-state refresh invalidate the old version-validation proof before
+    cached-result retrieval. An incompatible provider is rejected, while unchanged
+    warm reads remain cached and readonly requests never compute or write.'
+  - 'R2: pair_id association, equality and missing/extra membership diagnostics preserve
+    exact integer values for mixed int64/uint64 inputs. Matching IDs above 2**53 retain
+    distinct coordinates and position flags in selected order; adjacent unequal high
+    IDs must raise a membership error rather than compare equal through float promotion.'
+  - Generated agent task navigation is regenerated from task.yaml for the actual handoff/completion
+    state; only this task entry is added/updated in docs/agents/plans/INDEX.md and
+    docs/agents/plans/active.yaml, with manifest --check passing.
+  - 'R3: Synchronize the Context.py-anchored docs/features/context/CONFIGURATION.md
+    with the implemented dependency-version validation and run-config refresh/freshness
+    semantics. Update its affected existing site-model fixture and content-baseline
+    entries and regenerate the isolated packaged documentation as already planned;
+    doc-sync/doc-anchor gates and site consumer validation must pass without this
+    synchronization warning. Evidence: /tmp/wa-event-contract-hardening-20261103-02/review-round2.json;
+    R1/R2 are resolved by the independent 72-test review, so do not expand code scope
+    or alter existing version/acceptance decisions.'
+  required_gates:
+  - targeted_tests
+  - generate_docs_auto
+  - generate_docs_agent
+  - assess_change_impact
+  - schema_compat_check
+  - agent_doc_manifest
+  - doc_sync
+  - doc_anchors
+  - site_content_sync_if_guides_changed
+  - isolated_docs_build_if_site_export_changed
+  - blocking_reviewer
+  - scoped_commit_handoff
+  - reviewer_r1_config_freshness_regressions
+  - reviewer_r2_exact_integer_identity_regressions
+  assignment:
+    planner_role: planner
+    executor_role: executor.plugin
+    reviewer_role: reviewer
+    planner: plan_event_contracts
+    executor: root
+    reviewer: independent reviewer; assigned by root
+  authorization:
+    source: Direct user follow-up approving the immediately preceding first-round
+      proposal.
+    request: 帮我进行这个
+    scope_interpretation: 'Implement only the previously recommended items 1 and 2:
+      ID-aligned events and explicit contract/error failures, including dependency
+      version enforcement.'
+    approval_required: false
+  scope_in:
+  - Strict one-to-one association of selected S1-S2 pairs with positions using pair_id.
+  - Local input validation and transparent upstream failure in XY reconstruction;
+    correct legal-empty test fixtures.
+  - Dependency version enforcement at registration and the necessary run-aware request/execution-plan
+    boundary, using existing caches/invalidation.
+  - Targeted regressions, synchronized plugin versions/manifests, generated plugin
+    references and concise contract documentation.
+  - Required gates, blocking independent review, task evidence and scoped integration
+    commit.
+  - Review-driven completion of existing version proof invalidation at ContextConfigDomain
+    freshness boundaries and exact integer identity association; synchronize generated
+    task navigation.
+  scope_out:
+  - No run_config or lineage identity redesign, no new global resource budget, no
+    Context domain/state ownership refactor.
+  - No changes to output dtype, units, physical reconstruction formulas, topology
+    placeholder values or feature completion claims.
+  - No broad exception cleanup, compatibility/API retirement, new generic validation
+    framework, new concurrency layer or worker setting.
+  - No raw waveform access, real acquisition recomputation, historical result replacement,
+    cache deletion, deployment or publication.
+  - No edits to unrelated dirty files, other task records, archived reports or unrelated
+    generated pages. Packaged site changes are limited to verified regeneration for
+    the changed source documentation.
+  agent_profile: none
+  profile_plan: []
+  change_level: 'L3: pipeline failure/association behavior hardening with stable declared
+    dependencies and output schemas'
+  provides_impact: none
+  depends_on_impact: Declared provides/depends_on names stay stable; explicit existing
+    version constraints become blocking.
+  output_contract_impact: No dtype/field/unit changes. Correct intended pair_id association;
+    reject malformed membership/schema and execution errors that were silently accepted.
+  version_action:
+    events: '0.0.3 -> 0.1.0: conservative MINOR for new explicit ID join/validation
+      path; synchronize manifest and metadata tests.'
+    position_reconstruction: '0.4.0 -> 0.4.1: PATCH for transparent upstream/schema
+      errors, unchanged CoG algorithm and successful/legitimate-absence results; synchronize
+      manifest and metadata tests.'
+    context: No standalone plugin version/project release bump for registration/request
+      control flow. Unconstrained semantic_version fallback remains outside scope.
+    review_requirement: Reviewer must confirm versions fit the final implementation;
+      if implementation changes the numerical algorithm/path beyond the stated join,
+      revisit MINOR before completion.
+  contracts:
+    events:
+    - Association scope is selected pairs only; unselected pair rows do not produce
+      events or require positions.
+    - Keep original selected-pair ordering, event_id/event_number enumeration and
+      all current scalar calculations; reorder positions once before copying fields
+      and applying flags.
+    - Validate integer pair identity at this relation boundary; do not coerce floating
+      IDs into integer IDs or impose new positivity/global-ID rules.
+    - Require a one-to-one mapping with no duplicate/missing/extra IDs. Both sides
+      empty is the only empty relation. Error text identifies product and offending
+      membership condition.
+    - NaN positions with nonvalid flags are legitimate reconstruction results and
+      remain attached to their matching pair.
+    - Mixed signed/unsigned integer identities are lossless throughout sorted membership
+      comparison, alignment and diagnostics. Do not rely on cross-dtype np.searchsorted/np.array_equal/set
+      operations that can promote wide integer values to float64.
+    - Use sorting ranks/inverse permutation or an equivalently exact local integer
+      join. Preserve the existing selected order and all associated position flags
+      for adjacent IDs above 2**53; distinguish adjacent unequal IDs across signed/unsigned
+      representations.
+    position_reconstruction:
+    - Only consumed peaklet_channels input is validated; preserve no-selection/all-below-threshold
+      early returns.
+    - Consumed channel input is a 1-D structured ndarray with peaklet_id, board, channel
+      integer fields and area real numeric field; compatible integer widths/real numeric
+      widths may differ.
+    - A typed zero-row channel array is legitimate absence. None/non-array and missing/incompatible
+      schema are failures rather than absence.
+    - Preserve unknown-hardware, no matching peaklet, nonpositive contribution, NaN
+      propagation and duplicate-layout-key semantics already covered by numerical
+      equivalence tests.
+    - Unexpected get_data exception retains its type/message and is not caught as
+      a physical missing-signal result.
+    dependency_versions:
+    - Existing-provider consumer registration mismatch is a blocking validation error
+      without partially replacing the registry or invalidating caches.
+    - Consumer-before-provider order and provider override must be covered at a mandatory
+      target/run-aware plan or request boundary; no incompatible computation or stale
+      memory/disk result may be returned.
+    - Resolve run-specific dynamic constraints using the request run_id, not only
+      registration-time run_id=None; preserve supported legacy resolver signatures.
+    - Reuse the existing execution-plan cache and registry/config invalidation for
+      repeated checks; the common no-constraint cache-read path stays lightweight.
+    - Do not validate unrelated consumers or introduce missing-plugin failures for
+      valid cached data that has no declared version constraint.
+    - Missing validator/invalid explicit spec or constrained provider version must
+      fail clearly, without new silent fallback; packaging stays optional for unconstrained
+      paths.
+    - Invalidate request-version validation proofs at the existing run-config refresh/freshness
+      boundaries as well as normal set_config/registration invalidation. A previously
+      validated (run_id, target) cannot remain trusted after get_run_config(refresh=True)
+      reloads a changed config.
+    - Readonly external config and persisted freshness-state refresh must invalidate
+      stale proofs before validation and disk result return, including a reused Context/BatchProcessor.
+      Do not add config writes, result computation or cache deletion to readonly requests.
+    - Use the existing config cache/freshness observations for invalidation; no run_config-in-lineage
+      redesign, new persistence store, full-file hashing for progress, or repeated
+      DAG traversal on unchanged warm reads.
+  execution_backend_decision:
+    backend: numpy
+    backend_reason: ID alignment and schema checks operate on existing arrays; preserve
+      the existing vectorized CoG backend. Version checks are small Python control
+      flow.
+    parallel_scope: none
+    worker_option: none
+    fallback_path: No fallback for invalid contracts or unexpected exceptions. Preserve
+      documented typed-empty and nonreconstructable-signal results.
+    benchmark_required: false
+    benchmark_reason: Correctness fix without performance claim or new execution backend;
+      validate matched numerical results using existing equivalence regression.
+  execution_policy:
+    python: /home/wxy/anaconda3/envs/pyroot-kernel/bin/python
+    verified_environment: Python 3.12.4; numpy 2.2.6; pytest 8.4.2; packaging 24.1;
+      local waveform_analysis imports this checkout.
+    command_environment: Prepend /home/wxy/anaconda3/envs/pyroot-kernel/bin to PATH
+      and set WAVEFORM_PYTHON to the verified Python for canonical scripts.
+    evidence_directory: /tmp/wa-event-contract-hardening-20261103-01 (create exclusively
+      or choose a fresh numbered directory).
+    planning_evidence: Inspected actual event/position implementations, Context plugin/execution/cache
+      request paths, plugin version tests and current geometry/equivalence regressions;
+      no test or code modifications during planning.
+    documentation: Edit source/class behavior descriptions and minimal contract guides
+      only as needed, then regenerate affected Auto/Agent references. If site-consumed
+      guides change, synchronize only corresponding source/model baseline and fixture
+      entries; perform isolated docs build/staging for the corresponding packaged
+      export using docs-build instructions.
+    scope_control: Allowed paths are an upper bound, not an instruction to edit each
+      file. Generated artifacts unrelated to these plugin contracts must be investigated
+      and left unchanged. Site baseline/fixture/export may change only as required
+      by actual guide-source changes. context_cache.py is permitted only if existing
+      plan/constraint validation cache invalidation must follow set_config or plugin
+      override; retain valid unconstrained cached-only reads with unregistered upstream
+      providers. context_config.py is permitted only for request-version proof invalidation
+      at existing configuration refresh/freshness boundaries. Generated plan INDEX/active
+      registry views may change only through render_agent_docs.py for this task.
+    commit: 'Root integrates, completes required validation and blocking Reviewer,
+      then stages only this task paths and creates a scoped fix: commit. Record final
+      SHA and clean/unrelated status.'
+    baseline_evidence: 'Root reports baseline 27 passed: event/position/versioning/plugin-domain
+      tests; /tmp/wa-event-contract-hardening/baseline.xml. New behavioral tests still
+      need to demonstrate the defects and pass after implementation.'
+  implementation_steps:
+  - Implement the local events ID join and input membership validation, then add behavior
+    regressions for order, flags, empty and broken membership.
+  - Remove position get_data exception swallowing and validate consumed channel schemas;
+    migrate None-as-empty mocks to a genuine typed empty table and add failure/absence
+    regressions.
+  - Make explicit dependency version failures propagate; cover late registration,
+    override and run-aware request/plan boundaries using existing plan cache invalidation,
+    including memory/disk hit cases.
+  - Resolve blocking review R1 with config-refresh/freshness proof invalidation and
+    its ordinary/readonly regressions; resolve R2 with exact mixed-integer association/membership
+    and wide-ID regressions. Regenerate task navigation after lifecycle state changes.
+  - Apply synchronized plugin versions/manifests and minimal behavior documentation,
+    regenerate Auto and Agent references, run directional and mandated gates.
+  - Record execution evidence, transition to reviewing, obtain independent blocking
+    review/rework, and only after acceptance finish task handoff plus scoped commit.
+  targeted_test_cases:
+    events:
+    - reordered and nonconsecutive pair IDs preserve pair order and coordinates/flags
+    - duplicate selected pair IDs
+    - duplicate position IDs
+    - missing and extra position IDs with equal/unequal row counts
+    - both empty
+    - each one-side-empty case
+    - unselected pairs ignored
+    - dtype and valid NaN/invalid-position flag preservation
+    - R2 mixed int64/uint64 selected IDs [9007199254740993, 9007199254740992] with
+      positions [9007199254740992, 9007199254740993] align distinct coordinates and
+      valid/invalid position flags in reverse order
+    - R2 adjacent unequal mixed integer identities above 2**53 fail membership; cover
+      swapped signedness and values near the signed/unsigned representability boundary
+      without lossy integer/float coercion
+    position:
+    - upstream exception identity propagates
+    - None/list/unstructured/2-D/missing-field/noninteger-identity/nonnumeric-area
+      schemas reject, including malformed empty schemas
+    - typed empty channels and no eligible pairs remain legitimate
+    - existing duplicate-S2/layout and matched numerical CoG regressions
+    - default drift-time mm units and flags
+    versioning:
+    - compatible and incompatible static provider-first registration
+    - consumer-first then incompatible provider
+    - incompatible provider override after compatible cached execution
+    - direct/transitive dynamic run-specific constraints
+    - memory/disk-hit boundary cannot bypass invalid constraint
+    - unconstrained cached read and legacy resolver compatibility
+    - validator unavailable and invalid constrained provider/spec fail clearly
+    - 'R1 ordinary path: validate and cache dynamic uses_run_config target against
+      provider 1.0.0, externally rewrite constraint from >=1.0.0 to >=2.0.0, call
+      public get_run_config(refresh=True), then assert get_data rejects before cached
+      return or recompute'
+    - 'R1 readonly path: seed disk result and persisted state, validate through reused
+      readonly Context/BatchProcessor, externally change run-config and persisted
+      state to a matching fresh new revision requiring >=2.0.0, then assert incompatible
+      cached result is rejected with no readonly writes or compute'
+    - Unchanged-config warm hits retain the no-repeated-resolution behavior; stale
+      readonly state remains a FileNotFoundError and ordinary set_config/override
+      invalidation regressions remain green
+  must_run_commands:
+  - python -m pytest -q waveform_analysis/core/plugins/builtin/events/tests/test_events.py
+    waveform_analysis/core/plugins/builtin/position_reconstruction/tests/test_position_reconstruction.py
+    tests/plugins/test_plugin_versioning.py tests/test_context_plugin_domain.py tests/contracts/test_execution_correctness.py
+    tests/contracts/test_utils_public_surface_snapshot.py tests/test_context_core.py
+    tests/test_context_core_preview.py tests/test_context_simplification.py
+  - python -m pytest -q tests/test_site_model.py tests/test_site_guides.py
+  - waveform-docs generate plugins-auto -o docs/plugins/reference/builtin/auto/
+  - waveform-docs generate plugins-agent -o docs/plugins/reference/agent/
+  - python scripts/assess_change_impact.py --base HEAD
+  - python scripts/schema_compat_check.py --base HEAD --run-smoke
+  - python scripts/render_agent_docs.py --write
+  - python scripts/render_agent_docs.py --check
+  - scripts/check_doc_sync.sh
+  - python scripts/check_doc_anchors.py --check-sync --base HEAD
+  - python scripts/agent_workflow.py validate event-contract-hardening-20261103 --strict
+  - git status --short
+  - git diff --stat
+  - python scripts/check_agent_handoff.py
+  review_focus:
+  - One-to-one IDs and reordering apply equally to coordinate fields and all position-dependent
+    flags; no valid pair silently disappears.
+  - Only physical/reconstruction absence returns NaN; corrupted schema/upstream failure
+    is distinguishable and visible.
+  - Version enforcement is atomic when registration fails, run-aware, resistant to
+    override/cache bypass and inexpensive for repeated/unconstrained reads.
+  - No unrelated API deletion, new generic framework, numerical/placeholder/unit changes
+    or extra concurrency; version/manifests/docs/schema gates agree.
+  - Every strict blocking gate has PASS/FAIL evidence and the scoped commit/handoff
+    matches actual changed paths.
+  - 'R1: Repeat both Reviewer reproductions after the fix, verify new config freshness
+    cannot reuse an old version-check proof, and retain warm-hit efficiency plus readonly
+    no-write/no-compute behavior.'
+  - 'R2: Review exact integer association and membership comparison together; correcting
+    only cross-dtype searchsorted is insufficient if equality/missing/extra checks
+    can still collapse adjacent wide IDs.'
+  - Generated navigation reflects the final task state, with only this task registry
+    entry changed and no hand edits to generated views.
+  blocking_assumptions: []
+  risks:
+  - Previously tolerated malformed custom providers/fixtures will now raise; migrate
+    only legitimate empty fixtures and document the failure boundary.
+  - Position ordering bugs can also affect quality flags, so testing coordinates alone
+    is insufficient.
+  - Registration-only version checks miss consumer-first/run-dependent/override cases;
+    full-DAG revalidation per memory hit would add unnecessary overhead and can break
+    valid cached-only access.
+  - Existing Plugin.semantic_version returns 0.0.0 for malformed versions; constrained
+    checking must not mistake that compatibility fallback for a valid provider version.
+  - 'No real DAQ or end-to-end physical efficiency claim: synthetic contract tests
+    plus existing numerical equivalence regressions bound validation.'
+  documentation_consumer_sync:
+    source_guides:
+    - docs/agents/plugins.md
+    - docs/plugins/PLUGIN_SYSTEM_OVERVIEW.md
+    - docs/architecture/PLUGIN_DAG_LINEAGE_CACHE.md
+    conditional_outputs:
+    - docs/site-content-baseline.json
+    - docs/site-next/fixture/site-model.v1.json
+    - waveform_analysis/documentation/site_dist/
+    validation: If a consumed guide is modified, run tests/test_site_model.py and
+      tests/test_site_guides.py and synchronize only its affected entries. If packaged
+      HTML export is refreshed, use an isolated docs-build workspace and inspect the
+      affected pages before staging.
+  review_rework_plan:
+    round: 1
+    evidence: /tmp/wa-event-contract-hardening-20261103-01/review-round1.json
+    first_execution: Root reports 144 passing tests, but independent Reviewer found
+      R1 and R2; passing count does not supersede the failing contract probes.
+    scope_change_reason: Add existing config freshness implementation and generated
+      task navigation paths required to complete the same authorized ID-alignment/version-enforcement
+      work. User-visible objective, route, versions, schemas and exclusions remain
+      unchanged.
+    findings:
+    - id: R1
+      priority: 1
+      resolution: Invalidate cached request-version proofs when configuration is explicitly
+        refreshed or readonly external configuration/persisted state freshness advances;
+        rerun both independent reproductions.
+      reproduction_directories:
+      - /tmp/wa-review-refreshed-versions-20261103-7qprmiyv
+      - /tmp/wa-review-readonly-versions-20261103-kypobcfo
+    - id: R2
+      priority: 2
+      resolution: Use exact mixed-integer association and membership checks; preserve
+        selected order, coordinates and flags and reject adjacent unequal wide IDs.
+      reproduction: int64 selected [9007199254740993,9007199254740992], uint64 positions
+        [9007199254740992,9007199254740993], x [1,2]; expected x [2,1].
+    verification: Add regressions first, preserve prior passed tests, rerun relevant
+      fixed gates after source/doc changes, and request independent blocking review
+      again before completion/commit.
+    authorization: Existing direct user authorization remains applicable; no additional
+      product/scope permission is required.
+status:
+  state: completed
+  transitions:
+  - from: created
+    to: planning
+    at: '2026-11-03T12:16:47Z'
+    actor: planner
+    condition: task_initialized
+  - from: planning
+    to: ready_for_execution
+    at: '2026-11-03T12:16:48Z'
+    actor: planner
+    condition: plan_brief_ready
+  - from: ready_for_execution
+    to: executing
+    at: '2026-11-03T12:19:23Z'
+    actor: executor.plugin
+  - from: executing
+    to: reviewing
+    at: '2026-11-03T12:32:49Z'
+    actor: executor.plugin
+  - from: reviewing
+    to: rework_required
+    at: '2026-11-03T12:32:49Z'
+    actor: reviewer
+  - from: rework_required
+    to: planning
+    at: '2026-11-03T12:32:49Z'
+    actor: planner
+    scope_changed: true
+  - from: planning
+    to: ready_for_execution
+    at: '2026-11-03T12:34:43Z'
+    actor: planner
+    condition: plan_brief_ready
+  - from: ready_for_execution
+    to: executing
+    at: '2026-11-03T12:35:20Z'
+    actor: executor.plugin
+  - from: executing
+    to: reviewing
+    at: '2026-11-03T12:43:52Z'
+    actor: executor.plugin
+  - from: reviewing
+    to: rework_required
+    at: '2026-11-03T12:43:53Z'
+    actor: reviewer
+  - from: rework_required
+    to: planning
+    at: '2026-11-03T12:43:53Z'
+    actor: planner
+    scope_changed: true
+  - from: planning
+    to: ready_for_execution
+    at: '2026-11-03T12:44:26Z'
+    actor: planner
+    condition: plan_brief_ready
+  - from: ready_for_execution
+    to: executing
+    at: '2026-11-03T12:44:57Z'
+    actor: executor.plugin
+  - from: executing
+    to: reviewing
+    at: '2026-11-03T12:51:50Z'
+    actor: executor.plugin
+  - from: reviewing
+    to: completed
+    at: '2026-11-03T12:56:29Z'
+    actor: reviewer
+  plan_sha256: ff512b5bc30933736eda8ae1a638d14996dad746941a1c7aa796a5d9b590c687
+  execution:
+    task_id: event-contract-hardening-20261103
+    plan_sha256: ff512b5bc30933736eda8ae1a638d14996dad746941a1c7aa796a5d9b590c687
+    workflow_cost: strict
+    workflow_shape: staged
+    changed_paths:
+    - docs/agents/plans/INDEX.md
+    - docs/agents/plans/active.yaml
+    - docs/agents/plugins.md
+    - docs/agents/runs/current/event-contract-hardening-20261103/task.yaml
+    - docs/architecture/PLUGIN_DAG_LINEAGE_CACHE.md
+    - docs/features/context/CONFIGURATION.md
+    - docs/plugins/PLUGIN_SYSTEM_OVERVIEW.md
+    - docs/plugins/reference/agent/INDEX.md
+    - docs/plugins/reference/agent/events.md
+    - docs/plugins/reference/agent/position_reconstruction.md
+    - docs/plugins/reference/builtin/auto/INDEX.md
+    - docs/plugins/reference/builtin/auto/events.md
+    - docs/plugins/reference/builtin/auto/position_reconstruction.md
+    - docs/site-content-baseline.json
+    - docs/site-next/fixture/site-model.v1.json
+    - tests/plugins/test_plugin_versioning.py
+    - tests/test_context_plugin_domain.py
+    - waveform_analysis/core/context.py
+    - waveform_analysis/core/context_cache.py
+    - waveform_analysis/core/context_config.py
+    - waveform_analysis/core/context_execution.py
+    - waveform_analysis/core/context_plugins.py
+    - waveform_analysis/core/plugins/builtin/events/manifest.yaml
+    - waveform_analysis/core/plugins/builtin/events/plugin.py
+    - waveform_analysis/core/plugins/builtin/events/tests/test_events.py
+    - waveform_analysis/core/plugins/builtin/position_reconstruction/manifest.yaml
+    - waveform_analysis/core/plugins/builtin/position_reconstruction/plugin.py
+    - waveform_analysis/core/plugins/builtin/position_reconstruction/tests/test_position_reconstruction.py
+    - waveform_analysis/documentation/site_dist/404.html
+    - waveform_analysis/documentation/site_dist/404/index.html
+    - waveform_analysis/documentation/site_dist/_not-found/index.html
+    - waveform_analysis/documentation/site_dist/accessors/index.html
+    - waveform_analysis/documentation/site_dist/accessors/peak-channel-accessor/index.html
+    - waveform_analysis/documentation/site_dist/accessors/records-view/index.html
+    - waveform_analysis/documentation/site_dist/accessors/s1-s2-pair-accessor/index.html
+    - waveform_analysis/documentation/site_dist/adapters/adapter/index.html
+    - waveform_analysis/documentation/site_dist/adapters/index.html
+    - waveform_analysis/documentation/site_dist/architecture/PROJECT_STRUCTURE/index.html
+    - waveform_analysis/documentation/site_dist/architecture/accessor-analysis/index.html
+    - waveform_analysis/documentation/site_dist/architecture/data-products/index.html
+    - waveform_analysis/documentation/site_dist/architecture/index.html
+    - waveform_analysis/documentation/site_dist/architecture/plugin-cache-architecture/index.html
+    - waveform_analysis/documentation/site_dist/architecture/plugin-dag-lineage-cache/index.html
+    - waveform_analysis/documentation/site_dist/architecture/system/index.html
+    - waveform_analysis/documentation/site_dist/cli/WAVEFORM_CACHE/index.html
+    - waveform_analysis/documentation/site_dist/cli/WAVEFORM_DOCS/index.html
+    - waveform_analysis/documentation/site_dist/cli/WAVEFORM_PROCESS/index.html
+    - waveform_analysis/documentation/site_dist/cli/index.html
+    - waveform_analysis/documentation/site_dist/contexts/context/index.html
+    - waveform_analysis/documentation/site_dist/contexts/index.html
+    - waveform_analysis/documentation/site_dist/development/CONTRACT_TESTS/index.html
+    - waveform_analysis/documentation/site_dist/development/contributing/COMMIT_CONVENTION/index.html
+    - waveform_analysis/documentation/site_dist/development/contributing/DOC_ANCHOR_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/development/contributing/IMPORT_STYLE_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/development/index.html
+    - waveform_analysis/documentation/site_dist/development/plugin-development/PLUGIN_SCAFFOLD/index.html
+    - waveform_analysis/documentation/site_dist/development/plugin-development/PLUGIN_SPEC_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/development/plugin-development/plugin_guide/index.html
+    - waveform_analysis/documentation/site_dist/development/worktrees/index.html
+    - waveform_analysis/documentation/site_dist/features/advanced/PROGRESS_TRACKING_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/context/ABSOLUTE_TIME_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/context/BATCH_PROCESSOR/index.html
+    - waveform_analysis/documentation/site_dist/features/context/CONFIGURATION/index.html
+    - waveform_analysis/documentation/site_dist/features/context/DEPENDENCY_ANALYSIS_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/context/LINEAGE_VISUALIZATION_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/index.html
+    - waveform_analysis/documentation/site_dist/features/utils/ADAPTIVE_2D_SAMPLING_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/utils/DAQ_ANALYZER_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/utils/PDF_EXPORT_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/visualizations/POSITION_DASHBOARD_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/index.html
+    - waveform_analysis/documentation/site_dist/lineage/index.html
+    - waveform_analysis/documentation/site_dist/plugins/basic_features/index.html
+    - waveform_analysis/documentation/site_dist/plugins/cache_analysis/index.html
+    - waveform_analysis/documentation/site_dist/plugins/df/index.html
+    - waveform_analysis/documentation/site_dist/plugins/df_events/index.html
+    - waveform_analysis/documentation/site_dist/plugins/df_paired/index.html
+    - waveform_analysis/documentation/site_dist/plugins/energy_reconstruction/index.html
+    - waveform_analysis/documentation/site_dist/plugins/events/index.html
+    - waveform_analysis/documentation/site_dist/plugins/filtered_waveforms/index.html
+    - waveform_analysis/documentation/site_dist/plugins/guides/STREAMING_PLUGINS_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_grouped/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_merge_clusters/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_merged/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_merged_components/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_merged_features/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_threshold/index.html
+    - waveform_analysis/documentation/site_dist/plugins/index.html
+    - waveform_analysis/documentation/site_dist/plugins/overview/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peak_classification/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_channels/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_components/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_features/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_waveform_pool/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_waveforms/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklets/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaks/index.html
+    - waveform_analysis/documentation/site_dist/plugins/position_reconstruction/index.html
+    - waveform_analysis/documentation/site_dist/plugins/raw_files/index.html
+    - waveform_analysis/documentation/site_dist/plugins/records/index.html
+    - waveform_analysis/documentation/site_dist/plugins/records_asymmetry_mask/index.html
+    - waveform_analysis/documentation/site_dist/plugins/records_detector_mask/index.html
+    - waveform_analysis/documentation/site_dist/plugins/records_veto_mask/index.html
+    - waveform_analysis/documentation/site_dist/plugins/reference/ADAPTER_PLUGIN_BEHAVIOR/index.html
+    - waveform_analysis/documentation/site_dist/plugins/reference/ADAPTER_SYSTEM_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/plugins/s1_s2_pair_candidates/index.html
+    - waveform_analysis/documentation/site_dist/plugins/s1_s2_pairs/index.html
+    - waveform_analysis/documentation/site_dist/plugins/st_waveforms/index.html
+    - waveform_analysis/documentation/site_dist/plugins/wave_pool/index.html
+    - waveform_analysis/documentation/site_dist/plugins/wave_pool_filtered/index.html
+    - waveform_analysis/documentation/site_dist/plugins/waveform_width/index.html
+    - waveform_analysis/documentation/site_dist/plugins/waveform_width_integral/index.html
+    - waveform_analysis/documentation/site_dist/search-index.v1.json
+    - waveform_analysis/documentation/site_dist/site-manifest.json
+    - waveform_analysis/documentation/site_dist/site-model.v1.json
+    - waveform_analysis/documentation/site_dist/user-guide/EXAMPLES_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/user-guide/QUICKSTART_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/user-guide/docs-build/index.html
+    - waveform_analysis/documentation/site_dist/user-guide/index.html
+    - waveform_analysis/documentation/site_dist/visualizations/index.html
+    - waveform_analysis/documentation/site_dist/visualizations/position-dashboard/index.html
+    - waveform_analysis/documentation/site_dist/visualizations/statistical-plots/index.html
+    - waveform_analysis/documentation/site_dist/visualizations/waveform-plots/index.html
+    actions_taken:
+    - Align selected events and all position-derived flags by unique pair_id; enforce
+      exact one-to-one membership, including wide mixed signed/unsigned integer IDs.
+    - Propagate consumed position input failures and reject malformed schemas while
+      preserving legitimate empty/NaN and CoG numerical semantics.
+    - Enforce constrained provider versions before registration mutation and cached/computed
+      request returns; reuse validated proofs and invalidate them at existing registry/config/cache/freshness
+      boundaries.
+    - Resolve independently reported R1 config refresh bypass and R2 mixed wide-integer
+      join; synchronize R3 anchored configuration guide.
+    - Bump events to 0.1.0 and position_reconstruction to 0.4.1; synchronize manifests,
+      Auto/Agent references, guide consumers, and inspected isolated packaged export.
+    commands_run:
+    - gate: targeted_tests
+      command: expanded focused pytest
+      status: PASS
+      result: 216 passed
+      evidence: /tmp/wa-event-contract-hardening-20261103-02/targeted.xml
+    - gate: targeted_tests
+      command: integration contract pytest plus bytecode-dependent hot-reload retry
+      status: PASS
+      result: 72 passed, 1 skipped across initial run and one corrected-environment
+        retry
+      evidence:
+      - /tmp/wa-event-contract-hardening-20261103-02/integration-contracts.xml
+      - /tmp/wa-event-contract-hardening-20261103-02/hot-reload-bytecode.xml
+    - command: documentation pytest
+      status: PASS
+      result: 100 passed, 1 skipped
+      evidence: /tmp/wa-event-contract-hardening-20261103-02/documentation.xml
+    - gate: site_content_sync_if_guides_changed
+      command: tests/test_site_model.py tests/test_site_guides.py after final guide
+        sync
+      status: PASS
+      result: 34 passed; only two plugins, three corresponding guides and propagated
+        lineage version metadata changed
+      evidence:
+      - /tmp/wa-event-contract-hardening-20261103-02/site-consumers-final.xml
+      - /tmp/wa-event-contract-hardening-20261103-02/site-export-verification.json
+    - gate: generate_docs_auto
+      command: python -m waveform_analysis.documentation.cli generate plugins-auto
+        -o docs/plugins/reference/builtin/auto/
+      status: PASS
+      result: 36 plugins, 37 files; inspected final diff limited to events/position
+        and index versions
+    - gate: generate_docs_agent
+      command: python -m waveform_analysis.documentation.cli generate plugins-agent
+        -o docs/plugins/reference/agent/
+      status: PASS
+      result: 36 plugins, 37 files; inspected final diff limited to events/position
+        and index versions
+    - gate: assess_change_impact
+      command: python scripts/assess_change_impact.py --base HEAD
+      status: PASS
+      evidence: /tmp/wa-event-contract-hardening-20261103-02/impact.log
+    - gate: schema_compat_check
+      command: python scripts/schema_compat_check.py --base HEAD --run-smoke
+      status: PASS
+      result: 0 dtype changes; synthetic smoke events=12
+      evidence: /tmp/wa-event-contract-hardening-20261103-02/schema.log
+    - gate: agent_doc_manifest
+      command: python scripts/render_agent_docs.py --check
+      status: PASS
+      evidence: /tmp/wa-event-contract-hardening-20261103-02/doc-sync-final.log
+    - gate: doc_sync
+      command: scripts/check_doc_sync.sh
+      status: PASS
+      evidence: /tmp/wa-event-contract-hardening-20261103-02/doc-sync-final.log
+    - gate: doc_anchors
+      command: python scripts/check_doc_anchors.py --check-sync --base HEAD
+      status: PASS
+      result: 29 anchors, 0 errors, 0 warnings
+      evidence: /tmp/wa-event-contract-hardening-20261103-02/doc-anchors-final.log
+    - gate: isolated_docs_build_if_site_export_changed
+      command: python scripts/docs_build.py build --workspace /mnt/data/Run3/WaveformAnalysis
+        --run-id event-contract-hardening-20261103-03 --stage-output
+      status: PASS
+      result: npm ci, tsc, Next build/static export passed; inspected report/log/model
+        and five affected HTML pages; staged export validated
+      evidence:
+      - /tmp/waveform-doc-build/runs/event-contract-hardening-20261103-03/report.json
+      - /tmp/wa-event-contract-hardening-20261103-02/site-export-verification.json
+    - command: ruff, black per-file helper, git diff --check
+      status: PASS
+    review_reproductions:
+      R1: RESOLVED; ordinary refresh, external readonly refresh and no-write regression
+        pass
+      R2: RESOLVED; exact mixed-integer order/membership regressions pass
+      R3: RESOLVED; configuration guide, fixture/baseline, export and zero-warning
+        doc anchors synchronized
+    environment_notes:
+    - Integration hot-reload test requires bytecode; PYTHONDONTWRITEBYTECODE initial
+      run prevented its expected pyc. Only that case reran with isolated PYTHONPYCACHEPREFIX
+      and passed.
+    - Existing dynamic lineage HTTP test skipped because sandbox socket creation is
+      unavailable; existing watcher test skipped because filesystem mtime resolution
+      is insufficient.
+    - Docs attempt 01 interrupted to include the required guide; attempt 02 hit sandbox
+      child-process EPERM. Fresh attempt 03 outside sandbox passed all unchanged checks.
+    open_risks:
+    - Contract-invalid custom providers previously tolerated now fail explicitly.
+    - Validation uses synthetic contract fixtures and existing numerical regressions;
+      no real DAQ recomputation or performance/efficiency claim.
+    handoff_plan: Obtain independent approval before scoped implementation commit.
+      Record actual SHA and clean handoff, then complete task/navigation in a separate
+      evidence-only closure commit.
+    requested_review_focus:
+    - Final R3 guide synchronization and packaged export
+    - Confirm previous R1/R2 resolutions remain valid
+    - Approve reviewed implementation for scoped commit; scoped_commit_handoff stays
+      pending until actual commit evidence
+  review:
+    task_id: event-contract-hardening-20261103
+    reviewer: review_event_contracts
+    review_round: 3-post-commit
+    reviewed_at: '2026-11-03T12:56:14.268437+00:00'
+    plan_sha256: ff512b5bc30933736eda8ae1a638d14996dad746941a1c7aa796a5d9b590c687
+    generation: 3
+    workflow_cost: strict
+    workflow_shape: staged
+    decision: approved
+    scope_changed: false
+    blocking_findings: []
+    resolved_findings:
+    - id: R1
+      status: RESOLVED
+      summary: Version-validation proofs follow public run-config refresh and readonly
+        external freshness changes.
+    - id: R2
+      status: RESOLVED
+      summary: Exact sorting-rank alignment replaces mixed-integer searchsorted and
+        retains coordinates and flags.
+    - id: R3
+      status: RESOLVED
+      summary: The anchored CONFIGURATION.md now explains proof invalidation and readonly
+        no-write semantics; source consumers and packaged export agree, and anchors
+        have no warnings.
+    gate_results:
+    - gate: targeted_tests
+      status: PASS
+      result: '216 focused tests passed. Integration initial run: 71 passed, one bytecode-setup
+        failure, one mtime skip; the same bytecode-dependent test passed with isolated
+        pycache and bytecode enabled, yielding 72 passed and one skip overall. Documentation:
+        100 passed and one socket-environment skip.'
+      evidence:
+      - /tmp/wa-event-contract-hardening-20261103-02/targeted.xml
+      - /tmp/wa-event-contract-hardening-20261103-02/integration-contracts.xml
+      - /tmp/wa-event-contract-hardening-20261103-02/hot-reload-bytecode.xml
+      - /tmp/wa-event-contract-hardening-20261103-02/documentation.xml
+    - gate: generate_docs_auto
+      status: PASS
+      result: Generator execution recorded; actual reference diff is confined to events/position
+        descriptions and versions plus index versions.
+      evidence:
+      - /tmp/wa-event-contract-hardening-20261103-02/execution-final.json
+      - docs/plugins/reference/builtin/auto/INDEX.md
+      - docs/plugins/reference/builtin/auto/events.md
+      - docs/plugins/reference/builtin/auto/position_reconstruction.md
+    - gate: generate_docs_agent
+      status: PASS
+      result: Generator execution recorded; actual reference diff is confined to events/position
+        descriptions and versions plus index versions.
+      evidence:
+      - /tmp/wa-event-contract-hardening-20261103-02/execution-final.json
+      - docs/plugins/reference/agent/INDEX.md
+      - docs/plugins/reference/agent/events.md
+      - docs/plugins/reference/agent/position_reconstruction.md
+    - gate: assess_change_impact
+      status: PASS
+      result: No high or medium lineage risks reported; version changes identified
+        for both affected plugins.
+      evidence: /tmp/wa-event-contract-hardening-20261103-02/impact.log
+    - gate: schema_compat_check
+      status: PASS
+      result: Zero dtype changes; synthetic smoke completed with 12 events.
+      evidence: /tmp/wa-event-contract-hardening-20261103-02/schema.log
+    - gate: agent_doc_manifest
+      status: PASS
+      result: Manifest validation included in successful final doc-sync check; generated
+        task navigation contains only this task addition.
+      evidence: /tmp/wa-event-contract-hardening-20261103-02/doc-sync-final.log
+    - gate: doc_sync
+      status: PASS
+      result: Final source and documentation synchronization check passed.
+      evidence: /tmp/wa-event-contract-hardening-20261103-02/doc-sync-final.log
+    - gate: doc_anchors
+      status: PASS
+      result: 29 anchors, zero errors, zero warnings.
+      evidence: /tmp/wa-event-contract-hardening-20261103-02/doc-anchors-final.log
+    - gate: site_content_sync_if_guides_changed
+      status: PASS
+      result: '34 consumer tests passed. Independent semantic comparison: plugin count
+        36 and guide count 39 unchanged; only events, position_reconstruction and
+        three corresponding guides changed. Lineage nodes change only these two version
+        fields; edges and views remain unchanged. Packaged model equals the committed
+        fixture content.'
+      evidence:
+      - /tmp/wa-event-contract-hardening-20261103-02/site-consumers-final.xml
+      - /tmp/wa-event-contract-hardening-20261103-02/site-export-verification.json
+      - docs/site-next/fixture/site-model.v1.json
+    - gate: isolated_docs_build_if_site_export_changed
+      status: PASS
+      result: Fresh isolated build records npm ci, npm check and npm build exit_status=0.
+        Reviewed staged five affected HTML pages for new contract text; staged export
+        contains 93 HTML files.
+      evidence:
+      - /tmp/waveform-doc-build/runs/event-contract-hardening-20261103-03/report.json
+      - /tmp/waveform-doc-build/runs/event-contract-hardening-20261103-03/build.log
+      - /tmp/wa-event-contract-hardening-20261103-02/site-export-verification.json
+    - gate: blocking_reviewer
+      status: PASS
+      result: Independent reviewer approved the implementation and synchronized documentation,
+        then verified the actual scoped commit and clean handoff. All required gates
+        are now PASS.
+      evidence:
+      - /tmp/wa-event-contract-hardening-20261103-02/review-round2.json
+      - /tmp/wa-event-contract-hardening-20261103-02/review-final.json
+      - /tmp/wa-event-contract-hardening-20261103-02/review-approved.json
+    - gate: scoped_commit_handoff
+      status: PASS
+      result: Independently verified actual implementation SHA and parent, all 124
+        committed paths within the reviewed scope, empty git status --short and git
+        diff --stat, and scripts/check_agent_handoff.py PASS. Executor reports all
+        six pre-commit hooks passed without automatic changes.
+      evidence:
+      - /tmp/wa-event-contract-hardening-20261103-02/implementation-handoff.json
+      - git rev-parse HEAD
+      - git diff-tree --no-commit-id --name-only -r d1b78ab2de2e97ffa6880c2434fd928e1240482a
+      - git status --short
+      - git diff --stat
+      - python scripts/check_agent_handoff.py
+    - gate: reviewer_r1_config_freshness_regressions
+      status: PASS
+      result: Ordinary public run-config refresh and readonly external freshness refresh
+        now clear the version proof. Targeted regressions verify incompatible providers
+        fail and readonly file size/mtime observations remain unchanged. Independently
+        checked in review round 2.
+      evidence:
+      - /tmp/wa-event-contract-review2-20261103-yikrkO/review.xml
+      - /tmp/wa-event-contract-hardening-20261103-02/targeted.xml
+    - gate: reviewer_r2_exact_integer_identity_regressions
+      status: PASS
+      result: Sorting-rank inverse permutation preserves mixed int64/uint64 IDs above
+        2**53, position coordinates and flags; unequal extreme integer identities
+        are rejected. Independently checked in review round 2.
+      evidence:
+      - /tmp/wa-event-contract-review2-20261103-yikrkO/review.xml
+      - /tmp/wa-event-contract-hardening-20261103-02/targeted.xml
+    scope_review:
+      status: PASS
+      changed_paths: 124
+      unexpected_paths: []
+      execution_path_inventory_matches_worktree: true
+      source_delta_since_round2: Only the planned configuration guide synchronization
+        and its documentation consumers/export; no further business code changes.
+      task_validation: Independent scripts/agent_workflow.py validate --strict returned
+        VALID and matched the current plan digest.
+      committed_paths: 124
+      commit_scope_status: PASS
+      implementation_commit_matches_reviewed_inventory: true
+    contract_review:
+      status: PASS
+      versions:
+        events: 0.1.0
+        position_reconstruction: 0.4.1
+      dtype_changes: 0
+      units_or_physical_algorithm_changes: false
+      unrelated_api_retirement_or_concurrency_changes: false
+    performance_style_review:
+      status: PASS
+      backend: numpy
+      new_concurrency: false
+      benchmark_required: false
+      reason: Association/error-contract changes with no performance claim.
+    residual_risks:
+    - Custom providers with malformed schema, membership or explicit version constraints
+      now fail visibly instead of being silently tolerated.
+    - Validation covers synthetic contract fixtures and existing numerical equivalence
+      regressions; no real DAQ reprocessing or physics efficiency claim.
+    - 'Two existing tests retain documented environment skips: socket creation unavailable
+      and insufficient mtime resolution.'
+    commit_handoff:
+      status: PASS
+      implementation_sha: d1b78ab2de2e97ffa6880c2434fd928e1240482a
+      worktree_clean_after_implementation_commit: true
+      handoff_check: Independent scripts/check_agent_handoff.py PASS
+      pre_commit_hooks: Executor evidence reports ruff, black, whitespace, EOF, YAML
+        and large-files hooks all PASS; no source or generated-file modifications
+        after the reviewed commit.
+    reviewer_mutations:
+    - Only this /tmp JSON review report was written; no repository files or commits
+      were modified.
+    implementation_sha: d1b78ab2de2e97ffa6880c2434fd928e1240482a
+    implementation_parent: 8a96416284561f2f5b55ca83365cce2418409fb0
+    approved_closure:
+      status: APPROVED
+      purpose: Complete task state and record final implementation handoff evidence,
+        without changing the reviewed implementation or rendered documentation.
+      allowed_paths:
+      - docs/agents/runs/current/event-contract-hardening-20261103/task.yaml
+      - docs/agents/plans/INDEX.md
+      - docs/agents/plans/active.yaml
+      required_actions:
+      - Set this task to completed using the approved review and actual implementation
+        handoff.
+      - Regenerate only corresponding task navigation and validate task state and
+        agent documentation manifest.
+      - Create an evidence-only scoped closure commit, verify final git status and
+        git diff --stat, and report implementation and closure commit status.
+      restrictions: No business code, tests, source documentation, site model, packaged
+        site export or build changes are included in this closure approval.
+  approval: {}
+  handoff:
+    implementation_sha: d1b78ab2de2e97ffa6880c2434fd928e1240482a
+    committed_paths:
+    - docs/agents/plans/INDEX.md
+    - docs/agents/plans/active.yaml
+    - docs/agents/plugins.md
+    - docs/agents/runs/current/event-contract-hardening-20261103/task.yaml
+    - docs/architecture/PLUGIN_DAG_LINEAGE_CACHE.md
+    - docs/features/context/CONFIGURATION.md
+    - docs/plugins/PLUGIN_SYSTEM_OVERVIEW.md
+    - docs/plugins/reference/agent/INDEX.md
+    - docs/plugins/reference/agent/events.md
+    - docs/plugins/reference/agent/position_reconstruction.md
+    - docs/plugins/reference/builtin/auto/INDEX.md
+    - docs/plugins/reference/builtin/auto/events.md
+    - docs/plugins/reference/builtin/auto/position_reconstruction.md
+    - docs/site-content-baseline.json
+    - docs/site-next/fixture/site-model.v1.json
+    - tests/plugins/test_plugin_versioning.py
+    - tests/test_context_plugin_domain.py
+    - waveform_analysis/core/context.py
+    - waveform_analysis/core/context_cache.py
+    - waveform_analysis/core/context_config.py
+    - waveform_analysis/core/context_execution.py
+    - waveform_analysis/core/context_plugins.py
+    - waveform_analysis/core/plugins/builtin/events/manifest.yaml
+    - waveform_analysis/core/plugins/builtin/events/plugin.py
+    - waveform_analysis/core/plugins/builtin/events/tests/test_events.py
+    - waveform_analysis/core/plugins/builtin/position_reconstruction/manifest.yaml
+    - waveform_analysis/core/plugins/builtin/position_reconstruction/plugin.py
+    - waveform_analysis/core/plugins/builtin/position_reconstruction/tests/test_position_reconstruction.py
+    - waveform_analysis/documentation/site_dist/404.html
+    - waveform_analysis/documentation/site_dist/404/index.html
+    - waveform_analysis/documentation/site_dist/_not-found/index.html
+    - waveform_analysis/documentation/site_dist/accessors/index.html
+    - waveform_analysis/documentation/site_dist/accessors/peak-channel-accessor/index.html
+    - waveform_analysis/documentation/site_dist/accessors/records-view/index.html
+    - waveform_analysis/documentation/site_dist/accessors/s1-s2-pair-accessor/index.html
+    - waveform_analysis/documentation/site_dist/adapters/adapter/index.html
+    - waveform_analysis/documentation/site_dist/adapters/index.html
+    - waveform_analysis/documentation/site_dist/architecture/PROJECT_STRUCTURE/index.html
+    - waveform_analysis/documentation/site_dist/architecture/accessor-analysis/index.html
+    - waveform_analysis/documentation/site_dist/architecture/data-products/index.html
+    - waveform_analysis/documentation/site_dist/architecture/index.html
+    - waveform_analysis/documentation/site_dist/architecture/plugin-cache-architecture/index.html
+    - waveform_analysis/documentation/site_dist/architecture/plugin-dag-lineage-cache/index.html
+    - waveform_analysis/documentation/site_dist/architecture/system/index.html
+    - waveform_analysis/documentation/site_dist/cli/WAVEFORM_CACHE/index.html
+    - waveform_analysis/documentation/site_dist/cli/WAVEFORM_DOCS/index.html
+    - waveform_analysis/documentation/site_dist/cli/WAVEFORM_PROCESS/index.html
+    - waveform_analysis/documentation/site_dist/cli/index.html
+    - waveform_analysis/documentation/site_dist/contexts/context/index.html
+    - waveform_analysis/documentation/site_dist/contexts/index.html
+    - waveform_analysis/documentation/site_dist/development/CONTRACT_TESTS/index.html
+    - waveform_analysis/documentation/site_dist/development/contributing/COMMIT_CONVENTION/index.html
+    - waveform_analysis/documentation/site_dist/development/contributing/DOC_ANCHOR_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/development/contributing/IMPORT_STYLE_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/development/index.html
+    - waveform_analysis/documentation/site_dist/development/plugin-development/PLUGIN_SCAFFOLD/index.html
+    - waveform_analysis/documentation/site_dist/development/plugin-development/PLUGIN_SPEC_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/development/plugin-development/plugin_guide/index.html
+    - waveform_analysis/documentation/site_dist/development/worktrees/index.html
+    - waveform_analysis/documentation/site_dist/features/advanced/PROGRESS_TRACKING_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/context/ABSOLUTE_TIME_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/context/BATCH_PROCESSOR/index.html
+    - waveform_analysis/documentation/site_dist/features/context/CONFIGURATION/index.html
+    - waveform_analysis/documentation/site_dist/features/context/DEPENDENCY_ANALYSIS_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/context/LINEAGE_VISUALIZATION_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/index.html
+    - waveform_analysis/documentation/site_dist/features/utils/ADAPTIVE_2D_SAMPLING_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/utils/DAQ_ANALYZER_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/utils/PDF_EXPORT_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/visualizations/POSITION_DASHBOARD_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/index.html
+    - waveform_analysis/documentation/site_dist/lineage/index.html
+    - waveform_analysis/documentation/site_dist/plugins/basic_features/index.html
+    - waveform_analysis/documentation/site_dist/plugins/cache_analysis/index.html
+    - waveform_analysis/documentation/site_dist/plugins/df/index.html
+    - waveform_analysis/documentation/site_dist/plugins/df_events/index.html
+    - waveform_analysis/documentation/site_dist/plugins/df_paired/index.html
+    - waveform_analysis/documentation/site_dist/plugins/energy_reconstruction/index.html
+    - waveform_analysis/documentation/site_dist/plugins/events/index.html
+    - waveform_analysis/documentation/site_dist/plugins/filtered_waveforms/index.html
+    - waveform_analysis/documentation/site_dist/plugins/guides/STREAMING_PLUGINS_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_grouped/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_merge_clusters/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_merged/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_merged_components/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_merged_features/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_threshold/index.html
+    - waveform_analysis/documentation/site_dist/plugins/index.html
+    - waveform_analysis/documentation/site_dist/plugins/overview/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peak_classification/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_channels/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_components/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_features/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_waveform_pool/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_waveforms/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklets/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaks/index.html
+    - waveform_analysis/documentation/site_dist/plugins/position_reconstruction/index.html
+    - waveform_analysis/documentation/site_dist/plugins/raw_files/index.html
+    - waveform_analysis/documentation/site_dist/plugins/records/index.html
+    - waveform_analysis/documentation/site_dist/plugins/records_asymmetry_mask/index.html
+    - waveform_analysis/documentation/site_dist/plugins/records_detector_mask/index.html
+    - waveform_analysis/documentation/site_dist/plugins/records_veto_mask/index.html
+    - waveform_analysis/documentation/site_dist/plugins/reference/ADAPTER_PLUGIN_BEHAVIOR/index.html
+    - waveform_analysis/documentation/site_dist/plugins/reference/ADAPTER_SYSTEM_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/plugins/s1_s2_pair_candidates/index.html
+    - waveform_analysis/documentation/site_dist/plugins/s1_s2_pairs/index.html
+    - waveform_analysis/documentation/site_dist/plugins/st_waveforms/index.html
+    - waveform_analysis/documentation/site_dist/plugins/wave_pool/index.html
+    - waveform_analysis/documentation/site_dist/plugins/wave_pool_filtered/index.html
+    - waveform_analysis/documentation/site_dist/plugins/waveform_width/index.html
+    - waveform_analysis/documentation/site_dist/plugins/waveform_width_integral/index.html
+    - waveform_analysis/documentation/site_dist/search-index.v1.json
+    - waveform_analysis/documentation/site_dist/site-manifest.json
+    - waveform_analysis/documentation/site_dist/site-model.v1.json
+    - waveform_analysis/documentation/site_dist/user-guide/EXAMPLES_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/user-guide/QUICKSTART_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/user-guide/docs-build/index.html
+    - waveform_analysis/documentation/site_dist/user-guide/index.html
+    - waveform_analysis/documentation/site_dist/visualizations/index.html
+    - waveform_analysis/documentation/site_dist/visualizations/position-dashboard/index.html
+    - waveform_analysis/documentation/site_dist/visualizations/statistical-plots/index.html
+    - waveform_analysis/documentation/site_dist/visualizations/waveform-plots/index.html
+    scope_verification: PASS
+    git_status_short: ''
+    git_diff_stat: ''
+    pre_commit_hooks: 'All six hooks passed: ruff, black, whitespace, EOF, YAML, large
+      files'
+    handoff_check: scripts/check_agent_handoff.py PASS with clean worktree after implementation
+      commit
+    planned_closure: Only task.yaml and generated task navigation will be updated
+      in the final evidence-only commit; no implementation/source/build changes.
+    status: implementation_committed_and_verified
+    closure_authorization: Independent Reviewer approved task completion, navigation
+      regeneration and evidence-only closure commit.
+  planning:
+    owner: planner
+    decision: ready_for_execution
+    refinement: Before Executor handoff, add root-identified site-consumer outputs
+      and context_cache.py for optional existing-cache invalidation. No execution
+      or approval had started; recompute the canonical final spec digest.
+    baseline: 27 passed reported by root at /tmp/wa-event-contract-hardening/baseline.xml

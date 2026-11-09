@@ -25,7 +25,7 @@ def test_mode_1_default():
     print("模式 1: normalize_to_pe=False (默认)")
     print("=" * 80)
 
-    ctx = Context(storage_dir="./strax_data")
+    ctx = Context(storage_dir="./wa_data")
     ctx.register(
         RawFilesPlugin(),
         WaveformsPlugin(),
@@ -83,7 +83,7 @@ def test_mode_2_normalize():
     print("模式 2: normalize_to_pe=True")
     print("=" * 80)
 
-    ctx = Context(storage_dir="./strax_data")
+    ctx = Context(storage_dir="./wa_data")
     ctx.register(
         RawFilesPlugin(),
         WaveformsPlugin(),

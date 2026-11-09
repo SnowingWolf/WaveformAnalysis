@@ -17,7 +17,7 @@ from waveform_analysis.core.processing.chunk import Chunk
 
 @pytest.fixture
 def context(tmp_path):
-    storage_dir = str(tmp_path / "strax_data")
+    storage_dir = str(tmp_path / "wa_data")
     ctx = Context(storage_dir=storage_dir)
     ctx.register(MockPlugin)
     ctx.register(DependentPlugin)
@@ -31,6 +31,16 @@ def test_context_basic_get(context):
     assert len(data) == 2
     assert data[0]["value"] == 10.0
     assert data[1]["value"] == 20.0
+
+
+def test_context_uses_wa_data_as_default_storage(tmp_path, monkeypatch):
+    """Context 默认将缓存写入独立的 wa_data 目录。"""
+    monkeypatch.chdir(tmp_path)
+
+    ctx = Context()
+
+    assert ctx.storage_dir == "./wa_data"
+    assert (tmp_path / "wa_data").is_dir()
 
 
 def test_context_dependency(context):
@@ -63,13 +73,12 @@ def test_context_config(tmp_path):
 
     # Override config
     ctx.set_config({"multiplier": 10})
-    ctx.clear_config_cache()
     # Use a completely different run_id to avoid any memory cache issues
     data = ctx.get_data("run_new", "config_data")
     assert data[0]["val"] == 10
 
 
-def test_context_from_config_json_loads_file(tmp_path):
+def test_context_set_config_json_loads_file(tmp_path):
     config_path = tmp_path / "context_config.json"
     config_path.write_text(
         json.dumps({"data_root": "DAQ", "threshold": 7}),
@@ -77,13 +86,13 @@ def test_context_from_config_json_loads_file(tmp_path):
     )
 
     ctx = Context(storage_dir=str(tmp_path / "cache"))
-    ctx.from_config_json(str(config_path))
+    ctx.set_config(str(config_path))
 
     assert ctx.config["data_root"] == "DAQ"
     assert ctx.config["threshold"] == 7
 
 
-def test_context_from_config_json_updates_existing_context_like_set_config(tmp_path):
+def test_context_set_config_json_updates_existing_context_like_set_config(tmp_path):
     config_path = tmp_path / "context_config.json"
     config_path.write_text(
         json.dumps({"data_root": "DAQ", "threshold": 7}),
@@ -91,33 +100,33 @@ def test_context_from_config_json_updates_existing_context_like_set_config(tmp_p
     )
 
     ctx = Context(storage_dir=str(tmp_path / "cache"), config={"threshold": 9})
-    ctx.from_config_json(str(config_path))
+    ctx.set_config(str(config_path))
 
     assert ctx.config["data_root"] == "DAQ"
     assert ctx.config["threshold"] == 7
 
 
-def test_context_from_config_json_requires_object(tmp_path):
+def test_context_set_config_json_requires_object(tmp_path):
     config_path = tmp_path / "context_config.json"
     config_path.write_text(json.dumps([1, 2, 3]), encoding="utf-8")
 
     ctx = Context(storage_dir=str(tmp_path / "cache"))
 
     with pytest.raises(ValueError, match="JSON object"):
-        ctx.from_config_json(str(config_path))
+        ctx.set_config(str(config_path))
 
 
-def test_context_from_config_json_supports_plugin_namespace(tmp_path):
+def test_context_set_config_json_supports_plugin_namespace(tmp_path):
     config_path = tmp_path / "plugin_config.json"
     config_path.write_text(json.dumps({"threshold": 11}), encoding="utf-8")
 
     ctx = Context(storage_dir=str(tmp_path / "cache"))
-    ctx.from_config_json(str(config_path), plugin_name="mock_plugin")
+    ctx.set_config(str(config_path), plugin_name="mock_plugin")
 
     assert ctx.config["mock_plugin"]["threshold"] == 11
 
 
-def test_context_from_config_json_accepts_custom_config_snapshot(tmp_path):
+def test_context_set_config_json_accepts_custom_config_snapshot(tmp_path):
     config_path = tmp_path / "runtime_config.json"
     config_path.write_text(
         json.dumps(
@@ -135,7 +144,7 @@ def test_context_from_config_json_accepts_custom_config_snapshot(tmp_path):
     )
 
     ctx = Context(storage_dir=str(tmp_path / "cache"))
-    ctx.from_config_json(str(config_path))
+    ctx.set_config(str(config_path))
 
     assert ctx.config["data_root"] == "DAQ"
     assert ctx.config["basic_features"]["area_range"] == [1800, 3000]
@@ -426,7 +435,6 @@ def test_context_namespaced_config(tmp_path):
 
     # Test nested dict style
     ctx.set_config({"plugin_a": {"opt": 100}})
-    ctx.clear_config_cache()
     assert ctx.get_data("run2", "plugin_a")[0] == 100
 
 

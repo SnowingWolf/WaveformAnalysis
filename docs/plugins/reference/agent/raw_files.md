@@ -5,7 +5,7 @@ profile: "agent"
 provides: "raw_files"
 plugin_class: "RawFileNamesPlugin"
 module: "waveform_analysis.core.plugins.builtin.raw_files.plugin"
-version: "0.0.2"
+version: "0.0.3"
 summary: "Scan the data directory and group raw CSV files by channel number."
 depends_on: []
 declared_depends_on: []
@@ -17,7 +17,7 @@ output_kind: "list"
 execution_kind: "static"
 narrative_source: "source"
 narrative_source_reason: null
-source_fingerprint: "5693beea05d1d48c7db0fc791209f50944fc98c6b6441de0b9c7a2e9d28c20b3"
+source_fingerprint: "bb224ca9367ce7f70623772b4579c86847f0559bb9d5199cd921bfbe80fc49b2"
 generated: true
 ---
 # raw_files
@@ -32,7 +32,7 @@ Plugin to find raw CSV files.
 | Provides | `raw_files` |
 | Plugin Class | `RawFileNamesPlugin` |
 | Module | `waveform_analysis.core.plugins.builtin.raw_files.plugin` |
-| Version | `0.0.2` |
+| Version | `0.0.3` |
 | Category | 数据加载 |
 | Output Container | `list` |
 | Execution Mode | `static` |
@@ -41,7 +41,7 @@ Plugin to find raw CSV files.
 | Timeout | `none` |
 | Side Effect | no |
 | Narrative Source | `source` |
-| Source Fingerprint | `5693beea05d1d48c7db0fc791209f50944fc98c6b6441de0b9c7a2e9d28c20b3` |
+| Source Fingerprint | `bb224ca9367ce7f70623772b4579c86847f0559bb9d5199cd921bfbe80fc49b2` |
 
 ### Dependencies
 

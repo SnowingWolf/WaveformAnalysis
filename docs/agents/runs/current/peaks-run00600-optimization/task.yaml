@@ -4,12 +4,10 @@ metadata:
   id: peaks-run00600-optimization
   generation: 1
   created_at: '2026-09-15'
-  updated_at: '2026-09-15'
+  updated_at: '2026-11-09T09:25:32Z'
 spec:
-  goal: >-
-    Optimize the highest-confidence Run 00600 peaks-chain hot paths while
-    preserving output values, ordering, dtype, canonical waveform semantics,
-    and explicit cache-lineage behavior.
+  goal: Optimize the highest-confidence Run 00600 peaks-chain hot paths while preserving output values,
+    ordering, dtype, canonical waveform semantics, and explicit cache-lineage behavior.
   route: modify_plugin
   workflow_cost: strict
   workflow_shape: staged
@@ -17,36 +15,38 @@ spec:
   scope:
     base_sha: b0cb0a927cc37906c0f6f7a895d1c78ccbca0230
     allowed_paths:
-      - waveform_analysis/core/plugins/builtin/peaklet_channels
-      - waveform_analysis/core/plugins/builtin/peaklet_features
-      - waveform_analysis/core/plugins/builtin/peaklets/_compute.py
-      - waveform_analysis/core/plugins/builtin/peaks
-      - tests
-      - docs/plugins/reference/agent
-      - docs/plugins/reference/builtin/auto
-      - docs/agents/runs/current/peaks-run00600-optimization
-      - docs/agents/runs/current/active.yaml
-      - docs/agents/runs/current/INDEX.md
-      - docs/agents/plans/INDEX.md
-      - docs/agents/plans/active.yaml
+    - waveform_analysis/core/plugins/builtin/peaklet_channels
+    - waveform_analysis/core/plugins/builtin/peaklet_features
+    - waveform_analysis/core/plugins/builtin/peaklets/_compute.py
+    - waveform_analysis/core/plugins/builtin/peaks
+    - tests
+    - docs/plugins/reference/agent
+    - docs/plugins/reference/builtin/auto
+    - docs/agents/runs/current/peaks-run00600-optimization
+    - docs/agents/runs/current/active.yaml
+    - docs/agents/runs/current/INDEX.md
+    - docs/agents/plans/INDEX.md
+    - docs/agents/plans/active.yaml
   acceptance_criteria:
-    - Peaklet-channel CSR offsets have no parallel shared-write race.
-    - Run 00600 singleton peaklets and fraction boundaries use bounded fast paths.
-    - Peaks skip sorting and aligned-feature materialization only after exact identity validation.
-    - Peaks no longer require peaklet_channels unless a real consumer requests that product.
-    - Peaklet feature quantiles avoid per-waveform cumsum arrays while preserving first-crossing and float64 accumulation semantics.
-    - Focused tests and fixed plugin gates pass.
-    - Real Run 00600 fresh task-local cache outputs match the accepted baseline in dtype, shape, order, and SHA-256.
+  - Peaklet-channel CSR offsets have no parallel shared-write race.
+  - Run 00600 singleton peaklets and fraction boundaries use bounded fast paths.
+  - Peaks skip sorting and aligned-feature materialization only after exact identity validation.
+  - Peaks no longer require peaklet_channels unless a real consumer requests that product.
+  - Peaklet feature quantiles avoid per-waveform cumsum arrays while preserving first-crossing and float64
+    accumulation semantics.
+  - Focused tests and fixed plugin gates pass.
+  - Real Run 00600 fresh task-local cache outputs match the accepted baseline in dtype, shape, order,
+    and SHA-256.
   required_gates:
-    - focused_tests
-    - run00600_exact_output
-    - assess_change_impact
-    - schema_compat_check
-    - plugin_docs_generated
-    - doc_sync
-    - doc_anchors
-    - blocking_review
-    - diff_scope_check
+  - focused_tests
+  - run00600_exact_output
+  - assess_change_impact
+  - schema_compat_check
+  - plugin_docs_generated
+  - doc_sync
+  - doc_anchors
+  - blocking_review
+  - diff_scope_check
   assignment:
     planner_role: planner
     executor_role: executor.plugin
@@ -61,79 +61,105 @@ status:
   state: completed
   condition: AllBlockingGatesPassed
   conditions:
-    - type: PlanBriefReady
-      status: 'True'
-      reason: user_approved_independent_fix_and_validation
-      message: The user approved isolated implementation after Luna Max research.
+  - type: PlanBriefReady
+    status: 'True'
+    reason: user_approved_independent_fix_and_validation
+    message: The user approved isolated implementation after Luna Max research.
   transitions:
-    - from: null
-      to: planning
-      at: '2026-09-15'
-      actor: planner
-      condition: task_initialized
-    - from: planning
-      to: ready_for_execution
-      at: '2026-09-15'
-      actor: planner
-      condition: plan_brief_ready
-    - from: ready_for_execution
-      to: executing
-      at: '2026-09-15'
-      actor: planner
-      condition: executor_assigned
-    - from: executing
-      to: reviewing
-      at: '2026-09-15'
-      actor: executor.plugin
-      condition: execution_verified
-    - from: reviewing
-      to: rework_required
-      at: '2026-09-15'
-      actor: reviewer
-      condition: artifact_sync_and_scope_evidence_missing
-    - from: rework_required
-      to: executing
-      at: '2026-09-15'
-      actor: executor.plugin
-      condition: artifact_rework_started
-    - from: executing
-      to: reviewing
-      at: '2026-09-15'
-      actor: executor.plugin
-      condition: artifact_rework_completed
-    - from: reviewing
-      to: completed
-      at: '2026-09-15'
-      actor: reviewer
-      condition: all_blocking_gates_passed
-  plan_sha256: null
+  - from: null
+    to: planning
+    at: '2026-09-15'
+    actor: planner
+    condition: task_initialized
+  - from: planning
+    to: ready_for_execution
+    at: '2026-09-15'
+    actor: planner
+    condition: plan_brief_ready
+  - from: ready_for_execution
+    to: executing
+    at: '2026-09-15'
+    actor: planner
+    condition: executor_assigned
+  - from: executing
+    to: reviewing
+    at: '2026-09-15'
+    actor: executor.plugin
+    condition: execution_verified
+  - from: reviewing
+    to: rework_required
+    at: '2026-09-15'
+    actor: reviewer
+    condition: artifact_sync_and_scope_evidence_missing
+  - from: rework_required
+    to: executing
+    at: '2026-09-15'
+    actor: executor.plugin
+    condition: artifact_rework_started
+  - from: executing
+    to: reviewing
+    at: '2026-09-15'
+    actor: executor.plugin
+    condition: artifact_rework_completed
+  - from: reviewing
+    to: completed
+    at: '2026-09-15'
+    actor: reviewer
+    condition: all_blocking_gates_passed
+  plan_sha256: 52f92f1bd60498cb0d4cf987c9a8fa04d23590abb1cd22acdf5ed3dfc2c80cad
   execution:
     worktree: /tmp/wa-peaks-profile
     branch: codex/peaks-profile
     changes:
-      - peaklet_channels uses linear peaklet boundary construction, singleton fast paths, and single-owner CSR terminal offsets.
-      - peaklet_features computes all cumulative-area quantiles in one waveform scan without per-waveform cumsum allocation.
-      - peaks uses an exact identity fast path and no longer declares the unused peaklet_channels dependency.
+    - peaklet_channels uses linear peaklet boundary construction, singleton fast paths, and single-owner
+      CSR terminal offsets.
+    - peaklet_features computes all cumulative-area quantiles in one waveform scan without per-waveform
+      cumsum allocation.
+    - peaks uses an exact identity fast path and no longer declares the unused peaklet_channels dependency.
     verification:
       commands:
-        - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m pytest -q waveform_analysis/core/plugins/builtin/peaklet_channels/tests waveform_analysis/core/plugins/builtin/peaklet_features/tests waveform_analysis/core/plugins/builtin/peaklet_waveforms/tests waveform_analysis/core/plugins/builtin/peaklets/tests tests/plugins/test_peaks_plugin.py tests/plugins/test_plugin_set_peaks_compat.py waveform_analysis/core/plugins/builtin/position_reconstruction/tests waveform_analysis/core/plugins/builtin/peak_classification/tests waveform_analysis/core/plugins/builtin/s1_s2_pair_candidates/tests waveform_analysis/core/plugins/builtin/s1_s2_pairs/tests tests/test_peak_pipeline_benchmark.py
-        - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m ruff check waveform_analysis/core/plugins/builtin/peaklet_channels/plugin.py waveform_analysis/core/plugins/builtin/peaklet_channels/tests waveform_analysis/core/plugins/builtin/peaklet_features/plugin.py waveform_analysis/core/plugins/builtin/peaklet_features/tests waveform_analysis/core/plugins/builtin/peaks/plugin.py tests/plugins/test_peaks_plugin.py
-        - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m ruff format --check waveform_analysis/core/plugins/builtin/peaklet_channels/plugin.py waveform_analysis/core/plugins/builtin/peaklet_channels/tests waveform_analysis/core/plugins/builtin/peaklet_features/plugin.py waveform_analysis/core/plugins/builtin/peaklet_features/tests waveform_analysis/core/plugins/builtin/peaks/plugin.py tests/plugins/test_peaks_plugin.py
-        - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/assess_change_impact.py --base HEAD
-        - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/schema_compat_check.py --base HEAD --run-smoke
-        - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/performance_regression_check.py --base HEAD
-        - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m waveform_analysis.documentation.cli generate plugins-auto -o docs/plugins/reference/builtin/auto/
-        - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m waveform_analysis.documentation.cli generate plugins-agent -o docs/plugins/reference/agent/
-        - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/render_agent_docs.py --check
-        - WAVEFORM_PYTHON=/home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/check_doc_sync.sh
-        - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/check_doc_anchors.py --check-sync --base HEAD
-        - PYTHONPATH=/mnt/data/Run3/WaveformAnalysis /home/wxy/anaconda3/envs/pyroot-kernel/bin/python /tmp/run_peaks_candidate.py --expected-source /mnt/data/Run3/WaveformAnalysis --task-root /tmp/wa-peaks-baseline-warm.h9YTy2 --output /tmp/wa-peaks-baseline-warm.h9YTy2/report.json
-        - PYTHONPATH=/tmp/wa-peaks-profile /home/wxy/anaconda3/envs/pyroot-kernel/bin/python /tmp/run_peaks_candidate.py --expected-source /tmp/wa-peaks-profile --task-root /tmp/wa-peaks-candidate-warm.Kc04Yp --output /tmp/wa-peaks-candidate-warm.Kc04Yp/report.json
-        - PYTHONPATH=/mnt/data/Run3/WaveformAnalysis /home/wxy/anaconda3/envs/pyroot-kernel/bin/python /tmp/run_peaks_candidate.py --expected-source /mnt/data/Run3/WaveformAnalysis --task-root /tmp/wa-peaks-target-base.7SkaZE --output /tmp/wa-peaks-target-base.7SkaZE/report.json --request-target peaks
-        - PYTHONPATH=/tmp/wa-peaks-profile /home/wxy/anaconda3/envs/pyroot-kernel/bin/python /tmp/run_peaks_candidate.py --expected-source /tmp/wa-peaks-profile --task-root /tmp/wa-peaks-target-cand.JudwaX --output /tmp/wa-peaks-target-cand.JudwaX/report.json --request-target peaks
-        - git diff --check
-        - git diff --name-only
-        - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/check_agent_handoff.py --allow-uncommitted --reason awaiting-final-blocking-review-before-scoped-commit
+      - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m pytest -q waveform_analysis/core/plugins/builtin/peaklet_channels/tests
+        waveform_analysis/core/plugins/builtin/peaklet_features/tests waveform_analysis/core/plugins/builtin/peaklet_waveforms/tests
+        waveform_analysis/core/plugins/builtin/peaklets/tests tests/plugins/test_peaks_plugin.py tests/plugins/test_plugin_set_peaks_compat.py
+        waveform_analysis/core/plugins/builtin/position_reconstruction/tests waveform_analysis/core/plugins/builtin/peak_classification/tests
+        waveform_analysis/core/plugins/builtin/s1_s2_pair_candidates/tests waveform_analysis/core/plugins/builtin/s1_s2_pairs/tests
+        tests/test_peak_pipeline_benchmark.py
+      - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m ruff check waveform_analysis/core/plugins/builtin/peaklet_channels/plugin.py
+        waveform_analysis/core/plugins/builtin/peaklet_channels/tests waveform_analysis/core/plugins/builtin/peaklet_features/plugin.py
+        waveform_analysis/core/plugins/builtin/peaklet_features/tests waveform_analysis/core/plugins/builtin/peaks/plugin.py
+        tests/plugins/test_peaks_plugin.py
+      - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m ruff format --check waveform_analysis/core/plugins/builtin/peaklet_channels/plugin.py
+        waveform_analysis/core/plugins/builtin/peaklet_channels/tests waveform_analysis/core/plugins/builtin/peaklet_features/plugin.py
+        waveform_analysis/core/plugins/builtin/peaklet_features/tests waveform_analysis/core/plugins/builtin/peaks/plugin.py
+        tests/plugins/test_peaks_plugin.py
+      - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/assess_change_impact.py --base HEAD
+      - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/schema_compat_check.py --base HEAD --run-smoke
+      - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/performance_regression_check.py --base
+        HEAD
+      - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m waveform_analysis.documentation.cli generate
+        plugins-auto -o docs/plugins/reference/builtin/auto/
+      - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m waveform_analysis.documentation.cli generate
+        plugins-agent -o docs/plugins/reference/agent/
+      - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/render_agent_docs.py --check
+      - WAVEFORM_PYTHON=/home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/check_doc_sync.sh
+      - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/check_doc_anchors.py --check-sync --base
+        HEAD
+      - PYTHONPATH=/mnt/data/Run3/WaveformAnalysis /home/wxy/anaconda3/envs/pyroot-kernel/bin/python /tmp/run_peaks_candidate.py
+        --expected-source /mnt/data/Run3/WaveformAnalysis --task-root /tmp/wa-peaks-baseline-warm.h9YTy2
+        --output /tmp/wa-peaks-baseline-warm.h9YTy2/report.json
+      - PYTHONPATH=/tmp/wa-peaks-profile /home/wxy/anaconda3/envs/pyroot-kernel/bin/python /tmp/run_peaks_candidate.py
+        --expected-source /tmp/wa-peaks-profile --task-root /tmp/wa-peaks-candidate-warm.Kc04Yp --output
+        /tmp/wa-peaks-candidate-warm.Kc04Yp/report.json
+      - PYTHONPATH=/mnt/data/Run3/WaveformAnalysis /home/wxy/anaconda3/envs/pyroot-kernel/bin/python /tmp/run_peaks_candidate.py
+        --expected-source /mnt/data/Run3/WaveformAnalysis --task-root /tmp/wa-peaks-target-base.7SkaZE
+        --output /tmp/wa-peaks-target-base.7SkaZE/report.json --request-target peaks
+      - PYTHONPATH=/tmp/wa-peaks-profile /home/wxy/anaconda3/envs/pyroot-kernel/bin/python /tmp/run_peaks_candidate.py
+        --expected-source /tmp/wa-peaks-profile --task-root /tmp/wa-peaks-target-cand.JudwaX --output
+        /tmp/wa-peaks-target-cand.JudwaX/report.json --request-target peaks
+      - git diff --check
+      - git diff --name-only
+      - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/check_agent_handoff.py --allow-uncommitted
+        --reason awaiting-final-blocking-review-before-scoped-commit
       focused_tests:
         status: pass
         result: 182 passed
@@ -177,21 +203,267 @@ status:
         note: Candidate DAG excludes peaklet_channels when only peaks is requested.
       extended_performance_regression_check:
         status: non_blocking_fail
-        result: df_events synthetic timing +29.17 percent; harness also emitted multiprocessing pickle errors
-        reason: Outside the changed peaks chain; superseded for this scope by exact Run 00600 baseline-versus-candidate measurements.
+        result: df_events synthetic timing +29.17 percent; harness also emitted multiprocessing pickle
+          errors
+        reason: Outside the changed peaks chain; superseded for this scope by exact Run 00600 baseline-versus-candidate
+          measurements.
   review:
     verdict: pass
     reviewer: luna_blocking_review_final
     blocking_findings: []
     evidence:
-      - Output semantics, ordering, dtype, versions, manifests, dependency graph, and fallback paths reviewed.
-      - Run 00600 peaks output SHA-256 is identical between baseline and candidate.
-      - Scope, generated indexes, documentation checks, and required gate records are complete.
+    - Output semantics, ordering, dtype, versions, manifests, dependency graph, and fallback paths reviewed.
+    - Run 00600 peaks output SHA-256 is identical between baseline and candidate.
+    - Scope, generated indexes, documentation checks, and required gate records are complete.
     residual_risks:
-      - Performance measurements are single warm runs rather than multi-run statistical benchmarks.
-      - The unrelated synthetic df_events performance check fluctuated above its threshold and emitted multiprocessing pickle errors.
+    - Performance measurements are single warm runs rather than multi-run statistical benchmarks.
+    - The unrelated synthetic df_events performance check fluctuated above its threshold and emitted multiprocessing
+      pickle errors.
+    reviewer_actor: luna_blocking_review_final
+    decision: completed
+    plan_sha256: 52f92f1bd60498cb0d4cf987c9a8fa04d23590abb1cd22acdf5ed3dfc2c80cad
+    digest_binding_note: Bound by the 2026-11-09 format migration to the recorded spec; the original review
+      and its limitations remain in migration.original_record_yaml.
+    gate_results:
+      focused_tests: PASS
+      run00600_exact_output: PASS
+      assess_change_impact: PASS
+      schema_compat_check: PASS
+      plugin_docs_generated: PASS
+      doc_sync: PASS
+      doc_anchors: PASS
+      blocking_review: PASS
+      diff_scope_check: PASS
+    migrated_gate_evidence:
+      focused_tests: Original status.execution.verification.focused_tests (including original result and
+        limitations).
+      run00600_exact_output: Original status.execution.verification.run00600_exact_output (including original
+        result and limitations).
+      assess_change_impact: Original status.execution.verification.assess_change_impact (including original
+        result and limitations).
+      schema_compat_check: Original status.execution.verification.schema_compat_check (including original
+        result and limitations).
+      plugin_docs_generated: Original status.execution.verification.plugin_docs_generated (including original
+        result and limitations).
+      doc_sync: Original status.execution.verification.doc_sync (including original result and limitations).
+      doc_anchors: Original status.execution.verification.doc_anchors (including original result and limitations).
+      blocking_review: Original status.review.verdict=pass, reviewer=luna_blocking_review_final, no blocking
+        findings.
+      diff_scope_check: Original status.execution.verification.diff_scope_check (including original result
+        and limitations).
   approval: {}
   handoff:
     commit_status: pending_scoped_commit
     branch: codex/peaks-profile
     integration_status: isolated_branch_only
+  migration:
+    id: remote-branch-integration-20261109
+    at: '2026-11-09T09:25:32Z'
+    actor: workflow_ci_diagnosis
+    source_commit: f437d57936850f8775eca43238842a34bbe6f729
+    source_path: docs/agents/runs/current/peaks-run00600-optimization/task.yaml
+    original_record_backup: /tmp/waveform-remote-branches-20261109/ci/task-record-originals/peaks-run00600-optimization/task.yaml
+    original_record_yaml: |
+      api_version: waveform-analysis/agent-task/v1
+      kind: AgentTask
+      metadata:
+        id: peaks-run00600-optimization
+        generation: 1
+        created_at: '2026-09-15'
+        updated_at: '2026-09-15'
+      spec:
+        goal: >-
+          Optimize the highest-confidence Run 00600 peaks-chain hot paths while
+          preserving output values, ordering, dtype, canonical waveform semantics,
+          and explicit cache-lineage behavior.
+        route: modify_plugin
+        workflow_cost: strict
+        workflow_shape: staged
+        risk_level: high
+        scope:
+          base_sha: b0cb0a927cc37906c0f6f7a895d1c78ccbca0230
+          allowed_paths:
+            - waveform_analysis/core/plugins/builtin/peaklet_channels
+            - waveform_analysis/core/plugins/builtin/peaklet_features
+            - waveform_analysis/core/plugins/builtin/peaklets/_compute.py
+            - waveform_analysis/core/plugins/builtin/peaks
+            - tests
+            - docs/plugins/reference/agent
+            - docs/plugins/reference/builtin/auto
+            - docs/agents/runs/current/peaks-run00600-optimization
+            - docs/agents/runs/current/active.yaml
+            - docs/agents/runs/current/INDEX.md
+            - docs/agents/plans/INDEX.md
+            - docs/agents/plans/active.yaml
+        acceptance_criteria:
+          - Peaklet-channel CSR offsets have no parallel shared-write race.
+          - Run 00600 singleton peaklets and fraction boundaries use bounded fast paths.
+          - Peaks skip sorting and aligned-feature materialization only after exact identity validation.
+          - Peaks no longer require peaklet_channels unless a real consumer requests that product.
+          - Peaklet feature quantiles avoid per-waveform cumsum arrays while preserving first-crossing and float64 accumulation semantics.
+          - Focused tests and fixed plugin gates pass.
+          - Real Run 00600 fresh task-local cache outputs match the accepted baseline in dtype, shape, order, and SHA-256.
+        required_gates:
+          - focused_tests
+          - run00600_exact_output
+          - assess_change_impact
+          - schema_compat_check
+          - plugin_docs_generated
+          - doc_sync
+          - doc_anchors
+          - blocking_review
+          - diff_scope_check
+        assignment:
+          planner_role: planner
+          executor_role: executor.plugin
+          reviewer_role: reviewer
+          execution_backend_decision:
+            backend: numba_parallel
+            backend_reason: CPU-bound and memory-bound production kernels with existing Numba execution paths
+            parallel_scope: peaklet
+            fallback_path: Preserve existing stable-sort, malformed-input, and Python canonical fallbacks
+            benchmark_required: true
+      status:
+        state: completed
+        condition: AllBlockingGatesPassed
+        conditions:
+          - type: PlanBriefReady
+            status: 'True'
+            reason: user_approved_independent_fix_and_validation
+            message: The user approved isolated implementation after Luna Max research.
+        transitions:
+          - from: null
+            to: planning
+            at: '2026-09-15'
+            actor: planner
+            condition: task_initialized
+          - from: planning
+            to: ready_for_execution
+            at: '2026-09-15'
+            actor: planner
+            condition: plan_brief_ready
+          - from: ready_for_execution
+            to: executing
+            at: '2026-09-15'
+            actor: planner
+            condition: executor_assigned
+          - from: executing
+            to: reviewing
+            at: '2026-09-15'
+            actor: executor.plugin
+            condition: execution_verified
+          - from: reviewing
+            to: rework_required
+            at: '2026-09-15'
+            actor: reviewer
+            condition: artifact_sync_and_scope_evidence_missing
+          - from: rework_required
+            to: executing
+            at: '2026-09-15'
+            actor: executor.plugin
+            condition: artifact_rework_started
+          - from: executing
+            to: reviewing
+            at: '2026-09-15'
+            actor: executor.plugin
+            condition: artifact_rework_completed
+          - from: reviewing
+            to: completed
+            at: '2026-09-15'
+            actor: reviewer
+            condition: all_blocking_gates_passed
+        plan_sha256: null
+        execution:
+          worktree: /tmp/wa-peaks-profile
+          branch: codex/peaks-profile
+          changes:
+            - peaklet_channels uses linear peaklet boundary construction, singleton fast paths, and single-owner CSR terminal offsets.
+            - peaklet_features computes all cumulative-area quantiles in one waveform scan without per-waveform cumsum allocation.
+            - peaks uses an exact identity fast path and no longer declares the unused peaklet_channels dependency.
+          verification:
+            commands:
+              - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m pytest -q waveform_analysis/core/plugins/builtin/peaklet_channels/tests waveform_analysis/core/plugins/builtin/peaklet_features/tests waveform_analysis/core/plugins/builtin/peaklet_waveforms/tests waveform_analysis/core/plugins/builtin/peaklets/tests tests/plugins/test_peaks_plugin.py tests/plugins/test_plugin_set_peaks_compat.py waveform_analysis/core/plugins/builtin/position_reconstruction/tests waveform_analysis/core/plugins/builtin/peak_classification/tests waveform_analysis/core/plugins/builtin/s1_s2_pair_candidates/tests waveform_analysis/core/plugins/builtin/s1_s2_pairs/tests tests/test_peak_pipeline_benchmark.py
+              - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m ruff check waveform_analysis/core/plugins/builtin/peaklet_channels/plugin.py waveform_analysis/core/plugins/builtin/peaklet_channels/tests waveform_analysis/core/plugins/builtin/peaklet_features/plugin.py waveform_analysis/core/plugins/builtin/peaklet_features/tests waveform_analysis/core/plugins/builtin/peaks/plugin.py tests/plugins/test_peaks_plugin.py
+              - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m ruff format --check waveform_analysis/core/plugins/builtin/peaklet_channels/plugin.py waveform_analysis/core/plugins/builtin/peaklet_channels/tests waveform_analysis/core/plugins/builtin/peaklet_features/plugin.py waveform_analysis/core/plugins/builtin/peaklet_features/tests waveform_analysis/core/plugins/builtin/peaks/plugin.py tests/plugins/test_peaks_plugin.py
+              - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/assess_change_impact.py --base HEAD
+              - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/schema_compat_check.py --base HEAD --run-smoke
+              - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/performance_regression_check.py --base HEAD
+              - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m waveform_analysis.documentation.cli generate plugins-auto -o docs/plugins/reference/builtin/auto/
+              - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m waveform_analysis.documentation.cli generate plugins-agent -o docs/plugins/reference/agent/
+              - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/render_agent_docs.py --check
+              - WAVEFORM_PYTHON=/home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/check_doc_sync.sh
+              - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/check_doc_anchors.py --check-sync --base HEAD
+              - PYTHONPATH=/mnt/data/Run3/WaveformAnalysis /home/wxy/anaconda3/envs/pyroot-kernel/bin/python /tmp/run_peaks_candidate.py --expected-source /mnt/data/Run3/WaveformAnalysis --task-root /tmp/wa-peaks-baseline-warm.h9YTy2 --output /tmp/wa-peaks-baseline-warm.h9YTy2/report.json
+              - PYTHONPATH=/tmp/wa-peaks-profile /home/wxy/anaconda3/envs/pyroot-kernel/bin/python /tmp/run_peaks_candidate.py --expected-source /tmp/wa-peaks-profile --task-root /tmp/wa-peaks-candidate-warm.Kc04Yp --output /tmp/wa-peaks-candidate-warm.Kc04Yp/report.json
+              - PYTHONPATH=/mnt/data/Run3/WaveformAnalysis /home/wxy/anaconda3/envs/pyroot-kernel/bin/python /tmp/run_peaks_candidate.py --expected-source /mnt/data/Run3/WaveformAnalysis --task-root /tmp/wa-peaks-target-base.7SkaZE --output /tmp/wa-peaks-target-base.7SkaZE/report.json --request-target peaks
+              - PYTHONPATH=/tmp/wa-peaks-profile /home/wxy/anaconda3/envs/pyroot-kernel/bin/python /tmp/run_peaks_candidate.py --expected-source /tmp/wa-peaks-profile --task-root /tmp/wa-peaks-target-cand.JudwaX --output /tmp/wa-peaks-target-cand.JudwaX/report.json --request-target peaks
+              - git diff --check
+              - git diff --name-only
+              - /home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/check_agent_handoff.py --allow-uncommitted --reason awaiting-final-blocking-review-before-scoped-commit
+            focused_tests:
+              status: pass
+              result: 182 passed
+            ruff_check:
+              status: pass
+            ruff_format:
+              status: pass
+            assess_change_impact:
+              status: pass
+              result: high=0, medium=1, low=2
+            schema_compat_check:
+              status: pass
+              result: dtype_changes=0 and smoke chain passed
+            plugin_docs_generated:
+              status: pass
+              result: 37 builtin auto pages and 37 agent pages generated
+            doc_sync:
+              status: pass
+            doc_anchors:
+              status: pass
+            diff_scope_check:
+              status: pass
+              result: All changed paths are covered by spec.scope.allowed_paths; git diff --check passed.
+            run00600_exact_output:
+              status: pass
+              rows: 38047128
+              bytes: 3043770240
+              sha256: 1e22aad155b12d7b6908c37b9917fc72d863e323e6a69335d65d9cef7f3cdaee
+              baseline_report: /tmp/wa-peaks-target-base.7SkaZE/report.json
+              candidate_report: /tmp/wa-peaks-target-cand.JudwaX/report.json
+            run00600_warm_three_stage:
+              status: pass
+              baseline_elapsed_seconds: 39.0676
+              candidate_elapsed_seconds: 28.9513
+              reduction_percent: 25.9
+            run00600_peaks_request:
+              status: pass
+              baseline_elapsed_seconds: 38.4658
+              candidate_elapsed_seconds: 13.7403
+              reduction_percent: 64.3
+              note: Candidate DAG excludes peaklet_channels when only peaks is requested.
+            extended_performance_regression_check:
+              status: non_blocking_fail
+              result: df_events synthetic timing +29.17 percent; harness also emitted multiprocessing pickle errors
+              reason: Outside the changed peaks chain; superseded for this scope by exact Run 00600 baseline-versus-candidate measurements.
+        review:
+          verdict: pass
+          reviewer: luna_blocking_review_final
+          blocking_findings: []
+          evidence:
+            - Output semantics, ordering, dtype, versions, manifests, dependency graph, and fallback paths reviewed.
+            - Run 00600 peaks output SHA-256 is identical between baseline and candidate.
+            - Scope, generated indexes, documentation checks, and required gate records are complete.
+          residual_risks:
+            - Performance measurements are single warm runs rather than multi-run statistical benchmarks.
+            - The unrelated synthetic df_events performance check fluctuated above its threshold and emitted multiprocessing pickle errors.
+        approval: {}
+        handoff:
+          commit_status: pending_scoped_commit
+          branch: codex/peaks-profile
+          integration_status: isolated_branch_only
+    policy: Preserve historical completed state and named independent review; normalize existing execution
+      verification and review evidence.
+    plan_digest_binding: The canonical spec digest was calculated during this format migration. It does
+      not assert a historical digest freeze, a new user approval, or a rerun of historical implementation
+      tests or data benchmarks.
+    follow_up_task: docs/agents/runs/current/remote-branch-integration-20261109/task.yaml

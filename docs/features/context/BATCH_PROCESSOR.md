@@ -47,7 +47,7 @@ from waveform_analysis.core.context import Context
 from waveform_analysis.core.data import BatchProcessor
 from waveform_analysis.core.plugins import profiles
 
-ctx = Context(storage_dir='./strax_data')
+ctx = Context(storage_dir='./wa_data')
 ctx.register(*profiles.cpu_default())
 ctx.set_config({'data_root': 'DAQ', 'daq_adapter': 'vx2730'})
 
@@ -214,6 +214,9 @@ def process_runs(
 `context_factory` 可选：thread 模式会自动使用 `ctx.clone()`，process 模式建议使用
 `ctx.create_context_factory()`。
 
+显式提供 `context_factory` 时，串行执行也会在每个 run 的每次尝试前调用工厂，使用其返回的
+Context；重试不会复用上一次尝试的 Context。该规则也适用于 `process_func`。
+
 返回结构：
 
 ```python
@@ -287,6 +290,14 @@ def process_runs_with_config_grid(
 ) -> Dict[str, Any]
 ```
 
+每组配置通过 `set_config(config, plugin_name=plugin_name)` 应用到实际执行的 Context，串行、
+线程和进程模式遵循相同规则。显式工厂先创建 Context，再应用本组配置；进程模式仍要求工厂、
+插件类和配置内容可 pickle。未提供工厂的串行扫描直接更新 `BatchProcessor` 持有的 Context，
+各组配置按顺序应用，扫描后保留最后一次更新的配置。
+
+`storage_dir_strategy` 同样适用于配置扫描。`tmp_cache=True` 是临时缓存的快捷选项，不能与
+`storage_dir_strategy="readonly"` 同时使用，否则抛出 `ValueError`。
+
 返回结构：
 
 ```python
@@ -324,8 +335,21 @@ def process_runs_with_config_grid(
    但要求工厂函数和任务参数可 pickle。
 
 4. **缓存目录策略**
-   `storage_dir_strategy="shared"` 使用共享缓存目录。`"per_worker"` 和 `"readonly"` 会为 worker
-   准备临时缓存目录；串行模式下这些策略会被忽略并回到 `"shared"`。
+   `storage_dir_strategy="shared"` 使用任务 Context 的缓存目录；`"per_worker"` 为每次任务尝试
+   准备临时缓存目录，包括显式提供工厂的串行任务。串行且没有工厂时，`"per_worker"` 会记录
+   warning 并退回 `"shared"`。`"readonly"` 在串行和并行时都保留任务 Context 的原缓存目录，
+   `Context.get_data` 未命中
+   有效缓存时报告 `FileNotFoundError`，不会计算目标或依赖，也不会写缓存、配置快照或配置状态。
+   它不创建临时目录，`clean_temp_cache` 不影响该策略。
+
+   只读请求可使用物化的内存结果，不能消费可能继续计算或写盘的惰性流。并行 clone/factory
+   默认不复制原 Context 的内存结果。若目标或依赖声明 `uses_run_config`，还须已有持久化配置
+   hash 与当前配置一致，并重新读取磁盘缓存；配置状态缺失或变化时明确失败，不删除旧结果。
+
+   `readonly` 要求正式 `Context`，临时模式在任务退出时恢复。`process_func` 经 `get_data`
+   读取数据和经 `clear_cache_for` 删除磁盘缓存会受到约束；直接 Storage 调用、回调自行 I/O、
+   factory、自定义插件 hook 和日志仍可能产生外部副作用，调用方须自行控制。
+   自定义 Storage 的读取接口也须保证无写入；该策略不是任意回调的安全沙箱。
 
 5. **Context 内存缓存增长**
    同一个 `Context` 批量跑多个 run，内存缓存可能持续增长。

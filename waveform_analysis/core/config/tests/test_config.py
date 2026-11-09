@@ -293,10 +293,10 @@ class TestAdapterInfo:
 class TestGetAdapterInfo:
     """get_adapter_info 函数测试"""
 
-    def test_cached_lookup(self):
+    def test_repeated_lookup(self):
         info1 = get_adapter_info("vx2730")
         info2 = get_adapter_info("vx2730")
-        assert info1 is info2  # 应该是同一个缓存对象
+        assert info1 == info2
 
     def test_nonexistent_adapter(self):
         info = get_adapter_info("nonexistent")
@@ -563,15 +563,15 @@ class TestDeprecationInfo:
 class TestIntegration:
     """集成测试"""
 
-    def test_context_get_resolved_config(self):
-        """测试 Context.get_resolved_config()"""
+    def test_context_get_config(self):
+        """测试 Context.get_config()"""
         from waveform_analysis.core.context import Context
         from waveform_analysis.core.plugins.builtin.cpu import standard_plugins
 
         ctx = Context(config={"data_root": "DAQ", "daq_adapter": "vx2730"})
         ctx.register(*standard_plugins)
 
-        resolved = ctx.get_resolved_config("st_waveforms")
+        resolved = ctx.get_config("st_waveforms")
         assert resolved.plugin_name == "st_waveforms"
         assert resolved.adapter_name == "vx2730"
 
@@ -599,7 +599,7 @@ class TestIntegration:
         cold = ctx.get_lineage(data_name)
         cold_key = ctx.key_for("run_lineage", data_name)
 
-        ctx.clear_performance_caches()
+        ctx._invalidate_planning_caches()
         warm = ctx.get_lineage(data_name)
         warm_key = ctx.key_for("run_lineage", data_name)
 

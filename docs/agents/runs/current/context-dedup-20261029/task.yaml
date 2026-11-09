@@ -1,0 +1,162 @@
+api_version: waveform-analysis/agent-task/v1
+kind: AgentTask
+metadata:
+  id: context-dedup-20261029
+  generation: 1
+  created_at: '2026-10-29T06:22:10Z'
+  updated_at: '2026-10-29T06:29:31Z'
+spec:
+  goal: 精简 Context 重复实现和无用私有转发，保持公开 API、缓存与配置展示行为。
+  route: modify_code
+  workflow_cost: strict
+  workflow_shape: staged
+  risk_level: medium
+  scope:
+    base_sha: 90d4bd95dcc32eaab2101c3c15ea1f3f8400a065
+    allowed_paths:
+    - waveform_analysis/core/context.py
+    - waveform_analysis/core/context_config.py
+    - tests/test_context_simplification.py
+    - docs/architecture/PLUGIN_DAG_LINEAGE_CACHE.md
+    - docs/features/context/CONFIGURATION.md
+    - docs/plugins/PLUGIN_SYSTEM_OVERVIEW.md
+    - docs/agents/runs/current/context-dedup-20261029/
+    - docs/agents/plans/
+    - docs/plugins/reference/
+  acceptance_criteria:
+  - 公开方法签名、配置展示结果、缓存命中统计和只读行为不变。
+  - 删除内部无调用转发，合并配置表和缓存命中/扫描重复逻辑；不引入动态委派或改变 lineage。
+  - 完成定向回归、固定 gates 和独立阻断审查后 scoped 提交。
+  required_gates:
+  - assess_change_impact
+  - schema_compat_check
+  - doc_sync
+  - doc_anchors
+  - targeted_tests
+  - generate_docs
+  - reviewer
+  assignment:
+    planner_role: planner
+    executor_role: executor.code
+    reviewer_role: reviewer
+    reviewer: context_review (gpt-6.1-sol/xhigh), then root integration review
+  scope_out:
+  - Public API removal or dynamic delegation
+  - Plugin algorithm, dtype, version, lineage and readonly semantics changes
+  - Time-domain query refactoring and broad file moves
+  compat_inventory:
+  - legacy_form: Context._delete_disk_cache
+    canonical_form: ContextCacheDomain.delete_disk_cache
+    runtime_surface: private_python_api
+    delete_action: remove
+    risk_level: low
+    evidence: No repository calls; domain callers already use canonical method.
+  - legacy_form: ContextConfigDomain.resolve_config_value
+    canonical_form: ContextConfigDomain.get_config
+    runtime_surface: internal_domain
+    delete_action: replace sole caller and remove alias
+    risk_level: low
+    evidence: Only list_plugin_configs calls alias; preserve domain dispatch.
+status:
+  state: completed
+  transitions:
+  - from: created
+    to: planning
+    at: '2026-10-29T06:22:25Z'
+    actor: planner
+  - from: planning
+    to: ready_for_execution
+    at: '2026-10-29T06:22:39Z'
+    actor: planner
+  - from: ready_for_execution
+    to: executing
+    at: '2026-10-29T06:22:39Z'
+    actor: executor.code
+  - from: executing
+    to: reviewing
+    at: '2026-10-29T06:28:44Z'
+    actor: executor.code
+  - from: reviewing
+    to: completed
+    at: '2026-10-29T06:29:31Z'
+    actor: reviewer
+  plan_sha256: 1bdcde5794f3b62e3b1f0a315ce50537104184f3baad489c9ee425c3da8e0157
+  execution:
+    summary: Consolidated duplicate option metadata/rows/sorting and cache-hit handling;
+      reused analyzer scan; removed two unused internal aliases. Public API, readonly/cache
+      semantics and display behavior retained.
+    runtime: /home/wxy/anaconda3/envs/pyroot-kernel/bin/python
+    commands_run:
+    - command: python -m pytest -q -o addopts= tests/test_context_core.py tests/test_context_core_clone.py
+        tests/test_context_core_preview.py tests/test_context_core_time.py tests/test_context_plugin_domain.py
+        tests/test_context_memory_release.py tests/test_cache_optimization.py tests/test_batch_processor_readonly.py
+        tests/test_run_config_cache_invalidation.py tests/test_cache_analyzer.py tests/test_cache_diagnostics.py
+        tests/test_cache_statistics.py
+      result: 'PASS: 186 passed, 9 existing fork/timeout warnings; /tmp/wa-context-dedup-tests.log'
+    - command: python -m pytest -q -o addopts= --no-cov tests/test_context_simplification.py
+      result: 'PASS: 14 tests on current code; same 14 tests pass with HEAD context/config
+        modules loaded in a separate Python process. Agent context_tests verified
+        both; no baseline checkout mutation.'
+    - command: AST comparison of HEAD and working Context public method signatures
+      result: 'PASS: all 41 public method argument signatures and return annotations
+        identical.'
+    - command: python -m waveform_analysis.documentation.cli generate plugins-auto
+        -o docs/plugins/reference/builtin/auto/
+      result: 'PASS: canonical module invocation; no generated plugin-doc diff.'
+    - command: python -m waveform_analysis.documentation.cli generate plugins-agent
+        -o docs/plugins/reference/agent/
+      result: 'PASS: canonical module invocation; no generated plugin-doc diff.'
+    - command: python scripts/assess_change_impact.py --base HEAD
+      result: 'PASS: zero plugin contract changes.'
+    - command: python scripts/schema_compat_check.py --base HEAD --run-smoke
+      result: 'PASS: no dtype changes; smoke raw_files=2, st_waveforms=24, hit=0,
+        df=24, events=12.'
+    - command: python scripts/render_agent_docs.py --write; WAVEFORM_PYTHON=<runtime>
+        scripts/check_doc_sync.sh
+      result: 'PASS: generated-doc check and check_doc_anchors --check-sync --base
+        HEAD; 29 anchors, zero errors/warnings.'
+    - command: python -m black <changed files>; python -m ruff check <changed files>;
+        git diff --check; python scripts/change_scope.py report --task <task> --base
+        HEAD
+      result: 'PASS: formatting/lint and scoped paths, no unrelated dirty files.'
+    production_diff:
+      insertions: 74
+      deletions: 121
+      net_lines_removed: 47
+    open_risks:
+    - No public API removal, performance claim, or changes to physics plugins.
+    - Only internal _delete_disk_cache and resolve_config_value removed; unsupported
+      external callers of these private/domain methods must use the canonical domain
+      methods.
+    requested_review_focus:
+    - Display return/column/order/style parity
+    - Cache hit counts and readonly precedence
+    - Full scan before diagnostics/statistics run filtering
+  review:
+    reviewer: context_review (gpt-6.1-sol/xhigh), root integration review
+    decision: approved
+    plan_sha256: 1bdcde5794f3b62e3b1f0a315ce50537104184f3baad489c9ee425c3da8e0157
+    gate_results:
+      assess_change_impact: PASS
+      schema_compat_check: PASS
+      doc_sync: PASS
+      doc_anchors: PASS
+      targeted_tests: PASS
+      generate_docs: PASS
+      reviewer: PASS
+    blocking_findings: []
+    assessment: Independent reviewer inspected production, documentation and new regression
+      tests; root verified combined diff, 41 public signatures, existing regressions
+      and gates. New 14 behavioral tests pass against both baseline and current implementations.
+    residual_risks:
+    - External consumers calling removed private/domain aliases are outside the supported
+      Context API.
+    - Refactor reduces duplicate implementations; total method count is not reduced
+      because three shared formatting helpers replace duplicated blocks.
+  approval: {}
+  handoff:
+    commit_status: committed
+    commit_hash: 1c8162a5e0c6bc572eb4bd9aa2e00211c89f17af
+    summary: Reviewed Context simplification, 200 passing regressions and unchanged
+      public signatures committed; all commit hooks passed. This closure record follows
+      in a scoped documentation commit.

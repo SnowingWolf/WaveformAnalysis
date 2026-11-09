@@ -35,8 +35,8 @@ __all__ = [
 ]
 
 _LAZY_ATTRS: dict[str, tuple[str, str | None]] = {
-    "DAQRun": ("waveform_analysis.acquisition.daq", "DAQRun"),
-    "DAQAnalyzer": ("waveform_analysis.acquisition.daq", "DAQAnalyzer"),
+    "DAQRun": ("waveform_analysis.acquisition.runs", "DAQRun"),
+    "DAQAnalyzer": ("waveform_analysis.acquisition.runs", "DAQAnalyzer"),
     "get_raw_files": ("waveform_analysis.core.processing.loader", "get_raw_files"),
     "get_waveforms": ("waveform_analysis.core.processing.loader", "get_waveforms"),
     "get_waveforms_generator": (
@@ -56,7 +56,7 @@ _LAZY_ATTRS: dict[str, tuple[str, str | None]] = {
         "extract_channel_attributes",
     ),
     "parse_files_generator": (
-        "waveform_analysis.acquisition.io",
+        "waveform_analysis.acquisition.file_io",
         "parse_files_generator",
     ),
     "plot_lineage_labview": (".visualization", "plot_lineage_labview"),

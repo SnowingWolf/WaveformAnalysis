@@ -14,40 +14,53 @@ from waveform_analysis import Context
 from waveform_analysis.plugins import profiles
 
 # 初始化
-ctx = Context(storage_dir='./strax_data')
+ctx = Context(storage_dir='./wa_data')
 ctx.register(*profiles.cpu_default())
 ctx.set_config({'data_root': 'DAQ', 'daq_adapter': 'vx2730'})
 
 # 计算与读取
 basic_features = ctx.get_data('run_001', 'basic_features')
-ch0 = basic_features[basic_features['channel'] == 0]
+ch0 = basic_features[(basic_features['board'] == 0) & (basic_features['channel'] == 0)]
 heights = ch0['height']
 amps = ch0['amp']
 areas = ch0['area']
-print(f"Found {len(ch0)} events in channel 0")
+print(f"Found {len(ch0)} records in board 0, channel 0")
 ```
 
 **English**:
 
 ```python
 basic_features = ctx.get_data('run_001', 'basic_features')
-ch0 = basic_features[basic_features['channel'] == 0]
+ch0 = basic_features[(basic_features['board'] == 0) & (basic_features['channel'] == 0)]
 heights = ch0['height']
 amps = ch0['amp']
 areas = ch0['area']
-print(f"Found {len(ch0)} events in channel 0")
+print(f"Found {len(ch0)} records in board 0, channel 0")
 ```
+
+### 转为分析表
+
+```python
+import pandas as pd
+
+df = pd.DataFrame(ctx.get_data('run_001', 'basic_features'))
+# 需要按时间分析时显式排序；record_id 与 board/channel 保留用于关联。
+df = df.sort_values('timestamp', kind='stable').reset_index(drop=True)
+```
+
+每行代表一条记录的特征；PE 标定在分析层显式进行。旧表格产物、公开导入和
+符合分组的迁移边界见[旧表格链路退役迁移](DF_RETIREMENT.md)。
 
 ### 配置管理
 
 ```python
 # 查看可用配置项
-ctx.list_plugin_configs()
-ctx.list_plugin_configs('waveforms')  # 特定插件
+ctx.show_config(view="options")
+ctx.show_config('st_waveforms')  # 特定插件
 
 # 查看当前配置
 ctx.show_config()
-ctx.show_config('waveforms')
+ctx.show_config('st_waveforms')
 
 # 设置配置（全局）
 ctx.set_config({'daq_adapter': 'vx2730', 'threshold': 50})
@@ -56,39 +69,35 @@ ctx.set_config({'daq_adapter': 'vx2730', 'threshold': 50})
 ctx.set_config({'height_range': (0, None)}, plugin_name='basic_features')
 ```
 
-### 预览执行计划
+### 依赖与缓存诊断
 
 ```python
-# 预览执行计划
-ctx.preview_execution('run_001', 'hit')
+# 拓扑顺序用于理解依赖，不表示本次需要重算的步骤
+print(ctx.resolve_dependencies('hit', run_id='run_001'))
+print(ctx.get_lineage('hit'))
 
-# 不同详细程度
-ctx.preview_execution('run_001', 'hit', verbose=0)  # 简洁
-ctx.preview_execution('run_001', 'hit', verbose=1)  # 标准
-ctx.preview_execution('run_001', 'hit', verbose=2)  # 详细
-
-# 程序化使用
-result = ctx.preview_execution('run_001', 'hit')
-needs_compute = [p for p, s in result['cache_status'].items() if s['needs_compute']]
-print(f"需要计算 {len(needs_compute)} 个插件")
+# 只检查缓存问题，不修复或删除缓存
+issues = ctx.diagnose_cache('run_001')
 ```
+
+容量、条目列表和修复使用 `waveform-cache`，详见[缓存 CLI](../cli/WAVEFORM_CACHE.md)。
 
 ### 血缘可视化
 
 ```python
 # LabVIEW 风格（Matplotlib）
-ctx.plot_lineage('df_paired', kind='labview')
+ctx.plot_lineage('basic_features', kind='labview')
 
 # 交互式模式
-ctx.plot_lineage('df_paired', kind='labview', interactive=True)
+ctx.plot_lineage('basic_features', kind='labview', interactive=True)
 
 # Plotly 高级交互式
-ctx.plot_lineage('df_paired', kind='plotly', verbose=2)
+ctx.plot_lineage('basic_features', kind='plotly', verbose=2)
 
 # 自定义样式
 from waveform_analysis.core.foundation.utils import LineageStyle
 style = LineageStyle(node_width=4.0, node_height=2.0, verbose=2)
-ctx.plot_lineage('df_paired', kind='plotly', style=style)
+ctx.plot_lineage('basic_features', kind='plotly', style=style)
 ```
 
 ### 位置二维 Dashboard
@@ -158,7 +167,7 @@ data = ctx.get_data('run_001', 'basic_features')
 # 单个数据集导出
 exporter = DataExporter()
 exporter.export(data, 'output.parquet')  # 自动检测格式
-exporter.export(data, 'output.hdf5', key='waveforms')
+exporter.export(data, 'output.hdf5', key='st_waveforms')
 exporter.export(data, 'output.csv')
 exporter.export(data, 'output.json')
 exporter.export(data, 'output.npy')
@@ -200,11 +209,14 @@ reloader.disable_auto_reload()
 from waveform_analysis import Context
 
 # 启用统计收集
-ctx = Context(stats_mode='detailed')
+ctx = Context(stats_mode='detailed', config={'data_root': 'DAQ', 'daq_adapter': 'vx2730'})
+ctx.register(*profiles.cpu_default())
 
 # 执行操作
 basic_features = ctx.get_data('run_001', 'basic_features')
-df = ctx.get_data('run_001', 'dataframe')
+# 分析层表格转换，不再请求旧表格插件。
+import pandas as pd
+df = pd.DataFrame(basic_features)
 
 # 查看性能报告
 print(ctx.get_performance_report())
@@ -273,7 +285,7 @@ python examples/streaming_plugins_demo.py
 
 ```python
 ctx.list_provided_data()
-# ['raw_files', 'waveforms', 'st_waveforms', 'basic_features', ...]
+# ['raw_files', 'st_waveforms', 'st_waveforms', 'basic_features', ...]
 ```
 
 ### Q2: 如何清除缓存？
@@ -284,17 +296,17 @@ ctx.clear_cache_for('run_001', 'basic_features')
 
 # 清除所有缓存（注意：会删除已缓存结果）
 import shutil
-shutil.rmtree('./strax_data')
+shutil.rmtree('./wa_data')
 ```
 
 ### Q3: 如何查看插件依赖关系？
 
 ```python
 # 打印依赖树
-print(ctx.resolve_dependencies('df_paired'))
+print(ctx.resolve_dependencies('basic_features'))
 
 # 可视化
-ctx.plot_lineage('df_paired', kind='labview')
+ctx.plot_lineage('basic_features', kind='labview')
 ```
 
 ### Q4: 如何调试插件执行？
@@ -304,8 +316,11 @@ ctx.plot_lineage('df_paired', kind='labview')
 import logging
 logging.basicConfig(level=logging.DEBUG)
 
-# 使用预览模式
-ctx.preview_execution('run_001', 'basic_features', verbose=2)
+# 检查配置来源、依赖和实际运行统计
+ctx.show_config('basic_features', show_source=True)
+print(ctx.resolve_dependencies('basic_features', run_id='run_001'))
+# 若需耗时报告，在 Context 初始化时启用 stats_mode='basic' 或 'detailed'
+ctx.get_performance_report()
 ```
 
 ### Q5: 数据文件找不到怎么办？

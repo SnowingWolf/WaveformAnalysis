@@ -16,18 +16,18 @@ peaks = ctx.get_data("run_001", "peaks")
 events = ctx.get_data("run_001", "events")
 ```
 
-### 执行前预览
+### 查看依赖结构
 
 ```python
-preview = ctx.preview_execution("run_001", "events")
-print(preview)
+dependencies = ctx.resolve_dependencies("events", run_id="run_001")
+print(dependencies)
 ```
 
 ### 文档默认依赖画像
 
 - Profile：`{{ default_profile_name }}`
 - 值：`{{ default_profile_values|tojson }}`
-- 动态依赖页面同时列出 `resolve_depends_on(context, run_id)` 可能读取的配置键；需要真实运行时配置时，应再次预览执行计划。
+- 动态依赖页面同时列出 `resolve_depends_on(context, run_id)` 可能读取的配置键；需要真实运行时依赖时，使用显式 `run_id` 调用 `resolve_dependencies()`；它不报告缓存命中或重算范围。
 
 ## 插件总览
 

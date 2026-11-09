@@ -1,0 +1,243 @@
+api_version: waveform-analysis/agent-task/v1
+kind: AgentTask
+metadata:
+  id: context-api-retirement-20261029
+  generation: 2
+  created_at: '2026-10-29T11:00:32Z'
+  updated_at: '2026-10-29T11:19:23Z'
+spec:
+  goal: 按用户确认精简 Context 公开缓存维护接口、摘要属性和冗余参数，修复 show_config 参数说明并同步文档系统及打包站点。
+  route: retire_compat
+  workflow_cost: strict
+  workflow_shape: staged
+  risk_level: medium
+  scope:
+    base_sha: da01eff6565e988566150462aefe1e96d3d206c1
+    allowed_paths:
+    - waveform_analysis/core/context.py
+    - waveform_analysis/core/context_cache.py
+    - waveform_analysis/core/context_config.py
+    - waveform_analysis/core/data/batch_processor.py
+    - waveform_analysis/core/data/dependency_analysis.py
+    - waveform_analysis/core/config/tests/test_config.py
+    - waveform_analysis/documentation/site_docs/catalog.py
+    - waveform_analysis/documentation/site_dist/
+    - tests/test_context_core.py
+    - tests/test_cache_optimization.py
+    - tests/contracts/test_context_api_retirement.py
+    - tests/test_site_model.py
+    - tests/test_site_guides.py
+    - docs/
+  acceptance_criteria:
+  - 移除 clear_config_cache、clear_performance_caches、profiling_summary 的公开入口并迁移所有内部调用，正常配置失效、BatchProcessor和缓存行为保持。
+  - get_lineage 只接受 data_name，analyze_dependencies 及底层 analyzer 删除未使用 run_id；show_config 保留有效
+    run_name 并移除错误弃用。
+  - 文档源码、API目录、迁移说明和真实构建的打包站点一致，相关测试和固定 gates 通过且 Reviewer 放行。
+  required_gates:
+  - compat_inventory_ready
+  - deletion_scope_confirmed
+  - doc_sync
+  - doc_anchors
+  - assess_change_impact
+  - schema_compat_check
+  - targeted_tests
+  - generate_docs
+  - docs_build
+  - reviewer
+  assignment:
+    planner_role: planner
+    executor_role: executor.config
+    reviewer_role: reviewer
+    planner: root
+    executors:
+    - 'api_executor_high: gpt-6.1-sol/high'
+    - 'docs_executor_high: gpt-6.1-sol/high'
+    reviewer: 'api_reviewer_high: gpt-6.1-sol/high; root integration and blocking review'
+  authorization:
+    source: Direct user instruction after concrete API-retirement recommendation
+    request: 指挥子 agent 进行修改, 记得对文档系统进行修改
+    decision: User has authorized the listed API changes and documentation migration; no repeat
+      approval is required.
+    scope: Two public cache-maintenance methods become private, remove profiling_summary,
+      remove _visited and unused analysis run_id parameters, restore show_config(run_name)
+      as supported.
+    agent_model: User explicitly requested gpt-6.1-sol/high for subagents.
+  scope_out:
+  - Do not remove other public APIs or add dynamic delegation/compatibility aliases.
+  - No physics plugin algorithm/dtype/version or cache identity changes.
+  - Do not edit archived task evidence or old experiment outputs.
+  - No deployment, publication or package version bump.
+  compat_inventory:
+  - legacy_form: clear_config_cache()
+    canonical_form: _clear_config_cache(); users update configuration via set_config()
+    runtime_surface: public_python_api
+    risk_level: medium
+    delete_action: Privatize and migrate callers
+    user_confirmation: Approved by latest user instruction
+  - legacy_form: clear_performance_caches()
+    canonical_form: _invalidate_planning_caches(); cache domain invalidate_planning_caches()
+    runtime_surface: public_python_api
+    risk_level: medium
+    delete_action: Privatize, rename and migrate callers
+    user_confirmation: Approved by latest user instruction
+  - legacy_form: profiling_summary
+    canonical_form: ctx.profiler.summary()
+    runtime_surface: public_python_api
+    risk_level: medium
+    delete_action: Remove convenience property
+    user_confirmation: Approved by latest user instruction
+  - legacy_form: get_lineage(data_name, _visited=...)
+    canonical_form: get_lineage(data_name); internal _get_base_lineage
+    runtime_surface: public_python_api
+    risk_level: medium
+    delete_action: Remove public recursion argument
+    user_confirmation: Approved by latest user instruction
+  - legacy_form: analyze_dependencies(..., run_id=...) and DependencyAnalyzer.analyze(...,
+      run_id=...)
+    canonical_form: same methods without unused run_id
+    runtime_surface: public_python_api
+    risk_level: medium
+    delete_action: Remove unused parameter
+    user_confirmation: Approved by latest user instruction
+  - legacy_form: show_config(run_name) deprecation and nonexistent run_id example
+    canonical_form: show_config(run_name=...) remains supported
+    runtime_surface: public_python_api
+    risk_level: medium
+    delete_action: Remove erroneous warning and repair docstrings/examples
+    user_confirmation: Approved by latest user instruction
+  execution_policy:
+    python: /home/wxy/anaconda3/envs/pyroot-kernel/bin/python
+    docs: Fresh external build workspace, stage validated package export; preserve old build
+      evidence.
+    commit: Root only, scoped after independent review and required gates.
+status:
+  state: completed
+  transitions:
+  - from: created
+    to: planning
+    at: '2026-10-29T11:00:33Z'
+    actor: planner
+  - from: planning
+    to: ready_for_execution
+    at: '2026-10-29T11:00:54Z'
+    actor: planner
+  - from: ready_for_execution
+    to: executing
+    at: '2026-10-29T11:00:54Z'
+    actor: executor.config
+  - from: executing
+    to: reviewing
+    at: '2026-10-29T11:02:48Z'
+    actor: executor.config
+  - from: reviewing
+    to: rework_required
+    at: '2026-10-29T11:02:48Z'
+    actor: reviewer
+  - from: rework_required
+    to: planning
+    at: '2026-10-29T11:02:48Z'
+    actor: planner
+    scope_changed: true
+  - from: planning
+    to: ready_for_execution
+    at: '2026-10-29T11:02:48Z'
+    actor: planner
+  - from: ready_for_execution
+    to: executing
+    at: '2026-10-29T11:02:49Z'
+    actor: executor.config
+  - from: executing
+    to: reviewing
+    at: '2026-10-29T11:16:54Z'
+    actor: executor.config
+  - from: reviewing
+    to: completed
+    at: '2026-10-29T11:17:54Z'
+    actor: reviewer
+  plan_sha256: 24d629c34fa9db9b5f710d0411026a26f69b032a525cdc2b672cf180c4598ded
+  execution:
+    summary: Privatized two Context cache maintenance methods, removed profiling_summary and
+      unused public parameters, retained supported show_config(run_name), migrated callers
+      and documentation including validated packaged static site.
+    runtime: /home/wxy/anaconda3/envs/pyroot-kernel/bin/python
+    commands_run:
+    - command: python -m pytest -q -o addopts= --no-cov tests/contracts/test_context_api_retirement.py
+        tests/test_context_core.py tests/test_cache_optimization.py waveform_analysis/core/config/tests/test_config.py
+        tests/test_batch_processor_config.py tests/test_batch_processor_readonly.py tests/test_context_simplification.py
+        tests/test_context_plugin_domain.py tests/test_run_config_cache_invalidation.py
+      result: 'PASS: 195 tests; /tmp/context-api-retirement-pytest.log'
+    - command: python -m pytest -q -o addopts= --no-cov tests/test_site_model.py tests/test_site_guides.py
+      result: 'PASS: 31 tests; /tmp/context-api-retirement-doc-tests.log'
+    - command: HEAD/current Context entrypoint comparison of cold/warm lineage and cache keys,
+        adapters None/v1725 and thresholds 2/5
+      result: 'PASS: all 4 matched configurations; shared unchanged lineage/cache implementations.
+        /tmp/context-api-retirement-lineage-comparison.log'
+    - command: python -m waveform_analysis.documentation.cli generate plugins-auto -o docs/plugins/reference/builtin/auto/
+      result: 'PASS: /tmp/context-api-retirement-plugin-auto.log; stale console entrypoint
+        replaced by canonical module invocation'
+    - command: python -m waveform_analysis.documentation.cli generate plugins-agent -o docs/plugins/reference/agent/
+      result: 'PASS: /tmp/context-api-retirement-plugin-agent.log'
+    - command: python scripts/assess_change_impact.py --base HEAD
+      result: 'PASS: no plugin contract changes; /tmp/context-api-retirement-impact.log'
+    - command: python scripts/schema_compat_check.py --base HEAD --run-smoke
+      result: 'PASS: zero dtype changes; smoke raw_files=2, st_waveforms=24, hit=0, df=24,
+        events=12; /tmp/context-api-retirement-schema.log'
+    - command: WAVEFORM_PYTHON=<runtime> scripts/check_doc_sync.sh
+      result: 'PASS: manifest and doc anchors, 29 anchors, zero errors/warnings; /tmp/context-api-retirement-doc-sync.log'
+    - command: python scripts/docs_build.py build --workspace /mnt/data/Run3/WaveformAnalysis
+        --run-id context-api-retirement-20261029-01 --stage-output
+      result: 'PASS: fresh external npm ci, check and build all exit 0; validated packaged
+        export staged in worktree.'
+    - command: Inspect build report/log/model and staged contexts/context/index.html; compare
+        model objects and API members/parameters
+      result: 'PASS: retired members absent from API directory, obsolete parameters removed,
+        run_name retained, migration text present. No full-site hash scan.'
+    - command: python -m ruff check <changed Python files>; git diff --check; python scripts/change_scope.py
+        report --task <task> --base HEAD
+      result: 'PASS: no lint/whitespace issues and no out-of-scope dirty paths.'
+    build_report: /tmp/waveform-doc-build/runs/context-api-retirement-20261029-01/report.json
+    open_risks:
+    - 'Intentional public API removal: external callers must follow documented migration;
+      no compatibility aliases.'
+    - No physics plugin, dtype or cache identity changes; no performance speedup claim.
+    - Generated baseline also refreshes three stale entries from already-committed source;
+      previous evidence and archive files preserved.
+    requested_review_focus:
+    - Public API removal and caller migration
+    - Automatic config invalidation and BatchProcessor branches
+    - Documentation catalog, migration, baseline/fixture and packaged static export
+    - Required gate evidence
+  review:
+    reviewer: api_reviewer_high (gpt-6.1-sol/high), root integration review
+    decision: approved
+    plan_sha256: 24d629c34fa9db9b5f710d0411026a26f69b032a525cdc2b672cf180c4598ded
+    gate_results:
+      compat_inventory_ready: PASS
+      deletion_scope_confirmed: PASS
+      doc_sync: PASS
+      doc_anchors: PASS
+      assess_change_impact: PASS
+      schema_compat_check: PASS
+      targeted_tests: PASS
+      generate_docs: PASS
+      docs_build: PASS
+      reviewer: PASS
+    blocking_findings: []
+    assessment: Independent reviewer approved code/caller migration, 226 passing tests, 4
+      matched lineage/cache-key configurations, fixed gates and real external documentation
+      build. Built/staged/fixture Context models agree; generated HTML includes migration
+      guidance. Root inspected combined changes and scoped paths.
+    residual_risks:
+    - Authorized public API removal requires external callers to migrate; no compatibility
+      aliases.
+    - Existing test warnings are not introduced by this change.
+    - Existing BatchProcessor max_workers=1 context_factory behavior remains outside this
+      task; factory regression uses parallel execution.
+  approval: {}
+  handoff:
+    commit_status: committed
+    commit_hash: 352051b9cb48f55b1721ae2c7bc51891eed5fdf0
+    summary: Reviewed Context API retirement and documentation export committed after 226
+      passing tests and required gates. All commit hooks passed. git status --short and git
+      diff --stat clean immediately after implementation commit; this scoped closure records
+      the handoff.

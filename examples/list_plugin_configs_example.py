@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 """
-示例：使用 list_plugin_configs() 查看插件配置
+示例：使用 show_config(view="options") 查看插件配置
 
-这个示例展示了如何使用 Context.list_plugin_configs() 方法来：
+这个示例展示了如何使用 Context.show_config(view="options") 方法来：
 1. 查看所有插件的配置选项
 2. 查看特定插件的配置
 3. 以编程方式获取配置信息
@@ -15,7 +15,7 @@ from waveform_analysis.plugins import WaveformsPlugin
 
 def main():
     # 创建 Context 并注册插件
-    ctx = Context(storage_dir="./strax_data")
+    ctx = Context(storage_dir="./wa_data")
     ctx.register(
         RawFilesPlugin(),
         WaveformsPlugin(),
@@ -25,7 +25,7 @@ def main():
     print("=" * 80)
     print("示例 1: 列出所有插件的配置选项")
     print("=" * 80)
-    ctx.list_plugin_configs()
+    ctx.show_config(view="options")
 
     # 示例 2: 设置配置后查看变化
     print("\n" + "=" * 80)
@@ -37,20 +37,20 @@ def main():
             "data_root": "custom_DAQ",
         }
     )
-    ctx.set_config({"channel_executor": "process"}, plugin_name="waveforms")
-    ctx.list_plugin_configs()
+    ctx.set_config({"channel_executor": "process"}, plugin_name="st_waveforms")
+    ctx.show_config(view="options")
 
     # 示例 3: 只查看特定插件
     print("\n" + "=" * 80)
     print("示例 3: 只查看特定插件的配置")
     print("=" * 80)
-    ctx.list_plugin_configs(plugin_name="waveforms")
+    ctx.show_config("st_waveforms")
 
     # 示例 4: 以编程方式获取配置信息
     print("\n" + "=" * 80)
     print("示例 4: 以编程方式获取配置信息")
     print("=" * 80)
-    config_info = ctx.list_plugin_configs(verbose=False)
+    config_info = ctx.show_config(view="options", output="dict")
 
     print("获取到的配置信息（字典格式）：")
     for plugin_name, info in config_info.items():

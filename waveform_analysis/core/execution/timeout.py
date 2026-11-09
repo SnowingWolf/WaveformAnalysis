@@ -1,17 +1,15 @@
 """
-超时管理模块 - 为plugin执行提供超时控制
+独立函数超时工具，不接入 Context 的 Plugin.timeout。
 
-防止plugin长时间挂起,支持:
-- 跨平台超时控制(Unix signal + threading Timer)
-- Graceful cleanup
-- 自定义超时回调
-- 超时事件日志记录
+Unix 使用主线程 signal；Windows 函数调用使用线程软等待，超时后后台线程仍可运行。
+timeout_context 仅在 Unix 主线程实施超时；Windows 上不实施超时。
 """
 
 from collections.abc import Callable
 from contextlib import contextmanager
 import logging
 import platform
+import threading
 import time
 from typing import Any
 import warnings
@@ -31,7 +29,9 @@ export, __all__ = exporter()
 @export
 class TimeoutManager:
     """
-    超时管理器,提供跨平台的超时控制
+    独立超时管理器：Unix 仅支持主线程；Windows 函数超时不会终止工作线程。
+
+    timeout_context 在 Windows 上不实施超时。此工具不用于 Context 插件执行。
 
     使用示例:
         manager = TimeoutManager()
@@ -48,7 +48,7 @@ class TimeoutManager:
         根据当前平台（Unix/Windows）选择合适的超时实现机制。
 
         初始化内容:
-        - 检测操作系统类型（Unix 使用 signal，Windows 使用 threading.Timer）
+        - 检测操作系统类型（Unix 使用 signal，Windows 函数调用使用 threading.Thread）
         - 初始化超时统计字典（记录超时事件）
 
         Attributes:
@@ -73,6 +73,7 @@ class TimeoutManager:
 
         Raises:
             PluginTimeoutError: 函数执行超时
+            NotImplementedError: Unix 工作线程请求正超时
         """
         if timeout is None or timeout <= 0:
             # No timeout
@@ -86,6 +87,9 @@ class TimeoutManager:
     def _run_with_signal(self, func: Callable, timeout: float, *args, **kwargs) -> Any:
         """Unix平台:使用signal.alarm实现超时(效率更高)"""
         import signal
+
+        if threading.current_thread() is not threading.main_thread():
+            raise NotImplementedError("Unix signal timeouts require the main thread.")
 
         def timeout_handler(signum, frame):
             raise PluginTimeoutError(f"Function timed out after {timeout} seconds")
@@ -109,9 +113,7 @@ class TimeoutManager:
             signal.signal(signal.SIGALRM, old_handler)  # Restore handler
 
     def _run_with_threading(self, func: Callable, timeout: float, *args, **kwargs) -> Any:
-        """跨平台:使用threading实现超时(兼容Windows)"""
-        import threading
-
+        """使用线程软等待；超时后函数仍可在后台运行，不能强制终止。"""
         result = [None]
         exception = [None]
 
@@ -149,7 +151,9 @@ class TimeoutManager:
     @contextmanager
     def timeout_context(self, timeout: float | None, name: str = "operation"):
         """
-        Context manager for timeout control
+        Unix 主线程的超时上下文；Windows 上不实施超时。
+
+        Unix 工作线程请求正超时时，在进入 body 前抛出 NotImplementedError。
 
         使用示例:
             with manager.timeout_context(10.0, "plugin_compute"):
@@ -159,18 +163,21 @@ class TimeoutManager:
             yield
             return
 
-        start_time = time.time()
+        if self.is_unix:
+            import signal
 
+            if threading.current_thread() is not threading.main_thread():
+                raise NotImplementedError("Unix signal timeouts require the main thread.")
+
+            def timeout_handler(signum, frame):
+                raise PluginTimeoutError(f"{name} timed out after {timeout} seconds")
+
+            old_handler = signal.signal(signal.SIGALRM, timeout_handler)
+
+        start_time = time.time()
         try:
             if self.is_unix:
-                import signal
-
-                def timeout_handler(signum, frame):
-                    raise PluginTimeoutError(f"{name} timed out after {timeout} seconds")
-
-                old_handler = signal.signal(signal.SIGALRM, timeout_handler)
                 signal.alarm(int(timeout) + 1)
-
             yield
 
             if self.is_unix:
@@ -224,6 +231,8 @@ def get_timeout_manager() -> TimeoutManager:
 def with_timeout(timeout: float | None = None):
     """
     装饰器:为函数添加超时控制
+
+    Unix 仅支持主线程；Windows 超时后函数的后台线程仍可运行。
 
     使用示例:
         @with_timeout(timeout=10.0)

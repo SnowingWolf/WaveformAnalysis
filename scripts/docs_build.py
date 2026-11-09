@@ -15,8 +15,6 @@ import sys
 import tempfile
 import time
 
-sys.dont_write_bytecode = True
-
 EXCLUDED = {
     ".git",
     "node_modules",
@@ -173,6 +171,8 @@ def build(
                 record["error"] = str(exc)
                 raise
 
+        previous_dont_write_bytecode = sys.dont_write_bytecode
+        sys.dont_write_bytecode = True
         try:
             # Numba's cache=True decorators may write during import even when
             # Python bytecode is disabled. Override inherited in-tree locations.
@@ -237,6 +237,7 @@ def build(
             report.update(status="failed", error=f"{type(exc).__name__}: {exc}")
             log.write(report["error"] + "\n")
         finally:
+            sys.dont_write_bytecode = previous_dont_write_bytecode
             report["elapsed_seconds"] = round(time.monotonic() - started, 3)
             (run / "report.json").write_text(
                 json.dumps(report, indent=2, ensure_ascii=False) + "\n"

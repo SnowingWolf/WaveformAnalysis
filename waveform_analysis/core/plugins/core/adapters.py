@@ -418,7 +418,7 @@ def wrap_strax_plugin(strax_plugin_class: type) -> Plugin:
 
 
 @export
-def create_strax_context(storage_dir: str = "./strax_data", **kwargs) -> StraxContextAdapter:
+def create_strax_context(storage_dir: str = "./wa_data", **kwargs) -> StraxContextAdapter:
     """
     创建strax兼容的Context
 

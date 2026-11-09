@@ -1,0 +1,393 @@
+api_version: waveform-analysis/agent-task/v1
+kind: AgentTask
+metadata:
+  id: execution-correctness-20261030
+  generation: 2
+  created_at: '2026-10-30T03:16:49Z'
+  updated_at: '2026-10-30T03:35:44Z'
+spec:
+  goal: 最小修复批处理扫参、热重载、执行器关闭与空输入、超时支持边界，并同步文档系统。
+  route: modify_code
+  workflow_cost: strict
+  workflow_shape: staged
+  risk_level: medium
+  scope:
+    base_sha: 4b45a562064f550a6ebbe8d4836e68dbfc42e843
+    allowed_paths:
+    - waveform_analysis/core/data/batch_processor.py
+    - waveform_analysis/core/execution/manager.py
+    - waveform_analysis/core/execution/timeout.py
+    - waveform_analysis/core/plugins/core/hot_reload.py
+    - waveform_analysis/core/plugins/core/base.py
+    - waveform_analysis/core/context_execution.py
+    - waveform_analysis/core/context.py
+    - tests/test_batch_processor_config.py
+    - tests/test_batch_processor_runtime.py
+    - tests/test_batch_processor_readonly.py
+    - tests/test_executor_lifecycle.py
+    - tests/test_plugin_hot_reload.py
+    - tests/plugins/test_plugin_timeout.py
+    - tests/contracts/test_execution_correctness.py
+    - docs/features/context/BATCH_PROCESSOR.md
+    - docs/architecture/ARCHITECTURE.md
+    - docs/development/plugin-development/PLUGIN_SPEC_GUIDE.md
+    - docs/features/plugin/PLUGIN_GUIDE.md
+    - docs/plugins/PLUGIN_SYSTEM_OVERVIEW.md
+    - docs/agents/runs/current/execution-correctness-20261030/
+    - docs/agents/plans/
+    - docs/plugins/reference/
+    - docs/site-content-baseline.json
+    - docs/site-next/fixture/site-model.v1.json
+    - waveform_analysis/documentation/site_docs/catalog.py
+    - waveform_analysis/documentation/site_dist/
+    - tests/test_site_model.py
+    - tests/test_site_guides.py
+    - docs/features/context/CONFIGURATION.md
+    - docs/architecture/PLUGIN_DAG_LINEAGE_CACHE.md
+  acceptance_criteria:
+  - Configuration grids apply values with one worker and thread/process workers, preserve
+    selected storage strategy and readonly semantics; real process factories serialize.
+  - Hot reload registers the newly loaded class and acknowledges only successful updates.
+  - Executor release/shutdown performs blocking shutdown outside registry lock; parallel
+    map/apply return [] for empty inputs without creating pools.
+  - Non-None plugin.timeout raises explicit unsupported error before compute; Unix
+    standalone timeout rejects worker threads clearly, with no masking cleanup error.
+  - Focused behavioral regressions, required gates, updated documentation and isolated
+    packaged site build pass; independent Reviewer approves before scoped commit.
+  - Hot reload explicitly rejects script-entry module identities before executing
+    source; timeout/cache support boundaries are documented in all source-linked guides.
+  required_gates:
+  - targeted_tests
+  - assess_change_impact
+  - schema_compat_check
+  - doc_sync
+  - doc_anchors
+  - generate_docs
+  - docs_build
+  - reviewer
+  assignment:
+    planner_role: planner
+    executor_role: executor.code
+    reviewer_role: reviewer
+    planner: root
+    executors:
+    - 'batch_fix: gpt-6.1-sol/high'
+    - 'reload_fix: gpt-6.1-sol/high'
+    - 'executor_fix: gpt-6.1-sol/high'
+    - 'timeout_fix: gpt-6.1-sol/high'
+    - 'docs_fix: gpt-6.1-sol/high'
+    reviewer: 'correctness_review: gpt-6.1-sol/high; root integration blocking review'
+  authorization:
+    source: Direct user request after discussion of minimal fixes
+    request: 上面的问题指挥子 6.1sol high 子agent 修复
+    decision: Implement reviewed bug fixes and limited timeout support, using gpt-6.1-sol/high
+      subagents; no per-plugin process isolation.
+  scope_out:
+  - No broad unification of batch APIs or executor framework rewrite.
+  - No numerical algorithm, dtype, physical plugin versions or lineage identity changes.
+  - No force-killing threads, no new external dependency, no deployment/publication.
+  - Preserve archived records, prior reproduction evidence and unrelated changes.
+  execution_policy:
+    python: /home/wxy/anaconda3/envs/pyroot-kernel/bin/python
+    evidence: Fresh directory /tmp/wa-execution-correctness-20261030-01; original
+      reproduction directory retained.
+    commit: Root only after independent review and gates.
+    docs: Fresh external docs build with staged package export.
+status:
+  state: completed
+  transitions:
+  - from: created
+    to: planning
+    at: '2026-10-30T03:16:49Z'
+    actor: planner
+  - from: planning
+    to: ready_for_execution
+    at: '2026-10-30T03:16:49Z'
+    actor: planner
+  - from: ready_for_execution
+    to: executing
+    at: '2026-10-30T03:16:50Z'
+    actor: executor.code
+  - from: executing
+    to: reviewing
+    at: '2026-10-30T03:25:35Z'
+    actor: executor.code
+  - from: reviewing
+    to: rework_required
+    at: '2026-10-30T03:25:35Z'
+    actor: reviewer
+  - from: rework_required
+    to: planning
+    at: '2026-10-30T03:25:36Z'
+    actor: planner
+    scope_changed: true
+  - from: planning
+    to: ready_for_execution
+    at: '2026-10-30T03:25:36Z'
+    actor: planner
+  - from: ready_for_execution
+    to: executing
+    at: '2026-10-30T03:25:36Z'
+    actor: executor.code
+  - from: executing
+    to: reviewing
+    at: '2026-10-30T03:32:32Z'
+    actor: executor.code
+  - from: reviewing
+    to: completed
+    at: '2026-10-30T03:34:26Z'
+    actor: reviewer
+  plan_sha256: 6d340241b5220ba65657091c65f468826d4fd4b59145e8dc4543ced333a88152
+  execution:
+    summary: Corrected configuration grids and serial factory use, real process serialization
+      and readonly forwarding; hot reload uses fresh source/class with explicit importable-module
+      boundary; executor shutdown waits outside registry lock and empty map/apply
+      skip pools; Context explicitly rejects unsupported plugin.timeout and Unix standalone
+      signal timeouts reject workers. Updated six source guides, API catalog, fixture/baseline
+      and validated packaged site.
+    runtime: /home/wxy/anaconda3/envs/pyroot-kernel/bin/python
+    changed_paths:
+    - docs/agents/plans/INDEX.md
+    - docs/agents/plans/active.yaml
+    - docs/agents/runs/current/execution-correctness-20261030/task.yaml
+    - docs/architecture/ARCHITECTURE.md
+    - docs/architecture/PLUGIN_DAG_LINEAGE_CACHE.md
+    - docs/development/plugin-development/PLUGIN_SPEC_GUIDE.md
+    - docs/features/context/BATCH_PROCESSOR.md
+    - docs/features/context/CONFIGURATION.md
+    - docs/plugins/PLUGIN_SYSTEM_OVERVIEW.md
+    - docs/site-content-baseline.json
+    - docs/site-next/fixture/site-model.v1.json
+    - tests/contracts/test_execution_correctness.py
+    - tests/plugins/test_plugin_timeout.py
+    - tests/test_batch_processor_config.py
+    - tests/test_batch_processor_readonly.py
+    - tests/test_batch_processor_runtime.py
+    - tests/test_executor_lifecycle.py
+    - tests/test_plugin_hot_reload.py
+    - tests/test_site_model.py
+    - waveform_analysis/core/context.py
+    - waveform_analysis/core/context_execution.py
+    - waveform_analysis/core/data/batch_processor.py
+    - waveform_analysis/core/execution/manager.py
+    - waveform_analysis/core/execution/timeout.py
+    - waveform_analysis/core/plugins/core/base.py
+    - waveform_analysis/core/plugins/core/hot_reload.py
+    - waveform_analysis/documentation/site_dist/404.html
+    - waveform_analysis/documentation/site_dist/404/index.html
+    - waveform_analysis/documentation/site_dist/_not-found/index.html
+    - waveform_analysis/documentation/site_dist/accessors/index.html
+    - waveform_analysis/documentation/site_dist/accessors/peak-channel-accessor/index.html
+    - waveform_analysis/documentation/site_dist/accessors/records-view/index.html
+    - waveform_analysis/documentation/site_dist/accessors/s1-s2-pair-accessor/index.html
+    - waveform_analysis/documentation/site_dist/adapters/adapter/index.html
+    - waveform_analysis/documentation/site_dist/adapters/index.html
+    - waveform_analysis/documentation/site_dist/architecture/PROJECT_STRUCTURE/index.html
+    - waveform_analysis/documentation/site_dist/architecture/accessor-analysis/index.html
+    - waveform_analysis/documentation/site_dist/architecture/data-products/index.html
+    - waveform_analysis/documentation/site_dist/architecture/index.html
+    - waveform_analysis/documentation/site_dist/architecture/plugin-cache-architecture/index.html
+    - waveform_analysis/documentation/site_dist/architecture/plugin-dag-lineage-cache/index.html
+    - waveform_analysis/documentation/site_dist/architecture/system/index.html
+    - waveform_analysis/documentation/site_dist/cli/WAVEFORM_CACHE/index.html
+    - waveform_analysis/documentation/site_dist/cli/WAVEFORM_DOCS/index.html
+    - waveform_analysis/documentation/site_dist/cli/WAVEFORM_PROCESS/index.html
+    - waveform_analysis/documentation/site_dist/cli/index.html
+    - waveform_analysis/documentation/site_dist/contexts/context/index.html
+    - waveform_analysis/documentation/site_dist/contexts/index.html
+    - waveform_analysis/documentation/site_dist/development/CONTRACT_TESTS/index.html
+    - waveform_analysis/documentation/site_dist/development/contributing/COMMIT_CONVENTION/index.html
+    - waveform_analysis/documentation/site_dist/development/contributing/DOC_ANCHOR_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/development/contributing/IMPORT_STYLE_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/development/index.html
+    - waveform_analysis/documentation/site_dist/development/plugin-development/PLUGIN_SCAFFOLD/index.html
+    - waveform_analysis/documentation/site_dist/development/plugin-development/PLUGIN_SPEC_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/development/plugin-development/plugin_guide/index.html
+    - waveform_analysis/documentation/site_dist/development/worktrees/index.html
+    - waveform_analysis/documentation/site_dist/features/advanced/PROGRESS_TRACKING_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/context/ABSOLUTE_TIME_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/context/BATCH_PROCESSOR/index.html
+    - waveform_analysis/documentation/site_dist/features/context/CONFIGURATION/index.html
+    - waveform_analysis/documentation/site_dist/features/context/DEPENDENCY_ANALYSIS_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/context/LINEAGE_VISUALIZATION_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/index.html
+    - waveform_analysis/documentation/site_dist/features/utils/ADAPTIVE_2D_SAMPLING_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/utils/DAQ_ANALYZER_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/utils/PDF_EXPORT_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/visualizations/POSITION_DASHBOARD_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/index.html
+    - waveform_analysis/documentation/site_dist/lineage/index.html
+    - waveform_analysis/documentation/site_dist/plugins/basic_features/index.html
+    - waveform_analysis/documentation/site_dist/plugins/cache_analysis/index.html
+    - waveform_analysis/documentation/site_dist/plugins/df/index.html
+    - waveform_analysis/documentation/site_dist/plugins/df_events/index.html
+    - waveform_analysis/documentation/site_dist/plugins/df_paired/index.html
+    - waveform_analysis/documentation/site_dist/plugins/energy_reconstruction/index.html
+    - waveform_analysis/documentation/site_dist/plugins/events/index.html
+    - waveform_analysis/documentation/site_dist/plugins/filtered_waveforms/index.html
+    - waveform_analysis/documentation/site_dist/plugins/guides/STREAMING_PLUGINS_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_grouped/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_merge_clusters/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_merged/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_merged_components/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_merged_features/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_threshold/index.html
+    - waveform_analysis/documentation/site_dist/plugins/index.html
+    - waveform_analysis/documentation/site_dist/plugins/overview/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peak_classification/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_channels/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_components/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_features/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_waveform_pool/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_waveforms/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklets/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaks/index.html
+    - waveform_analysis/documentation/site_dist/plugins/position_reconstruction/index.html
+    - waveform_analysis/documentation/site_dist/plugins/raw_files/index.html
+    - waveform_analysis/documentation/site_dist/plugins/records/index.html
+    - waveform_analysis/documentation/site_dist/plugins/records_asymmetry_mask/index.html
+    - waveform_analysis/documentation/site_dist/plugins/records_detector_mask/index.html
+    - waveform_analysis/documentation/site_dist/plugins/records_veto_mask/index.html
+    - waveform_analysis/documentation/site_dist/plugins/reference/ADAPTER_PLUGIN_BEHAVIOR/index.html
+    - waveform_analysis/documentation/site_dist/plugins/reference/ADAPTER_SYSTEM_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/plugins/s1_s2_pair_candidates/index.html
+    - waveform_analysis/documentation/site_dist/plugins/s1_s2_pairs/index.html
+    - waveform_analysis/documentation/site_dist/plugins/st_waveforms/index.html
+    - waveform_analysis/documentation/site_dist/plugins/wave_pool/index.html
+    - waveform_analysis/documentation/site_dist/plugins/wave_pool_filtered/index.html
+    - waveform_analysis/documentation/site_dist/plugins/waveform_width/index.html
+    - waveform_analysis/documentation/site_dist/plugins/waveform_width_integral/index.html
+    - waveform_analysis/documentation/site_dist/search-index.v1.json
+    - waveform_analysis/documentation/site_dist/site-manifest.json
+    - waveform_analysis/documentation/site_dist/site-model.v1.json
+    - waveform_analysis/documentation/site_dist/user-guide/EXAMPLES_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/user-guide/QUICKSTART_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/user-guide/docs-build/index.html
+    - waveform_analysis/documentation/site_dist/user-guide/index.html
+    - waveform_analysis/documentation/site_dist/visualizations/index.html
+    - waveform_analysis/documentation/site_dist/visualizations/position-dashboard/index.html
+    - waveform_analysis/documentation/site_dist/visualizations/statistical-plots/index.html
+    - waveform_analysis/documentation/site_dist/visualizations/waveform-plots/index.html
+    - waveform_analysis/documentation/site_docs/catalog.py
+    commands_run:
+    - command: Each executor added behavioral regressions before implementation and
+        ran them against HEAD
+      result: 'Reproduced baseline failures: batch 22, timeout 10, executor 25, reload
+        original tests 6. Retained per-agent HEAD logs.'
+    - command: python -m pytest -q -o addopts= --no-cov <18 related batch/executor/reload/timeout/Context/cache/streaming/load-balancer
+        test files>
+      result: 'PASS: 273 tests, 33 existing fork/soft-thread-timeout warnings; integration-tests.log'
+    - command: python -m pytest -q -o addopts= --no-cov tests/test_site_model.py tests/test_site_guides.py
+        tests/test_plugin_documentation.py
+      result: 'PASS: 51 tests; one local socket test skipped in sandbox, subsequently
+        executed separately; docs-targeted-tests-final.log'
+    - command: python -m pytest -q -o addopts= --no-cov tests/test_plugin_documentation.py::test_dynamic_lineage_endpoint_serves_context_payload
+        (outside sandbox)
+      result: 'PASS: 1 test, 0.56s; docs-loopback-test.log. Total unique passing tests
+        325.'
+    - command: python -m waveform_analysis.documentation.cli generate plugins-auto
+        -o docs/plugins/reference/builtin/auto/
+      result: 'PASS: plugins-auto.log; no generated reference diff'
+    - command: python -m waveform_analysis.documentation.cli generate plugins-agent
+        -o docs/plugins/reference/agent/
+      result: 'PASS: plugins-agent.log; no generated reference diff'
+    - command: python scripts/assess_change_impact.py --base HEAD
+      result: 'PASS: no plugin contract/version risk; impact.log'
+    - command: python scripts/schema_compat_check.py --base HEAD --run-smoke
+      result: 'PASS: zero dtype changes; raw_files=2 st_waveforms=24 hit=0 df=24 events=12;
+        schema.log'
+    - command: WAVEFORM_PYTHON=<runtime> scripts/check_doc_sync.sh --task docs/agents/runs/current/execution-correctness-20261030/task.yaml
+      result: 'PASS: 7 scoped DOC anchors, zero errors/warnings; docs-sync-final.log'
+    - command: python scripts/render_agent_docs.py --check; python scripts/agent_workflow.py
+        validate execution-correctness-20261030 --strict
+      result: 'PASS: generated navigation and generation2 task manifest.'
+    - command: python scripts/docs_build.py build --workspace /mnt/data/Run3/WaveformAnalysis
+        --run-id execution-correctness-20261030-01 --stage-output
+      result: 'Initial sandbox build failed after successful npm ci/check/compile:
+        Next captured an empty TypeScript --showConfig result despite child exit0.
+        Failed run retained.'
+    - command: Compare Next runTypeScriptCli --showConfig in same app inside/outside
+        sandbox
+      result: Sandbox stdout0 bytes versus outside 3071 bytes, valid JSON only outside;
+        build-environment-diagnosis.json. No source workaround introduced.
+    - command: python scripts/docs_build.py build --workspace /mnt/data/Run3/WaveformAnalysis
+        --run-id execution-correctness-20261030-02 --stage-output (outside sandbox)
+      result: 'PASS: all three npm commands exit0; actual static export validated
+        and packaged, 58.5s. External report retained.'
+    - command: Inspect build report/log/model and six targeted packaged HTML pages;
+        compare model objects and Context fixture
+      result: 'PASS: artifact-review.json; source-supported timeout, factory, readonly
+        and hotreload boundaries visible. No full-site hash scan.'
+    - command: Black --check <each changed Python file individually>; Ruff check assigned
+        files; git diff --check; scoped change report
+      result: PASS. Multiple-file Black workers stalled inside sandbox; agents terminated
+        them and used single-file checks. No unrelated dirty paths; scope-final.json.
+    - command: Commit hooks (Ruff, Black25, whitespace, YAML, size); focused hot-reload
+        regression after automatic test formatting
+      result: Black25 reformatted only test string-call parentheses versus executor
+        Black26; root reviewed formatting-only diff, 13 affected tests pass; reload-post-hook-tests.log.
+        Restaged and reran hooks.
+    evidence_directory: /tmp/wa-execution-correctness-20261030-01
+    build_report: /tmp/waveform-doc-build/runs/execution-correctness-20261030-02/report.json
+    implementation_size:
+      insertions: 145
+      deletions: 86
+      net: 59
+      files: 7
+    open_risks:
+    - Non-None Plugin.timeout is now an explicit unsupported error at compute entry;
+      cache hits remain readable and upstream tasks may already have executed.
+    - Unix standalone integer-second/nested signal behavior was not redesigned; Windows
+      retains existing soft wait semantics and was not tested natively.
+    - Hot reload requires importable module classes; main-entry sources are rejected,
+      and external top-level side effects or old references are not rolled back.
+    - Manual executor release by name retains its existing identity limitation after
+      forced replacement; context-manager release protects actual instance identity.
+    - No numerical plugin algorithm, output dtype or cache-identity changes; no new
+      per-plugin process-isolation mechanism.
+    requested_review_focus:
+    - Minimal implementation and real process/serial/readonly behavior
+    - Hot reload source acknowledgement and rejection of script entrypoints
+    - Lock lifecycle, same-name replacement and empty inputs
+    - Explicit timeout boundaries, source guides and static output
+    - Final gate evidence and generation2 plan binding
+  review:
+    reviewer: correctness_review (gpt-6.1-sol/high), root integration review
+    decision: approved
+    plan_sha256: 6d340241b5220ba65657091c65f468826d4fd4b59145e8dc4543ced333a88152
+    gate_results:
+      targeted_tests: PASS
+      assess_change_impact: PASS
+      schema_compat_check: PASS
+      doc_sync: PASS
+      doc_anchors: PASS
+      generate_docs: PASS
+      docs_build: PASS
+      reviewer: PASS
+    blocking_findings: []
+    assessment: Independent reviewer inspected four minimal production fixes, real
+      process and readonly regressions, script-entry guard rework, 325 passing tests,
+      impact/schema/doc gates, and actual external run02 build. Packaged model/build/Context
+      fixture and six inspected HTML pages agree. Scope has no unrelated changes.
+      Initial sandbox build failure was diagnosed and resolved without a source workaround.
+    residual_risks:
+    - Non-None Plugin.timeout is now an explicit unsupported error at compute entry;
+      cache hits remain readable and upstream tasks may already have executed.
+    - Unix standalone integer-second/nested signal behavior was not redesigned; Windows
+      retains existing soft wait semantics and was not tested natively.
+    - Hot reload requires importable module classes; main-entry sources are rejected,
+      and external top-level side effects or old references are not rolled back.
+    - Manual executor release by name retains its existing identity limitation after
+      forced replacement; context-manager release protects actual instance identity.
+    - No numerical plugin algorithm, output dtype or cache-identity changes; no new
+      per-plugin process-isolation mechanism.
+  approval: {}
+  handoff:
+    commit_status: committed
+    commit_hash: e89a3c6a663a518bffe245defd43f4440afafc62
+    summary: Four minimal execution/reload fixes, tests, six source guides and validated
+      packaged export committed after independent approval, 325 unique passing tests
+      and required gates. All commit hooks passed; git status --short and git diff
+      --stat were clean after implementation commit. This scoped closure records final
+      handoff.

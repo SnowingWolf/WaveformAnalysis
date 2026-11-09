@@ -24,7 +24,6 @@ plot_lineage_labview(lineage_dict, "target_data", context=ctx, verbose=2, intera
 - ✅ 智能颜色高亮（自动识别节点类型）
 - ✅ 鼠标悬停显示详细信息
 - ✅ 点击节点显示上游依赖
-- ✅ 支持依赖分析高亮（关键路径、瓶颈节点、并行组）
 
 ## 2. Plotly 高级交互式可视化 (`plot_lineage_plotly`)
 
@@ -36,7 +35,7 @@ from waveform_analysis.utils.visualization import plot_lineage_plotly
 plot_lineage_plotly(lineage_dict, "target_data", context=ctx, verbose=2)
 
 # 通过 Context 调用（推荐）
-ctx.plot_lineage("df_paired", kind="plotly", verbose=2)
+ctx.plot_lineage("peaks", kind="plotly", verbose=2)
 ```
 
 ### 特性
@@ -88,26 +87,6 @@ plot_lineage_labview(
     context=ctx,
     style=style,
     interactive=True
-)
-```
-
-## 依赖分析集成
-
-支持高亮关键路径、瓶颈节点和并行组（需要 DependencyAnalysisResult）：
-
-```python
-from waveform_analysis.core.dependency_analysis import analyze_dependencies
-
-result = analyze_dependencies(ctx, "df_paired")
-
-plot_lineage_labview(
-    lineage_dict,
-    "df_paired",
-    context=ctx,
-    analysis_result=result,
-    highlight_critical_path=True,
-    highlight_bottlenecks=True,
-    highlight_parallel_groups=True
 )
 ```
 

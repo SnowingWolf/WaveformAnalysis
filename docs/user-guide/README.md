@@ -18,13 +18,7 @@
 | [EXAMPLES_GUIDE.md](EXAMPLES_GUIDE.md) | 常见场景示例集合 |
 | [位置二维 Dashboard](../features/visualizations/POSITION_DASHBOARD_GUIDE.md) | 位置重建、S1/S2 分布与交互式二维检查 |
 | [Run 6 Xe Fast 教学 Notebook](https://github.com/SnowingWolf/WaveformAnalysis/blob/0bc56668c0d2ebf81fc391287fb0097cd94b49f7/archive/notebooks/run6_xe_fast_0611_teaching.ipynb) | Run 6 Xe 数据扫描、Context 配置、records 读取与快速分析教学流程 |
-| [Context 使用](../features/context/README.md) | 配置管理、数据获取、执行预览 |
-
-## 学习路径
-
-1. [快速上手](QUICKSTART_GUIDE.md) - 跑通第一个流程（含 5 分钟上手）
-2. [常见示例](EXAMPLES_GUIDE.md) - 了解更多场景
-3. [Context 功能](../features/context/README.md) - 深入 Context 使用
+| [Context 使用](../features/context/README.md) | 配置管理、数据获取、缓存诊断 |
 
 ## 术语约定
 
@@ -49,8 +43,3 @@
 | 管理配置 | [CONFIGURATION.md](../features/context/CONFIGURATION.md) |
 | 可视化血缘 | [LINEAGE_VISUALIZATION_GUIDE.md](../features/context/LINEAGE_VISUALIZATION_GUIDE.md) |
 | 查看内置插件细节 | [插件详解](../plugins/README.md) |
-
-## 相关资源
-
-- [功能特性](../features/README.md) - 详细功能说明
-- [开发者指南](../development/README.md) - 插件开发和系统架构

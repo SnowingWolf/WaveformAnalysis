@@ -19,7 +19,7 @@ class RawFileNamesPlugin(Plugin):
 
     provides = "raw_files"
     description = "Scan the data directory and group raw CSV files by channel number."
-    version = "0.0.2"
+    version = "0.0.3"
     output_schema = OutputSchema(kind="list", doc="Raw file paths grouped by channel.")
     options = {
         "data_root": Option(default="DAQ", type=str, help="Root directory for data"),

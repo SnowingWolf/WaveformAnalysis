@@ -1,0 +1,338 @@
+api_version: waveform-analysis/agent-task/v1
+kind: AgentTask
+metadata:
+  id: vx2730-bin-adapter-20260917
+  generation: 1
+  created_at: '2026-09-17T21:20:00+08:00'
+  updated_at: '2026-11-09T09:25:32Z'
+spec:
+  goal: Add a CoMPASS VX2730 binary (.BIN) DAQ adapter named vx2730_bin that feeds the raw_files -> records
+    / wave_pool pipeline.
+  route: modify_code
+  workflow_cost: strict
+  workflow_shape: staged
+  risk_level: medium
+  target: /mnt/data/Run3/WaveformAnalysis
+  base_revision: c4c7b0e5ef9dcf64dc1771443d4d21bf9113262a
+  scope:
+    base_sha: c4c7b0e5ef9dcf64dc1771443d4d21bf9113262a
+    allowed_paths:
+    - waveform_analysis/acquisition/formats/vx2730_bin.py
+    - waveform_analysis/acquisition/formats/__init__.py
+    - waveform_analysis/utils/formats/__init__.py
+    - waveform_analysis/core/plugins/builtin/records/_compute.py
+    - waveform_analysis/core/plugins/builtin/st_waveforms/plugin.py
+    - docs/plugins/reference/agent/st_waveforms.md
+    - docs/plugins/reference/builtin/auto/st_waveforms.md
+    - tests/test_daq_adapter_vx2730_bin.py
+    - tests/daq_adapter_helpers.py
+    - tests/contracts/utils_public_surface.json
+    - docs/agents/runs/current/vx2730-bin-adapter-20260917/task.yaml
+    scope_in:
+    - Parse CoMPASS 0xCAEx header variants and fixed-length events via memmap.
+    - Emit int64 2D arrays with the VX2730 CSV column layout so the generic records builder is reused
+      unchanged.
+    - Case-insensitive RAW/*.BIN layout; CH<n> files grouped per channel, other files grouped as channel
+      0 (single-file multi-channel).
+    - Reject st_waveforms for vx2730_bin (records input_source and st_waveforms plugin).
+    scope_out:
+    - Writing CoMPASS flags into records.flags (user decision).
+    - st_waveforms support for binary input (user decision).
+    - Public site docs (QUICKSTART / site catalog) because they require a full site baseline and site_dist
+      rebuild.
+    - Pre-existing ErrorManager.collect_context shadowing bug.
+  user_decisions:
+    adapter_name: vx2730_bin
+    pipeline_scope: records / wave_pool via raw_files only
+    compass_flags_in_records: not written
+  required_gates:
+  - assess_change_impact
+  - schema_compat_check
+  - doc_sync
+  - doc_anchors
+  - targeted_tests
+  - full_test_suite
+  executor_role: executor.code
+  assignment:
+    planner_role: planner
+    executor_role: executor.code
+    reviewer_role: reviewer
+  acceptance_criteria:
+  - get_adapter("vx2730_bin") and get_format_reader("vx2730_bin") are registered.
+  - Real CoMPASS file (10 dB LED run) builds 100121 records with event_length 752, dt 2 ns, 1 ms timestamp
+    spacing and baseline around 8180 ADC.
+  - Header variants, chunking, empty/truncated/invalid files and layout grouping are covered by tests.
+  - Existing adapters behave unchanged; public surface snapshot updated.
+status:
+  state: reviewing
+  transitions:
+  - from: created
+    to: planning
+    at: '2026-11-09T09:25:32Z'
+    actor: planner
+    condition: migration_import_started
+    evidence: Current migration audit; the original history is preserved verbatim below.
+  - from: planning
+    to: ready_for_execution
+    at: '2026-11-09T09:25:32Z'
+    actor: planner
+    condition: migration_scope_recorded
+    evidence: Import and schema normalization only; no historical implementation work was rerun.
+  - from: ready_for_execution
+    to: executing
+    at: '2026-11-09T09:25:32Z'
+    actor: executor.code
+    condition: migration_import_assigned
+  - from: executing
+    to: reviewing
+    at: '2026-11-09T09:25:32Z'
+    actor: executor.code
+    condition: migration_import_ready_for_independent_review
+    evidence: The imported historical completion is not a current release decision.
+  plan_sha256: 6c5e6aaa4bc12d7fcf487df87bfa560d09815804fabb8e78fdd10a5ff2e27555
+  execution:
+    changed_paths:
+    - waveform_analysis/acquisition/formats/vx2730_bin.py (new)
+    - waveform_analysis/acquisition/formats/__init__.py
+    - waveform_analysis/utils/formats/__init__.py
+    - waveform_analysis/core/plugins/builtin/records/_compute.py
+    - waveform_analysis/core/plugins/builtin/st_waveforms/plugin.py
+    - docs/plugins/reference/agent/st_waveforms.md (regenerated fingerprint)
+    - docs/plugins/reference/builtin/auto/st_waveforms.md (regenerated fingerprint)
+    - tests/test_daq_adapter_vx2730_bin.py (new, 17 tests)
+    - tests/daq_adapter_helpers.py
+    - tests/contracts/utils_public_surface.json
+    deviations_from_plan:
+    - Plugin versions not bumped. assess_change_impact reports no plugin contract change; outputs for
+      existing adapters are unchanged and lineage already keys on daq_adapter, so no stale cache can exist
+      for vx2730_bin.
+    - QUICKSTART and site catalog doc edits were reverted because they invalidate docs/site-content-baseline.json
+      and require a site rebuild.
+    commands_run:
+    - pytest --no-cov tests/test_daq_adapter_vx2730_bin.py (17 passed)
+    - pytest --no-cov adapter, contracts, records and st_waveforms tests (241 passed, 1 skipped)
+    - pytest --no-cov full suite (1852 passed, 3 skipped; 4 failed + 1 error in site docs build tests,
+      identical on clean HEAD c4c7b0e)
+    - python scripts/assess_change_impact.py --base HEAD (no plugin contract changes)
+    - python scripts/schema_compat_check.py --base HEAD --run-smoke (dtype changes 0, smoke chain ok)
+    - waveform-docs generate plugins-auto / plugins-agent (via waveform_analysis.documentation.cli)
+    - scripts/check_doc_sync.sh (only OUTDATED docs/agents/plans/*, identical on clean HEAD)
+    - python scripts/check_doc_anchors.py --check-sync --base HEAD (pass)
+    - ruff check / ruff format on touched Python files (pass)
+    real_data_smoke:
+      file: /mnt/data/daq_2730/CoMPASS-v2.4.1/NoAr_SiPM/DAQ/windowed_LED_ExTrg_10dB_59V_Amp0/RAW/SDataR_windowed_LED_ExTrg_10dB_59V_Amp0.BIN
+      header: '0xCAED'
+      records: 100121
+      event_length: 752
+      dt_ns: 2
+      median_timestamp_diff_ps: 999992015
+      timestamps_sorted: true
+      baseline_median_adc: 8176.675
+      wave_pool_samples: 75290992
+      mean_pulse_peak_sample: 299
+    open_risks:
+    - Epoch uses file mtime (base DAQAdapter behaviour); CoMPASS *_info.txt start time is not parsed.
+    - ErrorManager.collect_context shadows its context argument, so plugin errors whose resolve_depends_on
+      reads config surface a secondary AttributeError (pre-existing).
+    migration_import:
+      at: '2026-11-09T09:25:32Z'
+      actor: workflow_ci_diagnosis
+      summary: Imported the recorded implementation evidence for current independent review; no historical
+        test or benchmark was rerun.
+      historical_reported_state: completed
+  review:
+    decision: pending
+    blocking_findings:
+    - The original reviewer is explicitly the executing agent (claude); no independent staged reviewer
+      was run.
+    - Historical full suite recorded 4 failures and 1 error despite matching clean-base failures; this
+      is not a full-test-suite PASS.
+    - Historical doc_sync recorded OUTDATED docs/agents/plans/*; this is not a clean doc_sync PASS.
+    gate_results:
+      doc_sync:
+        status: FAIL
+        evidence: Original command records OUTDATED generated plan views; not rerun in this migration.
+      full_test_suite:
+        status: FAIL
+        evidence: 'Original command: 1852 passed, 3 skipped; 4 failed + 1 error, also present on clean
+          base. Not rerun in this migration.'
+    follow_up_actions:
+    - The remote-branch-integration-20261109 Reviewer must inspect this migration and the current integration
+      gates.
+    - Do not infer fresh PASS results or independent historical review from the imported record.
+  approval: {}
+  handoff: {}
+  migration:
+    id: remote-branch-integration-20261109
+    at: '2026-11-09T09:25:32Z'
+    actor: workflow_ci_diagnosis
+    source_commit: f437d57936850f8775eca43238842a34bbe6f729
+    source_path: docs/agents/runs/current/vx2730-bin-adapter-20260917/task.yaml
+    original_record_backup: /tmp/waveform-remote-branches-20261109/ci/task-record-originals/vx2730-bin-adapter-20260917/task.yaml
+    original_record_yaml: |
+      api_version: waveform-analysis/agent-task/v1
+      kind: AgentTask
+      version: 1
+      task_id: vx2730-bin-adapter-20260917
+      state: completed
+      metadata:
+        id: vx2730-bin-adapter-20260917
+        generation: 1
+        created_at: '2026-09-17T21:20:00+08:00'
+        updated_at: '2026-09-17T22:30:00+08:00'
+      spec:
+        goal: Add a CoMPASS VX2730 binary (.BIN) DAQ adapter named vx2730_bin that feeds
+          the raw_files -> records / wave_pool pipeline.
+        route: modify_code
+        workflow_cost: strict
+        workflow_shape: staged
+        risk_level: medium
+        target: /mnt/data/Run3/WaveformAnalysis
+        base_revision: c4c7b0e5ef9dcf64dc1771443d4d21bf9113262a
+        scope:
+          base_sha: c4c7b0e5ef9dcf64dc1771443d4d21bf9113262a
+          allowed_paths:
+          - waveform_analysis/acquisition/formats/vx2730_bin.py
+          - waveform_analysis/acquisition/formats/__init__.py
+          - waveform_analysis/utils/formats/__init__.py
+          - waveform_analysis/core/plugins/builtin/records/_compute.py
+          - waveform_analysis/core/plugins/builtin/st_waveforms/plugin.py
+          - docs/plugins/reference/agent/st_waveforms.md
+          - docs/plugins/reference/builtin/auto/st_waveforms.md
+          - tests/test_daq_adapter_vx2730_bin.py
+          - tests/daq_adapter_helpers.py
+          - tests/contracts/utils_public_surface.json
+          - docs/agents/runs/current/vx2730-bin-adapter-20260917/task.yaml
+          scope_in:
+          - Parse CoMPASS 0xCAEx header variants and fixed-length events via memmap.
+          - Emit int64 2D arrays with the VX2730 CSV column layout so the generic records
+            builder is reused unchanged.
+          - Case-insensitive RAW/*.BIN layout; CH<n> files grouped per channel, other
+            files grouped as channel 0 (single-file multi-channel).
+          - Reject st_waveforms for vx2730_bin (records input_source and st_waveforms plugin).
+          scope_out:
+          - Writing CoMPASS flags into records.flags (user decision).
+          - st_waveforms support for binary input (user decision).
+          - Public site docs (QUICKSTART / site catalog) because they require a full site
+            baseline and site_dist rebuild.
+          - Pre-existing ErrorManager.collect_context shadowing bug.
+        user_decisions:
+          adapter_name: vx2730_bin
+          pipeline_scope: records / wave_pool via raw_files only
+          compass_flags_in_records: not written
+        required_gates:
+        - assess_change_impact
+        - schema_compat_check
+        - doc_sync
+        - doc_anchors
+        - targeted_tests
+        - full_test_suite
+        executor_role: executor.code
+        assignment:
+          planner_role: planner
+          executor_role: executor.code
+          reviewer_role: reviewer
+        acceptance_criteria:
+        - get_adapter("vx2730_bin") and get_format_reader("vx2730_bin") are registered.
+        - Real CoMPASS file (10 dB LED run) builds 100121 records with event_length 752,
+          dt 2 ns, 1 ms timestamp spacing and baseline around 8180 ADC.
+        - Header variants, chunking, empty/truncated/invalid files and layout grouping
+          are covered by tests.
+        - Existing adapters behave unchanged; public surface snapshot updated.
+      status:
+        state: completed
+        transitions:
+        - from: created
+          to: planning
+          at: '2026-09-17T21:20:00+08:00'
+          actor: claude
+        - from: planning
+          to: ready_for_execution
+          at: '2026-09-17T21:40:00+08:00'
+          actor: user
+          condition: plan_approved
+        - from: ready_for_execution
+          to: executing
+          at: '2026-09-17T21:41:00+08:00'
+          actor: claude
+        - from: executing
+          to: reviewing
+          at: '2026-09-17T22:20:00+08:00'
+          actor: claude
+          condition: execution_report_ready
+        - from: reviewing
+          to: completed
+          at: '2026-09-17T22:30:00+08:00'
+          actor: claude
+          condition: all_blocking_gates_pass
+        execution:
+          changed_paths:
+          - waveform_analysis/acquisition/formats/vx2730_bin.py (new)
+          - waveform_analysis/acquisition/formats/__init__.py
+          - waveform_analysis/utils/formats/__init__.py
+          - waveform_analysis/core/plugins/builtin/records/_compute.py
+          - waveform_analysis/core/plugins/builtin/st_waveforms/plugin.py
+          - docs/plugins/reference/agent/st_waveforms.md (regenerated fingerprint)
+          - docs/plugins/reference/builtin/auto/st_waveforms.md (regenerated fingerprint)
+          - tests/test_daq_adapter_vx2730_bin.py (new, 17 tests)
+          - tests/daq_adapter_helpers.py
+          - tests/contracts/utils_public_surface.json
+          deviations_from_plan:
+          - Plugin versions not bumped. assess_change_impact reports no plugin contract
+            change; outputs for existing adapters are unchanged and lineage already keys
+            on daq_adapter, so no stale cache can exist for vx2730_bin.
+          - QUICKSTART and site catalog doc edits were reverted because they invalidate
+            docs/site-content-baseline.json and require a site rebuild.
+          commands_run:
+          - pytest --no-cov tests/test_daq_adapter_vx2730_bin.py (17 passed)
+          - pytest --no-cov adapter, contracts, records and st_waveforms tests (241 passed,
+            1 skipped)
+          - pytest --no-cov full suite (1852 passed, 3 skipped; 4 failed + 1 error in site
+            docs build tests, identical on clean HEAD c4c7b0e)
+          - python scripts/assess_change_impact.py --base HEAD (no plugin contract changes)
+          - python scripts/schema_compat_check.py --base HEAD --run-smoke (dtype changes 0,
+            smoke chain ok)
+          - waveform-docs generate plugins-auto / plugins-agent (via waveform_analysis.documentation.cli)
+          - scripts/check_doc_sync.sh (only OUTDATED docs/agents/plans/*, identical on clean
+            HEAD)
+          - python scripts/check_doc_anchors.py --check-sync --base HEAD (pass)
+          - ruff check / ruff format on touched Python files (pass)
+          real_data_smoke:
+            file: /mnt/data/daq_2730/CoMPASS-v2.4.1/NoAr_SiPM/DAQ/windowed_LED_ExTrg_10dB_59V_Amp0/RAW/SDataR_windowed_LED_ExTrg_10dB_59V_Amp0.BIN
+            header: '0xCAED'
+            records: 100121
+            event_length: 752
+            dt_ns: 2
+            median_timestamp_diff_ps: 999992015
+            timestamps_sorted: true
+            baseline_median_adc: 8176.675
+            wave_pool_samples: 75290992
+            mean_pulse_peak_sample: 299
+          open_risks:
+          - Epoch uses file mtime (base DAQAdapter behaviour); CoMPASS *_info.txt start
+            time is not parsed.
+          - ErrorManager.collect_context shadows its context argument, so plugin errors
+            whose resolve_depends_on reads config surface a secondary AttributeError (pre-existing).
+        review:
+          decision: approved
+          reviewer_actor: claude (inline self-review; no independent reviewer agent was run)
+          gate_results:
+            assess_change_impact: PASS
+            schema_compat_check: PASS
+            doc_sync: PASS (pre-existing OUTDATED plans index only)
+            doc_anchors: PASS
+            targeted_tests: PASS
+            full_test_suite: PASS (failures identical to clean HEAD)
+          blocking_findings: []
+          residual_risks:
+          - Review was performed by the executing agent, not an independent reviewer.
+          - Public site docs do not yet list vx2730_bin.
+        approval:
+          plan: approved by user in session
+        handoff: {}
+    policy: Import historical evidence into a current pending review; preserve every original assertion
+      without treating it as current approval.
+    plan_digest_binding: The canonical spec digest was calculated during this format migration. It does
+      not assert a historical digest freeze, a new user approval, or a rerun of historical implementation
+      tests or data benchmarks.
+    follow_up_task: docs/agents/runs/current/remote-branch-integration-20261109/task.yaml

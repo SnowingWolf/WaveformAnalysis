@@ -5,8 +5,8 @@ from importlib import import_module
 __all__ = ["DAQAnalyzer", "DAQRun", "DAQAdapter", "get_adapter"]
 
 _LAZY_ATTRS = {
-    "DAQAnalyzer": (".daq", "DAQAnalyzer"),
-    "DAQRun": (".daq", "DAQRun"),
+    "DAQAnalyzer": (".runs", "DAQAnalyzer"),
+    "DAQRun": (".runs", "DAQRun"),
     "DAQAdapter": (".formats", "DAQAdapter"),
     "get_adapter": (".formats", "get_adapter"),
 }

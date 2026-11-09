@@ -12,7 +12,7 @@ pip install -e ".[dev]"
 ## 常用命令
 
 ```bash
-waveform-process --run-name <run_name> --verbose
+waveform-process --run-name <run_name> --target basic_features --verbose
 waveform-docs generate plugins-agent -o docs/plugins/reference/agent/
 waveform-cache --help
 ```
@@ -30,6 +30,7 @@ pytest -v --cov=waveform_analysis --cov-report=html
 - 文档中心: [`docs/README.md`](docs/README.md)
 - 用户指南: [`docs/user-guide/README.md`](docs/user-guide/README.md)
 - 快速开始: [`docs/user-guide/QUICKSTART_GUIDE.md`](docs/user-guide/QUICKSTART_GUIDE.md)
+- 旧表格链路退役迁移: [`docs/user-guide/DF_RETIREMENT.md`](docs/user-guide/DF_RETIREMENT.md)
 - Agent 入口: `AGENTS.md`
 
 ## 规范 Python 入口

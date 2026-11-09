@@ -7,8 +7,6 @@ CPU 插件模块 - 使用 NumPy/SciPy 实现
 - peak_finding.py: Hit 检测插件（HitFinderPlugin）
 - hit_finder.py: 阈值 hit 兼容插件（ThresholdHitPlugin）
 - basic_features.py: 基础特征计算插件（迁移至 builtin.basic_features）
-- dataframe.py: DataFrame 构建插件（迁移至 builtin.df）
-- event_analysis.py: 事件分组与配对插件
 - filtering.py: CPU 滤波插件（scipy，迁移至 builtin.filtered_waveforms）
 - peak_finding.py: CPU 寻峰插件（scipy）
 
@@ -38,10 +36,7 @@ _LAZY_EXPORTS: dict[str, _LazyExport] = {
     "HIT_DTYPE": (f"{_BUILTIN}.hit", "HIT_DTYPE"),
     "BasicFeaturesPlugin": (f"{_BUILTIN}.basic_features", "BasicFeaturesPlugin"),
     "BASIC_FEATURES_DTYPE": (f"{_BUILTIN}.basic_features", "BASIC_FEATURES_DTYPE"),
-    "DataFramePlugin": (f"{_BUILTIN}.df", "DataFramePlugin"),
     "EventPlugin": (f"{_BUILTIN}.events", "EventPlugin"),
-    "GroupedEventsPlugin": (f"{_BUILTIN}.df_events", "GroupedEventsPlugin"),
-    "PairedEventsPlugin": (f"{_BUILTIN}.df_paired", "PairedEventsPlugin"),
     "PositionReconstructionPlugin": (
         f"{_BUILTIN}.position_reconstruction",
         "PositionReconstructionPlugin",
@@ -255,10 +250,7 @@ __all__ = [
     "HitFinderPlugin",
     "BasicFeaturesPlugin",
     "BASIC_FEATURES_DTYPE",
-    "DataFramePlugin",
     "EventPlugin",
-    "GroupedEventsPlugin",
-    "PairedEventsPlugin",
     "PositionReconstructionPlugin",
     "EnergyReconstructionPlugin",
     "ENERGY_RECONSTRUCTION_DTYPE",

@@ -18,7 +18,6 @@ _LAZY_EXPORTS: dict[str, _LazyExport] = {
     "plugins_hit": (".plugin_sets.hit", "plugins_hit"),
     "plugins_io": (".plugin_sets.io", "plugins_io"),
     "plugins_peaks": (".plugin_sets.peaks", "plugins_peaks"),
-    "plugins_tabular": (".plugin_sets.tabular", "plugins_tabular"),
     "plugins_waveform": (".plugin_sets.waveform", "plugins_waveform"),
 }
 
@@ -40,7 +39,6 @@ def cpu_default():
         + _plugin_set_factory("hit")()
         + _plugin_set_factory("peaks")()
         + _plugin_set_factory("basic_features")()
-        + _plugin_set_factory("tabular")()
         + _plugin_set_factory("events")()
     )
 

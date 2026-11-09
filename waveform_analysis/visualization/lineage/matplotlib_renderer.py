@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from matplotlib.patches import Circle, FancyArrowPatch, Rectangle
+from matplotlib.patches import FancyArrowPatch, Rectangle
 import matplotlib.pyplot as plt
 
 from waveform_analysis.core.foundation.model import (
@@ -33,10 +33,6 @@ def plot_lineage_labview(
     save_path: str | None = None,
     data_wires: bool = False,
     interactive: bool = False,
-    analysis_result: Any = None,  # DependencyAnalysisResult
-    highlight_critical_path: bool = False,
-    highlight_bottlenecks: bool = False,
-    highlight_parallel_groups: bool = False,
     **kwargs,
 ):
     """
@@ -50,16 +46,14 @@ def plot_lineage_labview(
         save_path: 可选，保存图片路径。
         data_wires: 是否在连线上显示数据类型。
         interactive: 是否启用交互式功能（鼠标悬停显示详情）。
-        analysis_result: DependencyAnalysisResult 对象（可选）。
-        highlight_critical_path: 是否高亮关键路径（需要 analysis_result）。
-        highlight_bottlenecks: 是否高亮瓶颈节点（需要 analysis_result）。
-        highlight_parallel_groups: 是否标记并行组（需要 analysis_result）。
+        **kwargs: LineageStyle 属性的覆盖值，未知参数抛出 TypeError。
     """
     s = style or LineageStyle()
     # 合并用户通过 kwargs 传入的覆盖参数
     for k, v in kwargs.items():
-        if hasattr(s, k):
-            setattr(s, k, v)
+        if not hasattr(s, k):
+            raise TypeError(f"plot_lineage_labview() got an unexpected keyword argument {k!r}")
+        setattr(s, k, v)
 
     # 1. 确保我们有一个 LineageGraphModel
     if isinstance(lineage, dict):
@@ -82,26 +76,7 @@ def plot_lineage_labview(
     node_heights = _node_heights_for(model, s)
     pos = _layout_nodes_source_to_target(model, s, node_heights)
 
-    # 3. 准备分析数据（用于高亮）
-    critical_path_set = set()
-    bottleneck_map = {}  # {plugin_name: severity}
-    parallel_group_map = {}  # {plugin_name: group_index}
-    parallel_colors = ["#3498db", "#2ecc71", "#9b59b6", "#e67e22", "#1abc9c"]
-
-    if analysis_result:
-        if highlight_critical_path and hasattr(analysis_result, "critical_path"):
-            critical_path_set = set(analysis_result.critical_path)
-
-        if highlight_bottlenecks and hasattr(analysis_result, "bottlenecks"):
-            for bottleneck in analysis_result.bottlenecks:
-                bottleneck_map[bottleneck["plugin_name"]] = bottleneck["severity"]
-
-        if highlight_parallel_groups and hasattr(analysis_result, "parallel_groups"):
-            for i, group in enumerate(analysis_result.parallel_groups):
-                for plugin_name in group:
-                    parallel_group_map[plugin_name] = i
-
-    # 4. 绘图
+    # 3. 绘图
     view = _layout_view_metrics(pos, s, node_heights)
     fig, ax = plt.subplots(figsize=view["mpl_figsize"])
     node_boxes = _build_node_boxes(model, pos, s, node_heights)
@@ -219,26 +194,6 @@ def plot_lineage_labview(
         # 根据节点类型确定颜色
         node_type = _classify_node_type(node)
         node_bg, node_edge_color, header_bg = _get_node_colors(node_type)
-        node_edge_width = 2
-
-        # 高亮关键路径（优先级更高）
-        if node_id in critical_path_set:
-            node_edge_color = "#e74c3c"  # 红色边框
-            node_edge_width = 4
-
-        # 高亮瓶颈节点（优先级更高）
-        if node_id in bottleneck_map:
-            severity = bottleneck_map[node_id]
-            if severity == "high":
-                node_bg = "#ffe5e5"  # 浅红色背景
-                node_edge_color = "#e74c3c"  # 红色边框
-                node_edge_width = 3
-            elif severity == "medium":
-                node_bg = "#fff4e5"  # 浅橙色背景
-                node_edge_color = "#f39c12"  # 橙色边框
-                node_edge_width = 3
-            else:  # low
-                node_bg = "#fffbe5"  # 浅黄色背景
 
         # 主体
         ax.add_patch(
@@ -248,7 +203,7 @@ def plot_lineage_labview(
                 node_height,
                 fc=node_bg,
                 ec=node_edge_color,
-                lw=node_edge_width,
+                lw=2,
                 zorder=3,
             )
         )
@@ -316,35 +271,6 @@ def plot_lineage_labview(
                     va="top",
                     zorder=5,
                 )
-
-        # 并行组标记
-        if node_id in parallel_group_map:
-            group_idx = parallel_group_map[node_id]
-            badge_color = parallel_colors[group_idx % len(parallel_colors)]
-            # 在右上角显示小徽章
-            badge_x = x + s.node_width / 2 - 0.2
-            badge_y = y + node_height / 2 - 0.15
-            ax.add_patch(
-                Circle(
-                    (badge_x, badge_y),
-                    0.12,
-                    fc=badge_color,
-                    ec="white",
-                    lw=2,
-                    zorder=10,
-                )
-            )
-            ax.text(
-                badge_x,
-                badge_y,
-                f"P{group_idx + 1}",
-                fontsize=8,
-                color="white",
-                ha="center",
-                va="center",
-                fontweight="bold",
-                zorder=11,
-            )
 
         # 配置信息
         if cfg and s.verbose >= 2 and cfg_lines > 0:

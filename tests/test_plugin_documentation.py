@@ -450,9 +450,9 @@ def test_dynamic_lineage_factory_requires_a_callable_context_factory(monkeypatch
     context = Context()
     context.register(SourcePlugin)
     monkeypatch.setattr(
-        cli_docs.importlib,
-        "import_module",
-        lambda name: SimpleNamespace(create_context=lambda: context),
+        cli_docs,
+        "importlib",
+        SimpleNamespace(import_module=lambda name: SimpleNamespace(create_context=lambda: context)),
     )
 
     provider = cli_docs._lineage_payload_provider("trusted.docs:create_context")

@@ -1,4 +1,9 @@
+import ast
+import importlib
+import inspect
 from pathlib import Path
+import re
+import shlex
 
 import pytest
 
@@ -160,3 +165,90 @@ sections:
 def test_frontmatter_must_be_a_mapping():
     with pytest.raises(ValueError, match="frontmatter must be a mapping"):
         parse_frontmatter("---\n- invalid\n---\nbody\n")
+
+
+def test_context_migration_guide_examples_match_public_signatures():
+    from waveform_analysis import Context
+
+    root = Path(__file__).parents[1]
+    manifest = load_guide_manifest(root / "docs/site-guides.yaml")
+    guides = {
+        page.route: page.source
+        for section in manifest.sections
+        for page in section.pages
+        if page.source is not None
+    }
+    guide = guides["/features/context/CONFIGURATION/"]
+    source = guide.read_text(encoding="utf-8")
+    migration = source.split("## Context API 迁移", 1)[1].split("## 相关文档", 1)[0]
+    calls = []
+    for example in re.findall(r"```python\n(.*?)```", migration, re.DOTALL):
+        for node in ast.walk(ast.parse(example)):
+            if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
+                continue
+            if not isinstance(node.func.value, ast.Name) or node.func.value.id != "ctx":
+                continue
+            name = node.func.attr
+            signature = inspect.signature(getattr(Context, name))
+            signature.bind(None, *node.args, **{kw.arg: kw.value for kw in node.keywords})
+            calls.append(name)
+
+    assert set(calls) == {
+        "set_config",
+        "get_lineage",
+        "resolve_dependencies",
+        "diagnose_cache",
+        "get_run_config",
+    }
+    assert "ctx.profiler.summary()" in migration
+    assert "不会发出弃用警告" in source
+
+
+@pytest.mark.parametrize("filename", ["ADAPTER_SYSTEM_GUIDE.md", "ADAPTER_PLUGIN_BEHAVIOR.md"])
+def test_adapter_guide_loading_examples_match_hardware_key_signatures(filename):
+    from waveform_analysis.acquisition.formats import DAQAdapter
+
+    root = Path(__file__).parents[1]
+    source = (root / "docs/plugins/reference" / filename).read_text(encoding="utf-8")
+    calls = []
+    for example in re.findall(r"```python\n(.*?)```", source, re.DOTALL):
+        for node in ast.walk(ast.parse(example)):
+            if isinstance(node, ast.ImportFrom):
+                module = importlib.import_module(node.module)
+                for imported in node.names:
+                    assert hasattr(module, imported.name), (node.module, imported.name)
+            if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
+                continue
+            if not isinstance(node.func.value, ast.Name) or node.func.value.id != "adapter":
+                continue
+            name = node.func.attr
+            if not name.startswith("load_"):
+                continue
+            signature = inspect.signature(getattr(DAQAdapter, name))
+            signature.bind(None, *node.args, **{kw.arg: kw.value for kw in node.keywords})
+            if name != "load_all_channels":
+                assert "board" in {kw.arg for kw in node.keywords}
+            calls.append(name)
+    assert set(calls) == {"load_channel", "load_channel_generator", "load_all_channels"}
+
+
+@pytest.mark.parametrize(
+    "filename",
+    ["docs/cli/WAVEFORM_CACHE.md", "docs/features/context/CONFIGURATION.md"],
+)
+def test_cache_cli_documented_examples_match_parser(filename):
+    from waveform_analysis.cli_cache import create_parser
+
+    source = (Path(__file__).parents[1] / filename).read_text(encoding="utf-8")
+    parser = create_parser()
+    parsed = []
+    for block in re.findall(r"```bash\n(.*?)```", source, re.DOTALL):
+        for line in block.splitlines():
+            command = line.strip()
+            if not command.startswith("waveform-cache ") or any(
+                marker in command for marker in ("<", "[")
+            ):
+                continue
+            args = parser.parse_args(shlex.split(command)[1:])
+            parsed.append(args.command)
+    assert {"stats", "list", "diagnose"} <= set(parsed)

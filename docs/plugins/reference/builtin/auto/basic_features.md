@@ -101,4 +101,4 @@ result = ctx.get_data("run_001", "basic_features")
 
 ### Downstream Consumers
 
-- `df`
+- 没有声明直接的内置消费者。

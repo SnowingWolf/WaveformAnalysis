@@ -1,110 +1,71 @@
 # Context API 优化计划
 
-> 状态：执行中；`has_explicit_config()`、`register_plugin_()` 与 `quickstart()` 已确认直接删除，`help()` 已升级为结构化 Context/插件帮助。
-> 范围：`waveform_analysis/core/context.py` 及其 Context domain 公开方法。
+> 状态：已确认精简公开缓存维护入口、摘要属性、冗余参数及进阶诊断包装；配置和时间查询的六项入口合并见下表。
+> 范围：`waveform_analysis/core/context.py`、相关 domain、调用方与文档目录。
+> 用户迁移说明：[配置管理](../features/context/CONFIGURATION.md#context-api-迁移)。
 
 ## 目标与边界
 
-本计划的目标是降低 Context 的维护复杂度，同时保持常用工作流、插件契约、缓存 lineage 和公开 Python API 稳定。
+降低 Context 的维护复杂度，保持常用工作流、插件输出与缓存 lineage 语义。
 
-- `show_config()` 是核心交互入口，完整保留，包括无参全局展示和指定插件展示。
-- 不因仓库内调用次数低而删除公开方法；公开导出的 `Context` 可能被外部用户调用。
-- Domain facade 的一行转发是稳定 API 边界，不按“重复代码”处理。
-- 没有语义等价替代方案的 API 不进入弃用或删除范围。
+- `show_config()` 是核心交互入口，保留无参全局展示、指定插件展示和 `run_name` 参数。
+- Domain facade 是公开 API 边界；不因转发简短或仓库调用少而删除。
+- 本轮删除范围已经用户确认，直接迁移，不保留旧入口别名或额外弃用周期。
+- 其他公开 API 保留；旧分析记录的候选建议不构成新增删除授权。
 
-## 当前基线与前置修复
+## 本轮接口决策与迁移
 
-提交 `bdbad63` 错误地把 `show_config(run_name=...)` 标记弃用，并在示例中使用当前签名不支持的 `show_config(run_id=...)`。在开始任何优化前，必须先单独修复：
-
-1. 恢复 `show_config(run_name=...)` 为非弃用、可用的公开参数。
-2. 恢复所有示例使用 `run_name`，或在未来先实现真实的 `run_id` 参数后再迁移。
-3. 删除这次错误弃用带来的 warning、Sphinx 弃用标记和不成立的迁移说明。
-4. 添加覆盖 `show_config()`、`show_config(plugin_name)` 和 `show_config(run_name=...)` 的回归测试。
-
-此修复不属于 API 优化，而是恢复既有契约。
-
-## API 分层
-
-### 必须保留
-
-| 分类 | 方法 | 原因 |
+| 原形式 | 当前契约 | 调用方迁移 |
 | --- | --- | --- |
-| 核心数据 | `get_data`, `register`, `set_config`, `clear_cache_for` | 数据处理和缓存生命周期主入口。 |
-| 配置读取 | `get_config`, `get_config_value`, `get_resolved_config` | 分别提供裸值、单项来源信息和完整解析结果。 |
-| 配置展示 | `show_config`, `list_plugin_configs`, `show_resolved_config` | 展示全局配置、插件选项和解析来源，职责不同。 |
-| 依赖与执行 | `get_lineage`, `resolve_dependencies`, `preview_execution`, `analyze_dependencies` | 分别服务缓存身份、拓扑顺序、run/cache 感知预览和性能/关键路径分析。 |
-| 时间 | `time_range`、epoch 和时间索引方法 | 时间查询、绝对时间换算和索引生命周期接口。 |
+| `get_config_value()` / `get_resolved_config()` | 统一为 `get_config()`。 | 单项来源使用 `with_source=True`；省略 `name` 返回完整 `ResolvedConfig`。 |
+| `show_resolved_config()` / `list_plugin_configs()` | 统一为 `show_config()`。 | 来源展示使用 `show_source=True`；选项元数据使用 `view="options", output="dict"`。 |
+| `from_config_json()` | `set_config()` 接受 JSON 路径。 | 保留 `plugin_name` 浅更新规则；无效文件不改变配置。 |
+| `get_data_time_range_absolute()` | `time_range()` 接受 datetime。 | 边界参数改为 `start_time` / `end_time`；不同时间域和字段隔离索引。 |
+| `clear_config_cache()` | 配置缓存维护成为私有 `_clear_config_cache()`。 | 用户通过 `set_config(...)` 修改配置，删除手动清理调用。 |
+| `clear_performance_caches()` | 私有 `_invalidate_planning_caches()` 调用缓存域 `invalidate_planning_caches()`。 | 用户删除手动维护调用；注册和配置更新负责自动失效。 |
+| `profiling_summary` | 删除便捷属性。 | 使用 `ctx.profiler.summary()`。 |
+| `get_lineage(data_name, _visited=...)` | 公共签名只接收 `data_name`；递归状态放在私有 `_get_base_lineage()`。 | 删除 `_visited` 参数。 |
+| `preview_execution()` / `analyze_dependencies()` | 执行预览与高级依赖分析整体退役。 | 普通依赖结构使用 `resolve_dependencies()` / `plot_lineage()`；实测性能使用 `get_performance_report()`，无等价预览替代。 |
+| `validate_run_config()` / `get_run_hardware_channels()` | 删除 Context 包装。 | 读取 run 配置后，调用独立校验与硬件展开函数。 |
+| `get_plugin_run_config()` | 删除 Context 包装，插件 helper 保留 run 块读取与回退。 | 用户通过 `get_run_config()` 查看文件覆盖块。 |
+| `analyze_cache()` / `cache_stats()` | 删除 Context 包装。 | 使用缓存 CLI 的 `info` / `stats` / `list`。 |
+| `diagnose_cache(auto_fix=..., dry_run=...)` | Context 只检查；移除修复参数。 | 修复走 `waveform-cache diagnose --fix`，默认预演。 |
+| `show_config(run_name=...)` 的错误弃用 | `run_name` 是受支持的展示参数，不发出弃用警告。 | 保持 `run_name` 写法；该入口不接受 `run_id`。 |
 
-### 仅在证明安全后处理
+内部缓存维护方法不属于迁移后的用户 API。`set_config()` 自动清理解析配置、运行配置与规划缓存；
+`clear_cache_for(run_id, data_name)` 继续负责指定 run 的产物清理。以上精简不改变插件配置优先级、
+缓存键身份或 lineage 内容。
 
-| 候选 | 计划动作 | 前提 |
+## 保留的 API 分层
+
+| 分类 | 方法 | 用途 |
 | --- | --- | --- |
-| `get_lineage(data_name, _visited=...)` | 将 `_visited` 移入私有递归 helper，公共签名只保留 `data_name`。 | 增加 lineage 与缓存键回归测试。 |
-| `register_plugin_` | 已删除；仓库内调用统一迁移到 `register()`，不保留兼容 facade。 | 保持插件加载、spec 校验和外部扩展语义。 |
-| `clear_performance_caches` | 保留行为，先更正其“规划/lineage/key 缓存失效”语义和文档。 | 证明没有脚本依赖旧名称。 |
-| `help` | 保留；返回同时支持终端文本和 Jupyter HTML 的 `HelpDocument`，并只查询当前已注册插件。 | 不执行数据；仅有 `run_id` 时解析动态依赖，失败回退声明依赖。 |
-| `analyze_cache`, `cache_stats`, `diagnose_cache` | 暂不弃用。 | `waveform-cache` 必须与 Context 在存储目录、插件注册和版本诊断上语义一致。 |
+| 核心数据 | `get_data`, `register`, `set_config`, `clear_cache_for` | 数据处理与缓存生命周期。 |
+| 配置读取 | `get_config` | 裸值、单项来源和完整解析结果。 |
+| 配置展示 | `show_config` | 全局汇总、插件选项和解析来源。 |
+| 依赖与执行 | `get_lineage`, `resolve_dependencies`, `plot_lineage` | 缓存身份、拓扑顺序与普通依赖图。 |
+| 缓存与性能诊断 | `diagnose_cache`, `get_performance_report` | 缓存问题与实际插件执行统计；容量和修复统一走 CLI。 |
+| 时间 | `time_range`、epoch 和时间索引方法 | 时间查询、换算与索引生命周期。 |
+| 帮助 | `help` | 返回终端/Jupyter 可显示的结构化 `HelpDocument`，查询当前已注册插件。 |
 
-### 已确认删除
+`show_config(data_name)` 保留指定插件展示；选项清单由私有 helper 实现。
+
+## 已完成的前序精简
 
 | API | 替代写法 | 决策 |
 | --- | --- | --- |
-| `has_explicit_config(plugin, name, adapter_name=None)` | `get_config_value(plugin, name, adapter_name=...).source == ConfigSource.EXPLICIT` | 用户已确认直接删除；实现与契约测试同步收敛，不保留 facade 或 domain helper。 |
-| `quickstart(template="basic")` | `help("examples")` 或普通文档 `docs/user-guide/QUICKSTART_GUIDE.md` | 用户已确认直接删除；同步删除 `help("quickstart")` 静态主题与 reserved name，不保留 shim。 |
+| `register_plugin_()` | `register()` | 已删除，不保留兼容 facade。 |
+| `has_explicit_config(plugin, name, adapter_name=None)` | `get_config(plugin, name, with_source=True, adapter_name=...).source == ConfigSource.EXPLICIT` | 已确认直接删除，domain helper 一并收敛。 |
+| `quickstart(template="basic")` | `help("examples")` 或[快速上手](../user-guide/QUICKSTART_GUIDE.md) | 已删除，静态帮助主题与 reserved name 同步删除。 |
 
-## 分阶段执行
+## 实施与验收
 
-### Phase 0：恢复正确基线
+1. 核心实现与内部调用迁移，保留正常配置自动失效、BatchProcessor 和数据缓存行为。
+2. 定向契约测试验证公开签名、旧入口缺席、lineage/缓存键与配置展示行为。
+3. 同步 API catalog、参数说明、用户指南和活动架构文档；历史归档保持原样。
+4. 有意更新本轮删除涉及的内容覆盖基线，并生成当前 site model fixture。
+5. 通过文档同步、锚点检查、影响分析、schema 冒烟及真实隔离站点构建，暂存验证后的打包导出。
+6. 阻断式 Reviewer 审查通过后提交本轮改动；当前侧聊按限制由单 agent 顺序执行与复核，不宣称独立审查。
 
-- 修复 `bdbad63` 对 `show_config` 的错误弃用。
-- 为常用的配置展示行为建立回归测试。
-- 仅完成本阶段并通过审查后，才进入优化工作。
-
-### Phase 1：建立公开 API 契约测试
-
-- 为配置、缓存、时间、依赖和展示方法建立最小的 Context facade 测试。
-- 将“仓库内部调用”和“公开 Python API”分开记录。
-- 明确每项 API 的输入、返回值、副作用、缓存/lineage 影响和推荐使用场景。
-
-### Phase 2：无行为变化的内部收敛
-
-- 抽取 `get_lineage` 的递归状态到私有 helper。
-- 修正文档中内部入口与公开入口的混淆，例如只推荐 `register()`。
-- 不删除、不重命名、不发出公开 API warning。
-
-### Phase 3：诊断与展示体验优化
-
-- 保持 `show_config()` 为主配置展示入口。
-- 明确三个展示入口：`show_config()` 看当前配置汇总，`list_plugin_configs()` 看单插件选项，`show_resolved_config()` 看配置来源。
-- 评估将 `preview_execution()` 和缓存诊断的“结构化数据”与“打印展示”分开，保持现有调用兼容。
-
-### Phase 4：逐项弃用决策
-
-- 只处理已经具备语义等价替代方案、测试和迁移文档的公开 API。
-- 每个候选必须独立提供 `compat_inventory`，并记录 `deprecated_in`、`removed_in`、替代代码和用户确认。
-- 跨至少一个完整 MINOR 发布周期后，才允许在 MAJOR 版本移除。
-
-## 不纳入当前优化范围
-
-- 删除 `show_config()` 或其指定插件展示能力。
-- 删除 `get_config_value()`、`get_config()` 或 `get_resolved_config()`。
-- 用 `preview_execution()` 替代 `analyze_dependencies()`。
-- 用 `time_range()` 直接替代 `get_data_time_range_absolute()`。
-- 在未修复 CLI 语义差异前，将缓存诊断 API 迁移到 `waveform-cache`。
-
-## 验收标准
-
-每个执行阶段必须满足：
-
-```bash
-python -m pytest tests/test_context_core.py tests/test_context_core_clone.py \
-  tests/test_context_core_time.py tests/test_context_core_preview.py -v
-python -m pytest tests/contracts/test_compat_deprecation.py \
-  tests/contracts/test_cache_consistency.py tests/contracts/test_plugin_contracts.py -v
-python scripts/assess_change_impact.py --base HEAD
-python scripts/schema_compat_check.py --base HEAD --run-smoke
-scripts/check_doc_sync.sh
-python scripts/check_doc_anchors.py --check-sync --base HEAD
-```
-
-若变更公开 API，额外要求：用户确认删除范围、完整 `compat_inventory`、迁移文档和独立 Reviewer 放行。
+前序精简证据见 `docs/agents/runs/current/context-api-retirement-20261029/task.yaml`；
+本轮诊断收敛证据与最终状态见 `docs/agents/runs/current/context-diagnostics-retirement-20261105/task.yaml`。

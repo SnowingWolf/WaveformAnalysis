@@ -17,6 +17,7 @@ class RecordsPlugin(_RecordsBundlePluginBase):
     """Build records (event index table) from the shared internal bundle."""
 
     provides = "records"
+    version = "0.17.0"
     depends_on = []
     description = "Build records (event index table) from the shared internal records bundle."
     output_dtype = RECORDS_DTYPE
@@ -31,7 +32,7 @@ class RecordsPlugin(_RecordsBundlePluginBase):
             "语义。该插件不重复读取原始波形，而是复用同一份内存或磁盘 bundle（单分片直接 memmap "
             "records_path，多分片仅合并元数据视图），保证整条链共享一致的记录视图。\n\n"
             "插件通过 `_RecordsBundlePluginBase` 共享配置源，并支持 `input_source` 在 raw_files "
-            "与 st_waveforms 之间切换（V1725 仅支持 raw_files）；`resolve_depends_on` 按所选输入源"
+            "与 st_waveforms 之间切换（V1725 与 VX2730 BIN 仅支持 raw_files）；`resolve_depends_on` 按所选输入源"
             "动态声明上游依赖。"
         ),
         "workflow_steps": [
@@ -65,7 +66,7 @@ class RecordsPlugin(_RecordsBundlePluginBase):
         },
         "config_notes": {
             "daq_adapter": "DAQ 适配器名称（vx2730/v1725 等），决定 bundle 的解析路径与默认 dt。",
-            "input_source": "records bundle 输入源：'raw_files' 或 'st_waveforms'（V1725 仅支持 'raw_files'）。",
+            "input_source": "records bundle 输入源：'raw_files' 或 'st_waveforms'（V1725 与 VX2730 BIN 仅支持 'raw_files'）。",
             "dt": "采样间隔（ns），写回 records.dt；缺省取适配器采样率或 1ns。",
             "keep_on_disk": "是否保持 bundle 磁盘驻留；None 时 V1725 默认 True、其余适配器默认 False。",
             "memory_budget_gb": "内存驻留 records bundle 的内存预算（GB）。",
@@ -75,7 +76,7 @@ class RecordsPlugin(_RecordsBundlePluginBase):
         },
         "failure_modes": [
             "所选 `input_source` 非 'raw_files'/'st_waveforms' 时抛出 `ValueError`。",
-            "V1725 使用 `input_source='st_waveforms'` 时抛出 `ValueError`（不支持该组合）。",
+            "V1725 或 VX2730 BIN 使用 `input_source='st_waveforms'` 时抛出 `ValueError`（不支持该组合）。",
             "上游 `raw_files` 数据缺失（非 list）时由共享 bundle 构建逻辑抛出 `ValueError`。",
             "多分片 bundle 的元数据视图只合并 records、不合并 wave_pool，若下游误按 records 行取波形会越界——属消费方契约错误，本插件不单独拦截。",
         ],

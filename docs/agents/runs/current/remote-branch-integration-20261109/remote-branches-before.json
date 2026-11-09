@@ -1,0 +1,136 @@
+{
+  "repository": "SnowingWolf/WaveformAnalysis",
+  "default_branch_sha": "a736cde49c17ac683301c93e5d78ecbb4c613ab9",
+  "protected_by_open_pr": [
+    "codex/acquisition-layout",
+    "codex/adapter-layout",
+    "codex/adapter-layout-base",
+    "codex/layered-cache-base",
+    "codex/layered-cache-validation",
+    "develop",
+    "master",
+    "release/v1.3.0"
+  ],
+  "branches": [
+    {
+      "branch": "codex/acquisition-layout",
+      "sha": "b90ce1263be6d55ac858a45393fdf9be85d825ae",
+      "merged_into_master": false,
+      "delete": false
+    },
+    {
+      "branch": "codex/adapter-layout",
+      "sha": "863e4a4e80c5fce5e91482bf6105f287a03d38e6",
+      "merged_into_master": false,
+      "delete": false
+    },
+    {
+      "branch": "codex/adapter-layout-base",
+      "sha": "0709cffd0f143b7c645acba1ebb37008cf42683b",
+      "merged_into_master": false,
+      "delete": false
+    },
+    {
+      "branch": "codex/layered-cache-base",
+      "sha": "0709cffd0f143b7c645acba1ebb37008cf42683b",
+      "merged_into_master": false,
+      "delete": false
+    },
+    {
+      "branch": "codex/layered-cache-validation",
+      "sha": "29fb90f220932c8952a63057696b73ed3ef12da3",
+      "merged_into_master": false,
+      "delete": false
+    },
+    {
+      "branch": "codex/retire-legacy-df",
+      "sha": "f437d57936850f8775eca43238842a34bbe6f729",
+      "merged_into_master": false,
+      "delete": false
+    },
+    {
+      "branch": "codex/v2.0.0-release-closeout",
+      "sha": "c2199b1fa9a2ba739f555ae4b68d736d1ebbd97c",
+      "merged_into_master": true,
+      "delete": true
+    },
+    {
+      "branch": "develop",
+      "sha": "01968d301ecfb1239463fe309d007a9a2c2a49a9",
+      "merged_into_master": false,
+      "delete": false
+    },
+    {
+      "branch": "docs-refactor-2026-01",
+      "sha": "8c23c85afb83efc04a20a6543391a0afbdef6a00",
+      "merged_into_master": true,
+      "delete": true
+    },
+    {
+      "branch": "feat/daq-adapter-and-cache-management",
+      "sha": "360c5707dd5b1e92c463326de3fe6ea5e963fc89",
+      "merged_into_master": true,
+      "delete": true
+    },
+    {
+      "branch": "feat/waveform-width-plugin",
+      "sha": "7c227d7d117ad100a605c850ebe8ed6aee763f08",
+      "merged_into_master": true,
+      "delete": true
+    },
+    {
+      "branch": "master",
+      "sha": "a736cde49c17ac683301c93e5d78ecbb4c613ab9",
+      "merged_into_master": true,
+      "delete": false
+    },
+    {
+      "branch": "release/v1.0.0",
+      "sha": "73ee9fd096448d59bf185d87914b5ac948fffe8a",
+      "merged_into_master": true,
+      "delete": true
+    },
+    {
+      "branch": "release/v1.1.0",
+      "sha": "056029a3bb6cceca34f99a4bb342315ad347facc",
+      "merged_into_master": false,
+      "delete": false
+    },
+    {
+      "branch": "release/v1.2.0",
+      "sha": "f14610a354ef386ae89ddcec7fb4af84072b9d62",
+      "merged_into_master": false,
+      "delete": false
+    },
+    {
+      "branch": "release/v1.3.0",
+      "sha": "43f1cec215bdb13ad63b442d1ff43072a0115134",
+      "merged_into_master": false,
+      "delete": false
+    },
+    {
+      "branch": "release/v1.5.0",
+      "sha": "715c8ce35a93d04f7641b4b149e56b7be6ea01e4",
+      "merged_into_master": true,
+      "delete": true
+    },
+    {
+      "branch": "release/v2.0.0",
+      "sha": "972c7ba8c4ba88634f448f27171cef6906189c72",
+      "merged_into_master": true,
+      "delete": true
+    },
+    {
+      "branch": "wip/core",
+      "sha": "811eb1eeb7f6fe50f4041988715e0de1a297e91f",
+      "merged_into_master": true,
+      "delete": true
+    },
+    {
+      "branch": "wip/plugins",
+      "sha": "9f6e52822a86cd960fd6aa058511322bd8a452b6",
+      "merged_into_master": true,
+      "delete": true
+    }
+  ]
+}

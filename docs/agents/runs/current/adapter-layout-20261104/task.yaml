@@ -1,0 +1,193 @@
+api_version: waveform-analysis/agent-task/v1
+kind: AgentTask
+metadata:
+  id: adapter-layout-20261104
+  generation: 2
+  created_at: '2026-11-04T12:11:52Z'
+  updated_at: '2026-11-04T12:17:49Z'
+spec:
+  goal: 按设备集中DAQ适配器实现，保持读取行为和现有导入兼容
+  route: modify_code
+  workflow_cost: strict
+  workflow_shape: staged
+  risk_level: medium
+  scope:
+    base_sha: 0709cffd0f143b7c645acba1ebb37008cf42683b
+    allowed_paths:
+    - waveform_analysis/acquisition/formats/
+    - waveform_analysis/core/processing/records_builder.py
+    - tests/
+    - docs/agents/runs/current/adapter-layout-20261104/
+    - waveform_analysis/utils/formats/__init__.py
+    - docs/agents/plans/INDEX.md
+    - docs/agents/plans/active.yaml
+  acceptance_criteria:
+  - Device implementations grouped into v1725 and vx2730 packages; existing APIs and
+    serialization identities preserved
+  - Targeted adapter regressions and route gates pass; independent reviewer approves
+  required_gates:
+  - targeted_tests
+  - generate_docs
+  - assess_change_impact
+  - schema_compat_check
+  - doc_sync
+  - doc_anchors
+  - reviewer
+  assignment:
+    planner_role: planner
+    executor_role: executor.code
+    reviewer_role: reviewer
+    planner: structure_planner
+    executors:
+    - structure_executor
+    reviewer: structure_reviewer
+  scope_out:
+  - No parsing algorithms, dtype, configuration or plugin version changes
+  - No io/readers reorganization or packaged site rebuild
+  implementation_plan:
+  - Move device implementations into v1725/reader.py, v1725/numba.py, vx2730/csv.py
+    and vx2730/binary.py
+  - Explicit package exports; same-object aliases for old numba/BIN modules and nested
+    utils paths; preserve legacy class module identities
+  - Update records_builder imports, add import/serialization regressions and local
+    directory README
+  - Run adapter and import regressions, required gates, blocking review and scoped
+    commit
+  - Regenerate task registry views required by render_agent_docs check
+  authorization:
+    source: User selected proposed device package structure and requested more structured
+      organization
+    decision: Proceed with scoped reversible restructuring
+status:
+  state: completed
+  transitions:
+  - from: created
+    to: planning
+    at: '2026-11-04T12:11:52Z'
+    actor: planner
+  - from: planning
+    to: ready_for_execution
+    at: '2026-11-04T12:12:13Z'
+    actor: planner
+  - from: ready_for_execution
+    to: executing
+    at: '2026-11-04T12:12:13Z'
+    actor: executor.code
+  - from: executing
+    to: reviewing
+    at: '2026-11-04T12:15:57Z'
+    actor: executor.code
+  - from: reviewing
+    to: rework_required
+    at: '2026-11-04T12:15:57Z'
+    actor: reviewer
+  - from: rework_required
+    to: planning
+    at: '2026-11-04T12:15:57Z'
+    actor: planner
+    scope_changed: true
+  - from: planning
+    to: ready_for_execution
+    at: '2026-11-04T12:15:57Z'
+    actor: planner
+  - from: ready_for_execution
+    to: executing
+    at: '2026-11-04T12:15:57Z'
+    actor: executor.code
+  - from: executing
+    to: reviewing
+    at: '2026-11-04T12:16:13Z'
+    actor: executor.code
+  - from: reviewing
+    to: completed
+    at: '2026-11-04T12:17:49Z'
+    actor: reviewer
+  plan_sha256: 4385183735ed14da5e71ae47c28b72a8af5917b63ba4aa772505a40bcdfebab8
+  execution:
+    executor_role: executor.code
+    changed_paths:
+    - docs/agents/plans/INDEX.md
+    - docs/agents/plans/active.yaml
+    - waveform_analysis/acquisition/formats/__init__.py
+    - waveform_analysis/acquisition/formats/v1725.py
+    - waveform_analysis/acquisition/formats/v1725_numba.py
+    - waveform_analysis/acquisition/formats/vx2730.py
+    - waveform_analysis/acquisition/formats/vx2730_bin.py
+    - waveform_analysis/core/processing/records_builder.py
+    - waveform_analysis/utils/formats/__init__.py
+    - docs/agents/runs/current/adapter-layout-20261104/task.yaml
+    - tests/contracts/test_device_format_packages.py
+    - waveform_analysis/acquisition/formats/README.md
+    - waveform_analysis/acquisition/formats/v1725/__init__.py
+    - waveform_analysis/acquisition/formats/v1725/numba.py
+    - waveform_analysis/acquisition/formats/v1725/reader.py
+    - waveform_analysis/acquisition/formats/vx2730/__init__.py
+    - waveform_analysis/acquisition/formats/vx2730/binary.py
+    - waveform_analysis/acquisition/formats/vx2730/csv.py
+    actions_taken:
+    - Moved device code into v1725 and vx2730 packages without algorithm edits
+    - Preserved legacy module aliases and class serialization identities; added directory
+      README and import regressions
+    - Regenerated task registry after initial renderer check identified missing current
+      task
+    command_results:
+    - command: targeted adapter, records and import pytest suite
+      result: PASS 226; 8 existing warnings
+      evidence: /tmp/wa-adapter-layout-20261104/targeted.log
+    - command: final import regression after canonical BIN import adjustment
+      result: PASS 7
+      evidence: /tmp/wa-adapter-layout-20261104/import-final.log
+    - command: generate plugins-auto
+      result: PASS
+      evidence: /tmp/wa-adapter-layout-20261104/plugins-auto.log
+    - command: generate plugins-agent
+      result: PASS
+      evidence: /tmp/wa-adapter-layout-20261104/plugins-agent.log
+    - command: assess_change_impact --base HEAD
+      result: PASS
+      evidence: /tmp/wa-adapter-layout-20261104/impact.log
+    - command: schema_compat_check --base HEAD --run-smoke
+      result: PASS
+      evidence: /tmp/wa-adapter-layout-20261104/schema.log
+    - command: check_doc_sync.sh --task
+      result: PASS
+      evidence: /tmp/wa-adapter-layout-20261104/doc-sync.log
+    - command: check_doc_anchors --check-sync --base HEAD --task
+      result: PASS
+      evidence: /tmp/wa-adapter-layout-20261104/anchors.log
+    - command: render_agent_docs.py --check; agent_workflow.py validate adapter-layout-20261104
+        --strict
+      result: PASS after generated task registry refresh
+    open_risks:
+    - Moved Numba files use new compilation cache locations; first invocation may
+      compile again
+    commit:
+      status: committed
+      sha: f9dc87506880ff7bd9e777d05c9462f0aeead1ce
+      pre_commit_hooks: PASS
+  review:
+    reviewer: structure_reviewer
+    reviewer_actor: reviewer
+    decision: approved
+    plan_sha256: 4385183735ed14da5e71ae47c28b72a8af5917b63ba4aa772505a40bcdfebab8
+    gate_results:
+      targeted_tests: PASS
+      generate_docs: PASS
+      assess_change_impact: PASS
+      schema_compat_check: PASS
+      doc_sync: PASS
+      doc_anchors: PASS
+      reviewer: PASS
+    blocking_findings: []
+    summary: Independent review confirmed only import changes in three moved reader
+      files and identical Numba implementation; public exports, aliases, pickle identities
+      and all gate logs verified.
+    residual_risks:
+    - Numba may recompile on first invocation after source relocation
+    completion_allowed: true
+  approval: {}
+  handoff:
+    commit_status: committed
+    commit_sha: f9dc87506880ff7bd9e777d05c9462f0aeead1ce
+    summary: Reviewed source changes committed with all pre-commit hooks passing;
+      this final handoff update is recorded separately.

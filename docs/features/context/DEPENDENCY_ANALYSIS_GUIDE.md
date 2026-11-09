@@ -1,284 +1,32 @@
-**导航**: [文档中心](../../README.md) > [功能特性](../README.md) > [Context 功能](README.md) > 依赖分析
+# 依赖分析退役迁移
 
----
+本页保留旧文档地址，说明已删除接口的迁移方式。`Context.analyze_dependencies()`、
+`DependencyAnalyzer` 及其分析结果类型已退役；自动关键路径、理论并行潜力、瓶颈建议和分析结果高亮
+不再属于公开功能。实际 DAG 调度与依赖解析仍保留。
 
-# 依赖分析功能使用指南
+## 当前入口
 
-本文档展示如何使用 WaveformAnalysis 的依赖分析功能。
-
-## 功能概述
-
-依赖分析功能可以帮助您：
-
-- **理解数据流**：可视化插件之间的依赖关系
-- **识别并行机会**：发现可以并行执行的插件
-- **找到关键路径**：识别影响整体性能的瓶颈
-- **性能分析**：基于实际执行数据分析性能
-- **优化建议**：获得智能的优化建议
-
-## 快速开始
-
-### 基础分析（静态）
-
-不需要性能数据也能进行基本的依赖分析：
+| 目的 | 当前入口 | 边界 |
+| --- | --- | --- |
+| 查看上游拓扑顺序 | `ctx.resolve_dependencies(target, run_id=run_id)` | 不报告本次缓存命中或重算范围 |
+| 检查配置和版本组成的缓存身份 | `ctx.get_lineage(target)` | 不验证磁盘缓存完整性 |
+| 查看普通依赖图 | `ctx.plot_lineage(target)` | 不接收分析结果或高级高亮参数 |
+| 查看实际插件耗时、缓存命中率与失败 | `ctx.get_performance_report()` | 需要提前启用统计并实际执行 |
+| 检查缓存问题 | `ctx.diagnose_cache(run_id)` | 只检查；修复使用缓存 CLI |
 
 ```python
-from waveform_analysis.core.context import Context
-
-ctx = Context()
-# ... 注册插件 ...
-
-# 执行静态分析
-analysis = ctx.analyze_dependencies(
-    'paired_events',
-    include_performance=False
-)
-
-print(analysis.summary())
+# ctx 已注册插件；这些查询不会计算目标产物
+order = ctx.resolve_dependencies("peaks", run_id="run_001")
+lineage = ctx.get_lineage("peaks")
+ctx.plot_lineage("peaks", kind="mermaid")
 ```
 
-输出示例：
-
-```
-=== 依赖分析摘要：paired_events ===
-分析模式: 静态
-总插件数: 7
-DAG 深度: 6, 宽度: 2
-
-关键路径 (6 个插件):
-  raw_files → waveforms → st_waveforms → features → dataframe → paired_events
-
-并行机会: 2 组
-  理论加速比: 2.00x
-
-优化建议: 3 条
-```
-
-### 性能分析（动态）
-
-启用性能统计后，可以获得更详细的分析：
-
-```python
-# 启用性能统计
-ctx = Context(
-    stats_mode='detailed'  # 'off', 'basic' 或 'detailed'
-)
-# ... 注册插件并执行数据处理 ...
-
-# 执行动态分析（包含性能数据）
-analysis = ctx.analyze_dependencies('paired_events', include_performance=True)
-
-print(analysis.summary())
-
-# 查看瓶颈列表
-for bottleneck in analysis.bottlenecks:
-    print(f"  {bottleneck['severity']}: {bottleneck['plugin_name']}")
-    print(f"    时间占比: {bottleneck['metrics']['time_percentage']:.1f}%")
-
-# 查看优化建议
-for i, rec in enumerate(analysis.recommendations, 1):
-    print(f"  {i}. {rec}")
-```
-
-## 导出报告
-
-### 导出为 Markdown
-
-```python
-analysis.to_markdown()  # 返回字符串
-analysis.save_markdown('dependency_report.md')  # 保存到文件
-```
-
-### 导出为 JSON
-
-```python
-data = analysis.to_dict()  # 转换为字典
-analysis.to_json('dependency_analysis.json', indent=2)  # 保存为 JSON
-```
-
-## 可视化增强
-
-结合依赖图可视化，高亮显示分析结果：
-
-```python
-from waveform_analysis.utils.visualization import plot_lineage_labview
-
-analysis = ctx.analyze_dependencies('paired_events')
-
-plot_lineage_labview(
-    lineage=ctx.get_lineage('paired_events'),
-    target_name='paired_events',
-    context=ctx,
-    analysis_result=analysis,
-    highlight_critical_path=True,   # 高亮关键路径（红色粗边框）
-    highlight_bottlenecks=True,     # 高亮瓶颈节点（红/橙/黄背景）
-    highlight_parallel_groups=True, # 标记并行组（彩色徽章）
-    interactive=True
-)
-```
-
-## 实际应用场景
-
-### 场景 1：静态分析
-
-```python
-# 1. 静态分析快速理解
-analysis = ctx.analyze_dependencies('final_output', include_performance=False)
-print(analysis.summary())
-
-# 2. 查看层次结构
-for depth, plugins in analysis.layers.items():
-    print(f"深度 {depth}: {', '.join(plugins)}")
-
-# 3. 导出文档
-analysis.save_markdown('project_architecture.md')
-```
-
-### 场景 2：性能调优
-
-```python
-# 1. 启用详细性能统计
-ctx = Context(stats_mode='detailed')
-# ... 执行数据处理 ...
-
-# 分析瓶颈
-analysis = ctx.analyze_dependencies('final_output')
-
-# 按严重性处理瓶颈
-for bottleneck in analysis.bottlenecks:
-    if bottleneck['severity'] == 'high':
-        plugin = bottleneck['plugin_name']
-        issues = bottleneck['issues']
-
-        if 'cache_miss' in issues:
-            print(f"检查 {plugin} 的缓存配置")
-        if 'execution_time' in issues:
-            print(f"优化 {plugin} 的算法")
-
-# 验证优化效果
-# ... 应用优化措施 ...
-analysis_after = ctx.analyze_dependencies('final_output')
-print(f"优化前: {analysis.critical_path_time:.2f}s")
-print(f"优化后: {analysis_after.critical_path_time:.2f}s")
-```
-
-### 场景 2：并行执行规划
-
-```python
-analysis = ctx.analyze_dependencies('final_output')
-
-# 查看可并行插件
-for i, group in enumerate(analysis.parallel_groups, 1):
-    print(f"并行组 {i}: {', '.join(group)}")
-
-# 估算加速比
-print(f"理论加速比: {analysis.parallelization_potential:.2f}x")
-
-# 配置并行执行
-from waveform_analysis.core.execution import enable_global_load_balancing
-
-enable_global_load_balancing(
-    min_workers=1,
-    max_workers=len(max(analysis.parallel_groups, key=len))
-)
-```
-
-## API 参考
-
-### Context.analyze_dependencies()
-
-```python
-def analyze_dependencies(
-    self,
-    target_name: str,
-    include_performance: bool = True,
-    run_id: Optional[str] = None
-) -> DependencyAnalysisResult
-```
-
-参数：
-- `target_name`: 目标数据名称
-- `include_performance`: 是否包含性能数据（需要 `stats_mode='basic'` 或 `'detailed'`）
-- `run_id`: 保留参数，当前未使用
-
-### DependencyAnalysisResult 属性
-
-| 属性 | 说明 |
-|------|------|
-| `target_name` | 目标名称 |
-| `total_plugins` | 总插件数 |
-| `execution_plan` | 执行计划（拓扑排序） |
-| `max_depth` | DAG 最大深度 |
-| `max_width` | DAG 最大宽度 |
-| `layers` | 按深度分层的插件 |
-| `critical_path` | 关键路径插件列表 |
-| `critical_path_time` | 关键路径总时间（如有性能数据） |
-| `parallel_groups` | 可并行执行的插件组 |
-| `parallelization_potential` | 理论加速比 |
-| `bottlenecks` | 性能瓶颈列表 |
-| `recommendations` | 优化建议列表 |
-| `has_performance_data` | 是否包含性能数据 |
-
-### DependencyAnalysisResult 方法
-
-| 方法 | 说明 |
-|------|------|
-| `summary()` | 生成简要文本摘要 |
-| `to_dict()` | 转换为字典 |
-| `to_json(filepath=None)` | 转换为 JSON |
-| `to_markdown()` | 生成 Markdown 报告 |
-| `save_markdown(filepath)` | 保存 Markdown 报告 |
-
-## 依赖分析与执行预览的关系
-
-`analyze_dependencies` 与 `preview_execution` 都是只读分析（不执行插件计算），但关注点不同：
-
-| 维度 | 依赖分析 (`analyze_dependencies`) | 执行预览 (`preview_execution`) |
-|------|----------------------------------|-------------------------------|
-| 定位 | 结构分析与性能优化 | 执行前确认与配置检查 |
-| 信息 | 关键路径、并行组、瓶颈、优化建议 | 执行顺序、缓存状态、配置参数 |
-| 时机 | 执行前（静态）或执行后（动态） | 仅执行前 |
-
-`preview_execution` 返回执行计划、配置与缓存状态字典，适合在执行前确认将要计算哪些插件：
-
-```python
-preview = ctx.preview_execution('run_001', 'df_paired')
-needs_compute = sum(1 for s in preview['cache_status'].values() if s['needs_compute'])
-print(f"需计算: {needs_compute} 个插件")
-```
-
-结合使用的典型工作流：**预览 → 执行 → 分析 → 优化**。
-
-1. `preview_execution` 确认执行计划与缓存命中情况；
-2. `ctx.get_data` 执行计算并收集性能数据（需要 `stats_mode='basic'` 或 `'detailed'`）；
-3. `analyze_dependencies` 定位瓶颈并生成优化建议；
-4. 应用建议后再次分析，对比 `critical_path_time` 验证优化效果。
-
-日常快速确认用 `preview_execution`；性能优化与报告生成用 `analyze_dependencies`。
-
-## 常见问题
-
-### Q: 如何启用性能统计？
-
-在创建 Context 时设置 `stats_mode`：
-```python
-ctx = Context(stats_mode='detailed')
-```
-
-### Q: 静态分析和动态分析有什么区别？
-
-- **静态分析**：仅基于依赖关系图，不需要实际执行数据
-- **动态分析**：结合实际执行时间、缓存命中率、内存使用等性能数据
-
-### Q: 瓶颈严重性如何判断？
-
-基于多个维度综合评估：
-- **High**: 时间占比 >20% 或在关键路径上且有其他问题
-- **Medium**: 时间占比 10-20% 或缓存命中率低
-- **Low**: 有潜在问题但影响较小
+`preview_execution()` 同时退役，以上查询不能等价替代执行前的缓存命中和重算步骤预览。
+实际运行的耗时可以用于人工定位慢插件，不再自动推导理论加速比或瓶颈建议。
 
 ## 相关文档
 
-- [架构文档](../../architecture/ARCHITECTURE.md)
+- [配置与诊断 API 迁移](CONFIGURATION.md#context-api-迁移)
+- [血缘可视化](LINEAGE_VISUALIZATION_GUIDE.md)
 - [Plugin DAG、lineage 与缓存](../../architecture/PLUGIN_DAG_LINEAGE_CACHE.md)
-- [执行器管理框架](../../architecture/ARCHITECTURE.md#执行器管理框架)
+- [缓存 CLI](../../cli/WAVEFORM_CACHE.md)

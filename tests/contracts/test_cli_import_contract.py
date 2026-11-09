@@ -17,7 +17,7 @@ import json
 import sys
 
 PREFIXES = (
-    "waveform_analysis.acquisition.daq",
+    "waveform_analysis.acquisition.runs",
     "waveform_analysis.core.context",
     "waveform_analysis.core.plugins",
     "numpy",
@@ -61,7 +61,7 @@ except SystemExit as exc:
     exit_code = exc.code
 
 PREFIXES = (
-    "waveform_analysis.acquisition.daq",
+    "waveform_analysis.acquisition.runs",
     "waveform_analysis.core.context",
     "waveform_analysis.core.plugins",
     "numpy",
@@ -106,7 +106,7 @@ print(json.dumps({
     "loaded": sorted(
         name for name in sys.modules
         if name.startswith((
-            "waveform_analysis.acquisition.daq",
+            "waveform_analysis.acquisition.runs",
             "waveform_analysis.core.context",
             "waveform_analysis.core.plugins",
             "numpy",
@@ -132,6 +132,12 @@ print(json.dumps({
         ["--help"],
         ["--version"],
         ["--not-an-option"],
+        ["--run-name", "run"],
+        ["--run-name", "run", "--target", "df"],
+        ["--run-name", "run", "--target", "df_events"],
+        ["--run-name", "run", "--target", "df_paired"],
+        ["--run-name", "run", "--target", "basic_features", "--time-window", "100"],
+        ["--run-name", "run", "--target", "basic_features", "--start-channel", "0"],
         [],
     ),
 )
@@ -155,7 +161,7 @@ def test_cli_parser_only_paths_do_not_load_runtime_modules(arguments):
 )
 def test_daq_cli_paths_load_only_daq_runtime(arguments):
     observed = _run_cli_fresh(arguments)
-    assert any(name.startswith("waveform_analysis.acquisition.daq") for name in observed["loaded"])
+    assert any(name.startswith("waveform_analysis.acquisition.runs") for name in observed["loaded"])
     assert not any(name.startswith("waveform_analysis.core.context") for name in observed["loaded"])
     assert not any(name.startswith("waveform_analysis.core.plugins") for name in observed["loaded"])
     assert not any(
@@ -167,7 +173,14 @@ def test_daq_cli_paths_load_only_daq_runtime(arguments):
     "arguments",
     (
         ["--show-config"],
-        ["--run-name", "run", "--output", "/tmp/cli-import-contract.csv"],
+        [
+            "--run-name",
+            "run",
+            "--target",
+            "basic_features",
+            "--output",
+            "/tmp/cli-import-contract.csv",
+        ],
     ),
 )
 def test_context_cli_paths_request_only_context_and_profiles(arguments):
@@ -187,24 +200,22 @@ class FakeContext:
     def register(self, *plugins):
         return None
 
-    def set_config(self, config):
-        return None
-
     def get_adapter_info(self):
         return None
 
-    def show_resolved_config(self, **kwargs):
-        return None
+    def list_provided_data(self):
+        return ["fake-plugin"]
+
+    def get_config(self, plugin_name):
+        return self
+
+    def summary(self, **kwargs):
+        return "resolved configuration"
 
     def get_data(self, run_id, data_name):
-        class FakeFrame:
-            def __len__(self):
-                return 0
+        import numpy as np
 
-            def to_csv(self, *args, **kwargs):
-                return None
-
-        return FakeFrame()
+        return np.zeros(0, dtype=[("height", "f8")])
 
 class FakeProfiles:
     @staticmethod

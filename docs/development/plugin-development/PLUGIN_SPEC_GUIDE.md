@@ -114,6 +114,11 @@ class PluginSpec:
 
 这些属性会参与注册校验与 lineage hash，确保缓存一致性。
 
+`Plugin.timeout` 是默认值为 `None` 的执行属性，当前不提供逐插件超时控制。Context 在需要调用
+`compute()` 时拒绝任何非 `None` 值（包括 `0`），计算前抛出 `NotImplementedError`；有效缓存命中
+不触发该检查。请保持 `timeout=None`，独立函数的超时与平台限制见
+[超时支持边界](../../architecture/ARCHITECTURE.md#超时支持边界)。
+
 插件若覆盖 lineage 构建，推荐使用
 `get_lineage(context, *, dependency_resolver=None)` 并将 resolver 传给
 `_build_depends_lineage()`。这样上游采用 Context 的基础 lineage 递归规则，顶层 adapter 信息不会

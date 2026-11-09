@@ -16,18 +16,18 @@ peaks = ctx.get_data("run_001", "peaks")
 events = ctx.get_data("run_001", "events")
 ```
 
-### 执行前预览
+### 查看依赖结构
 
 ```python
-preview = ctx.preview_execution("run_001", "events")
-print(preview)
+dependencies = ctx.resolve_dependencies("events", run_id="run_001")
+print(dependencies)
 ```
 
 ### 文档默认依赖画像
 
 - Profile：`documentation-default-v1`
 - 值：`{"daq_adapter": "vx2730", "use_filtered": false, "wave_source": "records"}`
-- 动态依赖页面同时列出 `resolve_depends_on(context, run_id)` 可能读取的配置键；需要真实运行时配置时，应再次预览执行计划。
+- 动态依赖页面同时列出 `resolve_depends_on(context, run_id)` 可能读取的配置键；需要真实运行时依赖时，使用显式 `run_id` 调用 `resolve_dependencies()`；它不报告缓存命中或重算范围。
 
 ## 插件总览
 
@@ -35,11 +35,8 @@ print(preview)
 | --- | --- | --- | --- | --- | --- | --- |
 | [`basic_features`](basic_features.md) | `BasicFeaturesPlugin` | 特征提取 | `records`, `wave_pool` | `structured_array` | `static` | `4.1.0` |
 | [`cache_analysis`](cache_analysis.md) | `CacheAnalysisPlugin` | 缓存分析 | - | `dict` | `static` | `0.1.0` |
-| [`df`](df.md) | `DataFramePlugin` | 数据导出 | `records`, `basic_features` | `dataframe` | `static` | `1.7.0` |
-| [`df_events`](df_events.md) | `GroupedEventsPlugin` | 事件分析 | `df` | `dataframe` | `static` | `0.0.1` |
-| [`df_paired`](df_paired.md) | `PairedEventsPlugin` | 事件分析 | `df_events` | `dataframe` | `static` | `0.0.1` |
 | [`energy_reconstruction`](energy_reconstruction.md) | `EnergyReconstructionPlugin` | 其他 | `s1_s2_pairs` | `structured_array` | `static` | `0.1.0` |
-| [`events`](events.md) | `EventPlugin` | 事件分析 | `s1_s2_pairs`, `position_reconstruction` | `structured_array` | `static` | `0.0.3` |
+| [`events`](events.md) | `EventPlugin` | 事件分析 | `s1_s2_pairs`, `position_reconstruction` | `structured_array` | `static` | `0.1.0` |
 | [`filtered_waveforms`](filtered_waveforms.md) | `FilteredWaveformsPlugin` | 波形处理 | `st_waveforms` | `structured_array` | `static` | `3.0.0` |
 | [`hit`](hit.md) | `HitFinderPlugin` | 特征提取 | `records`, `wave_pool` | `structured_array` | `static` | `3.0.0` |
 | [`hit_grouped`](hit_grouped.md) | `HitGroupedPlugin` | 特征提取 | `hit_merged`, `hit_merged_components`, `hit_threshold` | `dataframe` | `static` | `0.5.0` |
@@ -56,16 +53,16 @@ print(preview)
 | [`peaklet_waveforms`](peaklet_waveforms.md) | `PeakletWaveformPlugin` | 峰构建 | `peaklets`, `peaklet_components`, `hit_merged`, `hit_merged_components`, `hit_threshold`, `records`, `wave_pool` | `structured_array` | `static` | `2.2.1` |
 | [`peaklets`](peaklets.md) | `PeakletPlugin` | 峰构建 | `hit_merged`, `peaklet_components` | `structured_array` | `static` | `1.2.0` |
 | [`peaks`](peaks.md) | `PeaksPlugin` | 特征提取 | `peaklets`, `peaklet_features` | `structured_array` | `static` | `5.1.0` |
-| [`position_reconstruction`](position_reconstruction.md) | `PositionReconstructionPlugin` | 其他 | `s1_s2_pairs`, `peaklet_channels` | `structured_array` | `static` | `0.4.0` |
-| [`raw_files`](raw_files.md) | `RawFileNamesPlugin` | 数据加载 | - | `list` | `static` | `0.0.2` |
-| [`records`](records.md) | `RecordsPlugin` | 记录处理 | `raw_files` | `structured_array` | `static` | `0.16.0` |
+| [`position_reconstruction`](position_reconstruction.md) | `PositionReconstructionPlugin` | 其他 | `s1_s2_pairs`, `peaklet_channels` | `structured_array` | `static` | `0.4.1` |
+| [`raw_files`](raw_files.md) | `RawFileNamesPlugin` | 数据加载 | - | `list` | `static` | `0.0.3` |
+| [`records`](records.md) | `RecordsPlugin` | 记录处理 | `raw_files` | `structured_array` | `static` | `0.17.0` |
 | [`records_asymmetry_mask`](records_asymmetry_mask.md) | `RecordsAsymmetryMaskPlugin` | 记录处理 | `records`, `wave_pool` | `array` | `static` | `0.2.0` |
 | [`records_detector_mask`](records_detector_mask.md) | `RecordsDetectorMaskPlugin` | 记录处理 | `records`, `records_asymmetry_mask` | `array` | `static` | `0.1.0` |
 | [`records_veto_mask`](records_veto_mask.md) | `RecordsVetoMaskPlugin` | 记录处理 | `records`, `records_asymmetry_mask` | `array` | `static` | `0.1.0` |
 | [`s1_s2_pair_candidates`](s1_s2_pair_candidates.md) | `S1S2PairCandidatesPlugin` | 事件分析 | `peak_classification`, `peaks` | `structured_array` | `static` | `0.2.0` |
 | [`s1_s2_pairs`](s1_s2_pairs.md) | `S1S2PairSelectionPlugin` | 事件分析 | `s1_s2_pair_candidates` | `structured_array` | `static` | `0.3.0` |
 | [`st_waveforms`](st_waveforms.md) | `WaveformsPlugin` | 波形处理 | `raw_files` | `structured_array` | `static` | `0.10.0` |
-| [`wave_pool`](wave_pool.md) | `WavePoolPlugin` | 波形处理 | `raw_files` | `array` | `static` | `0.16.0` |
+| [`wave_pool`](wave_pool.md) | `WavePoolPlugin` | 波形处理 | `raw_files` | `array` | `static` | `0.17.0` |
 | [`wave_pool_filtered`](wave_pool_filtered.md) | `WavePoolFilteredPlugin` | 波形处理 | `records`, `wave_pool` | `array` | `static` | `3.0.0` |
 | [`waveform_width`](waveform_width.md) | `WaveformWidthPlugin` | 波形处理 | `hit`, `st_waveforms` | `structured_array` | `static` | `3.0.0` |
 | [`waveform_width_integral`](waveform_width_integral.md) | `WaveformWidthIntegralPlugin` | 波形处理 | `records`, `wave_pool` | `structured_array` | `static` | `2.7.0` |
@@ -124,18 +121,9 @@ print(preview)
 将峰或 hit 组织为事件、配对结果或位置重建结果。
 | Provides | 插件类 | 解析后依赖 | 页面来源 |
 | --- | --- | --- | --- |
-| [`df_events`](df_events.md) | `GroupedEventsPlugin` | `df` | `source` |
-| [`df_paired`](df_paired.md) | `PairedEventsPlugin` | `df_events` | `source` |
 | [`events`](events.md) | `EventPlugin` | `s1_s2_pairs`, `position_reconstruction` | `source` |
 | [`s1_s2_pair_candidates`](s1_s2_pair_candidates.md) | `S1S2PairCandidatesPlugin` | `peak_classification`, `peaks` | `source` |
 | [`s1_s2_pairs`](s1_s2_pairs.md) | `S1S2PairSelectionPlugin` | `s1_s2_pair_candidates` | `source` |
-
-### 数据导出
-
-把插件产物整理为分析侧表格或批量输出。
-| Provides | 插件类 | 解析后依赖 | 页面来源 |
-| --- | --- | --- | --- |
-| [`df`](df.md) | `DataFramePlugin` | `records`, `basic_features` | `source` |
 
 ### 缓存分析
 

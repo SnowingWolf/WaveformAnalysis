@@ -121,7 +121,7 @@ def test_plugin_initialization():
 
     assert plugin.provides == "position_reconstruction"
     assert plugin.depends_on == ["s1_s2_pairs", "peaklet_channels"]
-    assert plugin.version == "0.4.0"
+    assert plugin.version == "0.4.1"
     assert plugin.output_dtype == POSITION_RECONSTRUCTION_DTYPE
 
     # 检查配置选项
@@ -207,7 +207,13 @@ def test_plugin_with_mock_data():
             "detector_radius_mm": 50.0,
             "edge_threshold_mm": 5.0,
         },
-        data_dict={"s1_s2_pairs": pairs},
+        data_dict={
+            "s1_s2_pairs": pairs,
+            "peaklet_channels": np.zeros(
+                0,
+                dtype=[("peaklet_id", "i8"), ("board", "i2"), ("channel", "i2"), ("area", "f4")],
+            ),
+        },
     )
 
     result = plugin.compute(ctx, "test_run")
@@ -402,6 +408,106 @@ def test_batched_xy_duplicate_layout_key_keeps_last_entry():
     np.testing.assert_array_equal(n_channels, np.array([1], dtype=np.int16))
 
 
+@pytest.mark.parametrize("error_type", [OSError, RuntimeError, KeyError])
+def test_batched_xy_propagates_upstream_failure(error_type):
+    failure = error_type("peaklet channel read failed")
+
+    class FailingContext:
+        def get_data(self, run_id, data_name):
+            raise failure
+
+    with pytest.raises(error_type) as observed:
+        PositionReconstructionPlugin()._compute_xy_cog_vectorized(
+            FailingContext(),
+            "run",
+            np.array([11]),
+            np.array([500.0]),
+            100.0,
+            load_fallback_layout(),
+        )
+    assert observed.value is failure
+
+
+@pytest.mark.parametrize(
+    "channels",
+    [
+        None,
+        [],
+        np.zeros(0),
+        np.zeros(0, dtype=[("peaklet_id", "i8")]),
+        np.zeros(
+            (0, 1),
+            dtype=[("peaklet_id", "i8"), ("board", "i2"), ("channel", "i2"), ("area", "f4")],
+        ),
+        np.zeros(
+            0,
+            dtype=[("peaklet_id", "f8"), ("board", "i2"), ("channel", "i2"), ("area", "f4")],
+        ),
+        np.zeros(
+            0,
+            dtype=[("peaklet_id", "i8"), ("board", "f4"), ("channel", "i2"), ("area", "f4")],
+        ),
+        np.zeros(
+            0,
+            dtype=[("peaklet_id", "i8"), ("board", "i2"), ("channel", "i2"), ("area", "c8")],
+        ),
+    ],
+)
+def test_batched_xy_rejects_malformed_channel_schema(channels):
+    class ChannelContext:
+        def get_data(self, run_id, data_name):
+            return channels
+
+    with pytest.raises(ValueError, match="peaklet_channels"):
+        PositionReconstructionPlugin()._compute_xy_cog_vectorized(
+            ChannelContext(),
+            "run",
+            np.array([11]),
+            np.array([500.0]),
+            100.0,
+            load_fallback_layout(),
+        )
+
+
+def test_batched_xy_accepts_typed_empty_channels():
+    class EmptyChannelContext:
+        def get_data(self, run_id, data_name):
+            return np.zeros(
+                0,
+                dtype=[("peaklet_id", "i8"), ("board", "i2"), ("channel", "i2"), ("area", "f4")],
+            )
+
+    x, y, n_channels = PositionReconstructionPlugin()._compute_xy_cog_vectorized(
+        EmptyChannelContext(),
+        "run",
+        np.array([11]),
+        np.array([500.0]),
+        100.0,
+        load_fallback_layout(),
+    )
+
+    assert np.isnan(x).all() and np.isnan(y).all()
+    np.testing.assert_array_equal(n_channels, [0])
+
+
+def test_batched_xy_below_threshold_does_not_read_channels():
+    class UnusedChannelContext:
+        def get_data(self, run_id, data_name):
+            raise AssertionError("below-threshold S2 should not load channels")
+
+    x, y, n_channels = PositionReconstructionPlugin()._compute_xy_cog_vectorized(
+        UnusedChannelContext(),
+        "run",
+        np.array([11]),
+        np.array([50.0]),
+        100.0,
+        load_fallback_layout(),
+    )
+
+    assert np.isnan(x).all() and np.isnan(y).all()
+    np.testing.assert_array_equal(n_channels, [0])
+
+
 def test_default_drift_velocity_outputs_z_in_mm():
     """默认漂移速度以 mm/ns 表达，Z 输出单位为 mm。"""
     plugin = PositionReconstructionPlugin()
@@ -437,7 +543,15 @@ def test_default_drift_velocity_outputs_z_in_mm():
         def get_data(self, run_id, data_name):
             return self._data.get(data_name)
 
-    ctx = SimpleContext(data_dict={"s1_s2_pairs": pairs})
+    ctx = SimpleContext(
+        data_dict={
+            "s1_s2_pairs": pairs,
+            "peaklet_channels": np.zeros(
+                0,
+                dtype=[("peaklet_id", "i8"), ("board", "i2"), ("channel", "i2"), ("area", "f4")],
+            ),
+        }
+    )
     result = plugin.compute(ctx, "test_run")
 
     assert result["z"][0] == pytest.approx(65.0, rel=1e-5)

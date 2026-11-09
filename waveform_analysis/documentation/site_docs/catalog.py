@@ -758,7 +758,10 @@ candidate_pairs = accessor.pairs[mask]
 
 _PARAMETER_HELP = {
     "storage_backend": "可选存储后端实例。",
-    "storage_dir": "本地缓存目录。",
+    "storage_dir": "本地可写缓存目录。",
+    "base": "可选的已发布共享基础快照目录。",
+    "targets": "要发布的一个产物名称或名称列表。",
+    "destination": "发布快照的新目录；不得已存在。",
     "config": "Context 的显式配置字典。",
     "external_plugin_dirs": "额外插件发现目录。",
     "auto_discover_plugins": "是否在构造时自动发现插件。",
@@ -771,14 +774,14 @@ _PARAMETER_HELP = {
     "data_name": "已注册插件提供的数据名称。",
     "plugin": "插件实例或其 `provides` 名称。",
     "plugin_name": "插件的 `provides` 名称。",
-    "name": "配置项名称。",
+    "name": "配置项名称；get_config 省略此项时解析全部声明的选项。",
+    "with_source": "单项查询为 True 时返回 ConfigValue；全量查询始终包含来源。",
     "adapter_name": "覆盖自动推断的 DAQ adapter 名称。",
     "refresh": "是否忽略已有 run 配置并重新读取。",
     "target": "要解析依赖的数据名称。",
     "target_name": "要分析依赖的数据名称。",
     "kind": "lineage 输出类型：`labview`、`plotly` 或 `mermaid`。",
     "show_virtual_plugins": "是否显示仅用于可视化的虚拟插件节点。",
-    "include_performance": "是否将性能信息纳入依赖分析。",
     "topic": "帮助主题；省略时返回 Context 总览。",
     "output": "返回形态：`native`、`chunk_stream` 或 `array`。",
     "show_progress": "是否显示数据请求进度。",
@@ -787,9 +790,9 @@ _PARAMETER_HELP = {
     "time_field": "开始时间字段名；省略时自动推断。",
     "endtime_field": "结束时间字段名；省略时自动推断。",
     "force_rebuild": "是否强制重建已有时间索引。",
-    "time_domain": "查询时间域，默认 `system_ns`。",
-    "start_time": "系统时间范围的起点。",
-    "end_time": "系统时间范围的终点。",
+    "time_domain": "查询时间域：`system_ns`（ns，默认）或 `raw_ps`（ps）。",
+    "start_time": "整数时间或 datetime 起点；None 表示开放边界。",
+    "end_time": "整数时间或 datetime 终点；None 表示开放边界。",
     "auto_build_index": "索引缺失时是否自动建立。",
     "epoch": "要设置的绝对时间基准。",
     "time_unit": "数值 epoch 的单位。",
@@ -800,15 +803,15 @@ _PARAMETER_HELP = {
     "show_config": "是否显示解析后的配置。",
     "show_usage": "是否显示每项配置的使用位置。",
     "show_full_help": "是否显示完整帮助文本。",
-    "run_name": "仅用于展示的运行名称。",
+    "view": "配置视图：`summary` 为全局显式配置，`options` 为插件选项。",
+    "show_current_values": "是否解析当前值；False 时仅查看选项声明。",
+    "show_source": "是否在选项视图中显示配置来源、原始键名和推断信息。",
+    "run_name": "在 show_config 的全局配置视图中标注缓存目录使用的运行名。",
     "show_cache": "是否显示缓存命中状态。",
     "verbose": "输出详细程度。",
-    "_visited": "内部循环检测状态；调用方无需传递。",
     "downstream": "是否同时清理下游产物。",
     "clear_memory": "是否清理内存缓存。",
     "clear_disk": "是否清理磁盘缓存。",
-    "auto_fix": "是否执行可自动修复的诊断建议。",
-    "dry_run": "仅报告诊断结果而不修改缓存。",
     "detailed": "是否返回详细统计。",
     "export_path": "可选统计导出路径。",
     "data": "长度一致的一维变量数组序列。",
@@ -880,24 +883,20 @@ _CALLABLE_RETURNS = {
     "Context": "已配置但未绑定当前 run 的 `Context` 实例。",
     "list_provided_data": "已注册插件的 `provides` 名称列表。",
     "get_plugin": "匹配的 `Plugin` 实例。",
-    "get_config_value": "带来源信息的 `ConfigValue`。",
-    "get_resolved_config": "插件的 `ResolvedConfig`。",
+    "get_config": "单项返回值或 ConfigValue（with_source=True）；省略 name 返回 ResolvedConfig。",
+    "show_config": "默认展示并返回 None；字典输出模式静默返回插件选项元数据。",
     "get_run_config": "指定 run 的配置字典。",
     "get_data": "请求的原生结果、数组或 chunk stream。",
     "build_time_index": "时间索引元数据字典。",
     "time_range": "命中时间范围的数组或数组列表。",
     "get_epoch": "指定 run 的 epoch；未设置时为 `None`。",
-    "get_data_time_range_absolute": "命中绝对时间范围的数组或数组列表。",
     "resolve_dependencies": "按执行顺序排列的依赖名称列表。",
-    "preview_execution": "执行计划、配置与缓存状态字典。",
     "get_lineage": "目标产物的 lineage 字典。",
     "plot_lineage": "图形对象或 Mermaid 文本，取决于 `kind`。",
-    "analyze_dependencies": "依赖分析结果。",
     "help": "结构化 `HelpDocument`。",
     "clear_cache_for": "已清理的缓存条目数。",
-    "analyze_cache": "`CacheAnalyzer` 分析器。",
+    "publish": "新建的快照目录路径。",
     "diagnose_cache": "诊断问题列表。",
-    "cache_stats": "`CacheStatistics` 汇总结果。",
     "corner_hist": "`(matplotlib.figure.Figure, numpy.ndarray)`。",
     "plot_waveforms": "交互式 Plotly figure；Plotly 缺失时返回 `None`。",
     "plot_peak_channels_with_sum": "`(figure, axes)`；没有 peak 数据时均为 `None`。",
@@ -913,11 +912,31 @@ _CALLABLE_RETURNS = {
 _CALLABLE_NOTES = {
     "Context": ("Context 无状态；数据访问必须显式传入 `run_id`。",),
     "register": ("插件行为变更后应升级插件版本，以保证缓存 lineage 失效。",),
+    "set_config": (
+        "接受字典、字符串路径或 Path；JSON 可以是普通对象或含 custom_config 的快照。",
+        "文件验证完成后才更新配置；指定 plugin_name 浅更新插件块，否则浅更新顶层。",
+        "更新自动失效解析配置与规划缓存，无需手动清理内部缓存。",
+    ),
+    "get_config": (
+        "单项查询不校验其他选项；未知插件或选项抛出 KeyError。",
+        "adapter_name 仅覆盖本次查询的推断来源，显式值仍优先；不合并 run 或逐通道覆盖。",
+    ),
+    "show_config": (
+        '无参保留全局显式配置汇总；指定插件、show_source=True 或 view="options" 查询插件选项。',
+        "dict 输出仅用于选项视图；show_source=True 要求 show_current_values=True。",
+        "`run_name` 是受支持的展示参数；仅在全局视图中标注缓存目录。",
+    ),
+    "time_range": (
+        "整数边界的单位服从 time_domain；datetime 按 run epoch 转换，无时区边界采用 epoch 时区。",
+        "整数与 datetime 不可混用；两个开放边界不要求 epoch。缺少 epoch 可自动提取或明确报错。",
+        "不同时间域、time_field 和 endtime_field 隔离索引；硬件通道使用 board:channel。",
+    ),
+    "get_lineage": ("只接收 `data_name`；递归状态由内部维护。",),
     "get_data": ("请求会按需解析依赖并复用有效缓存。",),
-    "preview_execution": ("只分析元数据，不执行插件或加载 run 数据。",),
     "plot_lineage": ("`mermaid` 返回文本；`labview` 和 `plotly` 返回图形对象。",),
     "clear_cache_for": ("设置 `downstream=True` 前应确认影响范围。",),
-    "diagnose_cache": ("默认 `dry_run=True`，不会修改缓存。",),
+    "diagnose_cache": ("仅检查并返回问题，不修改缓存；修复使用缓存 CLI。",),
+    "publish": ("目标须是已经持久化的非空、未压缩 ndarray；发布后不要修改共享快照。",),
     "corner_hist": (
         "对数坐标要求对应数据和范围为正数；对称对数坐标可保留负值和零。",
         "叠加绘图不会重复执行 tight layout；需要时请在最后手工调用一次。",
@@ -937,9 +956,14 @@ _CALLABLE_NOTES = {
 _CALLABLE_EXAMPLES = {
     "Context": """ctx = Context(config={\"data_root\": \"DAQ\", \"daq_adapter\": \"vx2730\"})\nctx.register(*profiles.cpu_default())""",
     "get_data": """peaks = ctx.get_data(\"run_001\", \"peaks\")""",
-    "preview_execution": """plan = ctx.preview_execution(\"run_001\", \"peaks\")""",
+    "set_config": """from pathlib import Path\n\nctx.set_config({\"dt\": 4}, plugin_name=\"records\")\nctx.set_config(Path(\"settings.json\"))""",
+    "get_config": """value = ctx.get_config(\"records\", \"dt\")\nsource = ctx.get_config(\"records\", \"dt\", with_source=True)\nresolved = ctx.get_config(\"records\")""",
+    "show_config": """ctx.show_config()\nctx.show_config(run_name=\"run_001\")\nctx.show_config(\"records\", show_source=True)\noptions = ctx.show_config(view=\"options\", output=\"dict\")""",
+    "time_range": """from datetime import datetime, timedelta, timezone\n\nepoch = datetime(2024, 1, 1, tzinfo=timezone.utc)\nctx.set_epoch(\"run_001\", epoch)\nrecords = ctx.time_range(\"run_001\", \"records\", epoch, epoch + timedelta(seconds=1), channel=\"0:0\")""",
+    "get_lineage": """lineage = ctx.get_lineage(\"peaks\")""",
     "plot_lineage": """figure = ctx.plot_lineage(\"peaks\", kind=\"plotly\", show_virtual_plugins=False)""",
     "clear_cache_for": """ctx.clear_cache_for(\"run_001\", \"peaks\", downstream=True)""",
+    "publish": """ctx.publish(\"run_001\", [\"records\", \"wave_pool\"], \"/shared/wa/run_001-v1\")""",
     "plot_waveforms": """figure = plot_waveforms(waveforms, event_index=0, channels=[\"0:3\"])""",
     "plot_peak_channels_with_sum": """fig, axes = plot_peak_channels_with_sum(919, context=ctx, run_id=\"run_001\")""",
     "create_peak_plotter": """plot_peak = create_peak_plotter(ctx, \"run_001\")\nfig, axes = plot_peak(919)""",
@@ -976,11 +1000,24 @@ def _callable_parameters(callable_obj: Any) -> tuple[AccessorParameterSpec, ...]
 
 def _context_spec(name: str, description: str) -> CallableDocumentationSpec:
     target = Context if name == "Context" else getattr(Context, name)
+    parameter_overrides = {
+        "set_config": {"config": "显式配置字典或 JSON 文件的字符串 / Path 路径。"},
+        "show_config": {
+            "data_name": "插件实例或 provides 名称；省略时按所选视图显示全局配置或全部插件。",
+            "output": "`display` 展示并返回 None；`dict` 静默返回选项元数据。",
+        },
+    }.get(name, {})
+    parameters = tuple(
+        AccessorParameterSpec(
+            parameter.name, parameter_overrides.get(parameter.name, parameter.description)
+        )
+        for parameter in _callable_parameters(target)
+    )
     return CallableDocumentationSpec(
         name,
         target,
         description,
-        _callable_parameters(target),
+        parameters,
         returns=_CALLABLE_RETURNS.get(name, "无返回值；结果通过 Context 状态或终端输出呈现。"),
         notes=_CALLABLE_NOTES.get(name, ()),
         example=_CALLABLE_EXAMPLES.get(name, ""),
@@ -997,7 +1034,6 @@ _CONTEXT_GROUP_RULES: tuple[tuple[str, str, str, tuple[str, ...]], ...] = (
         "创建 Context，注册或发现插件，并检查已提供的数据产物。",
         (
             "Context",
-            "from_config_json",
             "clone",
             "create_context_factory",
             "register",
@@ -1013,16 +1049,9 @@ _CONTEXT_GROUP_RULES: tuple[tuple[str, str, str, tuple[str, ...]], ...] = (
         (
             "set_config",
             "get_config",
-            "get_config_value",
-            "get_resolved_config",
-            "show_resolved_config",
             "show_config",
             "get_run_config",
-            "validate_run_config",
-            "get_run_hardware_channels",
-            "get_plugin_run_config",
             "get_adapter_info",
-            "list_plugin_configs",
         ),
     ),
     (
@@ -1035,23 +1064,19 @@ _CONTEXT_GROUP_RULES: tuple[tuple[str, str, str, tuple[str, ...]], ...] = (
             "time_range",
             "set_epoch",
             "get_epoch",
-            "get_data_time_range_absolute",
             "auto_extract_epoch",
         ),
     ),
     (
         "dag-and-execution",
         "依赖、执行与 DAG",
-        "在执行前查看计划与依赖；`plot_lineage()` 是 Context 的 DAG 调试能力。",
+        "查看依赖顺序和 lineage；`plot_lineage()` 展示普通依赖图。",
         (
             "resolve_dependencies",
-            "preview_execution",
             "get_lineage",
             "plot_lineage",
-            "analyze_dependencies",
             "help",
             "get_performance_report",
-            "clear_performance_caches",
         ),
     ),
     (
@@ -1059,11 +1084,9 @@ _CONTEXT_GROUP_RULES: tuple[tuple[str, str, str, tuple[str, ...]], ...] = (
         "缓存与诊断",
         "缓存 key 由 run、代码、版本、配置和输出契约决定。",
         (
+            "publish",
             "clear_cache_for",
-            "clear_config_cache",
-            "analyze_cache",
             "diagnose_cache",
-            "cache_stats",
             "key_for",
         ),
     ),
@@ -1072,45 +1095,31 @@ _CONTEXT_GROUP_RULES: tuple[tuple[str, str, str, tuple[str, ...]], ...] = (
 # 方法描述兜底字典；未列出的方法会回退到 docstring 首行。
 _CONTEXT_DESCRIPTIONS: dict[str, str] = {
     "Context": "创建分析 Context；构造器不绑定某个 run。",
-    "from_config_json": "从 JSON 配置文件加载并应用配置。",
     "clone": "创建具有相同配置和插件注册的新 Context。",
     "create_context_factory": "构建可序列化的 context_factory 用于进程级执行器。",
     "register": "注册插件实例、插件类、模块或其序列。",
     "discover_and_register_plugins": "从 entry point 与配置目录发现插件。",
     "list_provided_data": "列出已注册的稳定数据名称。",
     "get_plugin": "按 `provides` 名称取得插件实例。",
-    "set_config": "设置全局或插件显式配置。",
-    "get_config": "读取插件的单项配置。",
-    "get_config_value": "读取单项配置及其解析来源。",
-    "get_resolved_config": "返回插件完整解析配置。",
-    "show_resolved_config": "打印解析配置。",
-    "show_config": "显示当前配置，并标识每个配置项对应的插件。",
+    "set_config": "从字典或 JSON 文件更新全局或插件显式配置。",
+    "get_config": "读取插件单项值、来源或完整解析配置。",
+    "show_config": "展示全局配置或插件选项，支持来源和字典输出。",
     "get_run_config": "读取特定 run 的 DAQ 配置。",
-    "validate_run_config": "校验 run 配置。",
-    "get_run_hardware_channels": "返回 run 的硬件通道映射。",
-    "get_plugin_run_config": "返回插件在特定 run 的配置。",
     "get_adapter_info": "获取 DAQ adapter 信息。",
-    "list_plugin_configs": "列出插件配置选项。",
     "get_data": "请求 run 的具名数据；未命中缓存时执行必要上游。",
     "build_time_index": "建立或刷新时间索引。",
-    "time_range": "在系统时间 ns 域查询范围。",
+    "time_range": "按整数时间域或 datetime 边界查询指定 run 的数据。",
     "set_epoch": "设置 run 的绝对时间 epoch。",
     "get_epoch": "读取 run 的 epoch。",
-    "get_data_time_range_absolute": "使用 datetime 边界查询绝对时间范围。",
     "auto_extract_epoch": "自动提取 run 的 epoch。",
     "resolve_dependencies": "返回目标依赖执行顺序。",
-    "preview_execution": "预览执行计划、配置与缓存命中。",
     "get_lineage": "返回插件 lineage 数据结构。",
     "plot_lineage": "渲染 `labview`、`plotly` 或 `mermaid` DAG。",
-    "analyze_dependencies": "分析上游、下游与性能信息。",
     "help": "返回结构化帮助文档。",
     "get_performance_report": "获取插件性能统计报告。",
-    "clear_performance_caches": "清除所有性能优化缓存。",
+    "publish": "将已物化产物发布到新的共享基础快照。",
     "clear_cache_for": "清理指定 run 的缓存。",
-    "clear_config_cache": "清除配置缓存。",
-    "analyze_cache": "生成缓存状态分析。",
-    "diagnose_cache": "诊断缓存问题，默认 dry-run。",
-    "cache_stats": "汇总缓存统计。",
+    "diagnose_cache": "检查缓存问题，不执行修复。",
     "key_for": "获取数据类型和 run 的唯一键。",
 }
 
@@ -1126,6 +1135,79 @@ def _method_description(name: str) -> str:
 
 
 _CONTEXT_NARRATIVE_SECTIONS = (
+    ContentDocumentationSection(
+        anchor="api-migration",
+        title="Context API 迁移",
+        blocks=(
+            DocumentationContentBlock(
+                kind="paragraph",
+                text=(
+                    "配置更新统一使用 `set_config()`，它会自动失效解析配置、lineage、缓存键与执行计划。"
+                    "指定 run 的产物清理仍使用 `clear_cache_for(run_id, data_name)`。"
+                    "内部缓存维护由 Context 管理，私有 helper 不属于用户 API。"
+                    "结果只保存在显式 run 的内存存储中，不再自动创建同名 Context 属性；"
+                    "用户普通属性不会被当作结果，也不会由缓存清理修改。"
+                ),
+            ),
+            DocumentationContentBlock(
+                kind="table",
+                table_headers=("原调用", "当前写法"),
+                table_rows=(
+                    ("`ctx.<data_name>`", "`ctx.get_data(run_id, data_name)`"),
+                    (
+                        "`RuntimeCacheManager`",
+                        "读取结果用 `get_data`（缺失时会计算）；检查缓存问题用 `diagnose_cache`",
+                    ),
+                    (
+                        "`clear_config_cache()` / `clear_performance_caches()`",
+                        "通过 `set_config(...)` 更新配置；删除手动维护调用",
+                    ),
+                    ("`ctx.profiling_summary`", "`ctx.profiler.summary()`"),
+                    (
+                        "`analyze_cache()` / `cache_stats()`",
+                        "容量与条目使用 `waveform-cache info / stats / list`",
+                    ),
+                    (
+                        "`diagnose_cache(auto_fix=..., dry_run=...)`",
+                        "只传 `run_id`、`verbose`；修复使用 `waveform-cache diagnose --fix`",
+                    ),
+                    (
+                        "run 配置便捷包装",
+                        "通过 `get_run_config()` 读取，再调用独立校验或硬件展开函数；见配置管理指南",
+                    ),
+                    ("`get_lineage(data_name, _visited=...)`", "`get_lineage(data_name)`"),
+                    (
+                        "`preview_execution()` / `analyze_dependencies()`",
+                        "已删除；依赖结构用 `resolve_dependencies()` / `plot_lineage()`，耗时用 `get_performance_report()`",
+                    ),
+                    (
+                        "`show_config(run_name=...)`",
+                        "保持此写法；`run_name` 受支持，不发出弃用警告",
+                    ),
+                ),
+            ),
+            DocumentationContentBlock(
+                kind="paragraph",
+                text=(
+                    "高级依赖分析及其可视化高亮已退役；拓扑查询不提供缓存命中或重算范围预览。"
+                    "`show_config` 的 `run_name` 只标注全局配置视图的缓存目录，不能替代数据访问的 `run_id`。"
+                    "详细迁移示例见配置管理指南。"
+                ),
+            ),
+            DocumentationContentBlock(
+                kind="code",
+                language="python",
+                code=(
+                    "# 修改配置时自动失效相关内部缓存\n"
+                    'ctx.set_config({"threshold": 15}, plugin_name="hit_threshold")\n'
+                    'ctx.show_config(run_name="run_001")\n'
+                    'lineage = ctx.get_lineage("peaks")\n'
+                    'issues = ctx.diagnose_cache("run_001")\n'
+                    "print(ctx.profiler.summary())"
+                ),
+            ),
+        ),
+    ),
     ContentDocumentationSection(
         anchor="execution-framework",
         title="Context、ExecutorManager 与处理工作流",
@@ -1226,11 +1308,24 @@ _CONTEXT_NARRATIVE_SECTIONS = (
                 kind="list",
                 ordered=True,
                 items=(
-                    "先用 `preview_execution(run_id, data_name)` 检查依赖顺序、resolved config 与缓存命中，再决定是否执行。",
+                    "执行前可用 `resolve_dependencies(data_name, run_id=run_id)` 查看依赖顺序，用 `get_config(data_name)` 检查配置；拓扑顺序不代表本次重算范围。",
                     "IO 密集型任务通常选 `thread`，CPU 密集型任务通常选 `process`；进程任务的函数、参数和 `Context` 工厂必须可 pickle。",
                     "复用执行器必须保持稳定的名称、类型和 `max_workers`；推荐使用 `with get_executor(...)`，不要依赖内部 `_executor_refs`。",
                     "多个 run 不共享可变 Context；使用 `BatchProcessor` 的 `context_factory` 或显式 `ctx.clone()`，让每个 run 的缓存和错误边界可追踪。",
+                    "显式 `context_factory` 在串行模式也为每个 run 的每次尝试创建 Context；配置扫描先创建 Context，再应用本组配置，并保留所选缓存策略。",
+                    "`parallel_map()` / `parallel_apply()` 的空列表输入直接返回 `[]`，不创建执行器；执行器的阻塞关闭在注册表锁外进行。",
                     "worker 数、进度条和负载均衡属于资源策略；只有改变输出内容、字段或选择的配置才应通过 Plugin `track` 进入 lineage。",
+                ),
+            ),
+            DocumentationContentBlock(
+                kind="note",
+                tone="important",
+                title="超时支持边界",
+                text=(
+                    "`Plugin.timeout` 默认为 `None`。Context 需要执行 `compute()` 时拒绝任何非 `None` 值，"
+                    "计算前抛出 `NotImplementedError`；有效缓存命中仍可读取，并行 DAG 可能将异常包装为 `RuntimeError`。"
+                    "独立 `TimeoutManager` / `with_timeout` 在 Unix 仅支持主线程的正数超时；"
+                    "Windows 的函数超时只限制等待时间，不能终止后台线程，`timeout_context()` 不提供执行中断。"
                 ),
             ),
             DocumentationContentBlock(
@@ -1251,8 +1346,8 @@ _CONTEXT_NARRATIVE_SECTIONS = (
             DocumentationContentBlock(
                 kind="list",
                 items=(
-                    "执行计划异常：检查 `resolve_dependencies()`、`preview_execution()` 和 `get_lineage()`。",
-                    "配置来源异常：检查 `get_resolved_config()`；不要只看传入 Context 的原始字典。",
+                    "执行计划异常：检查 `resolve_dependencies()`、`get_lineage()` 和执行日志。",
+                    "配置来源异常：检查 `get_config()`；不要只看传入 Context 的原始字典。",
                     "并行任务泄漏或重复创建：检查执行器名称、`reuse`、`release_executor()` 与 `get_executor_manager().list_executors()`。",
                     "进程池失败：先确认函数/参数可序列化，再降低 `max_workers` 或切换到 `thread`；不要静默改变 `run_id` 或缓存目录。",
                 ),
@@ -1565,7 +1660,7 @@ RECORDS_VIEW_DOCUMENTATION_PAGE = CallableDocumentationPageSpec(
                             "`build_records_from_raw_files(...) -> RecordsBundle`",
                         ),
                         (
-                            '非 V1725，`input_source="st_waveforms"`',
+                            '非 V1725 且非 CoMPASS BIN，`input_source="st_waveforms"`',
                             "`st_waveforms`",
                             "`build_records_from_st_waveforms_sharded(...) -> RecordsBundle`",
                         ),
@@ -1597,9 +1692,9 @@ RECORDS_VIEW_DOCUMENTATION_PAGE = CallableDocumentationPageSpec(
                 DocumentationContentBlock(
                     kind="note",
                     tone="warning",
-                    title="V1725 限制",
+                    title="二进制格式输入限制",
                     text=(
-                        "V1725 使用专用二进制读取与分片合并路径，明确拒绝 "
+                        "V1725 使用专用二进制读取与分片合并路径；V1725 与 CoMPASS BIN 均拒绝 "
                         '`input_source="st_waveforms"`。'
                     ),
                 ),
@@ -1671,6 +1766,12 @@ _ADAPTER_PARAMETER_HELP = {
     "adapter_name": "已注册的 DAQ adapter 名称；未提供时从 `Context.config['daq_adapter']` 读取。",
     "plugin": "已注册插件实例或其 `provides` 名称。",
     "verbose": "是否显示每个配置值的来源与推断细节。",
+    "data_root": "原始数据根目录。",
+    "run_name": "运行名称。",
+    "channel": "事件元数据中的物理通道号，与 board 共同确定硬件身份。",
+    "board": "必需关键字参数，指定事件元数据中的板卡号。",
+    "chunk_size": "传给格式读取器的分块参数，必须为正；具体块大小由读取器决定。",
+    "show_progress": "是否显示读取进度。",
 }
 
 
@@ -1682,10 +1783,11 @@ def _adapter_callable_spec(
     notes: tuple[str, ...] = (),
     example: str = "",
 ) -> CallableDocumentationSpec:
+    parameter_help = _PARAMETER_HELP if name == "Context.get_config" else _ADAPTER_PARAMETER_HELP
     parameters = tuple(
         AccessorParameterSpec(
             param_name,
-            _ADAPTER_PARAMETER_HELP.get(param_name, f"`{param_name}` 的调用参数。"),
+            parameter_help.get(param_name, f"`{param_name}` 的调用参数。"),
         )
         for param_name in inspect.signature(callable_obj).parameters
         if param_name != "self"
@@ -1731,7 +1833,7 @@ ADAPTER_DOCUMENTATION_PAGE = CallableDocumentationPageSpec(
                 _adapter_callable_spec(
                     "list_adapters",
                     list_adapters,
-                    "列出当前进程已注册的 adapter 名称；导入 `waveform_analysis.acquisition.formats` 后内置 `vx2730` 与 `v1725` 可用。",
+                    "列出当前进程已注册的 adapter 名称；导入 `waveform_analysis.acquisition.formats` 后内置 `vx2730`、`vx2730_bin` 与 `v1725` 可用。",
                     returns="已注册 adapter 名称列表。",
                     example=(
                         "from waveform_analysis import Context\n"
@@ -1742,22 +1844,24 @@ ADAPTER_DOCUMENTATION_PAGE = CallableDocumentationPageSpec(
                         "assert adapter_name in list_adapters()\n\n"
                         "# 在请求插件产物前检查 DAQ 文件与通道发现结果。\n"
                         "adapter = get_adapter(adapter_name)\n"
-                        'channels = adapter.scan_run("DAQ", run_id)\n\n'
+                        'file_groups = adapter.scan_run("DAQ", run_id)\n\n'
                         'ctx = Context(config={"data_root": "DAQ", "daq_adapter": adapter_name})\n'
                         "ctx.register(*profiles.cpu_default())\n\n"
                         "# adapter 元数据与解析后的插件配置均可直接检查。\n"
                         "print(ctx.get_adapter_info())\n"
-                        'ctx.show_resolved_config("records")\n'
+                        'ctx.show_config("records", show_source=True)\n'
                         'records = ctx.get_data(run_id, "records")'
                     ),
                 ),
                 _adapter_callable_spec(
                     "Context.get_adapter_info",
                     Context.get_adapter_info,
-                    "读取当前 Context 选中的 adapter 的采样率、时间戳单位、原生时间戳语义与采样间隔。",
+                    "读取当前 Context 选中的 adapter 的采样率、时间戳单位、原生时间戳语义与采样间隔。未知名称返回 None，已注册对象的元数据异常传播。",
                     returns="`AdapterInfo`；未配置或名称未注册时返回 `None`。",
                     notes=(
                         "`daq_adapter` 应使用已注册 adapter 的名称，而不是 `DAQAdapter` 实例。",
+                        "AdapterInfo 元数据提取不使用全局缓存，按名称入口复用对象提取；use_cache 参数与 clear_adapter_info_cache 已删除。",
+                        "同名 adapter 规格替换后须新建 Context；注册表不会通知既有 Context 或自动失效其配置与 lineage。",
                         "在执行处理前先确认 `sampling_rate_hz`、`timestamp_unit` 与 `raw_timestamp_mode` 是否符合原始数据。",
                     ),
                     example=(
@@ -1768,16 +1872,16 @@ ADAPTER_DOCUMENTATION_PAGE = CallableDocumentationPageSpec(
                     ),
                 ),
                 _adapter_callable_spec(
-                    "Context.get_resolved_config",
-                    Context.get_resolved_config,
+                    "Context.get_config",
+                    Context.get_config,
                     "获取指定插件的最终配置，用于区分显式值、adapter 推断值与插件默认值。",
-                    returns="包含配置来源的 `ResolvedConfig`。",
+                    returns=_CALLABLE_RETURNS["get_config"],
                     notes=(
                         "传入字符串时，该插件必须已通过 `Context.register()` 注册。",
-                        "adapter 名称和解析结果会参与配置签名与缓存 lineage；更换 adapter 后应重新请求数据。",
+                        "adapter 名称和解析结果会参与配置签名与缓存 lineage；同名注册表格式替换后须新建 Context，已有 Context 不支持热替换。",
                     ),
                     example=(
-                        'resolved = ctx.get_resolved_config("records")\n'
+                        'resolved = ctx.get_config("records")\n'
                         "print(resolved.summary(verbose=True))"
                     ),
                 ),
@@ -1870,6 +1974,53 @@ ADAPTER_DOCUMENTATION_PAGE = CallableDocumentationPageSpec(
                         ")"
                     ),
                 ),
+                _adapter_callable_spec(
+                    "DAQAdapter.scan_run",
+                    DAQAdapter.scan_run,
+                    "扫描运行目录并按文件布局分组；组键不是物理通道，缺目录抛出 FileNotFoundError。",
+                    returns="`dict[int, list[Path]]` 文件组；硬件身份以事件内的 board/channel 为准。",
+                    example='file_groups = adapter.scan_run("DAQ", "run_001")',
+                ),
+                _adapter_callable_spec(
+                    "DAQAdapter.load_channel",
+                    DAQAdapter.load_channel,
+                    "按事件中的 (board, channel) 加载原始数组，board 必须显式传入。",
+                    returns="保留读取器 dtype、布局与原生时间戳的 `np.ndarray`。",
+                    notes=(
+                        "所有内置格式均按真实事件元数据筛选，不依赖文件组编号。",
+                        "空运行或无匹配硬件通道抛出 ValueError；缺目录抛出 FileNotFoundError。",
+                        "旧 load_channel(root, run, channel) 调用须补 board=...。",
+                    ),
+                    example='raw = adapter.load_channel("DAQ", "run_001", channel=1, board=0)',
+                ),
+                _adapter_callable_spec(
+                    "DAQAdapter.load_channel_generator",
+                    DAQAdapter.load_channel_generator,
+                    "逐块筛选事件中的 (board, channel)，board 必须显式传入。",
+                    returns="只产生非空原始数组的 `Iterator[np.ndarray]`；保留 dtype 与原生时间戳。",
+                    notes=(
+                        "无匹配记录时在迭代耗尽候选文件后抛出 ValueError；缺目录抛出 FileNotFoundError。",
+                        "chunk_size 必须为正，具体分块方式由格式读取器决定。",
+                    ),
+                    example=(
+                        'for chunk in adapter.load_channel_generator("DAQ", "run_001", channel=1, board=0):\n'
+                        "    print(len(chunk))"
+                    ),
+                ),
+                _adapter_callable_spec(
+                    "DAQAdapter.load_all_channels",
+                    DAQAdapter.load_all_channels,
+                    "一次读取所有文件组，按真实硬件键返回原始数组字典。",
+                    returns="`dict[tuple[int, int], np.ndarray]`，键为 `(board, channel)`，空运行返回 `{}`。",
+                    notes=(
+                        "仅包含实际有记录的硬件通道，不填充缺失键；缺目录抛出 FileNotFoundError。",
+                        "不再接受 n_channels；旧列表访问须迁移到 (board, channel) 字典访问。",
+                    ),
+                    example=(
+                        'all_raw = adapter.load_all_channels("DAQ", "run_001")\n'
+                        "raw_0_1 = all_raw[(0, 1)]"
+                    ),
+                ),
             ),
         ),
         CallableDocumentationGroup(
@@ -1878,7 +2029,7 @@ ADAPTER_DOCUMENTATION_PAGE = CallableDocumentationPageSpec(
             description=(
                 "格式注册表管理 FormatReader 与 FormatSpec 的映射；"
                 "适配器注册表管理 DAQAdapter 实例。"
-                "utils/formats/__init__.py 在导入时自动注册内置格式 vx2730_csv 与 v1725_bin。"
+                "acquisition.formats 在导入时自动注册 vx2730_csv、vx2730_bin 与 v1725_bin。"
             ),
             members=(
                 _adapter_callable_spec(
@@ -1899,7 +2050,7 @@ ADAPTER_DOCUMENTATION_PAGE = CallableDocumentationPageSpec(
                     "注册完整的 DAQ 适配器实例到全局注册表；注册后通过其名称写入 Context 的 `daq_adapter` 配置。",
                     returns="无返回值。",
                     notes=(
-                        "自定义 adapter 应在创建 Context 和请求插件数据前注册。",
+                        "自定义 adapter 应在创建 Context 和请求插件数据前注册；同名规格替换后须新建 Context。",
                         "注册表是进程内状态；新的 Python 进程需要再次导入或注册自定义 adapter。",
                     ),
                     example=(
@@ -1932,7 +2083,7 @@ ADAPTER_DOCUMENTATION_PAGE = CallableDocumentationPageSpec(
                     example=(
                         "from waveform_analysis.acquisition.formats import get_adapter\n"
                         'adapter = get_adapter("vx2730")\n'
-                        'data = adapter.load_channel("DAQ", "run_001", channel=0)'
+                        'data = adapter.load_channel("DAQ", "run_001", channel=0, board=0)'
                     ),
                 ),
             ),
@@ -1942,6 +2093,7 @@ ADAPTER_DOCUMENTATION_PAGE = CallableDocumentationPageSpec(
             title="内置适配器",
             description=(
                 "vx2730: CAEN VX2730 数字化仪（CSV，分号分隔，500 MHz，ps）；"
+                "vx2730_bin: CoMPASS BIN（二维 int64 原始数组，500 MHz，ps）；"
                 "v1725: CAEN V1725 DAW_DEMO（二进制 .bin，sample index → ps，Numba 加速解析）。"
             ),
             members=(
@@ -1957,9 +2109,24 @@ ADAPTER_DOCUMENTATION_PAGE = CallableDocumentationPageSpec(
                     ),
                 ),
                 _adapter_callable_spec(
+                    "get_adapter_vx2730_bin",
+                    lambda: get_adapter("vx2730_bin"),
+                    "获取 CoMPASS BIN 适配器，扩展名大小写不敏感，支持单文件多通道及已锚定的连续无头续卷。",
+                    returns="VX2730 BIN `DAQAdapter` 实例。",
+                    notes=(
+                        "有效自身头部独立建立布局；无头续卷要求同目录、同 family 的连续前卷，偏移为 0。",
+                        "name.BIN 与 name_0.BIN 均为第 0 卷；空首卷不建立布局，连续空中间卷仅推进已有锚点。",
+                        "计数仅检查文件大小、头部与首事件 n_samples 对齐；实际读取检查后续事件长度，错误直接传播。",
+                    ),
+                    example=(
+                        'adapter = get_adapter("vx2730_bin")\n'
+                        'raw = adapter.load_channel("DAQ", "run_001", channel=1, board=0)'
+                    ),
+                ),
+                _adapter_callable_spec(
                     "get_adapter_v1725",
                     lambda: get_adapter("v1725"),
-                    "获取 V1725 适配器：解析多通道波形的 .bin 文件，sample index → ps，使用 Numba 加速。",
+                    "获取 V1725 适配器：保留原生 sample index 时间戳，规范 seg 分卷按整数索引排序（seg0, seg2, seg10）。",
                     returns="V1725 `DAQAdapter` 实例。",
                     example=(
                         "from waveform_analysis.acquisition.formats import get_adapter\n"

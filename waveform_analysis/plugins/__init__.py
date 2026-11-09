@@ -48,9 +48,6 @@ _LAZY_EXPORTS: dict[str, _LazyExport] = {
     # leaf module so the object's identity and __module__ remain unchanged.
     "BasicFeaturesPlugin": (f"{_BUILTIN}.basic_features.plugin", "BasicFeaturesPlugin"),
     "CacheAnalysisPlugin": (f"{_BUILTIN}.cache_analysis.plugin", "CacheAnalysisPlugin"),
-    "DataFramePlugin": (f"{_BUILTIN}.df.plugin", "DataFramePlugin"),
-    "GroupedEventsPlugin": (f"{_BUILTIN}.df_events.plugin", "GroupedEventsPlugin"),
-    "PairedEventsPlugin": (f"{_BUILTIN}.df_paired.plugin", "PairedEventsPlugin"),
     "EnergyReconstructionPlugin": (
         f"{_BUILTIN}.energy_reconstruction.plugin",
         "EnergyReconstructionPlugin",
@@ -161,7 +158,6 @@ _LAZY_EXPORTS: dict[str, _LazyExport] = {
         f"{_CORE_PLUGINS}.plugin_sets",
         "plugins_basic_features",
     ),
-    "plugins_tabular": (f"{_CORE_PLUGINS}.plugin_sets", "plugins_tabular"),
     "plugins_events": (f"{_CORE_PLUGINS}.plugin_sets", "plugins_events"),
     "get_plugin_set": (f"{_CORE_PLUGINS}.plugin_sets", "get_plugin_set"),
     "PLUGIN_SETS": (f"{_CORE_PLUGINS}.plugin_sets", "PLUGIN_SETS"),

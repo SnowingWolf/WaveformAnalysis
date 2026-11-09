@@ -2,7 +2,6 @@
 Cache tools for inspecting stored data.
 """
 
-import inspect
 from typing import Any
 
 from waveform_analysis.core.foundation.utils import exporter
@@ -21,16 +20,7 @@ def list_channel_cache_keys(ctx: Any, run_id: str, data_name: str) -> list[str]:
     if hasattr(ctx, "_list_channel_keys"):
         return ctx._list_channel_keys(storage, run_id, key)
 
-    keys: list[str] = []
-    if hasattr(storage, "list_keys"):
-        try:
-            params = inspect.signature(storage.list_keys).parameters
-            if "run_id" in params:
-                keys = storage.list_keys(run_id=run_id)
-            else:
-                keys = storage.list_keys()
-        except Exception:
-            keys = []
+    keys = storage.list_keys(run_id=run_id)
 
     prefix = f"{key}_ch"
     matches = [k for k in keys if k.startswith(prefix)]

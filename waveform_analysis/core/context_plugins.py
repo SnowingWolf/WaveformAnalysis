@@ -11,14 +11,21 @@ class ContextPluginDomain:
 
     def __init__(self, context: Any) -> None:
         self.ctx = context
+        self._validated_version_requests: set[tuple[str | None, str]] = set()
+
+    def invalidate_version_checks(self) -> None:
+        self._validated_version_requests.clear()
 
     def get_depends_on(self, plugin: Any, run_id: str | None = None) -> list[Any]:
         """Return dependency specs, resolving dynamic dependencies when supported."""
         if hasattr(plugin, "resolve_depends_on"):
+            resolver = plugin.resolve_depends_on
             try:
-                deps = plugin.resolve_depends_on(self.ctx, run_id=run_id)
+                inspect.signature(resolver).bind(self.ctx, run_id=run_id)
             except TypeError:
-                deps = plugin.resolve_depends_on(self.ctx)
+                deps = resolver(self.ctx)
+            else:
+                deps = resolver(self.ctx, run_id=run_id)
         else:
             deps = getattr(plugin, "depends_on", []) or []
         return list(deps or [])
@@ -84,46 +91,71 @@ class ContextPluginDomain:
             plugin._registered_from_module = "unknown"
 
         self.ctx._plugins[provides] = plugin
+        self.invalidate_version_checks()
         self.ctx._invalidate_caches_for(provides)
         # 注册/覆盖会改变依赖关系：使 reverse_deps 缓存键失效。
         self.ctx._registry_version += 1
 
-    def _validate_plugin_dependencies(self, plugin: Any) -> None:
+    def _validate_plugin_dependencies(
+        self,
+        plugin: Any,
+        *,
+        dependencies: list[Any] | None = None,
+        require_registered: bool = False,
+    ) -> None:
         """Validate dependency versions against already registered providers."""
+        deps = self.get_depends_on(plugin) if dependencies is None else dependencies
+        constraints = [dep for dep in deps if isinstance(dep, tuple)]
+        if not constraints:
+            return
         try:
             from packaging.specifiers import SpecifierSet
-        except ImportError:
-            return
+            from packaging.version import InvalidVersion, Version
+        except ImportError as exc:
+            raise ImportError("Dependency version constraints require 'packaging'") from exc
 
-        for dep in self.get_depends_on(plugin):
-            if isinstance(dep, tuple):
-                dep_name, version_spec = dep
-            else:
-                dep_name = dep
-                version_spec = None
-
+        for dep_name, version_spec in constraints:
+            spec = SpecifierSet(version_spec)
             if dep_name not in self.ctx._plugins:
-                continue
-
-            provider = self.ctx._plugins[dep_name]
-            if version_spec:
-                try:
-                    provider_version = provider.semantic_version
-                    if provider_version is None:
-                        continue
-                    spec = SpecifierSet(version_spec)
-                    if provider_version not in spec:
-                        raise ValueError(
-                            f"Plugin '{plugin.provides}' requires '{dep_name}' {version_spec}, "
-                            f"but version {provider_version} is registered"
-                        )
-                except Exception as exc:
-                    logging.getLogger(__name__).warning(
-                        "Version validation failed for %s -> %s: %s",
-                        plugin.provides,
-                        dep_name,
-                        exc,
+                if require_registered:
+                    raise ValueError(
+                        f"Plugin '{plugin.provides}' requires '{dep_name}' {version_spec}, "
+                        "but no provider is registered"
                     )
+                continue
+            provider = self.ctx._plugins[dep_name]
+            try:
+                provider_version = Version(str(provider.version))
+            except InvalidVersion as exc:
+                raise ValueError(
+                    f"Plugin '{dep_name}' has invalid version {provider.version!r}, "
+                    f"required by '{plugin.provides}'"
+                ) from exc
+            if provider_version not in spec:
+                raise ValueError(
+                    f"Plugin '{plugin.provides}' requires '{dep_name}' {version_spec}, "
+                    f"but version {provider_version} is registered"
+                )
+
+    def validate_request_versions(self, run_id: str | None, target: str) -> None:
+        """Check reachable registered providers before returning computed or cached data."""
+        cache_key = (run_id, target)
+        if cache_key in self._validated_version_requests:
+            return
+        pending = [target]
+        visited = set()
+        while pending:
+            name = pending.pop()
+            if name in visited or name not in self.ctx._plugins:
+                continue
+            visited.add(name)
+            plugin = self.ctx._plugins[name]
+            dependencies = self.get_depends_on(plugin, run_id=run_id)
+            self._validate_plugin_dependencies(
+                plugin, dependencies=dependencies, require_registered=True
+            )
+            pending.extend(dep[0] if isinstance(dep, tuple) else dep for dep in dependencies)
+        self._validated_version_requests.add(cache_key)
 
     def _validate_plugin_spec(self, plugin: Any, require_spec: bool = False) -> None:
         """Validate a plugin's optional :class:`PluginSpec`."""
@@ -201,6 +233,7 @@ class ContextPluginDomain:
 
     def resolve_dependencies(self, target: str, run_id: str | None = None) -> list[str]:
         """Topologically resolve a target's dependency graph and detect cycles."""
+        self.validate_request_versions(run_id, target)
         profiler = getattr(self.ctx, "profiler", None)
         with profiler.timeit("context.resolve_dependencies") if profiler else nullcontext():
             plan = []
@@ -214,10 +247,8 @@ class ContextPluginDomain:
                 if node in visited:
                     return
                 if node not in self.ctx._plugins:
-                    if not hasattr(self.ctx, node) or getattr(self.ctx, node) is None:
-                        results = getattr(self.ctx, "_results", {})
-                        if not any(key[1] == node for key in results):
-                            raise ValueError(f"No plugin registered for '{node}'")
+                    if run_id is None or self.ctx._get_data_from_memory(run_id, node) is None:
+                        raise ValueError(f"No plugin registered for '{node}'")
                     visited.add(node)
                     return
 
@@ -234,11 +265,6 @@ class ContextPluginDomain:
                 visiting_stack.pop()
                 visited.add(node)
                 plan.append(node)
-
-        if target not in self.ctx._plugins:
-            if hasattr(self.ctx, target) and getattr(self.ctx, target) is not None:
-                return []
-            raise ValueError(f"No plugin registered for '{target}'")
 
         visit(target)
         return plan

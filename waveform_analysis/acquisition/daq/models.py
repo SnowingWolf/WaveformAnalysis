@@ -1,5 +1,5 @@
 """DAQ run data model entry point."""
 
-from .daq_run import DAQRun
+from waveform_analysis.acquisition.runs.run import DAQRun
 
 __all__ = ["DAQRun"]

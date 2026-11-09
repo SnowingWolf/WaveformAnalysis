@@ -20,8 +20,8 @@ result = ctx.get_data("run_001", "events")
 
 ## Summary
 
-- 插件总数：36
-- 类别数：9
+- 插件总数：33
+- 类别数：8
 - 默认依赖画像：`documentation-default-v1`（`{"daq_adapter": "vx2730", "use_filtered": false, "wave_source": "records"}`）
 
 ## Plugin Table
@@ -30,11 +30,8 @@ result = ctx.get_data("run_001", "events")
 |----------|--------|---------------------|---------------------|---------------------|-------------|-----------|------------------|---------|
 | [`basic_features`](basic_features.md) | `BasicFeaturesPlugin` | - | `records`, `wave_pool` | `use_filtered`, `wave_source` | `structured_array` | `static` | `source` | `4.1.0` |
 | [`cache_analysis`](cache_analysis.md) | `CacheAnalysisPlugin` | - | - | - | `dict` | `static` | `source` | `0.1.0` |
-| [`df`](df.md) | `DataFramePlugin` | - | `records`, `basic_features` | `use_filtered`, `wave_source` | `dataframe` | `static` | `source` | `1.7.0` |
-| [`df_events`](df_events.md) | `GroupedEventsPlugin` | `df` | `df` | - | `dataframe` | `static` | `source` | `0.0.1` |
-| [`df_paired`](df_paired.md) | `PairedEventsPlugin` | `df_events` | `df_events` | - | `dataframe` | `static` | `source` | `0.0.1` |
 | [`energy_reconstruction`](energy_reconstruction.md) | `EnergyReconstructionPlugin` | `s1_s2_pairs` | `s1_s2_pairs` | - | `structured_array` | `static` | `source` | `0.1.0` |
-| [`events`](events.md) | `EventPlugin` | `s1_s2_pairs`, `position_reconstruction` | `s1_s2_pairs`, `position_reconstruction` | - | `structured_array` | `static` | `source` | `0.0.3` |
+| [`events`](events.md) | `EventPlugin` | `s1_s2_pairs`, `position_reconstruction` | `s1_s2_pairs`, `position_reconstruction` | - | `structured_array` | `static` | `source` | `0.1.0` |
 | [`filtered_waveforms`](filtered_waveforms.md) | `FilteredWaveformsPlugin` | `st_waveforms` | `st_waveforms` | - | `structured_array` | `static` | `source` | `3.0.0` |
 | [`hit`](hit.md) | `HitFinderPlugin` | - | `records`, `wave_pool` | `use_filtered`, `wave_source` | `structured_array` | `static` | `source` | `3.0.0` |
 | [`hit_grouped`](hit_grouped.md) | `HitGroupedPlugin` | `hit_merged`, `hit_merged_components`, `hit_threshold` | `hit_merged`, `hit_merged_components`, `hit_threshold` | - | `dataframe` | `static` | `source` | `0.5.0` |
@@ -51,16 +48,16 @@ result = ctx.get_data("run_001", "events")
 | [`peaklet_waveforms`](peaklet_waveforms.md) | `PeakletWaveformPlugin` | - | `peaklets`, `peaklet_components`, `hit_merged`, `hit_merged_components`, `hit_threshold`, `records`, `wave_pool` | `clip_negative_signal`, `use_filtered` | `structured_array` | `static` | `source` | `2.2.1` |
 | [`peaklets`](peaklets.md) | `PeakletPlugin` | `hit_merged`, `peaklet_components` | `hit_merged`, `peaklet_components` | - | `structured_array` | `static` | `source` | `1.2.0` |
 | [`peaks`](peaks.md) | `PeaksPlugin` | `peaklets`, `peaklet_features` | `peaklets`, `peaklet_features` | - | `structured_array` | `static` | `source` | `5.1.0` |
-| [`position_reconstruction`](position_reconstruction.md) | `PositionReconstructionPlugin` | `s1_s2_pairs`, `peaklet_channels` | `s1_s2_pairs`, `peaklet_channels` | - | `structured_array` | `static` | `source` | `0.4.0` |
-| [`raw_files`](raw_files.md) | `RawFileNamesPlugin` | - | - | - | `list` | `static` | `source` | `0.0.2` |
-| [`records`](records.md) | `RecordsPlugin` | - | `raw_files` | `daq_adapter`, `input_source` | `structured_array` | `static` | `source` | `0.16.0` |
+| [`position_reconstruction`](position_reconstruction.md) | `PositionReconstructionPlugin` | `s1_s2_pairs`, `peaklet_channels` | `s1_s2_pairs`, `peaklet_channels` | - | `structured_array` | `static` | `source` | `0.4.1` |
+| [`raw_files`](raw_files.md) | `RawFileNamesPlugin` | - | - | - | `list` | `static` | `source` | `0.0.3` |
+| [`records`](records.md) | `RecordsPlugin` | - | `raw_files` | `daq_adapter`, `input_source` | `structured_array` | `static` | `source` | `0.17.0` |
 | [`records_asymmetry_mask`](records_asymmetry_mask.md) | `RecordsAsymmetryMaskPlugin` | `records`, `wave_pool` | `records`, `wave_pool` | - | `array` | `static` | `source` | `0.2.0` |
 | [`records_detector_mask`](records_detector_mask.md) | `RecordsDetectorMaskPlugin` | `records`, `records_asymmetry_mask` | `records`, `records_asymmetry_mask` | - | `array` | `static` | `source` | `0.1.0` |
 | [`records_veto_mask`](records_veto_mask.md) | `RecordsVetoMaskPlugin` | `records`, `records_asymmetry_mask` | `records`, `records_asymmetry_mask` | - | `array` | `static` | `source` | `0.1.0` |
 | [`s1_s2_pair_candidates`](s1_s2_pair_candidates.md) | `S1S2PairCandidatesPlugin` | `peak_classification`, `peaks` | `peak_classification`, `peaks` | - | `structured_array` | `static` | `source` | `0.2.0` |
 | [`s1_s2_pairs`](s1_s2_pairs.md) | `S1S2PairSelectionPlugin` | `s1_s2_pair_candidates` | `s1_s2_pair_candidates` | - | `structured_array` | `static` | `source` | `0.3.0` |
 | [`st_waveforms`](st_waveforms.md) | `WaveformsPlugin` | - | `raw_files` | `daq_adapter`, `use_upstream_baseline` | `structured_array` | `static` | `source` | `0.10.0` |
-| [`wave_pool`](wave_pool.md) | `WavePoolPlugin` | - | `raw_files` | `daq_adapter`, `input_source` | `array` | `static` | `source` | `0.16.0` |
+| [`wave_pool`](wave_pool.md) | `WavePoolPlugin` | - | `raw_files` | `daq_adapter`, `input_source` | `array` | `static` | `source` | `0.17.0` |
 | [`wave_pool_filtered`](wave_pool_filtered.md) | `WavePoolFilteredPlugin` | `records`, `wave_pool` | `records`, `wave_pool` | - | `array` | `static` | `source` | `3.0.0` |
 | [`waveform_width`](waveform_width.md) | `WaveformWidthPlugin` | - | `hit`, `st_waveforms` | `use_filtered` | `structured_array` | `static` | `source` | `3.0.0` |
 | [`waveform_width_integral`](waveform_width_integral.md) | `WaveformWidthIntegralPlugin` | - | `records`, `wave_pool` | `use_filtered`, `wave_source` | `structured_array` | `static` | `source` | `2.7.0` |
@@ -100,14 +97,9 @@ result = ctx.get_data("run_001", "events")
 - [`peaks`](peaks.md): Build final peaks table from peaklets and waveform-derived features.
 ### 事件分析
 
-- [`df_events`](df_events.md): Group events across channels within a configurable time window.
-- [`df_paired`](df_paired.md): Pair grouped events across channels for coincidence analysis.
 - [`events`](events.md): Complete event reconstruction from S1-S2 pairs and position
 - [`s1_s2_pair_candidates`](s1_s2_pair_candidates.md): Generate all physically allowed S1-S2 pairing candidates
 - [`s1_s2_pairs`](s1_s2_pairs.md): Select best S1-S2 pairs from candidates
-### 数据导出
-
-- [`df`](df.md): Build the initial single-channel events DataFrame.
 ### 缓存分析
 
 - [`cache_analysis`](cache_analysis.md): Analyze cache usage and return summary, entries, and diagnostics.

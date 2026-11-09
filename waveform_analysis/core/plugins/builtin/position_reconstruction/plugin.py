@@ -30,7 +30,7 @@
 - v0.4.0: 直接批量消费 peaklet_channels，移除逐事件 Accessor 构造和查询
 
 Author: Claude Code
-Version: 0.4.0
+Version: 0.4.1
 """
 
 from typing import Any
@@ -110,6 +110,10 @@ class PositionReconstructionPlugin(Plugin):
     输出:
     - position_reconstruction: 位置重建结果
 
+    输入失败语义:
+    - peaklet_channels 读取异常直接传播，损坏的结构、必需字段或字段类型抛出 ValueError
+    - 合法空通道表、无匹配贡献或低 S2 信号保持 NaN 位置及相应质量标志
+
     v0.2.0 功能:
     - Z 坐标: 基于 drift_time * drift_velocity（向量化）
     - XY 坐标: 电荷重心法 (Center of Gravity, 向量化)
@@ -132,7 +136,7 @@ class PositionReconstructionPlugin(Plugin):
     provides = "position_reconstruction"
     depends_on = ["s1_s2_pairs", "peaklet_channels"]
     description = "Reconstruct 3D position from S1-S2 pairs using vectorized CoG method"
-    version = "0.4.0"
+    version = "0.4.1"
     save_when = "always"
     output_dtype = POSITION_RECONSTRUCTION_DTYPE
 
@@ -260,19 +264,22 @@ class PositionReconstructionPlugin(Plugin):
         if not np.any(eligible_mask):
             return x_array, y_array, n_channels_array
 
-        try:
-            peaklet_channels = context.get_data(run_id, "peaklet_channels")
-        except Exception:
-            return x_array, y_array, n_channels_array
-
+        peaklet_channels = context.get_data(run_id, "peaklet_channels")
+        if (
+            not isinstance(peaklet_channels, np.ndarray)
+            or peaklet_channels.ndim != 1
+            or peaklet_channels.dtype.names is None
+        ):
+            raise ValueError("peaklet_channels must be a one-dimensional structured array")
         required_fields = {"peaklet_id", "board", "channel", "area"}
-        names = (
-            set(peaklet_channels.dtype.names or ())
-            if isinstance(peaklet_channels, np.ndarray)
-            else set()
-        )
-        if not isinstance(peaklet_channels, np.ndarray) or not required_fields.issubset(names):
-            return x_array, y_array, n_channels_array
+        missing_fields = required_fields - set(peaklet_channels.dtype.names)
+        if missing_fields:
+            raise ValueError(f"peaklet_channels missing required fields: {sorted(missing_fields)}")
+        for name in ("peaklet_id", "board", "channel"):
+            if peaklet_channels.dtype[name].kind not in "iu":
+                raise ValueError(f"peaklet_channels.{name} must have an integer dtype")
+        if peaklet_channels.dtype["area"].kind not in "iuf":
+            raise ValueError("peaklet_channels.area must have a real numeric dtype")
         if len(peaklet_channels) == 0 or not layout.entries:
             return x_array, y_array, n_channels_array
 

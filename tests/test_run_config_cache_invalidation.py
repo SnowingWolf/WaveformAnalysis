@@ -4,7 +4,11 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from waveform_analysis.core.config import RunConfigValidationError, validate_run_config
+from waveform_analysis.core.config import (
+    RunConfigValidationError,
+    resolve_run_hardware_channels,
+    validate_run_config,
+)
 from waveform_analysis.core.context import Context
 from waveform_analysis.core.plugins.core.base import Plugin
 
@@ -18,8 +22,8 @@ class _ConstPlugin(Plugin):
         return np.array([(1,)], dtype=self.output_dtype)
 
 
-class _DFPlugin(_ConstPlugin):
-    provides = "df"
+class _CalibrationTablePlugin(_ConstPlugin):
+    provides = "calibration_table"
     uses_run_config = True
 
 
@@ -28,22 +32,22 @@ class _RunConfigDrivenPlugin(_ConstPlugin):
     uses_run_config = True
 
 
-class _DFEventsPlugin(_ConstPlugin):
-    provides = "df_events"
-    depends_on = ["df"]
+class _GroupedTablePlugin(_ConstPlugin):
+    provides = "grouped_table"
+    depends_on = ["calibration_table"]
 
 
-class _DFPairedPlugin(_ConstPlugin):
-    provides = "df_paired"
-    depends_on = ["df_events"]
+class _SelectedTablePlugin(_ConstPlugin):
+    provides = "selected_table"
+    depends_on = ["grouped_table"]
 
 
 def _register_test_plugins(ctx: Context):
     ctx.register(
-        _DFPlugin(),
+        _CalibrationTablePlugin(),
         _RunConfigDrivenPlugin(),
-        _DFEventsPlugin(),
-        _DFPairedPlugin(),
+        _GroupedTablePlugin(),
+        _SelectedTablePlugin(),
     )
 
 
@@ -113,11 +117,11 @@ def test_run_config_hash_change_triggers_related_cache_clear(tmp_path):
     ctx2._config_domain.maybe_invalidate_run_config_cache(run_id)
     assert clear_calls == []
 
-    # Changed hash: should invalidate df branch and its downstream.
+    # Changed hash: should invalidate calibration_table branch and its downstream.
     _write_run_config(config_path, gain_value=11.0)
     ctx2._config_domain.maybe_invalidate_run_config_cache(run_id)
 
-    assert (run_id, "df", True) in clear_calls
+    assert (run_id, "calibration_table", True) in clear_calls
     assert (run_id, "run_cfg_root", True) in clear_calls
 
 
@@ -209,8 +213,8 @@ def test_run_config_supports_run_number_daq_and_hardware_channels(tmp_path):
 
     ctx = Context(config={"data_root": str(data_root)})
     loaded = ctx.get_run_config(run_id)
-    ctx.validate_run_config(run_id, require_identity=True)
-    channels = ctx.get_run_hardware_channels(run_id)
+    validate_run_config(loaded, require_identity=True)
+    channels = resolve_run_hardware_channels(loaded)
 
     assert loaded["run_number"] == "001000"
     assert loaded["daq"]["start_time"] == "2026-05-26T10:30:00.000000Z"

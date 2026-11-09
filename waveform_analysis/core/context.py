@@ -22,10 +22,9 @@ import inspect
 import json
 import logging
 import os
-import re
+from pathlib import Path
 import threading
-from typing import TYPE_CHECKING, Any
-import warnings
+from typing import TYPE_CHECKING, Any, Literal, overload
 
 # 2. Third-party imports
 import numpy as np
@@ -49,7 +48,7 @@ from .foundation.error import ErrorManager
 from .foundation.utils import OneTimeGenerator, Profiler
 from .hardware.channel import HardwareChannel
 from .plugins.core.base import Plugin
-from .storage.cache_manager import RuntimeCacheManager
+from .storage.cache_diagnostics import DiagnosticIssue
 from .storage.memmap import MemmapStorage
 
 if TYPE_CHECKING:
@@ -103,11 +102,13 @@ def _create_context_from_spec(spec: dict[str, Any]) -> Context:
     ctx = Context(
         config=config,
         storage_dir=spec.get("storage_dir"),
+        base=spec.get("base"),
         external_plugin_dirs=spec.get("plugin_dirs"),
         auto_discover_plugins=False,
         stats_mode=spec.get("stats_mode", "off"),
         stats_log_file=spec.get("stats_log_file"),
     )
+    ctx._cache_readonly = spec.get("cache_readonly", False)
 
     storage_spec = spec.get("storage")
     if storage_spec and isinstance(ctx.storage, MemmapStorage):
@@ -133,40 +134,6 @@ class Context:
     Inspired by strax, it is the main entry point for data analysis.
     """
 
-    # 保留名称集合：这些名称不能用作数据名，因为它们是 Context 的方法或属性
-    _RESERVED_NAMES = frozenset(
-        {
-            "analyze_dependencies",
-            "clear_cache",
-            "clear_cache_for",
-            "clear_config_cache",
-            "clear_performance_caches",
-            "config",
-            "get_data",
-            "get_config",
-            "get_lineage",
-            "get_performance_report",
-            "get_run_config",
-            "get_run_hardware_channels",
-            "help",
-            "key_for",
-            "list_plugin_configs",
-            "list_provided_data",
-            "logger",
-            "plot_lineage",
-            "preview_execution",
-            "profiling_summary",
-            "register",
-            "resolve_dependencies",
-            "run_plugin",
-            "set_config",
-            "show_config",
-            "storage",
-            "storage_dir",
-            "time_range",
-            "validate_run_config",
-        }
-    )
     # Multi-channel structured outputs now use a single array with a channel field.
     # Legacy list-of-arrays caches for these data names should be treated as invalid.
     _FLAT_CHANNEL_OUTPUTS = frozenset(
@@ -180,9 +147,12 @@ class Context:
             "s1_s2",
         }
     )
-    _REMOVED_DATA_NAME_ALIASES = {
-        "events_df": "df",
-        "events_grouped": "df_events",
+    _REMOVED_DATA_NAMES = {
+        "events_df": "Use basic_features for record-level features and convert explicitly to a table.",
+        "events_grouped": "Legacy coincidence grouping has no equivalent builtin replacement.",
+        "df": "Use basic_features for record-level features; apply calibration explicitly in analysis.",
+        "df_events": "Legacy coincidence grouping has no equivalent builtin replacement.",
+        "df_paired": "Legacy coincidence pairing is not equivalent to s1_s2_pairs or events.",
     }
     _CONTEXT_CONFIG_KEYS = frozenset(
         {
@@ -230,21 +200,6 @@ class Context:
     _TIME_DOMAIN_RAW_PS = "raw_ps"
     _TIME_DOMAIN_CHOICES = frozenset({_TIME_DOMAIN_SYSTEM_NS, _TIME_DOMAIN_RAW_PS})
 
-    def from_config_json(
-        self,
-        config_json_path: str,
-        plugin_name: str | None = None,
-    ) -> None:
-        """
-        Load config from a JSON file and apply it to the current Context.
-
-        Args:
-            config_json_path: JSON file path. Relative paths are resolved from the current cwd.
-            plugin_name: Optional plugin namespace passed through to ``set_config``.
-        """
-        file_config = _extract_config_payload(_load_json_object(str(config_json_path)))
-        self.set_config(file_config, plugin_name=plugin_name)
-
     def __init__(
         self,
         config: dict[str, Any] | None = None,
@@ -254,6 +209,7 @@ class Context:
         auto_discover_plugins: bool = False,
         stats_mode: str = "off",
         stats_log_file: str | None = None,
+        base: str | None = None,
     ) -> None:
         """
         Initialize Context.
@@ -262,7 +218,7 @@ class Context:
             config: 全局配置字典
                     可选配置: config['plugin_backends'] = {'peaks': SQLiteBackend(...), ...}
             storage_dir: (Old:run_name)存储目录 (默认的 memmap 后端), 数据按 run_id 分目录存储。
-                        如果为 None，将使用 config['data_root'] 作为存储目录。
+                        如果为 None，将使用 ./wa_data 作为缓存存储目录。
             storage_backend: 自定义存储后端（必须实现 StorageBackend 接口）
                     如果为 None，使用默认的 MemmapStorage
             external_plugin_dirs: 插件搜索目录列表
@@ -274,12 +230,12 @@ class Context:
             数据按 run_id 分目录存储：storage_dir/{run_id}/_cache/*.bin
 
         Examples:
-            >>> # 使用 data_root 作为存储目录（推荐）
+            >>> # 默认使用独立的 wa_data 作为缓存存储目录
             >>> ctx = Context(config={"data_root": "DAQ"})
-            >>> # 缓存将存储在 DAQ/{run_id}/_cache/
+            >>> # 原始数据在 DAQ/{run_id}/RAW/，缓存存储在 ./wa_data/{run_id}/_cache/
 
-            >>> # 显式指定存储目录 (不推荐, 容易和 run_id 混淆)
-            >>> ctx = Context(storage_dir="./strax_data")
+            >>> # 显式指定存储目录
+            >>> ctx = Context(storage_dir="./wa_data")
 
             >>> # 使用 SQLite 存储
             >>> from waveform_analysis.core.storage.backends import SQLiteBackend
@@ -289,13 +245,30 @@ class Context:
             >>> ctx = Context(stats_mode='detailed', stats_log_file='./logs/plugins.log')
         """
         self._plugins: dict[str, Any] = {}
+        self._published_cache = None
+        if base is not None:
+            if storage_backend is not None or (config or {}).get("plugin_backends"):
+                raise ValueError("Published base requires the default MemmapStorage backend")
+            if storage_dir is None:
+                raise ValueError("Published base requires an explicit private storage_dir")
+            if stats_log_file and os.path.commonpath(
+                [os.path.realpath(stats_log_file), os.path.realpath(base)]
+            ) == os.path.realpath(base):
+                raise ValueError("stats_log_file cannot write into published base")
+            if os.path.commonpath([os.path.realpath(base), os.path.realpath(storage_dir)]) in {
+                os.path.realpath(base),
+                os.path.realpath(storage_dir),
+            }:
+                raise ValueError("Published base and private storage_dir must not overlap")
+        # BatchProcessor scopes this flag to cache-only requests.
+        self._cache_readonly = False
 
         self.profiler = Profiler()
         self.config = config or {}
 
-        # 确定存储目录：优先使用显式指定的 storage_dir，否则使用 data_root
+        # 确定存储目录：优先使用显式指定的 storage_dir，否则使用独立默认缓存目录
         if storage_dir is None:
-            storage_dir = self.config.get("data_root", "DAQ")
+            storage_dir = "./wa_data"
 
         self.storage_dir = storage_dir
 
@@ -345,9 +318,6 @@ class Context:
 
         # Initialize ErrorManager
         self._error_manager = ErrorManager(self.logger)
-
-        # Initialize RuntimeCacheManager
-        self._cache_manager = RuntimeCacheManager(self)
 
         # Initialize ValidationManager
         self._validation_manager = ValidationManager(self)
@@ -419,6 +389,11 @@ class Context:
         self._plugin_domain = ContextPluginDomain(self)
         self._time_domain = ContextTimeDomain(self)
 
+        if base is not None:
+            from .published_cache import PublishedCache
+
+            self._published_cache = PublishedCache(self, base)
+
         # Registration invalidates caches, so discovery must run after every domain exists.
         self.plugin_dirs = external_plugin_dirs or []
         if auto_discover_plugins:
@@ -445,7 +420,9 @@ class Context:
             auto_discover_plugins=False,
             stats_mode=stats_mode if self.enable_stats else "off",
             stats_log_file=stats_log_file,
+            base=str(self._published_cache.base) if self._published_cache else None,
         )
+        new_ctx._cache_readonly = self._cache_readonly
 
         if isinstance(self.storage, MemmapStorage) and isinstance(new_ctx.storage, MemmapStorage):
             _apply_memmap_settings(new_ctx.storage, self._build_memmap_storage_spec())
@@ -522,7 +499,9 @@ class Context:
 
         return {
             "config": _safe_copy_config(self.config),
+            "cache_readonly": self._cache_readonly,
             "storage_dir": self.storage_dir,
+            "base": str(self._published_cache.base) if self._published_cache else None,
             "plugin_dirs": list(self.plugin_dirs),
             "stats_mode": stats_mode if self.enable_stats else "off",
             "stats_log_file": stats_log_file,
@@ -584,7 +563,7 @@ class Context:
             ...     RawFileNamesPlugin, WaveformsPlugin
             ... )
             >>>
-            >>> ctx = Context(storage_dir="./strax_data")
+            >>> ctx = Context(storage_dir="./wa_data")
             >>>
             >>> # 方式1: 注册插件实例
             >>> ctx.register(RawFileNamesPlugin())
@@ -683,55 +662,74 @@ class Context:
     # Config Resolution
     # ===========================
 
-    def set_config(self, config: dict[str, Any], plugin_name: str | None = None):
+    def set_config(
+        self, config: dict[str, Any] | str | Path, plugin_name: str | None = None
+    ) -> None:
+        """Apply a configuration mapping or a JSON file to this Context.
+
+        JSON accepts a plain object or a snapshot containing ``custom_config``.
+        File loading and JSON validation finish before configuration is changed.
+        With ``plugin_name``, shallow-update that plugin's block; otherwise
+        shallow-update the top-level configuration (replacing supplied blocks).
+        """
+        if isinstance(config, str | Path):
+            config = _extract_config_payload(_load_json_object(str(config)))
+        elif not isinstance(config, dict):
+            raise TypeError("config must be a dict or a JSON file path")
         self._config_domain.set_config(config, plugin_name=plugin_name)
 
-    def get_config_value(
-        self,
-        plugin: Plugin,
-        name: str,
-        adapter_name: str | None = None,
-    ) -> ConfigValue:
-        return self._config_domain.get_config_value(plugin, name, adapter_name=adapter_name)
-
-    def get_config(self, plugin: Plugin, name: str) -> Any:
-        return self._config_domain.get_config(plugin, name)
-
-    def get_resolved_config(
+    @overload
+    def get_config(
         self,
         plugin: Plugin | str,
+        name: str,
+        *,
+        with_source: Literal[True],
         adapter_name: str | None = None,
-    ) -> ResolvedConfig:
-        return self._config_domain.get_resolved_config(plugin, adapter_name=adapter_name)
+    ) -> ConfigValue: ...
+
+    @overload
+    def get_config(
+        self,
+        plugin: Plugin | str,
+        name: str,
+        *,
+        with_source: Literal[False] = False,
+        adapter_name: str | None = None,
+    ) -> Any: ...
+
+    @overload
+    def get_config(
+        self,
+        plugin: Plugin | str,
+        name: None = None,
+        *,
+        with_source: bool = False,
+        adapter_name: str | None = None,
+    ) -> ResolvedConfig: ...
+
+    def get_config(
+        self,
+        plugin: Plugin | str,
+        name: str | None = None,
+        *,
+        with_source: bool = False,
+        adapter_name: str | None = None,
+    ) -> Any:
+        """Resolve one option, or all declared options when name is omitted.
+
+        A named option returns its validated value; ``with_source=True`` returns
+        its ConfigValue instead. With no name, return a ResolvedConfig including
+        sources. Single-option queries do not validate unrelated options.
+        ``adapter_name`` changes inference for this query only; explicit option
+        values still take precedence. Run/channel overrides are not merged here.
+        """
+        return self._config_domain.get_config(
+            plugin, name, with_source=with_source, adapter_name=adapter_name
+        )
 
     def get_run_config(self, run_id: str, refresh: bool = False) -> dict[str, Any]:
         return self._config_domain.get_run_config(run_id, refresh=refresh)
-
-    def validate_run_config(self, run_id: str, require_identity: bool = False) -> None:
-        self._config_domain.validate_run_config(run_id, require_identity=require_identity)
-
-    def get_run_hardware_channels(
-        self,
-        run_id: str,
-        *,
-        validate: bool = True,
-    ) -> dict[str, dict[str, Any]]:
-        return self._config_domain.get_run_hardware_channels(run_id, validate=validate)
-
-    def get_plugin_run_config(self, plugin: Plugin | str, run_id: str) -> dict[str, Any]:
-        return self._config_domain.get_plugin_run_config(plugin, run_id)
-
-    def show_resolved_config(
-        self,
-        plugin: Plugin | str | None = None,
-        verbose: bool = True,
-        adapter_name: str | None = None,
-    ) -> None:
-        self._config_domain.show_resolved_config(
-            plugin=plugin,
-            verbose=verbose,
-            adapter_name=adapter_name,
-        )
 
     def get_adapter_info(self, adapter_name: str | None = None) -> AdapterInfo | None:
         """获取 DAQ adapter 信息
@@ -770,7 +768,6 @@ class Context:
             >>> # 获取插件并修改属性
             >>> plugin = ctx.get_plugin('waveforms')
             >>> plugin.save_when = 'always'
-            >>> plugin.timeout = 300
             >>>
             >>> # 链式调用
             >>> ctx.get_plugin('st_waveforms').save_when = 'never'
@@ -788,64 +785,54 @@ class Context:
 
     def show_config(
         self,
-        data_name: str | None = None,
+        data_name: str | Plugin | None = None,
         show_usage: bool = True,
         show_full_help: bool = False,
         run_name: str | None = None,
-    ):
+        *,
+        view: str | None = None,
+        output: str = "display",
+        show_current_values: bool = True,
+        show_source: bool = False,
+        adapter_name: str | None = None,
+    ) -> dict[str, Any] | None:
+        """Display the global configuration summary or plugin option metadata.
+
+        No arguments keep the raw global summary. A plugin, ``show_source=True``
+        or ``view="options"`` selects resolved plugin options; without a plugin
+        the options view covers all registered plugins. ``output="dict"`` returns
+        the options metadata without displaying it. The default display returns
+        None. ``show_current_values=False`` inspects declarations without parsing
+        current values. ``run_name`` labels directories in the global summary.
         """
-        显示当前配置，并标识每个配置项对应的插件
-
-        Args:
-            data_name: 可选，指定插件名称以只显示该插件的配置
-            show_usage: 是否显示配置项被哪些插件使用（仅在显示全局配置时有效）
-            show_full_help: 是否显示完整 help 文本（默认截断）
-            run_name: 可选，显示缓存目录时使用的运行名（仅全局配置视图）。
-                       已弃用，请使用 run_id 代替。此参数将在未来版本中移除。
-
-        Examples:
-            >>> # 显示全局配置，包含配置项使用情况
-            >>> ctx.show_config()
-
-            >>> # 显示特定插件的配置
-            >>> ctx.show_config('waveforms')
-
-            >>> # 显示全局配置，但不显示使用情况
-            >>> ctx.show_config(show_usage=False)
-
-            >>> # 推荐方式：使用 run_id
-            >>> run_id = 'run_001'
-            >>> ctx.get_data(run_id, 'peaks')
-            >>> ctx.show_config(run_id=run_id)
-
-        关联说明：
-            - 若 data_name 指定为插件名，会直接调用 list_plugin_configs 来展示该插件的“配置项清单”。
-            - 若 data_name 未指定，则展示“当前配置汇总”（全局/插件特定/未使用）。
-
-        .. deprecated:: 0.2.0
-            `run_name` 参数已弃用，请使用 `run_id` 代替。这是为了统一术语，`run_id` 是系统中的
-            唯一标识符，而 `run_name` 是容易引起混淆的旧术语。
-        """
-
-        if run_name is not None:
-            warnings.warn(
-                "The 'run_name' parameter is deprecated. Use 'run_id' instead for consistency. "
-                "'run_name' will be removed in a future version.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-        if data_name and data_name in self._plugins:
-            # 显示特定插件的配置
-            self.list_plugin_configs(
-                plugin_name=data_name,
-                show_current_values=True,
-                verbose=True,
-                as_dataframe=True,
-                show_full_help=show_full_help,
-            )
-        else:
-            # 显示全局配置
+        selected_view = view or ("options" if data_name is not None or show_source else "summary")
+        if selected_view not in ("summary", "options"):
+            raise ValueError("view must be 'summary' or 'options'")
+        if output not in ("display", "dict"):
+            raise ValueError("output must be 'display' or 'dict'")
+        if selected_view == "summary":
+            if (
+                data_name is not None
+                or output != "display"
+                or show_source
+                or adapter_name is not None
+            ):
+                raise ValueError(
+                    "plugin selection, dict output and sources require the options view"
+                )
             self._show_global_config(show_usage, show_full_help=show_full_help, run_name=run_name)
+            return None
+        if show_source and not show_current_values:
+            raise ValueError("show_source requires show_current_values=True")
+        result = self._plugin_config_options(
+            data_name,
+            show_current_values=show_current_values,
+            display=output == "display",
+            show_full_help=show_full_help,
+            show_source=show_source,
+            adapter_name=adapter_name,
+        )
+        return result if output == "dict" else None
 
     def _register_from_module(
         self, module, allow_override: bool = False, require_spec: bool = False
@@ -894,27 +881,24 @@ class Context:
             **kwargs: Additional arguments passed to plugins
         """
         self._validate_get_data_output(output)
-        self._config_domain.prepare_request(run_id, data_name)
-        # 1. Check memory cache
-        val = self._get_data_from_memory(run_id, data_name)
+        if self._published_cache is not None:
+            protected = self._published_cache.validate_request(run_id, data_name)
+            if protected and self._published_cache.manifest["nodes"][data_name]["payload"] is None:
+                raise FileNotFoundError(f"Frozen published node {data_name!r} is not materialized")
+        require_disk_cache = self._config_domain.prepare_request(run_id, data_name)
+        self._plugin_domain.validate_request_versions(run_id, data_name)
+        val = self._cache_domain.get_cached_data(
+            run_id, data_name, require_disk_cache=require_disk_cache
+        )
         if val is not None:
-            # Memory cache hit at top level - record stats if enabled
-            if self.stats_collector and self.stats_collector.is_enabled():
-                self.stats_collector.start_execution(data_name, run_id)
-                self.stats_collector.end_execution(data_name, success=True, cache_hit=True)
             return self._coerce_get_data_output(run_id, data_name, val, output)
 
-        # 2. Check disk cache (memmap)
-        # Only check if it's a plugin-provided data
-        if data_name in self._plugins:
-            key = self.key_for(run_id, data_name)
-            data = self._load_from_disk_with_check(run_id, data_name, key)
-            if data is not None:
-                # Disk cache hit at top level - record stats if enabled
-                if self.stats_collector and self.stats_collector.is_enabled():
-                    self.stats_collector.start_execution(data_name, run_id)
-                    self.stats_collector.end_execution(data_name, success=True, cache_hit=True)
-                return self._coerce_get_data_output(run_id, data_name, data, output)
+        if self._cache_readonly:
+            raise FileNotFoundError(
+                f"Readonly cache miss for run_id={run_id!r}, data_name={data_name!r}; "
+                "a materialized, valid cache entry is required. "
+                "Plugin computation and cache writes are disabled."
+            )
 
         # 3. Resolve plan and compute needed steps (cache-aware)
         plan = self._execution_domain.resolve_execution_plan(run_id, data_name)
@@ -937,6 +921,12 @@ class Context:
             **kwargs,
         )
         return self._coerce_get_data_output(run_id, data_name, result, output)
+
+    def publish(self, run_id: str, targets: str | list[str], destination: str):
+        """Publish a frozen snapshot of materialized uncompressed ndarray targets."""
+        from .published_cache import publish
+
+        return publish(self, run_id, targets, destination)
 
     def _validate_get_data_output(self, output: str) -> None:
         if output not in {"native", "chunk_stream", "array"}:
@@ -989,14 +979,11 @@ class Context:
         """List all data types provided by registered plugins."""
         return list(self._plugins.keys())
 
-    def clear_performance_caches(self):
+    def _invalidate_planning_caches(self):
         """
-        Clear all performance optimization caches.
-
-        Should be called when plugins are registered/unregistered or
-        when plugin configurations change.
+        Invalidate execution plans, lineage, and cache keys after configuration changes.
         """
-        self._cache_domain.clear_performance_caches()
+        self._cache_domain.invalidate_planning_caches()
 
     def key_for(self, run_id: str, data_name: str) -> str:
         """
@@ -1038,8 +1025,10 @@ class Context:
             >>> # 清理所有步骤的缓存
             >>> ctx.clear_cache_for("run_001")
             >>> # 只清理内存缓存
-            >>> ctx.clear_cache_for("run_001", "df", clear_disk=False)
+            >>> ctx.clear_cache_for("run_001", "basic_features", clear_disk=False)
         """
+        if self._cache_readonly and clear_disk:
+            raise PermissionError("Cannot clear disk cache during a readonly batch task")
         return self._cache_domain.clear_cache_for(
             run_id,
             data_name=data_name,
@@ -1074,7 +1063,7 @@ class Context:
 
         return list(seen)
 
-    def clear_config_cache(self):
+    def _clear_config_cache(self):
         """Clear cached validated configurations."""
         self._resolved_config_cache.clear()
 
@@ -1112,19 +1101,6 @@ class Context:
         """Return storage backend for a plugin data name (fallback to default)."""
         return self._plugin_backends.get(data_name, self.storage)
 
-    def _storage_supports_run_id(self, storage: Any, method_name: str) -> bool:
-        """Check whether a storage method accepts run_id."""
-        method = getattr(storage, method_name, None)
-        if method is None:
-            return False
-        try:
-            params = inspect.signature(method).parameters
-        except (TypeError, ValueError):
-            return False
-        if "run_id" in params:
-            return True
-        return any(p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values())
-
     def _storage_call(
         self,
         storage: Any,
@@ -1134,11 +1110,8 @@ class Context:
         *args: Any,
         **kwargs: Any,
     ) -> Any:
-        """Call a storage method with run_id when supported."""
-        method = getattr(storage, method_name)
-        if run_id is not None and self._storage_supports_run_id(storage, method_name):
-            return method(key, *args, run_id=run_id, **kwargs)
-        return method(key, *args, **kwargs)
+        """Call a storage method using the common run_id keyword contract."""
+        return getattr(storage, method_name)(key, *args, run_id=run_id, **kwargs)
 
     def _storage_exists(self, storage: Any, key: str, run_id: str | None) -> bool:
         return bool(self._storage_call(storage, "exists", key, run_id))
@@ -1150,16 +1123,7 @@ class Context:
         if cached is not None:
             return cached
 
-        method = getattr(storage, "list_keys", None)
-        if method is None:
-            return []
-        try:
-            if run_id is not None and self._storage_supports_run_id(storage, "list_keys"):
-                keys = method(run_id=run_id)
-            else:
-                keys = method()
-        except Exception:
-            return []
+        keys = storage.list_keys(run_id=run_id)
         if run_id is None:
             result = keys
         else:
@@ -1203,7 +1167,7 @@ class Context:
         self._cache_domain.invalidate_caches_for(data_name)
 
     def _set_data(self, run_id: str, name: str, value: Any):
-        """Internal helper to set data in _results and optionally as attribute."""
+        """Store a run-specific result and its lineage in memory."""
         with self._data_lock:
             self._results[(run_id, name)] = value
 
@@ -1212,30 +1176,8 @@ class Context:
                 key = self.key_for(run_id, name)  # Contains lineage hash
                 self._results_lineage[(run_id, name)] = key
 
-        # Attribute assignment / warning logic doesn't touch shared dicts; keep it
-        # out of the lock to shorten hold time (key_for stays locked for cache dicts).
-        is_generator = isinstance(value, Iterator | OneTimeGenerator) or hasattr(value, "__next__")
-        if not re.match(r"^[a-zA-Z_]\w*$", name):
-            return
-
-        # Check if it's a property on the class
-        cls_attr = getattr(self.__class__, name, None)
-        is_prop = isinstance(cls_attr, property)
-
-        if name in self._RESERVED_NAMES or (hasattr(self.__class__, name) and not is_prop):
-            warnings.warn(
-                f"Data name '{name}' conflicts with a Context method or reserved attribute. "
-                f"Access it via context.get_data(run_id, '{name}') or context._results[(run_id, '{name}')].",
-                UserWarning,
-            )
-        elif not is_prop and not is_generator:
-            # Note: This overwrites the attribute for different runs.
-            # It's kept for convenience in interactive use.
-            # We don't set it if it's a property, as the property handles access.
-            setattr(self, name, value)
-
     def _get_data_from_memory(self, run_id: str, name: str) -> Any:
-        """Internal helper to get data from _results or attributes."""
+        """Retrieve a run-specific result after validating its lineage."""
         if (run_id, name) in self._results:
             # Validate lineage hash (config consistency check)
             if name in self._plugins:
@@ -1256,18 +1198,6 @@ class Context:
             val = self._results[(run_id, name)]
             return val
 
-        # Fallback for manually set attributes (if any)
-        # But ONLY if it's not a reserved name/method to avoid returning the method itself
-        # AND ONLY if it's not a plugin-provided data name, because plugin data MUST be run-id specific.
-        if (
-            name not in self._RESERVED_NAMES
-            and name not in self._plugins
-            and not hasattr(self.__class__, name)
-            and hasattr(self, name)
-        ):
-            # This might return data from a different run if it was the last one set.
-            # But it's a fallback for manually set attributes.
-            return getattr(self, name)
         return None
 
     def _load_from_disk_with_check(self, run_id: str, name: str, key: str) -> Any | None:
@@ -1319,7 +1249,8 @@ class Context:
             show_virtual_plugins: Whether to show plugins with ``lineage_virtual = True``.
                 When false, non-target virtual nodes are collapsed and their direct
                 upstream and downstream connections are joined for display only.
-            **kwargs: Additional arguments passed to the visualizer (e.g., save_path).
+            **kwargs: Additional arguments passed to the labview or plotly visualizer
+                (e.g., save_path). Mermaid does not accept additional arguments.
         """
         from .foundation.model import build_lineage_graph
 
@@ -1356,6 +1287,11 @@ class Context:
         if kind == "labview":
             return plot_lineage_labview(model, data_name, context=self, **kwargs)
         elif kind == "mermaid":
+            if kwargs:
+                raise TypeError(
+                    "Mermaid lineage visualization got an unexpected keyword argument "
+                    f"{next(iter(kwargs))!r}"
+                )
             mermaid_str = model.to_mermaid()
             print(mermaid_str)
             return mermaid_str
@@ -1365,11 +1301,6 @@ class Context:
             raise ValueError(
                 f"Unsupported visualization kind: {kind}. Supported: 'labview', 'mermaid', 'plotly'"
             )
-
-    @property
-    def profiling_summary(self) -> str:
-        """Return a summary of the profiling data."""
-        return self.profiler.summary()
 
     def get_performance_report(self, plugin_name: str | None = None, format: str = "text") -> Any:
         """
@@ -1421,64 +1352,19 @@ class Context:
         else:
             return self.stats_collector.generate_report(format=format)
 
-    def analyze_dependencies(
-        self, target_name: str, include_performance: bool = True, run_id: str | None = None
-    ):
-        """
-        分析插件依赖关系，识别关键路径、并行机会和性能瓶颈
-
-        Args:
-            target_name: 目标数据名称
-            include_performance: 是否包含性能数据分析（需要stats_mode='basic'或'detailed'）
-            run_id: 可选的run_id，用于获取特定运行的性能数据（暂未使用，为未来扩展预留）
-
-        Returns:
-            DependencyAnalysisResult: 分析结果对象
-
-        Example:
-            >>> ctx = Context(stats_mode='basic')
-            >>> # ... 注册插件并执行一些操作 ...
-            >>> analysis = ctx.analyze_dependencies('paired_events')
-            >>> print(analysis.summary())
-            >>> analysis.to_markdown('report.md')  # 导出为 Markdown
-            >>> data = analysis.to_dict()          # 导出为字典（可保存为 JSON）
-
-            # 可视化增强
-            >>> from waveform_analysis.utils.visualization import plot_lineage_labview
-            >>> plot_lineage_labview(
-            ...     ctx.get_lineage('paired_events'),
-            ...     'paired_events',
-            ...     context=ctx,
-            ...     analysis_result=analysis,
-            ...     highlight_critical_path=True,
-            ...     highlight_bottlenecks=True
-            ... )
-        """
-        from waveform_analysis.core.data.dependency_analysis import DependencyAnalyzer
-
-        analyzer = DependencyAnalyzer(self)
-        return analyzer.analyze(
-            target_name=target_name, include_performance=include_performance, run_id=run_id
-        )
-
-    def get_lineage(self, data_name: str, _visited: set | None = None) -> dict[str, Any]:
+    def get_lineage(self, data_name: str) -> dict[str, Any]:
         """
         Get the lineage (recipe) for a data type. Uses caching for performance optimization.
 
         Args:
             data_name: The name of the data type for which to retrieve the lineage.
-            _visited: Internal parameter used to track visited data names during recursion to detect and handle circular dependencies. Defaults to None.
 
         Returns:
             A dictionary representing the lineage of the specified data type.
 
         """
-        top_level = _visited is None
-        visited = set() if _visited is None else _visited
-        lineage = self._get_base_lineage(data_name, visited)
-        if top_level:
-            return self._augment_adapter_info(lineage)
-        return lineage
+        lineage = self._get_base_lineage(data_name, set())
+        return self._augment_adapter_info(lineage)
 
     def _get_base_lineage(self, data_name: str, visited: set[str]) -> dict[str, Any]:
         """Build lineage without top-level adapter metadata.
@@ -1497,9 +1383,6 @@ class Context:
             return {"plugin_class": "CircularDependency", "target": data_name}
 
         if data_name not in self._plugins:
-            # Check if it's a side-effect or manually set attribute
-            if hasattr(self, data_name) and getattr(self, data_name) is not None:
-                return {"plugin_class": "ManualData", "config": {}, "depends_on": {}}
             return {}
 
         plugin = self._plugins[data_name]
@@ -1538,7 +1421,7 @@ class Context:
 
         # Filter config to only include tracked options
         config = {}
-        resolved = self.get_resolved_config(plugin)
+        resolved = self.get_config(plugin)
         for k in plugin.config_keys:
             opt = plugin.options.get(k)
             if opt and getattr(opt, "track", True):
@@ -1609,6 +1492,66 @@ class Context:
             return base_note + "（默认值）"
         return base_note
 
+    @staticmethod
+    def _config_option_metadata(option) -> dict[str, Any]:
+        return {
+            "default": option.default,
+            "type": (
+                option.type.__name__
+                if hasattr(option.type, "__name__")
+                else str(option.type) if option.type else "Any"
+            ),
+            "help": option.help,
+            "track": option.track,
+        }
+
+    def _config_option_row(
+        self, plugin_name, option_name, info, show_current_values, show_full_help
+    ) -> dict[str, Any]:
+        is_default = info.get("is_default", True) if show_current_values else None
+        return {
+            "plugin": plugin_name,
+            "option": option_name,
+            "type": info.get("type", "Any"),
+            "default": self._format_display_value(info.get("default"), 60),
+            "current": (
+                self._format_display_value(info.get("current_value"), 60)
+                if show_current_values
+                else None
+            ),
+            "status": ("默认" if is_default else "已修改") if show_current_values else None,
+            "help": (
+                info.get("help", "")
+                if show_full_help
+                else self._format_display_value(info["help"], 80) if "help" in info else ""
+            ),
+            "track": info.get("track", True),
+            "_is_default": is_default,
+            **(
+                {
+                    "source": info["source"],
+                    "inferred_from": info.get("inferred_from"),
+                    "original_key": info.get("original_key"),
+                }
+                if "source" in info
+                else {}
+            ),
+        }
+
+    @staticmethod
+    def _config_options_frame(rows, show_current_values: bool):
+        import pandas as pd
+
+        frame = pd.DataFrame(rows)
+        if frame.empty:
+            return frame
+        order = ["_is_default", "plugin", "option"] if show_current_values else ["plugin", "option"]
+        return (
+            frame.sort_values(by=order)
+            .set_index(["plugin", "option"])
+            .drop(columns=["_is_default"])
+        )
+
     def _style_options_table(self, df_display, show_current_values: bool):
         def _highlight_modified(row):
             styles = [""] * len(row)
@@ -1633,43 +1576,24 @@ class Context:
             styler = styler.apply(_highlight_modified, axis=1)
         return styler
 
-    def list_plugin_configs(
+    def _plugin_config_options(
         self,
-        plugin_name: str | None = None,
+        plugin: str | Plugin | None = None,
         show_current_values: bool = True,
-        verbose: bool = True,
-        as_dataframe: bool = True,  # 新增：是否用 DataFrame 展示
+        display: bool = True,
         show_full_help: bool = False,
+        show_source: bool = False,
+        adapter_name: str | None = None,
     ):
-        """
-        列出插件配置选项（支持 DataFrame 展示）
-
-        与 show_config 的关系：
-        - list_plugin_configs 面向“配置选项清单”，展示插件有哪些可配置项、默认值/当前值、修改状态。
-        - show_config 在指定 plugin_name 时会直接复用本方法，以确保展示样式一致。
-        - show_config 在未指定 plugin_name 时展示“当前配置汇总”（全局/插件特定/未使用）。
-
-        Returns:
-            默认仍返回 result dict；
-            如果 as_dataframe=True 且 verbose=True，会额外显示 DataFrame；
-            如果你想拿到 DataFrame 对象，可以把最后两行的 return 改成 return result, df_plugins, df_options
-        """
-
+        """Collect option metadata and optionally display the matching tables."""
         result: dict[str, Any] = {}
-
-        # 确定要显示的插件列表
-        if plugin_name is not None:
-            if plugin_name not in self._plugins:
-                print(f"❌ 插件 '{plugin_name}' 未注册")
-                print(f"已注册的插件: {', '.join(self._plugins.keys())}")
-                return {}
-            plugins_to_show = {plugin_name: self._plugins[plugin_name]}
-        else:
-            plugins_to_show = self._plugins
-
+        if isinstance(plugin, str):
+            plugin = self.get_plugin(plugin)
+        plugins_to_show = {plugin.provides: plugin} if plugin is not None else self._plugins
         if not plugins_to_show:
-            print("⚠️  没有已注册的插件")
-            return {}
+            if display:
+                print("⚠️  没有已注册的插件")
+            return result
 
         # 收集每个插件的配置信息
         for name, plugin in plugins_to_show.items():
@@ -1680,34 +1604,32 @@ class Context:
                 "options": {},
             }
 
+            if show_source:
+                plugin_info["adapter_name"] = (
+                    adapter_name
+                    if adapter_name is not None
+                    else self._config_domain.resolve_adapter_name_for_plugin(plugin)
+                )
             for opt_name, option in plugin.options.items():
-                opt_info = {
-                    "default": option.default,
-                    "type": (
-                        option.type.__name__
-                        if hasattr(option.type, "__name__")
-                        else str(option.type) if option.type else "Any"
-                    ),
-                    "help": option.help,
-                    "track": option.track,
-                }
-
-                # 获取当前配置值
+                opt_info = self._config_option_metadata(option)
                 if show_current_values:
-                    try:
-                        current_value = self._config_domain.resolve_config_value(plugin, opt_name)
-                        opt_info["current_value"] = current_value
-                        opt_info["is_default"] = current_value == option.default
-                    except KeyError:
-                        opt_info["current_value"] = None
-                        opt_info["is_default"] = True
-
+                    cv = self.get_config(
+                        plugin, opt_name, with_source=True, adapter_name=adapter_name
+                    )
+                    opt_info["current_value"] = cv.value
+                    opt_info["is_default"] = cv.value == option.default
+                    if show_source:
+                        opt_info.update(
+                            source=cv.source.value,
+                            original_key=cv.original_key,
+                            inferred_from=cv.inferred_from,
+                        )
                 plugin_info["options"][opt_name] = opt_info
 
             result[name] = plugin_info
 
         # DataFrame 展示
-        if verbose and as_dataframe:
+        if display:
             import pandas as pd
 
             # 在 notebook 中 display（若不可用则 fallback）
@@ -1728,6 +1650,7 @@ class Context:
                 plugin_rows.append(
                     {
                         "plugin": pname,
+                        **({"adapter": info["adapter_name"]} if show_source else {}),
                         "class": info["class"],
                         "version": info["version"],
                         "description": info["description"],
@@ -1746,47 +1669,12 @@ class Context:
             df_plugins = df_plugins.set_index("plugin")
 
             # 2) 选项明细表（MultiIndex：plugin / option）
-            option_rows = []
-            for pname, info in result.items():
-                for opt_name, opt in info["options"].items():
-                    default_raw = opt.get("default", None)
-                    current_raw = opt.get("current_value", None) if show_current_values else None
-                    is_default = opt.get("is_default", True) if show_current_values else None
-                    status = "默认" if is_default or is_default is None else "已修改"
-                    option_rows.append(
-                        {
-                            "plugin": pname,
-                            "option": opt_name,
-                            "type": opt.get("type", "Any"),
-                            "default": self._format_display_value(default_raw, 60),
-                            "current": (
-                                self._format_display_value(current_raw, 60)
-                                if show_current_values
-                                else None
-                            ),
-                            "status": status if show_current_values else None,
-                            "help": (
-                                opt.get("help", "")
-                                if show_full_help
-                                else self._format_display_value(opt.get("help", ""), 80)
-                            ),
-                            "track": opt.get("track", True),
-                            "_is_default": is_default,
-                            "_default_raw": default_raw,
-                            "_current_raw": current_raw,
-                        }
-                    )
-
-            df_options = pd.DataFrame(option_rows)
-            if not df_options.empty:
-                if show_current_values:
-                    df_options = df_options.sort_values(
-                        by=["_is_default", "plugin", "option"],
-                        ascending=[True, True, True],
-                    )
-                else:
-                    df_options = df_options.sort_values(by=["plugin", "option"])
-                df_options = df_options.set_index(["plugin", "option"])
+            option_rows = [
+                self._config_option_row(pname, opt_name, opt, show_current_values, show_full_help)
+                for pname, info in result.items()
+                for opt_name, opt in info["options"].items()
+            ]
+            df_options = self._config_options_frame(option_rows, show_current_values)
 
             # 展示
             if display is not None:
@@ -1797,11 +1685,7 @@ class Context:
                 if df_options.empty:
                     print("该插件没有配置选项。")
                 else:
-                    df_display = df_options.drop(
-                        columns=["_is_default", "_default_raw", "_current_raw"]
-                    )
-
-                    styler = self._style_options_table(df_display, show_current_values)
+                    styler = self._style_options_table(df_options, show_current_values)
                     display(styler)
             else:
                 print("\n📦 插件概览")
@@ -1811,13 +1695,7 @@ class Context:
                 if df_options.empty:
                     print("该插件没有配置选项。")
                 else:
-                    fallback = df_options.drop(
-                        columns=["_is_default", "_default_raw", "_current_raw"]
-                    )
-                    print(fallback.to_string())
-
-            # 如果你希望函数直接把 DF 返回出去，把下面这行改成：
-            # return result, df_plugins, df_options
+                    print(df_options.to_string())
 
         return result
 
@@ -1960,37 +1838,14 @@ class Context:
                 plugin = self._plugins.get(plugin_name)
                 for key, value in configs.items():
                     option = plugin.options.get(key) if plugin else None
-                    default_raw = option.default if option else None
-                    is_default = value == default_raw if option else False
-                    status = "默认" if is_default else "已修改"
+                    info = self._config_option_metadata(option) if option else {}
+                    info["current_value"] = value
+                    info["is_default"] = value == option.default if option else False
                     option_rows.append(
-                        {
-                            "plugin": plugin_name,
-                            "option": key,
-                            "type": (
-                                option.type.__name__
-                                if option and hasattr(option.type, "__name__")
-                                else str(option.type) if option and option.type else "Any"
-                            ),
-                            "default": self._format_display_value(default_raw, 60),
-                            "current": self._format_display_value(value, 60),
-                            "status": status,
-                            "help": (
-                                option.help
-                                if (option and show_full_help)
-                                else self._format_display_value(option.help, 80) if option else ""
-                            ),
-                            "track": option.track if option else True,
-                            "_is_default": is_default,
-                        }
+                        self._config_option_row(plugin_name, key, info, True, show_full_help)
                     )
 
-            df_plugin = pd.DataFrame(option_rows)
-            df_plugin = df_plugin.sort_values(
-                by=["_is_default", "plugin", "option"], ascending=[True, True, True]
-            )
-            df_plugin = df_plugin.set_index(["plugin", "option"])
-            df_display = df_plugin.drop(columns=["_is_default"])
+            df_display = self._config_options_frame(option_rows, show_current_values=True)
 
             print("\n⚙️ 插件特定配置")
             if display is not None:
@@ -2044,11 +1899,6 @@ class Context:
             else:
                 print(df_unused.to_string())
 
-    def _delete_disk_cache(
-        self, key: str, run_id: str | None = None, data_name: str | None = None
-    ) -> int:
-        return self._cache_domain.delete_disk_cache(key, run_id=run_id, data_name=data_name)
-
     # ===========================
     # 时间范围查询
     # ===========================
@@ -2075,14 +1925,23 @@ class Context:
         self,
         run_id: str,
         data_name: str,
-        start_time: int | None = None,
-        end_time: int | None = None,
+        start_time: int | datetime | None = None,
+        end_time: int | datetime | None = None,
         time_field: str | None = None,
         endtime_field: str | None = None,
         auto_build_index: bool = True,
         channel: int | HardwareChannel | tuple[int, int] | str | None = None,
         time_domain: str = _TIME_DOMAIN_SYSTEM_NS,
+        *,
+        auto_extract_epoch: bool = True,
     ) -> np.ndarray | list[np.ndarray]:
+        """Query integer time-axis bounds or datetime bounds relative to the run epoch.
+
+        Integer units follow time_domain: system_ns or raw_ps. Datetime bounds
+        are converted using the run epoch; missing epochs may be extracted when
+        enabled. Naive datetimes use the epoch timezone. None means an open bound;
+        two None bounds do not require an epoch. Mixed integer/datetime bounds fail.
+        """
         return self._time_domain.time_range(
             run_id,
             data_name,
@@ -2093,6 +1952,7 @@ class Context:
             auto_build_index=auto_build_index,
             channel=channel,
             time_domain=time_domain,
+            auto_extract_epoch=auto_extract_epoch,
         )
 
     def set_epoch(
@@ -2116,303 +1976,6 @@ class Context:
             run_id, strategy=strategy, file_paths=file_paths
         )
 
-    def get_data_time_range_absolute(
-        self,
-        run_id: str,
-        data_name: str,
-        start_dt: datetime | None = None,
-        end_dt: datetime | None = None,
-        time_field: str | None = None,
-        endtime_field: str | None = None,
-        auto_build_index: bool = True,
-        channel: int | HardwareChannel | tuple[int, int] | str | None = None,
-        auto_extract_epoch: bool = True,
-        time_domain: str = _TIME_DOMAIN_SYSTEM_NS,
-    ) -> np.ndarray | list[np.ndarray]:
-        return self._time_domain.get_data_time_range_absolute(
-            run_id,
-            data_name,
-            start_dt=start_dt,
-            end_dt=end_dt,
-            time_field=time_field,
-            endtime_field=endtime_field,
-            auto_build_index=auto_build_index,
-            channel=channel,
-            auto_extract_epoch=auto_extract_epoch,
-            time_domain=time_domain,
-        )
-
-    def preview_execution(
-        self,
-        run_id: str,
-        data_name: str,
-        show_tree: bool = True,
-        show_config: bool = True,
-        show_cache: bool = True,
-        verbose: int = 1,
-    ) -> dict[str, Any]:
-        """
-        预览数据获取的执行计划（不实际执行计算）
-
-        在调用 get_data() 之前查看将要执行的操作，包括：
-        - 执行计划（插件执行顺序）
-        - 依赖关系树
-        - 配置参数（仅显示非默认值）
-        - 缓存状态（哪些数据已缓存，哪些需要计算）
-
-        Args:
-            run_id: 运行标识符
-            data_name: 要获取的数据名称
-            show_tree: 是否显示依赖关系树
-            show_config: 是否显示配置参数
-            show_cache: 是否显示缓存状态
-            verbose: 显示详细程度 (0=简洁, 1=标准, 2=详细)
-
-        Returns:
-            包含执行计划详情的字典
-
-        Examples:
-            >>> # 基本预览
-            >>> ctx.preview_execution('run_001', 'signal_peaks')
-
-            >>> # 详细预览
-            >>> ctx.preview_execution('run_001', 'signal_peaks', verbose=2)
-
-            >>> # 仅显示执行计划
-            >>> info = ctx.preview_execution('run_001', 'signal_peaks',
-            ...                              show_tree=False, show_config=False)
-            >>> print(info['execution_plan'])
-
-            >>> # 在实际执行前确认
-            >>> ctx.preview_execution('run_001', 'signal_peaks')
-            >>> # 确认后再执行
-            >>> data = ctx.get_data('run_001', 'signal_peaks')
-        """
-        self._config_domain.prepare_request(run_id, data_name)
-        # 检查数据名称是否存在
-        if data_name not in self._plugins:
-            raise ValueError(
-                f"数据类型 '{data_name}' 未注册。可用数据: {', '.join(self.list_provided_data())}"
-            )
-
-        # 1. 解析执行计划
-        try:
-            execution_plan = self._execution_domain.resolve_execution_plan(run_id, data_name)
-        except Exception as e:
-            print(f"✗ 无法解析依赖关系: {e}")
-            return {"error": str(e)}
-
-        # 2. 计算本次实际需要执行的步骤（cache-aware）
-        needed_set = self._execution_domain.compute_needed_set(run_id, data_name, execution_plan)
-
-        # 3. 检查缓存状态
-        cache_status = {}
-        if show_cache:
-            for plugin_name in execution_plan:
-                # 检查内存缓存
-                in_memory = self._get_data_from_memory(run_id, plugin_name) is not None
-
-                # 检查磁盘缓存
-                on_disk = False
-                if plugin_name in self._plugins:
-                    try:
-                        key = self.key_for(run_id, plugin_name)
-                        on_disk = self._is_disk_cache_valid(run_id, plugin_name, key)
-                    except Exception:
-                        pass
-
-                cache_status[plugin_name] = {
-                    "in_memory": in_memory,
-                    "on_disk": on_disk,
-                    "needs_compute": plugin_name in needed_set,
-                    "pruned": (plugin_name not in needed_set) and not (in_memory or on_disk),
-                }
-
-        # 4. 收集配置信息
-        configs = {}
-        global_execution_config = {}
-        if show_config:
-            for name in ("enable_plugin_parallelism", "max_parallel_workers"):
-                if name in self.config:
-                    global_execution_config[name] = self.config[name]
-
-            for plugin_name in execution_plan:
-                if plugin_name in self._plugins:
-                    plugin = self._plugins[plugin_name]
-                    plugin_config = {}
-
-                    # 只收集非默认值的配置
-                    if hasattr(plugin, "options"):
-                        for opt_name, opt_obj in plugin.options.items():
-                            value = self.get_config(plugin, opt_name)
-                            if value != opt_obj.default:
-                                plugin_config[opt_name] = {
-                                    "value": value,
-                                    "default": opt_obj.default,
-                                    "type": opt_obj.type.__name__ if opt_obj.type else "Any",
-                                }
-
-                    if plugin_config:
-                        configs[plugin_name] = plugin_config
-
-        # 5. 构建结果字典
-        resolved_depends_on = {}
-        if show_tree or verbose > 1:
-            for plugin_name in execution_plan:
-                plugin = self._plugins.get(plugin_name)
-                if plugin is None:
-                    continue
-                resolved_depends_on[plugin_name] = self._plugin_domain.get_dependency_names(
-                    plugin, run_id=run_id
-                )
-        result = {
-            "target": data_name,
-            "run_id": run_id,
-            "execution_plan": execution_plan,
-            "cache_status": cache_status,
-            "configs": configs,
-            "global_execution_config": global_execution_config,
-            "resolved_depends_on": resolved_depends_on,
-            "needed_set": sorted(needed_set),
-        }
-
-        # 6. 打印格式化输出
-        self._print_preview(
-            result,
-            show_tree=show_tree,
-            show_config=show_config,
-            show_cache=show_cache,
-            verbose=verbose,
-        )
-
-        return result
-
-    def _print_preview(
-        self,
-        info: dict[str, Any],
-        show_tree: bool,
-        show_config: bool,
-        show_cache: bool,
-        verbose: int,
-    ):
-        """打印格式化的预览信息"""
-
-        # 标题
-        print("\n" + "=" * 70)
-        print(f"执行计划预览: {info['target']} (run_id: {info['run_id']})")
-        print("=" * 70)
-
-        # 1. 执行计划
-        print(f"\n{'📋 执行计划' if verbose > 0 else '执行计划'}:")
-        print(f"  {'共 ' + str(len(info['execution_plan'])) + ' 个步骤' if verbose > 0 else ''}")
-
-        for i, plugin_name in enumerate(info["execution_plan"], 1):
-            # 获取缓存状态标记
-            status_mark = ""
-            if show_cache and plugin_name in info["cache_status"]:
-                status = info["cache_status"][plugin_name]
-                if status["in_memory"]:
-                    status_mark = " ✓ [内存]"
-                elif status["on_disk"]:
-                    status_mark = " ✓ [磁盘]"
-                elif status.get("pruned"):
-                    status_mark = " ↳ [剪枝]"
-                else:
-                    status_mark = " ⚙️ [需计算]"
-
-            arrow = "  └─→" if i == len(info["execution_plan"]) else "  ├─→"
-            print(f"{arrow} {i}. {plugin_name}{status_mark}")
-
-        # 2. 依赖关系树
-        if show_tree:
-            print(f"\n{'🌳 依赖关系树' if verbose > 0 else '依赖关系树'}:")
-            self._print_dependency_tree(info["target"], prefix="  ", run_id=info.get("run_id"))
-
-        # 3. 解析后的依赖（verbose > 1）
-        if verbose > 1 and info.get("resolved_depends_on"):
-            print(f"\n{'🔗 解析后依赖' if verbose > 0 else '解析后依赖'}:")
-            for plugin_name in info["execution_plan"]:
-                deps = info["resolved_depends_on"].get(plugin_name, [])
-                if deps:
-                    print(f"  • {plugin_name}: {', '.join(deps)}")
-
-        # 4. 配置参数
-        if show_config and info["configs"]:
-            print(f"\n{'⚙️ 自定义配置' if verbose > 0 else '自定义配置'}:")
-            for plugin_name, plugin_config in info["configs"].items():
-                print(f"  • {plugin_name}:")
-                for opt_name, opt_info in plugin_config.items():
-                    default_str = f" (默认: {opt_info['default']})" if verbose > 1 else ""
-                    print(f"      {opt_name} = {opt_info['value']}{default_str}")
-        elif show_config:
-            print(f"\n{'⚙️ 自定义配置' if verbose > 0 else '自定义配置'}: 无（使用所有默认值）")
-
-        if show_config and info.get("global_execution_config"):
-            print(f"\n{'🧭 全局执行配置' if verbose > 0 else '全局执行配置'}:")
-            for name, value in info["global_execution_config"].items():
-                print(f"  • {name} = {value}")
-
-        # 5. 缓存状态汇总
-        if show_cache:
-            cache_summary = {"in_memory": 0, "on_disk": 0, "needs_compute": 0, "pruned": 0}
-            for status in info["cache_status"].values():
-                if status["in_memory"]:
-                    cache_summary["in_memory"] += 1
-                elif status["on_disk"]:
-                    cache_summary["on_disk"] += 1
-                elif status.get("pruned"):
-                    cache_summary["pruned"] += 1
-                else:
-                    cache_summary["needs_compute"] += 1
-
-            print(f"\n{'💾 缓存状态汇总' if verbose > 0 else '缓存汇总'}:")
-            print(f"  • 内存缓存: {cache_summary['in_memory']} 个")
-            print(f"  • 磁盘缓存: {cache_summary['on_disk']} 个")
-            print(f"  • 需要计算: {cache_summary['needs_compute']} 个")
-            print(f"  • 已剪枝: {cache_summary['pruned']} 个")
-
-        print("\n" + "=" * 70 + "\n")
-
-    def _print_dependency_tree(
-        self,
-        data_name: str,
-        prefix: str = "",
-        is_last: bool = True,
-        visited: set | None = None,
-        run_id: str | None = None,
-    ):
-        """递归打印依赖关系树"""
-        if visited is None:
-            visited = set()
-
-        if data_name in visited:
-            print(f"{prefix}{'└─' if is_last else '├─'} {data_name} [循环引用]")
-            return
-
-        visited.add(data_name)
-
-        # 打印当前节点
-        connector = "└─" if is_last else "├─"
-        print(f"{prefix}{connector} {data_name}")
-
-        # 获取依赖
-        if data_name not in self._plugins:
-            return
-
-        plugin = self._plugins[data_name]
-        dependencies = self._plugin_domain.get_dependency_names(plugin, run_id=run_id)
-
-        if not dependencies:
-            return
-
-        # 打印子节点
-        extension = "   " if is_last else "│  "
-        for i, dep in enumerate(dependencies):
-            is_last_dep = i == len(dependencies) - 1
-            self._print_dependency_tree(
-                dep, prefix + extension, is_last_dep, visited.copy(), run_id=run_id
-            )
-
     # ==========================
     # Help system
     # ==========================
@@ -2434,59 +1997,18 @@ class Context:
     # ===========================
     # 缓存管理工具 (Cache Management)
     # ===========================
-    from waveform_analysis.core.storage.cache_analyzer import CacheAnalyzer
-    from waveform_analysis.core.storage.cache_diagnostics import CacheDiagnostics, DiagnosticIssue
-    from waveform_analysis.core.storage.cache_statistics import CacheStatistics
-
-    def analyze_cache(self, run_id: str | None = None, verbose: bool = True) -> CacheAnalyzer:
-        """获取缓存分析器实例并执行扫描
-
-        创建一个 CacheAnalyzer 实例来分析缓存状态，支持按 run_id 过滤。
-
-        Args:
-            run_id: 仅分析指定运行的缓存，None 则分析所有
-            verbose: 是否显示扫描进度
-
-        Returns:
-            CacheAnalyzer 实例（已完成扫描）
-
-        Examples:
-            >>> # 获取缓存分析器
-            >>> analyzer = ctx.analyze_cache()
-            >>>
-            >>> # 查看所有条目
-            >>> entries = analyzer.get_entries()
-            >>> print(f"共 {len(entries)} 个缓存条目")
-            >>>
-            >>> # 按条件过滤
-            >>> large = analyzer.get_entries(min_size=1024*1024)
-            >>> old = analyzer.get_entries(max_age_days=30)
-            >>>
-            >>> # 打印摘要
-            >>> analyzer.print_summary(detailed=True)
-        """
-        from waveform_analysis.core.storage.cache_analyzer import CacheAnalyzer
-
-        analyzer = CacheAnalyzer(self)
-        run_ids = [run_id] if run_id else None
-        analyzer.scan(verbose=verbose, run_ids=run_ids)
-        return analyzer
-
     def diagnose_cache(
         self,
         run_id: str | None = None,
-        auto_fix: bool = False,
-        dry_run: bool = True,
         verbose: bool = True,
     ) -> list[DiagnosticIssue]:
         """诊断缓存问题
 
-        检查缓存的完整性、版本一致性、孤儿文件等问题。
+        检查缓存的完整性、版本一致性、孤儿文件等问题，不修改缓存。
+        缓存修复使用 waveform-cache diagnose --fix。
 
         Args:
             run_id: 仅诊断指定运行，None 则诊断所有
-            auto_fix: 是否自动修复可修复的问题
-            dry_run: 如果 auto_fix=True，是否仅预演（不实际执行）
             verbose: 是否显示详细信息
 
         Returns:
@@ -2498,21 +2020,13 @@ class Context:
             >>>
             >>> # 诊断特定运行
             >>> issues = ctx.diagnose_cache(run_id='run_001')
-            >>>
-            >>> # 自动修复（先 dry-run）
-            >>> issues = ctx.diagnose_cache(auto_fix=True, dry_run=True)
-            >>>
-            >>> # 实际修复
-            >>> issues = ctx.diagnose_cache(auto_fix=True, dry_run=False)
         """
-
         from waveform_analysis.core.storage.cache_analyzer import CacheAnalyzer
-        from waveform_analysis.core.storage.cache_diagnostics import (
-            CacheDiagnostics,
-        )
+        from waveform_analysis.core.storage.cache_diagnostics import CacheDiagnostics
 
         analyzer = CacheAnalyzer(self)
-        analyzer.scan(verbose=False)
+        run_ids = [run_id] if run_id is not None else None
+        analyzer.scan(verbose=False, run_ids=run_ids)
 
         diag = CacheDiagnostics(analyzer)
         issues = diag.diagnose(run_id=run_id, verbose=verbose)
@@ -2520,65 +2034,7 @@ class Context:
         if verbose:
             diag.print_report(issues)
 
-        if auto_fix and issues:
-            fixable = [i for i in issues if i.fixable]
-            if fixable:
-                result = diag.auto_fix(issues, dry_run=dry_run)
-                if verbose:
-                    print(
-                        f"\n[修复结果] 总计: {result['total']}, "
-                        f"可修复: {result['fixable']}, "
-                        f"{'将修复' if dry_run else '已修复'}: {result['fixed']}"
-                    )
-
         return issues
-
-    def cache_stats(
-        self,
-        run_id: str | None = None,
-        detailed: bool = False,
-        export_path: str | None = None,
-    ) -> CacheStatistics:
-        """获取缓存统计信息
-
-        收集并显示缓存使用情况的统计信息。
-
-        Args:
-            run_id: 仅统计指定运行，None 则统计所有
-            detailed: 是否显示详细统计（按运行、按数据类型）
-            export_path: 如果指定，导出统计到文件（支持 .json, .csv）
-
-        Returns:
-            CacheStatistics 统计数据
-
-        Examples:
-            >>> # 获取基本统计
-            >>> stats = ctx.cache_stats()
-            >>>
-            >>> # 详细统计
-            >>> stats = ctx.cache_stats(detailed=True)
-            >>>
-            >>> # 特定运行的统计
-            >>> stats = ctx.cache_stats(run_id='run_001', detailed=True)
-            >>>
-            >>> # 导出统计
-            >>> stats = ctx.cache_stats(export_path='cache_stats.json')
-        """
-        from waveform_analysis.core.storage.cache_analyzer import CacheAnalyzer
-        from waveform_analysis.core.storage.cache_statistics import CacheStatsCollector
-
-        analyzer = CacheAnalyzer(self)
-        analyzer.scan(verbose=False)
-
-        collector = CacheStatsCollector(analyzer)
-        stats = collector.collect(run_id=run_id)
-        collector.print_summary(stats, detailed=detailed)
-
-        if export_path:
-            fmt = "csv" if export_path.endswith(".csv") else "json"
-            collector.export_stats(stats, export_path, format=fmt)
-
-        return stats
 
     def __repr__(self):
         return f"Context(storage='{self.storage_dir}', plugins={self.list_provided_data()})"

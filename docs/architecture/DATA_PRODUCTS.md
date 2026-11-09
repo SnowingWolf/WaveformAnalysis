@@ -359,11 +359,11 @@ flowchart TD
 | 条件 | 上游 | 构建路径 |
 | --- | --- | --- |
 | 非 V1725 默认 | `raw_files` | `build_records_from_raw_files(...)` |
-| 非 V1725 且 `input_source="st_waveforms"` | `st_waveforms` | `build_records_from_st_waveforms_sharded(...)` |
+| 非 V1725 且非 CoMPASS BIN 且 `input_source="st_waveforms"` | `st_waveforms` | `build_records_from_st_waveforms_sharded(...)` |
 | V1725 | 二进制 `raw_files` | `build_records_from_v1725_files(...)` |
 
 当 `records` 与 `wave_pool` 同时注册时，共享构建配置由 `records` 命名空间持有。V1725 使用专用
-二进制读取路径，不支持 `input_source="st_waveforms"`。
+二进制读取路径；V1725 与 CoMPASS BIN 均不支持 `input_source="st_waveforms"`。
 
 V1725 磁盘模式合并成功后，会核对最终记录数、样本数、文件尺寸及波形索引边界，关闭中间
 memmap，再回收本次构建的原始分片与 `records_only_batches` 排序中间文件。临时目录只保留

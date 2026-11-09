@@ -62,11 +62,11 @@ start = datetime(2024, 1, 1, 12, 0, 10, tzinfo=timezone.utc)
 end = datetime(2024, 1, 1, 12, 0, 20, tzinfo=timezone.utc)
 
 # 查询数据
-data = ctx.get_data_time_range_absolute(
+data = ctx.time_range(
     'run_001',
     'basic_features',
-    start_dt=start,
-    end_dt=end
+    start_time=start,
+    end_time=end
 )
 ```
 
@@ -154,20 +154,20 @@ ctx = Context(config={
 
 ```python
 # 查询所有通道（返回单个结构化数组）
-st_waveforms = ctx.get_data_time_range_absolute(
+st_waveforms = ctx.time_range(
     'run_001',
     'st_waveforms',
-    start_dt=start,
-    end_dt=end
+    start_time=start,
+    end_time=end
 )
 
 # 查询特定通道
-ch0_data = ctx.get_data_time_range_absolute(
+ch0_data = ctx.time_range(
     'run_001',
     'st_waveforms',
-    start_dt=start,
-    end_dt=end,
-    channel=0
+    start_time=start,
+    end_time=end,
+    channel="0:0"
 )
 # 返回 np.ndarray（已按 channel 过滤）
 ```
@@ -190,20 +190,19 @@ relative_times = converter.absolute_to_relative(dts)
 # 返回 int64 数组
 ```
 
-### TimeIndex 绝对时间查询
+### 查看数据时间范围
 
-时间索引也支持绝对时间查询：
+使用公开的索引元数据和 `TimeConverter`，无需访问 Context 的内部索引对象：
 
 ```python
-# 触发索引构建（epoch 会自动传递）
-_ = ctx.time_range('run_001', 'basic_features', start_time=0, end_time=1)
+from waveform_analysis.core.foundation.time_conversion import TimeConverter
 
-# 获取索引的绝对时间范围
-index = ctx._time_query_engine.get_index('run_001', 'basic_features')
-time_range = index.get_time_range_absolute()
-if time_range:
-    min_dt, max_dt = time_range
-    print(f"数据时间范围: {min_dt} 到 {max_dt}")
+metadata = ctx.build_time_index('run_001', 'basic_features', time_domain='system_ns')
+# 转换器单位与索引的 ns 域一致；该例 epoch 使用 set_epoch 的默认 time_unit='ns'。
+converter = TimeConverter(ctx.get_epoch('run_001'))
+if metadata['type'] == 'single':
+    lower, upper = metadata['stats']['basic_features']['time_range']
+    print(converter.relative_to_absolute(lower), converter.relative_to_absolute(upper))
 ```
 
 ## 时区处理
@@ -228,7 +227,7 @@ dt_local = dt_utc.astimezone(local_tz)
 
 ### 无时区 datetime
 
-如果传入无时区的 datetime，系统会假定为 UTC：
+设置 epoch 时，无时区的 datetime 按 UTC 解释；查询边界没有时区时，按该 run 的 epoch 时区解释。建议始终显式传入时区：
 
 ```python
 # 这两个是等价的
@@ -237,6 +236,16 @@ ctx.set_epoch('run_001', datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc))
 ```
 
 ## 向后兼容
+
+绝对时间查询已经合并到 `time_range()`；旧的 `get_data_time_range_absolute()` 已删除。
+将 `start_dt` / `end_dt` 参数改为 `start_time` / `end_time`。
+
+整数边界的单位由 `time_domain` 指定：默认 `system_ns` 为 ns，`raw_ps` 为 ps。
+显式指定 `time_field` 时，调用方必须保证字段的单位与所选域一致。
+`None` 表示开放边界；两个边界都是 `None` 或整数时不要求 epoch。
+整数和 datetime 不可混用，浮点数、布尔值及字符串边界会抛出 `TypeError`。
+Datetime 边界缺少 epoch 时默认尝试提取；`auto_extract_epoch=False` 或同名全局配置
+可禁用提取，此时明确报错。不同时间域及时间字段各自维护索引。
 
 现有的相对时间查询继续工作：
 
@@ -278,10 +287,9 @@ ValueError: 无法从文件中提取 epoch
 epoch_info = ctx.get_epoch('run_001')
 print(epoch_info)  # 显示 epoch 详情
 
-# 获取数据的绝对时间范围
-index = ctx._time_query_engine.get_index('run_001', 'basic_features')
-time_range = index.get_time_range_absolute()
-print(f"数据时间范围: {time_range}")
+# 查看索引时间范围，再按上文的同单位转换器换算
+metadata = ctx.build_time_index('run_001', 'basic_features')
+print(metadata['stats'])
 ```
 
 ## API 参考
@@ -293,7 +301,7 @@ print(f"数据时间范围: {time_range}")
 | `set_epoch(run_id, epoch, time_unit)` | 手动设置 epoch |
 | `get_epoch(run_id)` | 获取 epoch 元数据 |
 | `auto_extract_epoch(run_id, strategy)` | 自动提取 epoch |
-| `get_data_time_range_absolute(...)` | 使用 datetime 查询数据 |
+| `time_range(run_id, data_name, start_time, end_time, ...)` | 使用整数或 datetime 查询数据 |
 
 ### TimeIndex 方法
 

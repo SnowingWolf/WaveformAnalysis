@@ -1,0 +1,456 @@
+api_version: waveform-analysis/agent-task/v1
+kind: AgentTask
+metadata:
+  id: context-diagnostics-retirement-20261105
+  generation: 2
+  created_at: '2026-11-05T13:06:08Z'
+  updated_at: '2026-11-05T13:24:45Z'
+spec:
+  goal: 按用户确认收敛 Context 诊断 API：删除七个公开方法和高级依赖分析，保留底层执行与 run 配置规则，缓存诊断只检查，完成测试、文档、打包站点和提交。
+  route: retire_compat
+  workflow_cost: strict
+  workflow_shape: staged
+  risk_level: medium
+  scope:
+    base_sha: dad77190d6710684ae42dd17660a2aafe47a0a30
+    allowed_paths:
+    - waveform_analysis/core/
+    - waveform_analysis/visualization/
+    - waveform_analysis/documentation/
+    - tests/
+    - docs/
+    - AGENTS.md
+    - scripts/
+    - examples/demo_preview_execution.py
+  acceptance_criteria:
+  - 七个 Context 公开方法及高级依赖分析功能退出，无兼容别名；执行、lineage 和 run 配置读取语义保持。
+  - Context diagnose_cache 只检查；CLI 修复、缓存统计与插件性能报告保留。
+  - 调用、测试、文档目录、迁移说明和打包站点同步，所需 gates 与独立审查通过后提交。
+  required_gates:
+  - compat_inventory_ready
+  - deletion_scope_confirmed
+  - targeted_tests
+  - generate_docs
+  - doc_sync
+  - doc_anchors
+  - assess_change_impact
+  - schema_compat_check
+  - docs_build
+  - reviewer
+  assignment:
+    planner_role: planner
+    executor_role: executor.config
+    reviewer_role: reviewer
+    planner: root
+    executors:
+    - context_executor
+    - analysis_executor
+    - docs_executor
+    reviewer: independent_reviewer
+  authorization:
+    source: Direct user approval after concrete seven-method retirement proposal
+    request: 进行这样的修改
+    decision: Approved; public API removals and diagnostic simplification are in scope.
+      No repeat confirmation needed.
+  scope_out:
+  - No physics algorithm, plugin option/dtype/version, cache identity or dependency
+    scheduling changes.
+  - Keep get_performance_report, get_lineage, plot_lineage basic DAG, configuration
+    inspection APIs, get_run_config and clear_cache_for.
+  - Keep cache CLI scan/statistics/repair behavior and underlying storage utilities.
+  - Do not rewrite historical task evidence or change package version; no PR/publish/deploy.
+  compat_inventory:
+  - legacy_form: Context.validate_run_config
+    canonical_form: validate_run_config(ctx.get_run_config(run_id))
+    runtime_surface: public_python_api
+    risk_level: medium
+    delete_action: Remove facade/domain duplicate; keep standalone opt-in validator
+    user_confirmation: 'Approved: 进行这样的修改'
+  - legacy_form: Context.get_run_hardware_channels
+    canonical_form: resolve_run_hardware_channels(ctx.get_run_config(run_id))
+    runtime_surface: public_python_api
+    risk_level: medium
+    delete_action: Remove facade/domain duplicate; keep standalone resolver
+    user_confirmation: 'Approved: 进行这样的修改'
+  - legacy_form: Context.get_plugin_run_config
+    canonical_form: Existing hardware config helper; ctx.get_run_config for inspection
+    runtime_surface: public_python_api
+    risk_level: medium
+    delete_action: Consolidate extraction and fallback precedence without Context
+      facade
+    user_confirmation: 'Approved: 进行这样的修改'
+  - legacy_form: Context.preview_execution
+    canonical_form: Normal get_data request and core execution internals
+    runtime_surface: public_python_api
+    risk_level: medium
+    delete_action: Remove preview/display API; retain resolve_execution_plan and compute_needed_set
+    user_confirmation: 'Approved: 进行这样的修改'
+  - legacy_form: Context.analyze_dependencies and advanced dependency analysis
+    canonical_form: get_lineage/plot_lineage for basic DAG; get_performance_report
+      for recorded stats
+    runtime_surface: public_python_api
+    risk_level: medium
+    delete_action: Remove advanced analysis module, exports, reports and analysis-specific
+      plot highlights
+    user_confirmation: 'Approved: 进行这样的修改'
+  - legacy_form: Context.analyze_cache
+    canonical_form: CacheAnalyzer used by CLI and diagnosis
+    runtime_surface: public_python_api
+    risk_level: medium
+    delete_action: Remove Context wrapper; retain scanner
+    user_confirmation: 'Approved: 进行这样的修改'
+  - legacy_form: Context.cache_stats
+    canonical_form: waveform-cache info/stats/list
+    runtime_surface: public_python_api
+    risk_level: medium
+    delete_action: Remove Context wrapper; retain CLI/statistics implementation
+    user_confirmation: 'Approved: 进行这样的修改'
+  - legacy_form: Context.diagnose_cache(auto_fix,dry_run)
+    canonical_form: Context.diagnose_cache(run_id=None, verbose=True); repair via
+      waveform-cache
+    runtime_surface: public_python_api
+    risk_level: medium
+    delete_action: Remove repair parameters/path from Context, scan only selected
+      run; keep CLI fixes
+    user_confirmation: 'Approved: 进行这样的修改'
+  execution_policy:
+    python: /home/wxy/anaconda3/envs/pyroot-kernel/bin/python
+    docs: Generate references and validated isolated site export; preserve prior build
+      artifacts.
+    commit: Root stages only scoped changes after targeted checks and independent
+      review.
+status:
+  state: completed
+  transitions:
+  - from: created
+    to: planning
+    at: '2026-11-05T13:06:08Z'
+    actor: planner
+  - from: planning
+    to: ready_for_execution
+    at: '2026-11-05T13:06:28Z'
+    actor: planner
+  - from: ready_for_execution
+    to: executing
+    at: '2026-11-05T13:06:28Z'
+    actor: executor.config
+  - from: executing
+    to: reviewing
+    at: '2026-11-05T13:10:38Z'
+    actor: executor.config
+  - from: reviewing
+    to: rework_required
+    at: '2026-11-05T13:10:39Z'
+    actor: reviewer
+  - from: rework_required
+    to: planning
+    at: '2026-11-05T13:10:39Z'
+    actor: planner
+    scope_changed: true
+  - from: planning
+    to: ready_for_execution
+    at: '2026-11-05T13:10:39Z'
+    actor: planner
+  - from: ready_for_execution
+    to: executing
+    at: '2026-11-05T13:10:39Z'
+    actor: executor.config
+  - from: executing
+    to: reviewing
+    at: '2026-11-05T13:14:38Z'
+    actor: executor.config
+  - from: reviewing
+    to: rework_required
+    at: '2026-11-05T13:14:39Z'
+    actor: reviewer
+  - from: rework_required
+    to: executing
+    at: '2026-11-05T13:14:39Z'
+    actor: executor.config
+  - from: executing
+    to: reviewing
+    at: '2026-11-05T13:24:13Z'
+    actor: executor.config
+  - from: reviewing
+    to: completed
+    at: '2026-11-05T13:24:45Z'
+    actor: reviewer
+    condition: all_blocking_gates_pass
+  plan_sha256: d02ebffd6aed255a8d29876af537cda63e24b4fa9ea30ca0bf45f342879904c6
+  execution:
+    summary: 移除七个 Context 公开诊断方法和高级依赖分析，保留运行规则与基本 lineage；诊断只检查，文档迁移与91页打包站点同步。
+    changed_paths:
+    - AGENTS.md
+    - docs/agents/plans/INDEX.md
+    - docs/agents/plans/active.yaml
+    - docs/agents/runs/current/context-diagnostics-retirement-20261105/task.yaml
+    - docs/agents/workflows.md
+    - docs/architecture/ACCESSOR_ANALYSIS.md
+    - docs/architecture/ARCHITECTURE.md
+    - docs/architecture/PLUGIN_CACHE_ARCHITECTURE.md
+    - docs/architecture/PLUGIN_DAG_LINEAGE_CACHE.md
+    - docs/architecture/context_analysis.md
+    - docs/architecture/context_api_optimization_plan.md
+    - docs/cli/WAVEFORM_CACHE.md
+    - docs/features/README.md
+    - docs/features/context/CONFIGURATION.md
+    - docs/features/context/DEPENDENCY_ANALYSIS_GUIDE.md
+    - docs/features/context/LINEAGE_VISUALIZATION_GUIDE.md
+    - docs/features/context/README.md
+    - docs/plugins/PLUGIN_SYSTEM_OVERVIEW.md
+    - docs/plugins/reference/builtin/auto/INDEX.md
+    - docs/site-content-baseline.json
+    - docs/site-next/fixture/site-model.v1.json
+    - docs/user-guide/EXAMPLES_GUIDE.md
+    - docs/user-guide/QUICKSTART_GUIDE.md
+    - docs/user-guide/README.md
+    - examples/demo_preview_execution.py
+    - scripts/update_breadcrumbs.py
+    - tests/contracts/test_context_api_retirement.py
+    - tests/contracts/test_context_diagnostics_retirement.py
+    - tests/plugins/test_plugin_versioning.py
+    - tests/test_context_core_preview.py
+    - tests/test_context_core_visualization.py
+    - tests/test_context_simplification.py
+    - tests/test_lineage_visualizer.py
+    - tests/test_run_config_cache_invalidation.py
+    - tests/test_site_guides.py
+    - tests/test_site_model.py
+    - waveform_analysis/core/context.py
+    - waveform_analysis/core/context_config.py
+    - waveform_analysis/core/data/dependency_analysis.py
+    - waveform_analysis/core/hardware/channel.py
+    - waveform_analysis/documentation/site_dist/404.html
+    - waveform_analysis/documentation/site_dist/404/index.html
+    - waveform_analysis/documentation/site_dist/_not-found/index.html
+    - waveform_analysis/documentation/site_dist/accessors/index.html
+    - waveform_analysis/documentation/site_dist/accessors/peak-channel-accessor/index.html
+    - waveform_analysis/documentation/site_dist/accessors/records-view/index.html
+    - waveform_analysis/documentation/site_dist/accessors/s1-s2-pair-accessor/index.html
+    - waveform_analysis/documentation/site_dist/adapters/adapter/index.html
+    - waveform_analysis/documentation/site_dist/adapters/index.html
+    - waveform_analysis/documentation/site_dist/architecture/PROJECT_STRUCTURE/index.html
+    - waveform_analysis/documentation/site_dist/architecture/accessor-analysis/index.html
+    - waveform_analysis/documentation/site_dist/architecture/data-products/index.html
+    - waveform_analysis/documentation/site_dist/architecture/index.html
+    - waveform_analysis/documentation/site_dist/architecture/plugin-cache-architecture/index.html
+    - waveform_analysis/documentation/site_dist/architecture/plugin-dag-lineage-cache/index.html
+    - waveform_analysis/documentation/site_dist/architecture/system/index.html
+    - waveform_analysis/documentation/site_dist/cli/WAVEFORM_CACHE/index.html
+    - waveform_analysis/documentation/site_dist/cli/WAVEFORM_DOCS/index.html
+    - waveform_analysis/documentation/site_dist/cli/WAVEFORM_PROCESS/index.html
+    - waveform_analysis/documentation/site_dist/cli/index.html
+    - waveform_analysis/documentation/site_dist/contexts/context/index.html
+    - waveform_analysis/documentation/site_dist/contexts/index.html
+    - waveform_analysis/documentation/site_dist/development/CONTRACT_TESTS/index.html
+    - waveform_analysis/documentation/site_dist/development/contributing/COMMIT_CONVENTION/index.html
+    - waveform_analysis/documentation/site_dist/development/contributing/DOC_ANCHOR_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/development/contributing/IMPORT_STYLE_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/development/index.html
+    - waveform_analysis/documentation/site_dist/development/plugin-development/PLUGIN_SCAFFOLD/index.html
+    - waveform_analysis/documentation/site_dist/development/plugin-development/PLUGIN_SPEC_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/development/plugin-development/plugin_guide/index.html
+    - waveform_analysis/documentation/site_dist/development/worktrees/index.html
+    - waveform_analysis/documentation/site_dist/features/advanced/PROGRESS_TRACKING_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/context/ABSOLUTE_TIME_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/context/BATCH_PROCESSOR/index.html
+    - waveform_analysis/documentation/site_dist/features/context/CONFIGURATION/index.html
+    - waveform_analysis/documentation/site_dist/features/context/DEPENDENCY_ANALYSIS_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/context/LINEAGE_VISUALIZATION_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/index.html
+    - waveform_analysis/documentation/site_dist/features/utils/ADAPTIVE_2D_SAMPLING_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/utils/DAQ_ANALYZER_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/utils/PDF_EXPORT_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/visualizations/POSITION_DASHBOARD_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/index.html
+    - waveform_analysis/documentation/site_dist/lineage/index.html
+    - waveform_analysis/documentation/site_dist/plugins/basic_features/index.html
+    - waveform_analysis/documentation/site_dist/plugins/cache_analysis/index.html
+    - waveform_analysis/documentation/site_dist/plugins/energy_reconstruction/index.html
+    - waveform_analysis/documentation/site_dist/plugins/events/index.html
+    - waveform_analysis/documentation/site_dist/plugins/filtered_waveforms/index.html
+    - waveform_analysis/documentation/site_dist/plugins/guides/STREAMING_PLUGINS_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_grouped/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_merge_clusters/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_merged/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_merged_components/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_merged_features/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_threshold/index.html
+    - waveform_analysis/documentation/site_dist/plugins/index.html
+    - waveform_analysis/documentation/site_dist/plugins/overview/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peak_classification/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_channels/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_components/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_features/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_waveform_pool/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_waveforms/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklets/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaks/index.html
+    - waveform_analysis/documentation/site_dist/plugins/position_reconstruction/index.html
+    - waveform_analysis/documentation/site_dist/plugins/raw_files/index.html
+    - waveform_analysis/documentation/site_dist/plugins/records/index.html
+    - waveform_analysis/documentation/site_dist/plugins/records_asymmetry_mask/index.html
+    - waveform_analysis/documentation/site_dist/plugins/records_detector_mask/index.html
+    - waveform_analysis/documentation/site_dist/plugins/records_veto_mask/index.html
+    - waveform_analysis/documentation/site_dist/plugins/reference/ADAPTER_PLUGIN_BEHAVIOR/index.html
+    - waveform_analysis/documentation/site_dist/plugins/reference/ADAPTER_SYSTEM_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/plugins/s1_s2_pair_candidates/index.html
+    - waveform_analysis/documentation/site_dist/plugins/s1_s2_pairs/index.html
+    - waveform_analysis/documentation/site_dist/plugins/st_waveforms/index.html
+    - waveform_analysis/documentation/site_dist/plugins/wave_pool/index.html
+    - waveform_analysis/documentation/site_dist/plugins/wave_pool_filtered/index.html
+    - waveform_analysis/documentation/site_dist/plugins/waveform_width/index.html
+    - waveform_analysis/documentation/site_dist/plugins/waveform_width_integral/index.html
+    - waveform_analysis/documentation/site_dist/search-index.v1.json
+    - waveform_analysis/documentation/site_dist/site-manifest.json
+    - waveform_analysis/documentation/site_dist/site-model.v1.json
+    - waveform_analysis/documentation/site_dist/user-guide/DF_RETIREMENT/index.html
+    - waveform_analysis/documentation/site_dist/user-guide/EXAMPLES_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/user-guide/QUICKSTART_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/user-guide/docs-build/index.html
+    - waveform_analysis/documentation/site_dist/user-guide/index.html
+    - waveform_analysis/documentation/site_dist/visualizations/index.html
+    - waveform_analysis/documentation/site_dist/visualizations/position-dashboard/index.html
+    - waveform_analysis/documentation/site_dist/visualizations/statistical-plots/index.html
+    - waveform_analysis/documentation/site_dist/visualizations/waveform-plots/index.html
+    - waveform_analysis/documentation/site_docs/catalog.py
+    - waveform_analysis/documentation/templates/plugin_index.md.j2
+    - waveform_analysis/visualization/lineage/matplotlib_renderer.py
+    - waveform_analysis/visualization/lineage/plotly_renderer.py
+    - waveform_analysis/visualization/lineage_visualizer.py
+    actions_taken:
+    - 删除七个 Context facade、三处 config domain 重复包装、DependencyAnalyzer 模块和专用 preview 示例。
+    - 统一使用 hardware.channel.get_plugin_run_config，保留文件插件块优先、显式空块遮蔽和 Context runs 回退；配置读取异常不被吞掉。
+    - diagnose_cache 仅扫描选中 run 且不修复；CLI scanner/stats/repair 和记录的性能报告保留。
+    - 删除关键路径/瓶颈/并行分组绘图参数与代码；三种 kind 均明确拒绝旧参数，普通 DAG、合法样式与虚拟节点仍可用。
+    - 修正迁移CLI命令顺序并通过实际parser验证；同步API catalog、导航、迁移页、生成文档、fixture和打包站点。
+    commands_run:
+    - command: /home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m pytest -q -o addopts=
+        --no-cov tests/test_context_core_visualization.py tests/test_context_simplification.py
+        tests/test_run_config_cache_invalidation.py tests/contracts/test_context_api_retirement.py
+        tests/contracts/test_context_diagnostics_retirement.py tests/plugins/test_plugin_versioning.py
+      result: 'PASS: 81 tests (before Mermaid rework)'
+      log: /tmp/context-diagnostics-executor-tests.log
+    - command: /home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m pytest -q -o addopts=
+        --no-cov tests/test_context_core_visualization.py
+      result: 'PASS: 14 tests after Mermaid rework'
+      log: /tmp/context-diagnostics-mermaid-rework-tests.log
+    - command: /home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m pytest -q -o addopts=
+        --no-cov tests/test_lineage_visualizer.py
+      result: 'PASS: 17 tests'
+      log: /tmp/context-diagnostics-lineage-tests.log
+    - command: /home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m pytest -q -o addopts=
+        --no-cov tests/test_cli_cache.py tests/test_cache_analyzer.py tests/plugins/test_plugin_stats.py
+        tests/plugins/test_channel_config_resolver.py tests/test_batch_processor_readonly.py
+        tests/test_context_memory_release.py
+      result: 'PASS: 104 tests'
+      log: /tmp/context-diagnostics-retained-tests.log
+    - command: /home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m pytest tests/test_site_guides.py
+        tests/test_site_model.py
+      result: 'PASS: 35 tests; final affected subset incl. new CLI parser case 20
+        PASS'
+      logs:
+      - /tmp/context-diagnostics-docs-tests.log
+      - /tmp/context-diagnostics-docs-final-tests.log
+    - command: /home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m waveform_analysis.documentation.cli
+        generate plugins-auto -o docs/plugins/reference/builtin/auto/
+      result: PASS
+      log: /tmp/context-diagnostics-docs-auto.log
+    - command: /home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m waveform_analysis.documentation.cli
+        generate plugins-agent -o docs/plugins/reference/agent/
+      result: PASS
+      log: /tmp/context-diagnostics-docs-agent.log
+    - command: WAVEFORM_PYTHON=/home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/check_doc_sync.sh
+      result: PASS
+      log: /tmp/context-diagnostics-doc-sync-final.log
+    - command: /home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/check_doc_anchors.py
+        --check-sync --base HEAD
+      result: 'PASS: 0 errors, 0 warnings'
+      log: /tmp/context-diagnostics-doc-anchors.log
+    - command: /home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/assess_change_impact.py
+        --base HEAD
+      result: 'PASS: no plugin contract changes'
+      log: /tmp/context-diagnostics-impact.log
+    - command: /home/wxy/anaconda3/envs/pyroot-kernel/bin/python scripts/schema_compat_check.py
+        --base HEAD --run-smoke
+      result: 'PASS: no dtype changes; records-to-peaks smoke complete'
+      log: /tmp/context-diagnostics-schema.log
+    - command: PYTHONPATH="$PWD" /home/wxy/anaconda3/envs/pyroot-kernel/bin/python
+        scripts/docs_build.py build --workspace "$PWD" --run-id context-diagnostics-retirement-20261105-b
+        --stage-output
+      result: 'PASS: npm ci, tsc and Next build all exit 0; 91 HTML pages, packaged
+        output updated'
+      report: /tmp/waveform-doc-build/runs/context-diagnostics-retirement-20261105-b/report.json
+    - command: /home/wxy/anaconda3/envs/pyroot-kernel/bin/python -m ruff check <17
+        changed Python files>
+      result: 'PASS; format check: 16 PASS, context.py only pre-existing formatting
+        differences confirmed against HEAD'
+    - command: git status --short; git diff --stat; git diff --check
+      result: Scoped modified files inspected; whitespace PASS
+    additional_evidence:
+    - check: Exact public retirement set and retained implementation AST
+      result: Seven expected methods removed. get_data/get_lineage/resolve_dependencies/key_for/clear_cache_for/set_config/get_resolved_config/get_run_config/get_performance_report
+        AST unchanged.
+      log: /tmp/context-diagnostics-runtime-contract.log
+    - check: CLI temporary fixture smoke
+      result: info/stats/list work; ordinary diagnosis and dry-run preserve fixture;
+        explicit repair removes only fixture orphan.
+      log: /tmp/context-diagnostics-cli-smoke.log
+    - check: Export inspection
+      result: Context model exposes 32 supported members, none of seven retired methods;
+        diagnose_cache parameters run_id/verbose; migration section present in both
+        external and packaged exports.
+    resolved_environment_issue:
+      failed_run: context-diagnostics-retirement-20261105-a
+      error: Could not parse output from TypeScript's --showConfig
+      cause_evidence: Sandbox Node spawnSync pipe read reported EPERM and empty stdout;
+        same command redirected to file produced valid JSON.
+      resolution: Auto-approved unsandboxed build b with identical source and complete
+        type gates passed; failed build evidence retained.
+    open_risks:
+    - This intentionally breaks callers of retired APIs; migrate using docs/features/context/CONFIGURATION.md.
+      No equivalent execution/cache preview is retained.
+    commit_status: 未提交：等待独立审查最终产物，放行后 scoped commit。
+  review:
+    reviewer: independent_reviewer
+    decision: approved
+    plan_sha256: d02ebffd6aed255a8d29876af537cda63e24b4fa9ea30ca0bf45f342879904c6
+    gate_results:
+      compat_inventory_ready: PASS
+      deletion_scope_confirmed: PASS
+      targeted_tests: PASS
+      generate_docs: PASS
+      doc_sync: PASS
+      doc_anchors: PASS
+      assess_change_impact: PASS
+      schema_compat_check: PASS
+      docs_build: PASS
+      reviewer: PASS
+    blocking_findings: []
+    resolved_findings:
+    - CLI迁移示例中 --storage-dir 已移至子命令之后，并用实际parser检查。
+    - Context Mermaid 分支现在明确拒绝旧高亮参数；三种kind四个旧参数的12个契约用例通过。
+    assessment: 独立审查确认七项删除精确、run配置优先级与空块保留、读取错误不被吞掉、缓存诊断只扫描选定run且不修复、普通图保留。确认定向测试和固定gates、真实build
+      b成功及91页打包产物。Root完成集成范围、类型签名和导出迁移检查。
+    residual_risks:
+    - 明确的破坏性API收敛：外部旧调用需按迁移文档更新；未保留兼容别名。
+    - 依赖结构查询不能等价替代已删除的缓存命中/重算步骤预览。
+    - 测试与冒烟使用临时/合成输入；未运行全仓测试或实验全量数据。
+    - 文件计数与元数据检查不构成逐字节完整性证明。
+    - Context已有格式差异经HEAD对照确认，本轮保持不变。
+    commit_handoff: Approved for scoped local commit; no push or PR requested.
+  approval:
+    evidence:
+    - 用户批准七项诊断退役；专用预览示例的删除属于同一授权范围。
+    plan_sha256: d02ebffd6aed255a8d29876af537cda63e24b4fa9ea30ca0bf45f342879904c6
+    approved_at: '2026-11-05T13:10:39Z'
+    actor: planner
+  handoff:
+    commit_status: 本记录与本轮代码、测试、文档和打包产物在同一 scoped commit 交付；完整 SHA 见 Git 历史及最终回复。
+    branch: codex/retire-legacy-df
+    commit_subject: 'refactor: simplify Context diagnostics API'
+    summary: 七个公开方法和高级分析退役；Context诊断只检查；底层运行规则与CLI管理能力保留。
+    migration: docs/features/context/CONFIGURATION.md#context-api-迁移
+    documentation_build: /tmp/waveform-doc-build/runs/context-diagnostics-retirement-20261105-b/report.json
+    pending_actions: []

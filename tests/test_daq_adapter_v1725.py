@@ -4,6 +4,7 @@ from pathlib import Path
 import time
 
 import numpy as np
+import pytest
 
 from tests.daq_adapter_helpers import make_v1725_single_wave_blob
 from waveform_analysis.core.processing.records_builder import (
@@ -59,6 +60,56 @@ def _assert_array_batch_rows_match_waves(batches, waves):
     for row, wave in zip(rows, waves, strict=True):
         assert row[:5] == (wave.board, wave.channel, wave.timestamp, wave.baseline, wave.trunc)
         np.testing.assert_array_equal(row[5], wave.waveform.astype(np.uint16))
+
+
+class TestV1725Adapter:
+    @pytest.mark.parametrize("use_optimized", [True, False])
+    def test_scan_run_sorts_segments_numerically_within_each_board(
+        self, tmp_path: Path, use_optimized: bool
+    ):
+        run_name = "test_run"
+        raw_path = tmp_path / run_name / "RAW"
+        raw_path.mkdir(parents=True)
+        for board in [7, 2]:
+            for segment in [10, 0, 2]:
+                path = raw_path / f"{run_name}_raw_b{board}_seg{segment}.bin"
+                path.write_bytes(
+                    make_v1725_single_wave_blob(
+                        channel=3,
+                        timestamp=board * 100 + segment,
+                        samples=np.array([segment, board], dtype=np.int16),
+                    )
+                )
+
+        groups = get_adapter("v1725").scan_run(str(tmp_path), run_name)
+
+        # These keys identify source boards; the physical channel is in each event.
+        assert set(groups) == {2, 7}
+        for board, paths in groups.items():
+            assert [path.name for path in paths] == [
+                f"{run_name}_raw_b{board}_seg{segment}.bin" for segment in [0, 2, 10]
+            ]
+            waves = list(V1725Reader(use_optimized=use_optimized).iter_waves(paths))
+            assert [(wave.board, wave.channel, wave.timestamp) for wave in waves] == [
+                (board, 3, board * 100 + segment) for segment in [0, 2, 10]
+            ]
+            assert [wave.waveform.tolist() for wave in waves] == [
+                [segment, board] for segment in [0, 2, 10]
+            ]
+
+    def test_scan_run_preserves_legacy_and_independent_file_order(self, tmp_path: Path):
+        raw_path = tmp_path / "legacy" / "RAW"
+        raw_path.mkdir(parents=True)
+        names = ["wave2.bin", "CH1_2.bin", "wave0.bin", "CH1_10.bin", "standalone.bin"]
+        for index, name in enumerate(names):
+            (raw_path / name).write_bytes(make_v1725_single_wave_blob(channel=1, timestamp=index))
+
+        groups = get_adapter("v1725").scan_run(str(tmp_path), "legacy")
+
+        assert set(groups) == {0}
+        assert [path.name for path in groups[0]] == sorted(names)
+        waves = list(V1725Reader().iter_waves(groups[0]))
+        assert [wave.timestamp for wave in waves] == [names.index(name) for name in sorted(names)]
 
 
 class TestV1725Reader:

@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+from collections.abc import Iterator
 import hashlib
 import json
 import os
 from typing import Any
 
 import numpy as np
+
+from .foundation.utils import OneTimeGenerator
 
 
 class ContextCacheDomain:
@@ -81,8 +84,11 @@ class ContextCacheDomain:
             meta_key = channel_keys[0] if channel_keys else candidate
             try:
                 meta = self.ctx._storage_call(storage, "get_metadata", meta_key, run_id) or {}
+            except OSError:
+                meta = {}
+            try:
                 timestamp = float(meta.get("timestamp", float("-inf")))
-            except (TypeError, ValueError, OSError):
+            except (TypeError, ValueError):
                 timestamp = float("-inf")
             return timestamp, candidate
 
@@ -106,7 +112,7 @@ class ContextCacheDomain:
             meta_key = canonical_channels[0] if canonical_channels else canonical_key
             try:
                 meta = self.ctx._storage_call(storage, "get_metadata", meta_key, run_id)
-            except Exception:
+            except OSError:
                 pass
             else:
                 cached_lineage = meta.get("lineage") if meta else None
@@ -130,7 +136,7 @@ class ContextCacheDomain:
                 meta = self.ctx._storage_call(storage, "get_metadata", meta_key, run_id)
                 if meta is None and has_base and meta_key != candidate:
                     meta = self.ctx._storage_call(storage, "get_metadata", candidate, run_id)
-            except Exception:
+            except OSError:
                 continue
 
             cached_lineage = meta.get("lineage") if meta else None
@@ -207,6 +213,7 @@ class ContextCacheDomain:
         verbose: bool = True,
     ) -> int:
         """Clear memory/disk cache entries for one or more data names."""
+        self.ctx._plugin_domain.invalidate_version_checks()
         count = 0
         memory_count = 0
         disk_count = 0
@@ -244,17 +251,17 @@ class ContextCacheDomain:
         for name in data_names:
             if clear_memory:
                 key = (run_id, name)
-                if key in self.ctx._results:
-                    del self.ctx._results[key]
-                    if key in self.ctx._results_lineage:
-                        del self.ctx._results_lineage[key]
-                    memory_count += 1
-                    count += 1
-                    if verbose:
-                        print(f"  ✓ 已清理内存缓存: ({run_id}, {name})")
-                    self.ctx.logger.debug("Cleared memory cache for (%s, %s)", run_id, name)
-                elif verbose:
-                    print(f"  - 内存缓存不存在: ({run_id}, {name})")
+                with self.ctx._data_lock:
+                    if key in self.ctx._results:
+                        self.ctx._results.pop(key)
+                        self.ctx._results_lineage.pop(key, None)
+                        memory_count += 1
+                        count += 1
+                        if verbose:
+                            print(f"  ✓ 已清理内存缓存: ({run_id}, {name})")
+                        self.ctx.logger.debug("Cleared memory cache for (%s, %s)", run_id, name)
+                    elif verbose:
+                        print(f"  - 内存缓存不存在: ({run_id}, {name})")
 
                 if name in {"records", "wave_pool"}:
                     removed = self._clear_internal_records_bundle_cache(run_id, verbose=verbose)
@@ -383,22 +390,59 @@ class ContextCacheDomain:
 
     def is_disk_cache_valid(self, run_id: str, name: str, key: str) -> bool:
         """Check whether disk cache exists and lineage matches without loading data."""
+        base = self.ctx._published_cache
+        if base is not None and name in base.manifest["nodes"]:
+            base.validate_request(run_id, name)
+            return base.manifest["nodes"][name]["payload"] is not None
         return self._resolve_disk_cache_key(run_id, name, key) is not None
+
+    def _record_cache_hit(self, run_id: str, name: str) -> None:
+        if self.ctx.stats_collector and self.ctx.stats_collector.is_enabled():
+            self.ctx.stats_collector.start_execution(name, run_id)
+            self.ctx.stats_collector.end_execution(name, success=True, cache_hit=True)
+
+    def _load_cached_data(self, run_id: str, name: str) -> Any | None:
+        key = self.ctx.key_for(run_id, name)
+        with self.ctx.profiler.timeit("context.load_cache"):
+            data = self.ctx._load_from_disk_with_check(run_id, name, key)
+        if data is not None:
+            self._record_cache_hit(run_id, name)
+        return data
+
+    def get_cached_data(
+        self, run_id: str, name: str, *, require_disk_cache: bool = False
+    ) -> Any | None:
+        """Load a valid memory or disk result and record a single cache hit."""
+        base = self.ctx._published_cache
+        if base is not None and name in base.manifest["nodes"]:
+            base.validate_request(run_id, name)
+            return base.load(run_id, name)
+        data = None if require_disk_cache else self.ctx._get_data_from_memory(run_id, name)
+        if self.ctx._cache_readonly and (
+            isinstance(data, Iterator | OneTimeGenerator) or hasattr(data, "__next__")
+        ):
+            # Consuming a cached stream can still compute or write to disk.
+            data = None
+        if data is not None:
+            self._record_cache_hit(run_id, name)
+            return data
+        if name in self.ctx._plugins:
+            return self._load_cached_data(run_id, name)
+        return None
 
     def is_cache_hit(self, run_id: str, name: str, load: bool = False) -> bool:
         """Check memory/disk cache status. Optionally load disk cache into memory."""
+        base = self.ctx._published_cache
+        if base is not None and name in base.manifest["nodes"]:
+            base.validate_request(run_id, name)
+            return base.manifest["nodes"][name]["payload"] is not None
         if self.ctx._get_data_from_memory(run_id, name) is not None:
             return True
-
         if name not in self.ctx._plugins:
             return False
-
-        key = self.ctx.key_for(run_id, name)
         if load:
-            _data, cache_hit = self.ctx._cache_manager.check_cache(run_id, name, key)
-            return cache_hit
-
-        return self.is_disk_cache_valid(run_id, name, key)
+            return self._load_cached_data(run_id, name) is not None
+        return self.is_disk_cache_valid(run_id, name, self.ctx.key_for(run_id, name))
 
     def _cap_key_cache(self) -> None:
         """Evict oldest entries when _key_cache exceeds its cap.
@@ -409,8 +453,9 @@ class ContextCacheDomain:
         while len(self.ctx._key_cache) > max_entries:
             self.ctx._key_cache.pop(next(iter(self.ctx._key_cache)), None)
 
-    def clear_performance_caches(self) -> None:
+    def invalidate_planning_caches(self) -> None:
         """Clear execution/lineage/key caches used for cache planning."""
+        self.ctx._plugin_domain.invalidate_version_checks()
         self.ctx._execution_plan_cache.clear()
         self.ctx._lineage_cache.clear()
         self.ctx._lineage_hash_cache.clear()
@@ -431,7 +476,7 @@ class ContextCacheDomain:
             # Keep Context initialization/import topology independent of the
             # optional hit-merge bundle.
             pass
-        self.ctx.logger.debug("Performance caches cleared")
+        self.ctx.logger.debug("Planning caches invalidated")
 
     def invalidate_caches_for(self, data_name: str) -> None:
         """Invalidate cached plans/hash keys affected by a data name."""

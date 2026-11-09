@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any, Optional
 
 import numpy as np
 
-from waveform_analysis.acquisition.daq import adapt_daq_run
+from waveform_analysis.acquisition.runs import adapt_daq_run
 from waveform_analysis.core.foundation.utils import exporter
 
 if TYPE_CHECKING:
@@ -215,7 +215,7 @@ class WaveformLoaderCSV:
             channel_workers: **新增** 通道级并行度；>1 时为每个通道分配线程并行解析。
             channel_executor: 通道级并行的执行器类型，"thread" (默认) 或 "process"。
         """
-        from waveform_analysis.acquisition.io import parse_and_stack_files
+        from waveform_analysis.acquisition.file_io import parse_and_stack_files
 
         if channel_workers is None or channel_workers <= 1:
             waveforms = []
@@ -277,7 +277,7 @@ class WaveformLoaderCSV:
         """
         流式加载波形，每次返回一个 chunk 的数据。
         """
-        from waveform_analysis.acquisition.io import parse_files_generator
+        from waveform_analysis.acquisition.file_io import parse_files_generator
 
         gens = [parse_files_generator(files, chunksize=chunksize) for files in raw_filess]
         return zip(*gens, strict=False)

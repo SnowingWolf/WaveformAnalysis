@@ -954,8 +954,5 @@ peaks:
     doc: Number of distinct (board, channel) pairs in the peak
     units: None
 raw_files: {}
-df: {}
-df_events: {}
-df_paired: {}
 cache_analysis: {}
 hit_grouped: {}

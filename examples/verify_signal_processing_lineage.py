@@ -26,7 +26,7 @@ def verify_plugin_registration():
     print("1. 验证插件注册")
     print("=" * 70)
 
-    ctx = Context(storage_dir="./test_strax_data")
+    ctx = Context(storage_dir="./test_wa_data")
 
     # 注册所有插件
     plugins = [

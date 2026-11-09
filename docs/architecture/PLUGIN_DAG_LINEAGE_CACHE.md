@@ -9,6 +9,15 @@
 Context 负责统一协调插件注册、依赖解析、lineage 与缓存复用；具体产物仍由单一 Plugin 发布，
 组合查询由 Accessor 完成。
 
+公开的 Context 方法保留显式签名，配置、缓存、执行和时间操作分别委派给内部 domain；
+这些入口与 domain 实现承担不同职责。内存和磁盘命中共用统计记录及输出转换出口。
+Context 的缓存诊断入口为 `diagnose_cache(run_id=None, verbose=True)`，只检查并返回问题。
+容量统计、条目列表和修复使用 `waveform-cache` CLI；扫描实现继续由缓存工具管理。
+
+除非显式传入 `storage_dir`，Context 默认把缓存和处理产物写入当前目录下的 `./wa_data/`；
+`data_root` 只用于定位原始 DAQ 数据，默认值为 `DAQ`。因此原始输入与可重建的缓存产物不会因为
+默认配置而混在同一个目录中。
+
 ```mermaid
 flowchart LR
     CONTRACT[Plugin 契约] --> DAG[本次 Plugin DAG]
@@ -41,10 +50,21 @@ DAG 与 lineage 是协同关系：DAG 提供结果的计算结构，lineage 把�
 | `version` | 实现/行为身份 | 行为改变后主动失效旧结果 |
 | `output_dtype` / `output_schema` | 字段、类型和结构约束 | 契约变化需执行 schema 检查 |
 
+依赖可声明为 `("upstream", ">=1.0,<2.0")`。已注册 provider 的版本不满足约束时，consumer
+注册会抛出 `ValueError`。请求还会按 `run_id` 检查目标可达的版本约束，覆盖晚注册、provider
+替换和动态依赖，并在返回内存或磁盘缓存之前拒绝不兼容结果。成功验证按 run 和目标复用，注册、
+配置变更或清理缓存时失效；无约束的有效缓存不要求缺失的上游插件重新注册。
+显式约束要求可用的 `packaging`、合法版本及约束表达式，校验失败不会降为警告。
+旧的 `resolve_depends_on(context)` 签名仍受支持；解析函数内部的 `TypeError` 直接传播。
+
+已退役的 `df`、`df_events`、`df_paired` 及旧别名会在读取缓存前被拒绝。
+缓存文件仍保留，但不能用旧缓存恢复已移除的产物契约；现行调用按
+[旧表格链路迁移说明](../user-guide/DF_RETIREMENT.md) 显式选择目标并处理排序和标定。
+
 ### 1.2 Plugin 内数据获取
 
 Plugin 通过 `context.get_data(run_id, name)` 读取正式上游，且 `name` 必须出现在静态或动态依赖中。
-这条约束让执行预览、lineage、缓存清理和实际运行看到同一张图。
+这条约束让依赖查询、lineage、缓存清理和实际运行看到同一张图。
 
 ```mermaid
 flowchart TD
@@ -148,8 +168,14 @@ Context 先解析目标的依赖顺序，再计算各节点当前缓存键。执
 | 上游 lineage 改变 | 从变化节点向下游重算 |
 | 动态依赖选择另一分支 | 计算新分支对应的缺失节点 |
 
-`preview_execution(run_id, target)` 使用同类依赖与缓存判断，但不执行目标。它适合在大规模运行前
-确认动态分支、缓存命中和预计重算范围。
+`resolve_dependencies(target, run_id=run_id)` 可查询拓扑顺序；它不报告缓存命中或重算范围。
+`get_data()` 可直接读取有效目标缓存：无显式版本约束的缓存读取仍可缺少上游 provider。
+执行计划未命中时由依赖解析统一验证版本，计划命中时仍验证已注册 provider 的约束。
+
+`Plugin.timeout` 是执行属性，不是 `set_config()` 配置项，其值不进入 lineage 或缓存身份。
+Context 当前只支持 `timeout=None`；非 `None` 值在该插件的 `compute()` 入口触发
+`NotImplementedError`，有效缓存命中仍可正常读取。此时上游依赖可能已经执行，不能将该检查
+视为整张 DAG 执行前的校验。平台与独立函数限制见[超时支持边界](ARCHITECTURE.md#超时支持边界)。
 
 ## 5. Lineage
 
@@ -160,10 +186,20 @@ Context 按需从 `waveform_analysis.visualization` 加载 lineage renderer，�
 
 #### 5.1 结果身份的组成
 
+用户通过 `ctx.get_lineage(data_name)` 查询 lineage；公共签名只接收数据名称。
+循环检测与递归状态由私有 `_get_base_lineage()` 管理，不由调用方传递。
+
 默认 lineage 是可序列化配方，包含 Plugin 类、version、描述、受跟踪配置和递归上游 lineage；
 存在时还会加入规范化 dtype、`output_schema`、已验证 spec hash 和顶层 adapter 信息。Context 递归缓存
 不含 adapter 信息的基础 lineage，并只在顶层补充一次，所以首次查询、缓存后查询及不同遍历顺序具有
-相同身份。Plugin 可用 `get_lineage(context, *, dependency_resolver=None)` 补充自身构建语义，并应使用
+相同身份。adapter 元数据提取不使用全局缓存；同名注册表替换不会通知既有 Context，
+因此必须在替换格式规范后新建 Context，避免复用旧配置或 lineage。
+
+V1725 分卷顺序按整数索引排列（如 `seg0, seg2, seg10`），此读取解释变更由 `raw_files` 的
+`0.0.3` 版本沿上游 lineage 传播至 `st_waveforms`；无需为未变更的结构化算法单独升级版本。
+`records` 与 `wave_pool` 的共享原始输入路径版本均为 `0.17.0`，旧 bundle 缓存随对应 lineage 失效。
+
+Plugin 可用 `get_lineage(context, *, dependency_resolver=None)` 补充自身构建语义，并应使用
 传入的 resolver 构造上游；旧的单参数 hook 仍兼容。
 
 ```mermaid
@@ -223,6 +259,9 @@ flowchart TD
 当前缓存键包含 `run_id`、产物名称和 lineage 摘要。同名产物在不同 run 中不会共享键；同一 run
 中配置、version、输出契约或上游身份变化也会产生不同键。
 
+分层缓存另有发布快照和私人缓存的读取策略，并在复用之前验证冻结的上游身份；
+详见[分层缓存](../features/context/LAYERED_CACHE.md)。上图描述普通单目录模式。
+
 ### 6.1.1 大型波形池的持久化
 
 `peaklet_waveform_pool` 一类的大型连续数组仍须完整写入磁盘，才能在新 Context 中命中缓存；这段
@@ -230,7 +269,29 @@ I/O 不能视为 waveform 的重复计算。memmap 存储直接写入连续 ndar
 `tobytes()` 创建同等大小的 Python 临时副本。性能诊断应分别记录 Plugin compute 与 cache-save
 时间，避免把存储带宽、压缩或 checksum 成本误判为算法回归。
 
+### 6.1.2 写入锁与替换边界
+
+Memmap 的 `save_stream` / `save_memmap`、Context 的 generator 缓存写入和 `delete`
+使用同一 key 的文件锁。锁文件在解锁后保留，避免已打开旧 inode 的等待者与新进入者锁住不同
+文件；临时二进制文件在释放锁之前清理。读取不存在的 run/key 不创建目录。
+
+二进制和 metadata 分别通过 `os.replace` 替换，避免先删除旧文件产生的缺失窗口；这不构成两个
+文件的联合事务。独立 `save_metadata`、`finalize_save` 与 DataFrame 写入不自动取得该锁，
+调用者不能据此假定所有存储格式都支持并发覆盖。`delete` 当前删除二进制与 metadata，保留
+锁文件，也不负责回收残留的压缩或 DataFrame 数据文件。
+
+结果只保存在显式 `(run_id, data_name)` 的内存存储中，不再自动挂到 `ctx.<data_name>`。
+读取统一使用 `ctx.get_data(run_id, data_name)`；普通对象属性不作为结果或依赖注入。
+`clear_cache_for(..., clear_disk=False)` 只移除选定 run 的内存结果和关联 lineage，保留另一 run 的结果
+以及用户自己设置的普通属性。调用方或 Accessor 自己持有的引用不受
+影响，释放 Python 引用也不保证分配器立即归还 RSS。这是显式清理，不是自动内存预算或淘汰策略。
+
 ### 6.2 失效矩阵
+
+配置更新统一通过 `ctx.set_config(...)`，自动失效解析配置、运行配置、lineage、缓存键与执行计划。
+内部维护入口不再作为公开 API；无需在配置修改后手动清理规划缓存。
+指定 run 的产物清理继续使用 `clear_cache_for(run_id, data_name)`，迁移细节见
+[配置管理](../features/context/CONFIGURATION.md#context-api-迁移)。
 
 | 变化 | 正常行为 | 失败时的表现 |
 | --- | --- | --- |
@@ -250,10 +311,10 @@ I/O 不能视为 waveform 的重复计算。memmap 存储直接写入连续 ndar
 
 | 现象 | 可能原因 | 验证入口 |
 | --- | --- | --- |
-| 本应命中却重算 | resolved config、adapter、version、schema 或上游身份变化 | `preview_execution`、`get_resolved_config`、`get_lineage` |
+| 本应命中却重算 | resolved config、adapter、version、schema 或上游身份变化 | `get_config`、`get_lineage`、执行日志 |
 | 本应重算却命中 | 行为未升级 version，或语义配置未跟踪 | Plugin options、version 与缓存元数据 |
 | 动态路径错误 | `resolve_depends_on` 读到另一配置来源或依赖不确定状态 | `resolve_dependencies(..., run_id=...)` |
-| 预览与运行不同 | `compute` 在 DAG 外读取数据，或运行期临时切换来源 | 静态/动态依赖与所有 `get_data` 调用 |
+| 依赖查询与实际运行不同 | `compute` 在 DAG 外读取数据，或运行期临时切换来源 | 静态/动态依赖与所有 `get_data` 调用 |
 | 磁盘条目损坏或孤立 | 写入中断、checksum 失败、旧元数据遗留 | `waveform-cache diagnose --run <run_id> --dry-run` |
 | 清理后仍看到结果 | 清理范围、run 或产物名不一致，或内存项仍在 | `clear_cache_for(run_id, ..., downstream=True)` |
 

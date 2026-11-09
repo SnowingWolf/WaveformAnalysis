@@ -23,6 +23,11 @@ from waveform_analysis.utils.visualization.statistical_plots import (
     _symlog_bin_edges,
     corner_hist,
 )
+from waveform_analysis.visualization.statistical.histogram import (
+    _compute_bin_index_ext,
+    _hist1d_bincount,
+    _hist2d_bincount,
+)
 
 
 class TestHistogram2DCorrectness:
@@ -166,6 +171,303 @@ class TestHistogram2DCorrectness:
             assert (
                 n_mismatched < 0.01 * H_numpy.size
             ), f"dtype {dtype}: {n_mismatched}/{H_numpy.size} bins 不匹配（超过 1%）"
+
+
+class TestBincountHistogramCorrectness:
+    """The shared-index bincount path must match NumPy histogram semantics."""
+
+    @pytest.mark.parametrize(
+        "xedges,yedges",
+        [
+            (np.logspace(-3, 3, 73), np.logspace(-2, 4, 91)),
+            (np.linspace(-8, 8, 97), np.linspace(-4, 12, 89)),
+            (_symlog_bin_edges(-1e4, 1e4, 83, 3.0), _symlog_bin_edges(-1e3, 1e3, 79, 2.0)),
+        ],
+        ids=["nonuniform-log", "uniform-linear", "symlog"],
+    )
+    @pytest.mark.parametrize("with_weights", [False, True])
+    def test_bincount_matches_numpy_and_safe_backend(self, xedges, yedges, with_weights):
+        """Exercise 200k mixed valid/invalid points and every bin edge case."""
+        rng = np.random.default_rng(20260917)
+        x = rng.normal(size=200_000)
+        y = rng.normal(size=200_000)
+        if xedges[0] > 0:
+            x = np.exp(x)
+        if yedges[0] > 0:
+            y = np.exp(y)
+
+        # Exact right edges, under/overflow, NaN, and infinities must all
+        # follow np.histogram / np.histogram2d inclusion rules.
+        x[:8] = [xedges[0], xedges[-1], xedges[0] - 1, xedges[-1] + 1, 0.0, np.nan, np.inf, -np.inf]
+        y[:8] = [yedges[0], yedges[-1], yedges[0] - 1, yedges[-1] + 1, 0.0, np.nan, np.inf, -np.inf]
+        weights = rng.uniform(0.1, 2.0, len(x)) if with_weights else None
+
+        xidx, nx = _compute_bin_index_ext(x, xedges)
+        yidx, ny = _compute_bin_index_ext(y, yedges)
+
+        expected_x, _ = np.histogram(x, bins=xedges, weights=weights)
+        expected_y, _ = np.histogram(y, bins=yedges, weights=weights)
+        expected_2d, _, _ = np.histogram2d(x, y, bins=[xedges, yedges], weights=weights)
+
+        actual_x = _hist1d_bincount(xidx, nx, weights)
+        actual_y = _hist1d_bincount(yidx, ny, weights)
+        actual_2d = _hist2d_bincount(xidx, nx, yidx, ny, weights)
+        backend_2d = _safe_histogram2d(x, y, xedges, yedges, weights)
+
+        np.testing.assert_allclose(actual_x, expected_x, rtol=1e-12, atol=1e-10)
+        np.testing.assert_allclose(actual_y, expected_y, rtol=1e-12, atol=1e-10)
+        np.testing.assert_allclose(actual_2d, expected_2d.T, rtol=1e-12, atol=1e-10)
+        np.testing.assert_allclose(actual_2d, backend_2d, rtol=1e-12, atol=1e-10)
+
+    @pytest.mark.parametrize(
+        "values,edges",
+        [
+            (np.array([]), np.array([0.0, 1.0, 2.0])),
+            (np.array([1.0]), np.array([0.0, 1.0, 2.0])),
+            (np.array([-1.0, 0.0, 1.0]), np.array([-1.0, 0.0, 1.0])),
+        ],
+        ids=["empty", "single-point", "right-edge"],
+    )
+    def test_bincount_edge_cases_match_numpy(self, values, edges):
+        index, nbins = _compute_bin_index_ext(values, edges)
+        actual = _hist1d_bincount(index, nbins, weights=None)
+        expected, _ = np.histogram(values, bins=edges)
+        np.testing.assert_array_equal(actual, expected)
+
+    def test_corner_hist_searches_each_variable_once_and_reuses_full_pairs(self, monkeypatch):
+        """A full matrix needs one index search per variable and one pair count."""
+        from waveform_analysis.visualization import statistical_plots
+
+        rng = np.random.default_rng(20260918)
+        data = [rng.normal(size=100_000) for _ in range(3)]
+        index_calls = 0
+        pair_calls = 0
+        original_index = statistical_plots._compute_bin_index_ext
+        original_pair = statistical_plots._hist2d_bincount
+
+        def counted_index(*args, **kwargs):
+            nonlocal index_calls
+            index_calls += 1
+            return original_index(*args, **kwargs)
+
+        def counted_pair(*args, **kwargs):
+            nonlocal pair_calls
+            pair_calls += 1
+            return original_pair(*args, **kwargs)
+
+        monkeypatch.setattr(statistical_plots, "_compute_bin_index_ext", counted_index)
+        monkeypatch.setattr(statistical_plots, "_hist2d_bincount", counted_pair)
+        fig, _ = corner_hist(data, bins=41, triangle="full", tight_layout=False)
+
+        assert index_calls == 3
+        assert pair_calls == 3
+
+        import matplotlib.pyplot as plt
+
+        plt.close(fig)
+
+    def test_corner_hist_density_stairs_matches_numpy_histogram(self, monkeypatch):
+        """The replacement for ax.hist preserves its density normalization."""
+        from matplotlib.axes import Axes
+
+        captured = []
+        original_stairs = Axes.stairs
+
+        def capture_stairs(self, values, edges, *args, **kwargs):
+            captured.append((np.asarray(values), np.asarray(edges)))
+            return original_stairs(self, values, edges, *args, **kwargs)
+
+        monkeypatch.setattr(Axes, "stairs", capture_stairs)
+        values = np.array([-1.0, -0.5, 0.0, 0.5, 1.0])
+        weights = np.array([0.5, 1.5, 2.0, 1.0, 3.0])
+        edges = np.array([-1.0, -0.2, 0.4, 1.0])
+        fig, _ = corner_hist(
+            [values], bins=[edges], weights=weights, hist_density=True, tight_layout=False
+        )
+
+        expected, _ = np.histogram(values, bins=edges, weights=weights, density=True)
+        actual, actual_edges = captured[0]
+        np.testing.assert_allclose(actual, expected, rtol=1e-12, atol=1e-12)
+        np.testing.assert_array_equal(actual_edges, edges)
+
+        import matplotlib.pyplot as plt
+
+        plt.close(fig)
+
+    @pytest.mark.parametrize("with_weights", [False, True], ids=["unweighted", "weighted"])
+    def test_corner_hist_full_triangle_matches_numpy_for_rectangular_bins(
+        self, monkeypatch, with_weights
+    ):
+        """Both triangles must retain NumPy orientation with non-square bins."""
+        from matplotlib.axes import Axes
+        import matplotlib.pyplot as plt
+
+        data = [
+            np.array([-2.0, -1.5, -0.25, 0.0, 0.75, 1.2, 2.0, 2.5]),
+            np.array([-3.0, -2.0, -1.0, 0.5, 1.0, 1.5, 3.0, 3.5]),
+        ]
+        xedges = np.array([-2.0, -0.25, 0.75, 2.0])
+        yedges = np.array([-3.0, -1.0, 0.5, 1.5, 3.0])
+        weights = np.array([0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0]) if with_weights else None
+
+        captured = {}
+        original_pcolormesh = Axes.pcolormesh
+
+        def capture_pcolormesh(self, x, y, values, *args, **kwargs):
+            captured[id(self)] = np.ma.asarray(values).filled(np.nan)
+            return original_pcolormesh(self, x, y, values, *args, **kwargs)
+
+        monkeypatch.setattr(Axes, "pcolormesh", capture_pcolormesh)
+        fig, axes = corner_hist(
+            data,
+            bins=[xedges, yedges],
+            weights=weights,
+            triangle="full",
+            min_count=0,
+            hist2d_norm=None,
+            tight_layout=False,
+        )
+
+        expected_lower, _, _ = np.histogram2d(
+            data[0], data[1], bins=[xedges, yedges], weights=weights
+        )
+        expected_upper, _, _ = np.histogram2d(
+            data[1], data[0], bins=[yedges, xedges], weights=weights
+        )
+        np.testing.assert_allclose(
+            captured[id(axes[1, 0])], expected_lower.T, rtol=1e-12, atol=1e-12
+        )
+        np.testing.assert_allclose(
+            captured[id(axes[0, 1])], expected_upper.T, rtol=1e-12, atol=1e-12
+        )
+
+        plt.close(fig)
+
+    def test_monkeypatched_histogram_backend_skips_bincount(self, monkeypatch):
+        """Replacing the legacy backend must keep all bincount helpers unused."""
+        import matplotlib.pyplot as plt
+
+        from waveform_analysis.visualization import statistical_plots
+
+        calls = 0
+
+        def fallback_histogram2d(x, y, xbins, ybins, weights=None):
+            nonlocal calls
+            calls += 1
+            expected, _, _ = np.histogram2d(x, y, bins=[xbins, ybins], weights=weights)
+            return expected.T
+
+        def unexpected_bincount(*args, **kwargs):
+            raise AssertionError("bincount must not run through a patched backend")
+
+        monkeypatch.setattr(statistical_plots, "_safe_histogram2d", fallback_histogram2d)
+        monkeypatch.setattr(statistical_plots, "_hist1d_bincount", unexpected_bincount)
+        monkeypatch.setattr(statistical_plots, "_hist2d_bincount", unexpected_bincount)
+
+        values = [np.array([-1.0, -0.25, 0.0, 0.75, 1.0])]
+        fig, _ = corner_hist(
+            values,
+            bins=[np.array([-1.0, 0.0, 1.0])],
+            min_count=0,
+            hist2d_norm=None,
+            tight_layout=False,
+        )
+
+        assert calls == 0
+        plt.close(fig)
+
+        data = [values[0], values[0] + 0.1]
+        fig, _ = corner_hist(
+            data,
+            bins=[np.array([-1.0, 0.0, 1.0]), np.array([-1.0, 0.0, 1.0])],
+            triangle="full",
+            min_count=0,
+            hist2d_norm=None,
+            tight_layout=False,
+        )
+        assert calls == 2
+        plt.close(fig)
+
+    def test_float32_weights_use_legacy_diagonal_histogram(self, monkeypatch):
+        """Non-float64 weights must retain the old Axes.hist accumulation path."""
+        from matplotlib.axes import Axes
+        import matplotlib.pyplot as plt
+
+        from waveform_analysis.visualization import statistical_plots
+
+        values = np.array([-1.0, -0.25, 0.0, 0.75, 1.0])
+        edges = np.array([-1.0, 0.0, 1.0])
+        # The middle event is deliberately lost by float32 accumulation in
+        # the legacy NumPy/Matplotlib path; a float64 bincount would retain it.
+        weights = np.array([1e8, 1.0, -1e8, 2.0, 2.5], dtype=np.float32)
+        captured = {}
+        original_hist = Axes.hist
+
+        def capture_hist(self, *args, **kwargs):
+            captured["weights"] = np.asarray(kwargs["weights"])
+            result = original_hist(self, *args, **kwargs)
+            captured["counts"] = np.asarray(result[0])
+            return result
+
+        def unexpected_bincount(*args, **kwargs):
+            raise AssertionError("float32 diagonal weights must use Axes.hist")
+
+        monkeypatch.setattr(Axes, "hist", capture_hist)
+        monkeypatch.setattr(statistical_plots, "_hist1d_bincount", unexpected_bincount)
+        fig, _ = corner_hist([values], bins=[edges], weights=weights, tight_layout=False)
+
+        expected, _ = np.histogram(values, bins=edges, weights=weights)
+        np.testing.assert_array_equal(captured["weights"].dtype, weights.dtype)
+        np.testing.assert_allclose(captured["counts"], expected)
+        plt.close(fig)
+
+    @pytest.mark.parametrize(
+        "bins,ranges,scales",
+        [
+            ([np.array([2.0, 1.0, 0.0])], None, "linear"),
+            (3, [(2.0, -2.0)], "linear"),
+            ([np.array([0.0, np.nan, 1.0])], None, "linear"),
+        ],
+        ids=["descending-explicit", "reverse-range", "nonfinite-explicit"],
+    )
+    def test_bin_edges_must_be_finite_and_strictly_increasing(self, bins, ranges, scales):
+        with pytest.raises(ValueError):
+            corner_hist(
+                [np.array([0.0, 0.25, 0.5, 1.0, 2.0])],
+                bins=bins,
+                ranges=ranges,
+                scales=scales,
+                tight_layout=False,
+            )
+
+    def test_degenerate_positive_log_range_keeps_legacy_expansion(self):
+        """A positive equal range is expanded as in the pre-optimization path."""
+        import matplotlib.pyplot as plt
+
+        fig, axes = corner_hist(
+            [np.array([1.0, 1.0, 2.0])],
+            bins=3,
+            ranges=[(1.0, 1.0)],
+            scales="log",
+            tight_layout=False,
+        )
+        assert axes.shape == (1, 1)
+        plt.close(fig)
+
+    @pytest.mark.parametrize("ranges", [[(-np.inf, np.inf)], [(1.0, np.inf)]])
+    def test_nonfinite_log_range_with_single_positive_value_is_accepted(self, ranges):
+        """Positive fallback ranges must not create duplicate fast-path edges."""
+        import matplotlib.pyplot as plt
+
+        fig, axes = corner_hist(
+            [np.array([1.0, 1.0, 2.0])],
+            bins=3,
+            ranges=ranges,
+            scales="log",
+            tight_layout=False,
+        )
+        assert axes.shape == (1, 1)
+        plt.close(fig)
 
 
 class TestCornerHistPerformance:

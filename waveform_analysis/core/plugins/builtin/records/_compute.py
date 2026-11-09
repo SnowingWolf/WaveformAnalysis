@@ -242,6 +242,10 @@ def _resolve_bundle_config_plugin(context: Any, plugin: Plugin) -> Plugin:
     return plugin
 
 
+# 仅支持 raw_files 输入源的适配器（二进制格式没有 st_waveforms 路径）
+_RAW_FILES_ONLY_ADAPTERS = frozenset({"v1725", "vx2730_bin"})
+
+
 def _build_records_bundle(
     context: Any,
     run_id: str,
@@ -261,8 +265,8 @@ def _build_records_bundle(
             f"Invalid records input_source: {input_source!r}. "
             "Expected 'raw_files' or 'st_waveforms'."
         )
-    if adapter_name == "v1725" and input_source == "st_waveforms":
-        raise ValueError("records input_source='st_waveforms' is not supported for v1725")
+    if adapter_name in _RAW_FILES_ONLY_ADAPTERS and input_source == "st_waveforms":
+        raise ValueError(f"records input_source='st_waveforms' is not supported for {adapter_name}")
 
     # V1725 采集卡路径
     if adapter_name == "v1725":
@@ -376,8 +380,10 @@ def _resolve_records_upstream_depends(context: Any, plugin: Plugin) -> list[str]
     input_source = str(context.get_config(plugin, "input_source") or "raw_files").lower()
     if input_source == "st_waveforms":
         adapter_name = _resolve_adapter_name(context, plugin)
-        if adapter_name == "v1725":
-            raise ValueError("records input_source='st_waveforms' is not supported for v1725")
+        if adapter_name in _RAW_FILES_ONLY_ADAPTERS:
+            raise ValueError(
+                f"records input_source='st_waveforms' is not supported for {adapter_name}"
+            )
         return ["st_waveforms"]
     if input_source != "raw_files":
         raise ValueError(

@@ -1,0 +1,442 @@
+api_version: waveform-analysis/agent-task/v1
+kind: AgentTask
+metadata:
+  id: remote-branch-integration-20261109
+  generation: 4
+  created_at: '2026-11-09T09:23:27Z'
+  updated_at: '2026-11-09T09:52:50Z'
+spec:
+  goal: 保留恢复证据清理已合并远程分支，补齐PR依赖并修复CI，将验证后的现行功能与分层缓存整合至develop
+  route: modify_code
+  workflow_cost: strict
+  workflow_shape: staged
+  risk_level: high
+  scope:
+    base_sha: f437d57936850f8775eca43238842a34bbe6f729
+    allowed_paths:
+    - waveform_analysis/
+    - tests/
+    - scripts/docs_build.py
+    - docs/
+    - examples/
+    - scripts/scaffold_plugin.py
+    - scripts/assess_change_impact.py
+    - .github/workflows/python-tests.yml
+  acceptance_criteria:
+  - 9个授权分支删除且完整恢复记录进入审计产物
+  - 前序基础、采集重组、API文档和分层缓存保留原提交身份并有完整PR清单
+  - 实际CI失败的最小修复、完整Python检查、严格任务校验与文档闸门及真实构建通过
+  - 独立Reviewer批准后develop包含预定source heads，master保持原SHA
+  required_gates:
+  - python_tests
+  - lint
+  - agent_workflow
+  - generate_docs
+  - assess_change_impact
+  - schema_compat_check
+  - doc_sync
+  - site_build
+  - reviewer
+  assignment:
+    planner_role: planner
+    executor_role: executor.code
+    reviewer_role: reviewer
+    planner: integration_planner
+    executors:
+    - root integration and release preparation
+    - python_ci_diagnosis regression fixes
+    - workflow_ci_diagnosis faithful task-record migration
+    reviewer: independent integration reviewer
+  authorization:
+    source: User explicitly selected all three steps on 2026-11-09
+    decision: Delete the named nine fully merged branches with recovery records; complete
+      PR dependencies; fix real failures and integrate into develop only after validation
+      and independent review
+  implementation_plan:
+  - Snapshot and lease-checked atomic delete of exactly nine authorized refs; retain
+    local restore refs and tracked full SHA mapping
+  - Create foundation PR15 and API/docs PR16; retain existing source PRs and build
+    one integration candidate preserving all original commits
+  - Merge remote cache head 29fb90f2 into latest f437d579; keep current Context contracts
+    and exclude unpushed local cache work
+  - Fix only diagnosed CI failures and faithful legacy task migration; regenerate
+    affected docs/model/package; run required checks
+  - Allow only exact, previously reviewed plugin removals through impact exit gate
+    using verified retirement manifest; preserve high-risk reporting and reject all
+    unapproved changes
+  - Fetch complete history for both Python CI jobs so historical approval ancestry
+    can be verified; do not skip evidence checks
+  - Independent blocking review, scoped commit(s), integration PR to develop; merge
+    only validated candidate and update source PR state from actual ancestry
+  scope_out:
+  - No master merge or rewrite
+  - No inclusion of unpushed local worktree commits
+  - No deletion of unmerged historical release branches
+  - No disabling CI checks or inventing historical PASS evidence
+  baseline:
+    develop: 01968d301ecfb1239463fe309d007a9a2c2a49a9
+    master: a736cde49c17ac683301c93e5d78ecbb4c613ab9
+    latest_source: f437d57936850f8775eca43238842a34bbe6f729
+    cache_source: 29fb90f220932c8952a63057696b73ed3ef12da3
+status:
+  state: reviewing
+  transitions:
+  - from: created
+    to: planning
+    at: '2026-11-09T09:23:27Z'
+    actor: planner
+  - from: planning
+    to: ready_for_execution
+    at: '2026-11-09T09:23:56Z'
+    actor: planner
+  - from: ready_for_execution
+    to: executing
+    at: '2026-11-09T09:23:56Z'
+    actor: executor.code
+  - from: executing
+    to: reviewing
+    at: '2026-11-09T09:32:24Z'
+    actor: executor.code
+  - from: reviewing
+    to: rework_required
+    at: '2026-11-09T09:32:24Z'
+    actor: reviewer
+  - from: rework_required
+    to: planning
+    at: '2026-11-09T09:32:24Z'
+    actor: planner
+    scope_changed: true
+  - from: planning
+    to: ready_for_execution
+    at: '2026-11-09T09:32:24Z'
+    actor: planner
+  - from: ready_for_execution
+    to: executing
+    at: '2026-11-09T09:32:25Z'
+    actor: executor.code
+  - from: executing
+    to: reviewing
+    at: '2026-11-09T09:35:17Z'
+    actor: executor.code
+  - from: reviewing
+    to: rework_required
+    at: '2026-11-09T09:35:17Z'
+    actor: reviewer
+  - from: rework_required
+    to: planning
+    at: '2026-11-09T09:35:17Z'
+    actor: planner
+    scope_changed: true
+  - from: planning
+    to: ready_for_execution
+    at: '2026-11-09T09:35:17Z'
+    actor: planner
+  - from: ready_for_execution
+    to: executing
+    at: '2026-11-09T09:35:18Z'
+    actor: executor.code
+  - from: executing
+    to: reviewing
+    at: '2026-11-09T09:44:45Z'
+    actor: executor.code
+  - from: reviewing
+    to: rework_required
+    at: '2026-11-09T09:52:28Z'
+    actor: reviewer
+  - from: rework_required
+    to: planning
+    at: '2026-11-09T09:52:29Z'
+    actor: planner
+    scope_changed: true
+  - from: planning
+    to: ready_for_execution
+    at: '2026-11-09T09:52:29Z'
+    actor: planner
+  - from: ready_for_execution
+    to: executing
+    at: '2026-11-09T09:52:29Z'
+    actor: executor.code
+  - from: executing
+    to: reviewing
+    at: '2026-11-09T09:52:50Z'
+    actor: executor.code
+  plan_sha256: 069aa8c693fa9f8f911bb9df0ef49f64dcd11c16150ff98144e97b42d1905c48
+  execution:
+    executor_role: executor.code
+    actions_taken:
+    - Deleted exact nine authorized fully merged remote branches with lease checks
+      and local/tracked recovery records
+    - Created missing source/dependency PR15 and16 and historical review PR17 and18
+    - Merged only remote published-cache source29fb90f2 into latestf437d579 without
+      reviving retired API
+    - Fixed real Python CI failures; migrated seven historical task records with original
+      evidence preserved; retained four reviewing states
+    - Added exact historical retirement authorization verification without lowering
+      high-risk classification
+    - Regenerated reviewed guide baselines/model/packaged export using isolated final
+      build
+    - Reproduced shallow checkout failure and added fetch-depth0 to Python CI without
+      altering test matrix or approval verification
+    changed_paths:
+    - .github/workflows/python-tests.yml
+    - docs/agents/plans/INDEX.md
+    - docs/agents/plans/active.yaml
+    - docs/agents/plugin-retirements.yaml
+    - docs/agents/runs/current/docs-build-skill/task.yaml
+    - docs/agents/runs/current/hit-merged-profiler-run00600/task.yaml
+    - docs/agents/runs/current/layered-cache-validation-20261104/task.yaml
+    - docs/agents/runs/current/peak-classification-test-plugin-20260917/task.yaml
+    - docs/agents/runs/current/peaks-run00600-optimization/task.yaml
+    - docs/agents/runs/current/remote-branch-integration-20261109/integration-audit.md
+    - docs/agents/runs/current/remote-branch-integration-20261109/remote-branches-before.json
+    - docs/agents/runs/current/remote-branch-integration-20261109/remote-branches-restoration.md
+    - docs/agents/runs/current/remote-branch-integration-20261109/task-record-migration-report.json
+    - docs/agents/runs/current/remote-branch-integration-20261109/task.yaml
+    - docs/agents/runs/current/run00601-records-buffer-8m/task.yaml
+    - docs/agents/runs/current/vx2730-bin-adapter-20260917/task.yaml
+    - docs/agents/runs/current/wa-data-default-20260918/task.yaml
+    - docs/agents/workflows.md
+    - docs/architecture/PLUGIN_DAG_LINEAGE_CACHE.md
+    - docs/features/README.md
+    - docs/features/context/CONFIGURATION.md
+    - docs/features/context/LAYERED_CACHE.md
+    - docs/features/context/README.md
+    - docs/plugins/PLUGIN_SYSTEM_OVERVIEW.md
+    - docs/site-content-baseline.json
+    - docs/site-guides.yaml
+    - docs/site-next/fixture/site-model.v1.json
+    - docs/site-route-migration.yaml
+    - examples/README.md
+    - examples/layered_cache.py
+    - scripts/assess_change_impact.py
+    - scripts/docs_build.py
+    - tests/contracts/conftest.py
+    - tests/contracts/import_topology_contract.json
+    - tests/test_agent_quality_checks.py
+    - tests/test_cli_docs_site_publish.py
+    - tests/test_docs_build.py
+    - tests/test_layered_cache.py
+    - tests/test_site_model.py
+    - waveform_analysis/core/context.py
+    - waveform_analysis/core/context_cache.py
+    - waveform_analysis/core/context_config.py
+    - waveform_analysis/core/context_execution.py
+    - waveform_analysis/core/plugins/builtin/raw_files/tests/test_raw_files.py
+    - waveform_analysis/core/published_cache.py
+    - waveform_analysis/documentation/site_dist/404.html
+    - waveform_analysis/documentation/site_dist/404/index.html
+    - waveform_analysis/documentation/site_dist/_not-found/index.html
+    - waveform_analysis/documentation/site_dist/accessors/index.html
+    - waveform_analysis/documentation/site_dist/accessors/peak-channel-accessor/index.html
+    - waveform_analysis/documentation/site_dist/accessors/records-view/index.html
+    - waveform_analysis/documentation/site_dist/accessors/s1-s2-pair-accessor/index.html
+    - waveform_analysis/documentation/site_dist/adapters/adapter/index.html
+    - waveform_analysis/documentation/site_dist/adapters/index.html
+    - waveform_analysis/documentation/site_dist/architecture/PROJECT_STRUCTURE/index.html
+    - waveform_analysis/documentation/site_dist/architecture/accessor-analysis/index.html
+    - waveform_analysis/documentation/site_dist/architecture/data-products/index.html
+    - waveform_analysis/documentation/site_dist/architecture/index.html
+    - waveform_analysis/documentation/site_dist/architecture/plugin-cache-architecture/index.html
+    - waveform_analysis/documentation/site_dist/architecture/plugin-dag-lineage-cache/index.html
+    - waveform_analysis/documentation/site_dist/architecture/system/index.html
+    - waveform_analysis/documentation/site_dist/cli/WAVEFORM_CACHE/index.html
+    - waveform_analysis/documentation/site_dist/cli/WAVEFORM_DOCS/index.html
+    - waveform_analysis/documentation/site_dist/cli/WAVEFORM_PROCESS/index.html
+    - waveform_analysis/documentation/site_dist/cli/index.html
+    - waveform_analysis/documentation/site_dist/contexts/context/index.html
+    - waveform_analysis/documentation/site_dist/contexts/index.html
+    - waveform_analysis/documentation/site_dist/development/CONTRACT_TESTS/index.html
+    - waveform_analysis/documentation/site_dist/development/contributing/COMMIT_CONVENTION/index.html
+    - waveform_analysis/documentation/site_dist/development/contributing/DOC_ANCHOR_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/development/contributing/IMPORT_STYLE_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/development/index.html
+    - waveform_analysis/documentation/site_dist/development/plugin-development/PLUGIN_SCAFFOLD/index.html
+    - waveform_analysis/documentation/site_dist/development/plugin-development/PLUGIN_SPEC_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/development/plugin-development/plugin_guide/index.html
+    - waveform_analysis/documentation/site_dist/development/worktrees/index.html
+    - waveform_analysis/documentation/site_dist/features/advanced/PROGRESS_TRACKING_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/context/ABSOLUTE_TIME_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/context/BATCH_PROCESSOR/index.html
+    - waveform_analysis/documentation/site_dist/features/context/CONFIGURATION/index.html
+    - waveform_analysis/documentation/site_dist/features/context/DEPENDENCY_ANALYSIS_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/context/LAYERED_CACHE/index.html
+    - waveform_analysis/documentation/site_dist/features/context/LINEAGE_VISUALIZATION_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/index.html
+    - waveform_analysis/documentation/site_dist/features/utils/ADAPTIVE_2D_SAMPLING_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/utils/DAQ_ANALYZER_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/utils/PDF_EXPORT_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/visualizations/POSITION_DASHBOARD_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/index.html
+    - waveform_analysis/documentation/site_dist/lineage/index.html
+    - waveform_analysis/documentation/site_dist/plugins/basic_features/index.html
+    - waveform_analysis/documentation/site_dist/plugins/cache_analysis/index.html
+    - waveform_analysis/documentation/site_dist/plugins/energy_reconstruction/index.html
+    - waveform_analysis/documentation/site_dist/plugins/events/index.html
+    - waveform_analysis/documentation/site_dist/plugins/filtered_waveforms/index.html
+    - waveform_analysis/documentation/site_dist/plugins/guides/STREAMING_PLUGINS_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_grouped/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_merge_clusters/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_merged/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_merged_components/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_merged_features/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_threshold/index.html
+    - waveform_analysis/documentation/site_dist/plugins/index.html
+    - waveform_analysis/documentation/site_dist/plugins/overview/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peak_classification/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_channels/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_components/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_features/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_waveform_pool/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_waveforms/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklets/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaks/index.html
+    - waveform_analysis/documentation/site_dist/plugins/position_reconstruction/index.html
+    - waveform_analysis/documentation/site_dist/plugins/raw_files/index.html
+    - waveform_analysis/documentation/site_dist/plugins/records/index.html
+    - waveform_analysis/documentation/site_dist/plugins/records_asymmetry_mask/index.html
+    - waveform_analysis/documentation/site_dist/plugins/records_detector_mask/index.html
+    - waveform_analysis/documentation/site_dist/plugins/records_veto_mask/index.html
+    - waveform_analysis/documentation/site_dist/plugins/reference/ADAPTER_PLUGIN_BEHAVIOR/index.html
+    - waveform_analysis/documentation/site_dist/plugins/reference/ADAPTER_SYSTEM_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/plugins/s1_s2_pair_candidates/index.html
+    - waveform_analysis/documentation/site_dist/plugins/s1_s2_pairs/index.html
+    - waveform_analysis/documentation/site_dist/plugins/st_waveforms/index.html
+    - waveform_analysis/documentation/site_dist/plugins/wave_pool/index.html
+    - waveform_analysis/documentation/site_dist/plugins/wave_pool_filtered/index.html
+    - waveform_analysis/documentation/site_dist/plugins/waveform_width/index.html
+    - waveform_analysis/documentation/site_dist/plugins/waveform_width_integral/index.html
+    - waveform_analysis/documentation/site_dist/search-index.v1.json
+    - waveform_analysis/documentation/site_dist/site-manifest.json
+    - waveform_analysis/documentation/site_dist/site-model.v1.json
+    - waveform_analysis/documentation/site_dist/user-guide/DF_RETIREMENT/index.html
+    - waveform_analysis/documentation/site_dist/user-guide/EXAMPLES_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/user-guide/QUICKSTART_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/user-guide/docs-build/index.html
+    - waveform_analysis/documentation/site_dist/user-guide/index.html
+    - waveform_analysis/documentation/site_dist/visualizations/index.html
+    - waveform_analysis/documentation/site_dist/visualizations/position-dashboard/index.html
+    - waveform_analysis/documentation/site_dist/visualizations/statistical-plots/index.html
+    - waveform_analysis/documentation/site_dist/visualizations/waveform-plots/index.html
+    - waveform_analysis/documentation/site_docs/catalog.py
+    commands_run:
+    - command: Full fast pytest -m not slow
+      result: 2393 passed,5 skipped,1 failed only old35guide expectation; corrected36
+        and original failing test separately passed
+      evidence: /tmp/waveform-remote-branches-20261109/ci/full-fast.log
+    - command: pytest test_site_model_v1_uses_real_plugin_and_guide_facts_without_html
+      result: 1 passed after correct36guide assertion
+      evidence: /tmp/waveform-remote-branches-20261109/ci/guide-count-recheck.log
+    - command: pytest tests/test_agent_quality_checks.py -m not slow
+      result: 27 passed reported from Executor actual run; includes21 new exact-authorization
+        boundary cases
+      evidence: approved_retirement_gate executor final report
+    - command: Full slow pytest -m slow
+      result: 14 passed; only performance CLI test failed because sandbox disallowed
+        temporary git worktree; same original test outside sandbox1passed without
+        threshold changes
+      evidence:
+      - /tmp/waveform-remote-branches-20261109/ci/full-slow.log
+      - /tmp/waveform-remote-branches-20261109/ci/slow-perf-recheck.log
+    - command: pytest tests/test_layered_cache.py tests/contracts/test_import_topology_contract.py
+      result: PASS; includes current published-base configuration/missing data/no
+        recompute and new constructor signature
+      evidence: /tmp/waveform-remote-branches-20261109/ci/cache-integration-targeted.log
+    - command: Black25.1.0 --check . and Ruff0.6.4 check .
+      result: PASS,594 files unchanged; original Black26 formatting-only changes reverted
+      evidence:
+      - /tmp/waveform-remote-branches-20261109/ci/black-final.log
+      - /tmp/waveform-remote-branches-20261109/ci/ruff-final.log
+    - command: agent_workflow.py validate --all --strict; check_agent_archive.py --base
+        origin/develop
+      result: PASS,46 valid records; original historical YAML byte-equal; archive
+        unchanged
+      evidence:
+      - /tmp/waveform-remote-branches-20261109/ci/agent-workflow-final.log
+      - /tmp/waveform-remote-branches-20261109/ci/archive.log
+    - command: Generate plugins-auto and plugins-agent to their repository paths
+      result: PASS for both generators
+      evidence:
+      - /tmp/waveform-remote-branches-20261109/ci/generate-auto.log
+      - /tmp/waveform-remote-branches-20261109/ci/generate-agent.log
+    - command: assess_change_impact.py --base f437d579 and --base origin/develop
+      result: PASS both after precise authorization implementation; develop retains
+        high3,approved3,unapproved_high0
+      evidence:
+      - /tmp/waveform-remote-branches-20261109/ci/impact-integration-final.log
+      - /tmp/waveform-remote-branches-20261109/ci/impact-develop-final.log
+    - command: schema_compat_check.py --base f437d579 --run-smoke and --base origin/develop
+        --run-smoke
+      result: PASS both; current nonempty records/hit/peaks products
+      evidence:
+      - /tmp/waveform-remote-branches-20261109/ci/schema-integration.log
+      - /tmp/waveform-remote-branches-20261109/ci/schema-develop.log
+    - command: check_doc_sync.sh --base origin/develop; check_plugin_deps.py; docs
+        links/coverage
+      result: PASS;28anchors zero warnings,314Markdown473references valid,33/33plugin
+        coverage
+      evidence:
+      - /tmp/waveform-remote-branches-20261109/ci/doc-sync-final.log
+      - /tmp/waveform-remote-branches-20261109/ci/plugin-deps.log
+      - /tmp/waveform-remote-branches-20261109/ci/links-final.log
+      - /tmp/waveform-remote-branches-20261109/ci/coverage-final.log
+    - command: docs_build.py build --run-id develop-integration-20261109-final --stage-output
+      result: PASS npm ci/typecheck/Next build, final export staged
+      evidence: /tmp/waveform-doc-build/runs/develop-integration-20261109-final/report.json
+    - command: examples/layered_cache.py --output-dir <new temporary path>
+      result: PASS,readonly payload,two private outputs,0lower computations,changed
+        lower config rejected,v2 reuse and v1readable
+      evidence: /tmp/waveform-remote-branches-20261109/ci/cache-demo.log
+    - command: git diff --check and recovery/ancestry check
+      result: PASS; exactly9restore refs map to original heads; master unchanged
+    - command: Clone depth1 then assess --baseHEAD; fetch --unshallow then same assess
+      result: Expected exit2 with missing historical SHA; after full history same
+        command exit0
+      evidence:
+      - /tmp/waveform-remote-branches-20261109/ci/shallow-impact.log
+      - /tmp/waveform-remote-branches-20261109/ci/full-history-impact.log
+    - command: Workflow YAML and doc_sync after history fix
+      result: PASS both checkout fetch-depth0, Python3.10/3.11/3.12 preserved; anchors
+        zero errors/warnings
+    open_risks:
+    - Remote final integration PR CI has not yet run; merge into develop is conditional
+      on it passing
+    - Historical release PRs and four old reviewing tasks are preserved, not treated
+      as approved new integration
+    - No real DAQ processing or detector-data performance claim
+    requested_review_focus:
+    - precise removal approval trust boundaries
+    - faithful seven record migrations
+    - candidate source ancestry and master unchanged
+    - final local checks and remote conditional merge
+  review:
+    reviewer_actor: integration_reviewer
+    decision: approved
+    review_scope: local candidate and gen4 full-history CI fix; develop merge conditional
+      on remote checks
+    plan_sha256: 069aa8c693fa9f8f911bb9df0ef49f64dcd11c16150ff98144e97b42d1905c48
+    gate_results:
+      python_tests: PASS
+      lint: PASS
+      agent_workflow: PASS
+      generate_docs: PASS
+      assess_change_impact: PASS
+      schema_compat_check: PASS
+      doc_sync: PASS
+      site_build: PASS
+      reviewer: PASS
+    blocking_findings: []
+    residual_risks:
+    - Remote latest integration PR matrix and all workflows must pass before develop
+      merge
+    follow_up_actions:
+    - Push reviewed full-history configuration fix
+    - Refresh exact PR commit list
+    - Wait latest-head remote CI, merge develop, record actual ancestry and final
+      task completion
+  approval: {}
+  handoff:
+    commit_status: Code candidate5efcf332 committed; gen4 CI configuration fix locally
+      approved and prepared
+    develop_merge_status: pending latest-head remote CI
+    master_unchanged: a736cde49c17ac683301c93e5d78ecbb4c613ab9

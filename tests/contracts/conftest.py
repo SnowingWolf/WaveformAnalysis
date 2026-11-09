@@ -41,12 +41,14 @@ def all_builtin_plugins() -> list[type[Plugin]]:
     seen_classes = set()  # Track by class id to avoid duplicates
     for module in (cpu, peaks, hit):
         for name in dir(module):
+            # Private typing aliases can look like classes on Python 3.10.
+            if name.startswith("_"):
+                continue
             obj = getattr(module, name)
             if (
                 isinstance(obj, type)
                 and issubclass(obj, Plugin)
                 and obj is not Plugin
-                and not name.startswith("_")
                 and id(obj) not in seen_classes  # Deduplicate
             ):
                 seen_classes.add(id(obj))

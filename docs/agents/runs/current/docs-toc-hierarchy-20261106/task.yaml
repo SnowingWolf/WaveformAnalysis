@@ -1,0 +1,232 @@
+api_version: waveform-analysis/agent-task/v1
+kind: AgentTask
+metadata:
+  id: docs-toc-hierarchy-20261106
+  generation: 1
+  created_at: '2026-11-06T03:24:19Z'
+  updated_at: '2026-11-06T03:30:57Z'
+spec:
+  goal: 加宽文档右侧本页目录并保留真实标题层级，同步打包站点并验证桌面窄屏与锚点跳转
+  route: modify_code
+  workflow_cost: standard
+  workflow_shape: staged
+  risk_level: low
+  scope:
+    base_sha: 1f18e9b5379a1967b69a6bb505bbc05c1b573a7a
+    allowed_paths:
+    - docs/site-next
+    - waveform_analysis/documentation/site_dist
+    - docs/agents/plans
+    - docs/agents/runs/current/docs-toc-hierarchy-20261106
+  acceptance_criteria:
+  - 右栏280至320px，真实标题层级以嵌套列表和缩进呈现；长标题可读，桌面和手机无溢出，锚点可跳转；构建测试和独立审查通过
+  required_gates:
+  - doc_sync
+  - doc_anchors
+  - frontend_tests
+  - site_build
+  - browser_qa
+  assignment:
+    planner_role: planner
+    executor_role: executor.code
+    reviewer_role: reviewer
+status:
+  state: completed
+  transitions:
+  - from: created
+    to: planning
+    at: '2026-11-06T03:24:19Z'
+    actor: planner
+  - from: planning
+    to: ready_for_execution
+    at: '2026-11-06T03:24:20Z'
+    actor: planner
+  - from: ready_for_execution
+    to: executing
+    at: '2026-11-06T03:24:20Z'
+    actor: executor.code
+  - from: executing
+    to: reviewing
+    at: '2026-11-06T03:29:26Z'
+    actor: executor.code
+  - from: reviewing
+    to: completed
+    at: '2026-11-06T03:30:57Z'
+    actor: reviewer
+  plan_sha256: 363a326ba72d8649eac40dd0ded46bafcb44800f57ad75bff9f2f2231192cf75
+  execution:
+    executor_role: executor.code
+    changed_paths:
+    - docs/agents/plans/INDEX.md
+    - docs/agents/plans/active.yaml
+    - docs/site-next/app/[...slug]/page.tsx
+    - docs/site-next/app/globals.css
+    - docs/site-next/components/SiteShell.tsx
+    - waveform_analysis/documentation/site_dist/404.html
+    - waveform_analysis/documentation/site_dist/404/index.html
+    - waveform_analysis/documentation/site_dist/_next/static/chunks/0elzsdo03570l.js
+    - waveform_analysis/documentation/site_dist/_next/static/chunks/10wvwosux5yxy.js
+    - waveform_analysis/documentation/site_dist/_next/static/chunks/21yim39338gay.js
+    - waveform_analysis/documentation/site_dist/_next/static/chunks/2rl3dsryigww5.js
+    - waveform_analysis/documentation/site_dist/_next/static/chunks/33q0uq0b9xve_.css
+    - waveform_analysis/documentation/site_dist/_not-found/index.html
+    - waveform_analysis/documentation/site_dist/accessors/index.html
+    - waveform_analysis/documentation/site_dist/accessors/peak-channel-accessor/index.html
+    - waveform_analysis/documentation/site_dist/accessors/records-view/index.html
+    - waveform_analysis/documentation/site_dist/accessors/s1-s2-pair-accessor/index.html
+    - waveform_analysis/documentation/site_dist/adapters/adapter/index.html
+    - waveform_analysis/documentation/site_dist/adapters/index.html
+    - waveform_analysis/documentation/site_dist/architecture/PROJECT_STRUCTURE/index.html
+    - waveform_analysis/documentation/site_dist/architecture/accessor-analysis/index.html
+    - waveform_analysis/documentation/site_dist/architecture/data-products/index.html
+    - waveform_analysis/documentation/site_dist/architecture/index.html
+    - waveform_analysis/documentation/site_dist/architecture/plugin-cache-architecture/index.html
+    - waveform_analysis/documentation/site_dist/architecture/plugin-dag-lineage-cache/index.html
+    - waveform_analysis/documentation/site_dist/architecture/system/index.html
+    - waveform_analysis/documentation/site_dist/cli/WAVEFORM_CACHE/index.html
+    - waveform_analysis/documentation/site_dist/cli/WAVEFORM_DOCS/index.html
+    - waveform_analysis/documentation/site_dist/cli/WAVEFORM_PROCESS/index.html
+    - waveform_analysis/documentation/site_dist/cli/index.html
+    - waveform_analysis/documentation/site_dist/contexts/context/index.html
+    - waveform_analysis/documentation/site_dist/contexts/index.html
+    - waveform_analysis/documentation/site_dist/development/CONTRACT_TESTS/index.html
+    - waveform_analysis/documentation/site_dist/development/contributing/COMMIT_CONVENTION/index.html
+    - waveform_analysis/documentation/site_dist/development/contributing/DOC_ANCHOR_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/development/contributing/IMPORT_STYLE_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/development/index.html
+    - waveform_analysis/documentation/site_dist/development/plugin-development/PLUGIN_SCAFFOLD/index.html
+    - waveform_analysis/documentation/site_dist/development/plugin-development/PLUGIN_SPEC_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/development/plugin-development/plugin_guide/index.html
+    - waveform_analysis/documentation/site_dist/development/worktrees/index.html
+    - waveform_analysis/documentation/site_dist/features/advanced/PROGRESS_TRACKING_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/context/ABSOLUTE_TIME_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/context/BATCH_PROCESSOR/index.html
+    - waveform_analysis/documentation/site_dist/features/context/CONFIGURATION/index.html
+    - waveform_analysis/documentation/site_dist/features/context/DEPENDENCY_ANALYSIS_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/context/LINEAGE_VISUALIZATION_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/index.html
+    - waveform_analysis/documentation/site_dist/features/utils/ADAPTIVE_2D_SAMPLING_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/utils/DAQ_ANALYZER_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/utils/PDF_EXPORT_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/visualizations/POSITION_DASHBOARD_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/index.html
+    - waveform_analysis/documentation/site_dist/lineage/index.html
+    - waveform_analysis/documentation/site_dist/plugins/basic_features/index.html
+    - waveform_analysis/documentation/site_dist/plugins/cache_analysis/index.html
+    - waveform_analysis/documentation/site_dist/plugins/energy_reconstruction/index.html
+    - waveform_analysis/documentation/site_dist/plugins/events/index.html
+    - waveform_analysis/documentation/site_dist/plugins/filtered_waveforms/index.html
+    - waveform_analysis/documentation/site_dist/plugins/guides/STREAMING_PLUGINS_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_grouped/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_merge_clusters/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_merged/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_merged_components/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_merged_features/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_threshold/index.html
+    - waveform_analysis/documentation/site_dist/plugins/index.html
+    - waveform_analysis/documentation/site_dist/plugins/overview/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peak_classification/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_channels/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_components/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_features/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_waveform_pool/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_waveforms/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklets/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaks/index.html
+    - waveform_analysis/documentation/site_dist/plugins/position_reconstruction/index.html
+    - waveform_analysis/documentation/site_dist/plugins/raw_files/index.html
+    - waveform_analysis/documentation/site_dist/plugins/records/index.html
+    - waveform_analysis/documentation/site_dist/plugins/records_asymmetry_mask/index.html
+    - waveform_analysis/documentation/site_dist/plugins/records_detector_mask/index.html
+    - waveform_analysis/documentation/site_dist/plugins/records_veto_mask/index.html
+    - waveform_analysis/documentation/site_dist/plugins/reference/ADAPTER_PLUGIN_BEHAVIOR/index.html
+    - waveform_analysis/documentation/site_dist/plugins/reference/ADAPTER_SYSTEM_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/plugins/s1_s2_pair_candidates/index.html
+    - waveform_analysis/documentation/site_dist/plugins/s1_s2_pairs/index.html
+    - waveform_analysis/documentation/site_dist/plugins/st_waveforms/index.html
+    - waveform_analysis/documentation/site_dist/plugins/wave_pool/index.html
+    - waveform_analysis/documentation/site_dist/plugins/wave_pool_filtered/index.html
+    - waveform_analysis/documentation/site_dist/plugins/waveform_width/index.html
+    - waveform_analysis/documentation/site_dist/plugins/waveform_width_integral/index.html
+    - waveform_analysis/documentation/site_dist/site-manifest.json
+    - waveform_analysis/documentation/site_dist/user-guide/DF_RETIREMENT/index.html
+    - waveform_analysis/documentation/site_dist/user-guide/EXAMPLES_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/user-guide/QUICKSTART_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/user-guide/docs-build/index.html
+    - waveform_analysis/documentation/site_dist/user-guide/index.html
+    - waveform_analysis/documentation/site_dist/visualizations/index.html
+    - waveform_analysis/documentation/site_dist/visualizations/position-dashboard/index.html
+    - waveform_analysis/documentation/site_dist/visualizations/statistical-plots/index.html
+    - waveform_analysis/documentation/site_dist/visualizations/waveform-plots/index.html
+    - docs/site-next/components/TableOfContents.tsx
+    - docs/site-next/lib/toc.test.ts
+    - docs/agents/runs/current/docs-toc-hierarchy-20261106/task.yaml
+    actions_taken:
+    - 右侧目录200px改为clamp(280px,20vw,320px)，字号13px/标题14px，增加父项字重与嵌套缩进
+    - 指南目录保留与正文一致的h2-h6层级；语义化嵌套ul；无层级的参考页仍为平级；保持既有锚点与移动端断点
+    - 新增定向测试覆盖层级映射、跳级标题与回到父层、参考页及空目录
+    - 隔离构建后同步site_dist；仅公开静态文件复制到隔离预览目录
+    commands_run:
+    - command: scripts/check_doc_sync.sh --task docs/agents/runs/current/docs-toc-hierarchy-20261106/task.yaml;
+        render_agent_docs.py --check
+      result: PASS task-scoped doc sync/anchors and generated task navigation
+    - command: docs_build.py build --run-id docs-toc-hierarchy-20261106-a --stage-output
+        (unsandboxed; LD_PRELOAD/LD_LIBRARY_PATH unset)
+      result: PASS npm ci, npm run check, npm run build; static export staged
+    - command: npm test -- --maxWorkers=1 --minWorkers=1 in isolated build app
+      result: PASS 5 files, 25 tests
+    - command: Firefox Playwright /tmp/wa-toc-qa/verify.py
+      result: PASS page identity/content, no framework overlay, no console errors/warnings,
+        1366/1440/1920 desktop,1280 breakpoint,390 mobile, anchor click, theme toggle,
+        drawer interaction, nested guide and flat reference pages
+    - command: build report/model inspection, screenshot visual inspection, git diff
+        --check
+      result: PASS built model equals current fixture; desktop/mobile screenshots
+        verified; no model schema or Markdown change
+    build_report: /tmp/waveform-doc-build/runs/docs-toc-hierarchy-20261106-a/report.json
+    browser_qa:
+      availability: Browser plugin not available; regular Playwright used
+      fallback: Chromium page process crashed; installed Firefox passed
+      report: /tmp/wa-toc-qa/report.json
+      reference: User attachment showed narrow flat TOC; baseline Firefox screenshot
+        /tmp/wa-toc-qa/before.png measured 200px
+      flow: ADAPTER_SYSTEM_GUIDE -> nested TOC link -> existing section anchor; desktop
+        width and nesting; mobile drawer opens/closes
+      screenshots:
+      - /home/wxy/.codex/visualizations/2026/11/06/01a1aec8-3903-7c20-87d6-048ff2d5c7ad/toc-desktop.png
+      - /home/wxy/.codex/visualizations/2026/11/06/01a1aec8-3903-7c20-87d6-048ff2d5c7ad/toc-mobile.png
+      - /home/wxy/.codex/visualizations/2026/11/06/01a1aec8-3903-7c20-87d6-048ff2d5c7ad/toc-dark.png
+    open_risks:
+    - Chromium navigation crashed on this host; rendered QA verified in Firefox only.
+    - Existing first-item highlight behavior retained; no scrollspy added.
+    requested_review_focus:
+    - Guide heading hierarchy matches rendered headings and anchor identity; skipped
+      levels; desktop width and narrow-screen behavior; scope and verification
+  review:
+    reviewer_actor: docs_reviewer
+    decision: approved
+    plan_sha256: 363a326ba72d8649eac40dd0ded46bafcb44800f57ad75bff9f2f2231192cf75
+    gate_results:
+      doc_sync: PASS
+      doc_anchors: PASS
+      frontend_tests: PASS
+      site_build: PASS
+      browser_qa: PASS
+    blocking_findings: []
+    coverage_review: Independent Reviewer checked heading extraction against body
+      rendering, nested ul/li semantics, desktop/mobile/dark screenshots, model parity,
+      referenced assets, test/build evidence and diff whitespace.
+    residual_risks:
+    - Firefox browser QA only after Chromium page crash on this host.
+    - Existing first-item highlight retained; scrollspy remains outside scope.
+    follow_up_actions:
+    - Render completed navigation and commit scoped source plus generated assets
+  approval: {}
+  handoff:
+    commit_status: 已提交：本任务记录、前端源码及生成站点在同一个 scoped commit 交付；具体 SHA 见 Git 历史与最终回复。
+    commit_subject: 'fix: widen document toc and preserve heading hierarchy'
+    preview_url: http://10.18.154.11:8770/plugins/reference/ADAPTER_SYSTEM_GUIDE/
+    preview_directory: /tmp/wa-toc-preview-pvlp1bqc/site
+    preview_pid: 3409540
+    preview_stop: kill 3409540

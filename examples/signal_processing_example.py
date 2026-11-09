@@ -35,7 +35,7 @@ def example_basic_usage():
     print("=" * 60)
 
     # 创建 Context 实例
-    ctx = Context(storage_dir="./strax_data")
+    ctx = Context(storage_dir="./wa_data")
 
     # 注册标准插件
     ctx.register(RawFilesPlugin())
@@ -117,7 +117,7 @@ def example_butterworth_filter():
     print("示例 2: 使用 Butterworth 带通滤波器")
     print("=" * 60)
 
-    ctx = Context(storage_dir="./strax_data")
+    ctx = Context(storage_dir="./wa_data")
 
     # 注册插件
     ctx.register(RawFilesPlugin())
@@ -259,7 +259,7 @@ def example_compare_filters():
     channel_idx = 0
 
     # 获取原始波形
-    ctx_original = Context(storage_dir="./strax_data")
+    ctx_original = Context(storage_dir="./wa_data")
     ctx_original.register(RawFilesPlugin())
     ctx_original.register(WaveformsPlugin())
     ctx_original.set_config({"data_root": "DAQ", "n_channels": 2, "start_channel_slice": 6})
@@ -267,7 +267,7 @@ def example_compare_filters():
     original_waveform = st_waveforms[channel_idx][event_idx]["wave"]
 
     # 使用 SG 滤波器
-    ctx_sg = Context(storage_dir="./strax_data_sg")
+    ctx_sg = Context(storage_dir="./wa_data_sg")
     ctx_sg.register(RawFilesPlugin())
     ctx_sg.register(WaveformsPlugin())
     ctx_sg.register(FilteredWaveformsPlugin())
@@ -280,7 +280,7 @@ def example_compare_filters():
     sg_waveform = filtered_sg[channel_idx][event_idx]
 
     # 使用 BW 滤波器
-    ctx_bw = Context(storage_dir="./strax_data_bw")
+    ctx_bw = Context(storage_dir="./wa_data_bw")
     ctx_bw.register(RawFilesPlugin())
     ctx_bw.register(WaveformsPlugin())
     ctx_bw.register(FilteredWaveformsPlugin())

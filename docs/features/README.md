@@ -23,12 +23,12 @@
 
 ### [Context 功能](context/README.md)
 
-依赖分析、血缘可视化、执行预览、配置管理等。正式产物、缓存与波形访问的架构边界见下方专题。
+依赖查询、血缘可视化、缓存诊断、配置管理等。正式产物、缓存与波形访问的架构边界见下方专题。
 
 - [配置管理](context/CONFIGURATION.md)
+- [分层缓存](context/LAYERED_CACHE.md)
 - [Plugin DAG、lineage 与缓存](../architecture/PLUGIN_DAG_LINEAGE_CACHE.md)
 - [数据产物与波形访问](../architecture/DATA_PRODUCTS.md)
-- [依赖分析](context/DEPENDENCY_ANALYSIS_GUIDE.md)
 - [血缘可视化](context/LINEAGE_VISUALIZATION_GUIDE.md)
 - [批处理器](context/BATCH_PROCESSOR.md)
 
@@ -78,28 +78,9 @@ DAQ 适配器、DAQ 运行分析、二维抽样与事件筛选等实用工具。
 | 在二维特征空间选取代表性子集 | [ADAPTIVE_2D_SAMPLING_GUIDE.md](utils/ADAPTIVE_2D_SAMPLING_GUIDE.md) |
 | 使用位置二维 Dashboard | [POSITION_DASHBOARD_GUIDE.md](visualizations/POSITION_DASHBOARD_GUIDE.md) |
 | 可视化数据血缘 | [LINEAGE_VISUALIZATION_GUIDE.md](context/LINEAGE_VISUALIZATION_GUIDE.md) |
-| 分析依赖关系 | [DEPENDENCY_ANALYSIS_GUIDE.md](context/DEPENDENCY_ANALYSIS_GUIDE.md) |
+| 查看依赖关系 | [LINEAGE_VISUALIZATION_GUIDE.md](context/LINEAGE_VISUALIZATION_GUIDE.md) |
 | 管理配置 | [CONFIGURATION.md](context/CONFIGURATION.md) |
 | 绝对时间查询 | [ABSOLUTE_TIME_GUIDE.md](context/ABSOLUTE_TIME_GUIDE.md) |
 | 使用滤波插件 | [filtered_waveforms.md](../plugins/reference/agent/filtered_waveforms.md) |
 | 使用峰值检测插件 | [hit.md](../plugins/reference/agent/hit.md) |
 | 开发自定义插件 | [PLUGIN_SYSTEM_OVERVIEW.md](../plugins/PLUGIN_SYSTEM_OVERVIEW.md) |
-
-## 学习路径
-
-### 基础功能
-
-1. [Context 功能](context/README.md)
-2. [核心功能](context/README.md)
-3. [工具函数](utils/README.md)
-
-### 高级功能
-
-1. 基础功能
-2. [高级功能](advanced/README.md)
-3. [插件功能](../plugins/README.md)
-
-## 相关资源
-
-- [系统架构与数据模型](../architecture/README.md) - 系统架构
-- [插件详解](../plugins/README.md) - 内置插件说明

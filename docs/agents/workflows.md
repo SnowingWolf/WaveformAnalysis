@@ -271,7 +271,8 @@ waveform-docs generate plugins-agent -o docs/plugins/reference/agent/
 ### 标准步骤
 1. `Planner` 确认 `run_id`、target 与重现路径
 2. `Executor` 运行：
-   - `ctx.preview_execution(run_id, target)`
+   - `ctx.resolve_dependencies(target, run_id=run_id)` 与 `ctx.get_lineage(target)`
+   - `ctx.get_config(target)`（配置来源）
    - `waveform-cache diagnose --run <run_id> --dry-run`
 3. `Reviewer` 审查根因是否明确、是否存在后续修复建议
 
@@ -353,11 +354,32 @@ python scripts/assess_change_impact.py --base HEAD
 2. 已列出下游受影响插件列表
 3. 若存在 `output_dtype/depends_on` 变化且 `version` 未变，必须打回
 
+影响分析仍将插件类删除报告为 `high`。已经完成独立审查的退役，可在
+`docs/agents/plugin-retirements.yaml` 中登记精确的文件、类、`provides`、删除提交和批准任务。
+仅当变更恰为 `class_removed`、当前依赖图没有残留下游、删除提交是 HEAD 祖先，
+且该提交父版本的元数据与本次比较的删除前元数据完全一致时，才计为已批准退役。
+删除提交本身必须实际删除该类；批准任务必须通过 AgentTask 验证，保持规范 spec 摘要与
+计划、Reviewer 审查摘要一致，使用 `retire_compat` 或 `modify_plugin` route、
+`strict/staged` 流程并处于 `completed`，Reviewer 决定为 `approved`。
+其中 `compat_inventory.confirmation` 必须非空，对应的 `provides/Class` 必须作为
+`legacy_form` 的完整项（多项用分号分隔）获准 `delete_action=remove`，并有
+`deletion_scope_confirmed=PASS`。历史批准记录不得为消除 CI 报错而改写。
+
+报告分别列出原始风险数、已批准退役数和未批准高风险数。只有未批准高风险或任务范围错误
+导致退出码 1；清单或批准证据无效则清晰报错并退出 2。没有退役清单时沿用原有阻断行为。
+该机制不批准类新增、重命名、dtype、依赖或其他契约变化。
+批准核验需要读取删除提交及其父提交，运行影响检查的 CI 应使用完整 Git 历史
+（`actions/checkout` 的 `fetch-depth: 0`）；历史缺失会明确失败，不能跳过批准校验。
+
 ## Workflow: schema_compat_check
 
 ### 目标
 专门处理字段/dtype 变更，输出迁移清单，并固定执行关键链路冒烟：
-`raw_files -> st_waveforms -> hit -> df -> events`
+`raw_files -> records/wave_pool -> hit_threshold -> hit_merged -> peaklets -> peaks`
+
+冒烟同时检查 `hit_merged_components`、`peaklet_components`、`peaklet_waveforms`、
+`peaklet_waveform_pool` 和 `peaklet_features`，完整目标以 `scripts/_quality_common.py`
+中的 `SMOKE_TARGETS` 为准；上式仅概括 records-backed 主链路。
 
 ### 命令
 ```bash
@@ -380,9 +402,11 @@ python scripts/performance_regression_check.py --base HEAD
 ```
 
 ### 口径
-1. 固定小样本数据，保证可重复
-2. 默认目标插件：`st_waveforms, hit, df, events`
-3. 默认阈值：平均耗时 `+10%`、平均峰值内存 `+15%` 以上判定回归
+1. 固定小型合成输入，两侧使用同一当前 harness 和独立 Python 子进程，报告实际源码与解释器来源。
+2. 默认目标插件：`st_waveforms, hit, hit_threshold, hit_merged, peaks`；默认重复 5 次，比较中位数。
+3. 默认耗时回归阈值为 `+10%`；`tracemalloc` 峰值内存须同时增长 `+15%` 和超过 `1 MB` 才判定回归。该指标不等于进程峰值 RSS。
+4. 基准不可用、目标缺失或样本无效时退出 `2`，不得回退为当前版本与自身比较；有效比较无回归退出 `0`，有回归退出 `1`。
+5. 真实数据的性能结论须另用固定切片，分别记录首次编译、热计算、缓存读取和进程峰值内存；不得由小型合成检查推断全 run 提速。
 
 ## Workflow: release_artifact_sync
 

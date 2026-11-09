@@ -1,0 +1,254 @@
+api_version: waveform-analysis/agent-task/v1
+kind: AgentTask
+metadata:
+  id: docs-index-cleanup-20261105
+  generation: 1
+  created_at: '2026-11-05T08:55:44Z'
+  updated_at: '2026-11-05T09:04:29Z'
+spec:
+  goal: 删除公开目录页的过时和重复导航，保留有效专题入口，重建打包站点并刷新临时预览。
+  route: generate_docs
+  workflow_cost: light
+  workflow_shape: staged
+  risk_level: low
+  scope:
+    base_sha: b90ce1263be6d55ac858a45393fdf9be85d825ae
+    allowed_paths:
+    - docs/plugins/README.md
+    - docs/user-guide/README.md
+    - docs/architecture/README.md
+    - docs/features/README.md
+    - docs/features/context/README.md
+    - docs/features/advanced/README.md
+    - docs/features/utils/README.md
+    - docs/development/README.md
+    - docs/development/plugin-development/README.md
+    - docs/cli/README.md
+    - docs/site-content-baseline.json
+    - docs/site-next/fixture/site-model.v1.json
+    - waveform_analysis/documentation/site_dist
+    - docs/agents/runs/current/docs-index-cleanup-20261105
+    - docs/agents/plans/INDEX.md
+    - docs/agents/plans/active.yaml
+  acceptance_criteria:
+  - 移除目录页重复学习路径和旧目录树，删除 CLI 无效 generate api/all 示例；保留现行指南与所有原有页面路径。
+  - 文档同步、本地链接、站点模型内容基线检查通过；真实 Next 构建成功并更新打包产物与临时预览；独立 Reviewer 放行。
+  required_gates:
+  - doc_sync
+  - doc_anchors
+  - markdown_links
+  - site_model
+  - site_build
+  assignment:
+    planner_role: planner
+    executor_role: executor.docs
+    reviewer_role: reviewer
+status:
+  state: completed
+  transitions:
+  - from: created
+    to: planning
+    at: '2026-11-05T08:55:45Z'
+    actor: planner
+  - from: planning
+    to: ready_for_execution
+    at: '2026-11-05T08:56:18Z'
+    actor: planner
+  - from: ready_for_execution
+    to: executing
+    at: '2026-11-05T08:56:18Z'
+    actor: executor.docs
+  - from: executing
+    to: reviewing
+    at: '2026-11-05T09:03:28Z'
+    actor: executor.docs
+  - from: reviewing
+    to: completed
+    at: '2026-11-05T09:04:29Z'
+    actor: reviewer
+  plan_sha256: 8127316e4c501f8e4781c86d9cad00aa6a3688030f1b01fb6792af75814f6498
+  execution:
+    executor_role: executor.docs
+    changed_paths:
+    - docs/agents/plans/INDEX.md
+    - docs/agents/plans/active.yaml
+    - docs/architecture/README.md
+    - docs/cli/README.md
+    - docs/development/README.md
+    - docs/development/plugin-development/README.md
+    - docs/features/README.md
+    - docs/features/advanced/README.md
+    - docs/features/context/README.md
+    - docs/features/utils/README.md
+    - docs/plugins/README.md
+    - docs/site-content-baseline.json
+    - docs/site-next/fixture/site-model.v1.json
+    - docs/user-guide/README.md
+    - waveform_analysis/documentation/site_dist/404.html
+    - waveform_analysis/documentation/site_dist/404/index.html
+    - waveform_analysis/documentation/site_dist/_not-found/index.html
+    - waveform_analysis/documentation/site_dist/accessors/index.html
+    - waveform_analysis/documentation/site_dist/accessors/peak-channel-accessor/index.html
+    - waveform_analysis/documentation/site_dist/accessors/records-view/index.html
+    - waveform_analysis/documentation/site_dist/accessors/s1-s2-pair-accessor/index.html
+    - waveform_analysis/documentation/site_dist/adapters/adapter/index.html
+    - waveform_analysis/documentation/site_dist/adapters/index.html
+    - waveform_analysis/documentation/site_dist/architecture/PROJECT_STRUCTURE/index.html
+    - waveform_analysis/documentation/site_dist/architecture/accessor-analysis/index.html
+    - waveform_analysis/documentation/site_dist/architecture/data-products/index.html
+    - waveform_analysis/documentation/site_dist/architecture/index.html
+    - waveform_analysis/documentation/site_dist/architecture/plugin-cache-architecture/index.html
+    - waveform_analysis/documentation/site_dist/architecture/plugin-dag-lineage-cache/index.html
+    - waveform_analysis/documentation/site_dist/architecture/system/index.html
+    - waveform_analysis/documentation/site_dist/cli/WAVEFORM_CACHE/index.html
+    - waveform_analysis/documentation/site_dist/cli/WAVEFORM_DOCS/index.html
+    - waveform_analysis/documentation/site_dist/cli/WAVEFORM_PROCESS/index.html
+    - waveform_analysis/documentation/site_dist/cli/index.html
+    - waveform_analysis/documentation/site_dist/contexts/context/index.html
+    - waveform_analysis/documentation/site_dist/contexts/index.html
+    - waveform_analysis/documentation/site_dist/development/CONTRACT_TESTS/index.html
+    - waveform_analysis/documentation/site_dist/development/contributing/COMMIT_CONVENTION/index.html
+    - waveform_analysis/documentation/site_dist/development/contributing/DOC_ANCHOR_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/development/contributing/IMPORT_STYLE_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/development/index.html
+    - waveform_analysis/documentation/site_dist/development/plugin-development/PLUGIN_SCAFFOLD/index.html
+    - waveform_analysis/documentation/site_dist/development/plugin-development/PLUGIN_SPEC_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/development/plugin-development/plugin_guide/index.html
+    - waveform_analysis/documentation/site_dist/development/worktrees/index.html
+    - waveform_analysis/documentation/site_dist/features/advanced/PROGRESS_TRACKING_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/context/ABSOLUTE_TIME_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/context/BATCH_PROCESSOR/index.html
+    - waveform_analysis/documentation/site_dist/features/context/CONFIGURATION/index.html
+    - waveform_analysis/documentation/site_dist/features/context/DEPENDENCY_ANALYSIS_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/context/LINEAGE_VISUALIZATION_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/index.html
+    - waveform_analysis/documentation/site_dist/features/utils/ADAPTIVE_2D_SAMPLING_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/utils/DAQ_ANALYZER_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/utils/PDF_EXPORT_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/features/visualizations/POSITION_DASHBOARD_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/index.html
+    - waveform_analysis/documentation/site_dist/lineage/index.html
+    - waveform_analysis/documentation/site_dist/plugins/basic_features/index.html
+    - waveform_analysis/documentation/site_dist/plugins/cache_analysis/index.html
+    - waveform_analysis/documentation/site_dist/plugins/df/index.html
+    - waveform_analysis/documentation/site_dist/plugins/df_events/index.html
+    - waveform_analysis/documentation/site_dist/plugins/df_paired/index.html
+    - waveform_analysis/documentation/site_dist/plugins/energy_reconstruction/index.html
+    - waveform_analysis/documentation/site_dist/plugins/events/index.html
+    - waveform_analysis/documentation/site_dist/plugins/filtered_waveforms/index.html
+    - waveform_analysis/documentation/site_dist/plugins/guides/STREAMING_PLUGINS_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_grouped/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_merge_clusters/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_merged/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_merged_components/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_merged_features/index.html
+    - waveform_analysis/documentation/site_dist/plugins/hit_threshold/index.html
+    - waveform_analysis/documentation/site_dist/plugins/index.html
+    - waveform_analysis/documentation/site_dist/plugins/overview/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peak_classification/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_channels/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_components/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_features/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_waveform_pool/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklet_waveforms/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaklets/index.html
+    - waveform_analysis/documentation/site_dist/plugins/peaks/index.html
+    - waveform_analysis/documentation/site_dist/plugins/position_reconstruction/index.html
+    - waveform_analysis/documentation/site_dist/plugins/raw_files/index.html
+    - waveform_analysis/documentation/site_dist/plugins/records/index.html
+    - waveform_analysis/documentation/site_dist/plugins/records_asymmetry_mask/index.html
+    - waveform_analysis/documentation/site_dist/plugins/records_detector_mask/index.html
+    - waveform_analysis/documentation/site_dist/plugins/records_veto_mask/index.html
+    - waveform_analysis/documentation/site_dist/plugins/reference/ADAPTER_PLUGIN_BEHAVIOR/index.html
+    - waveform_analysis/documentation/site_dist/plugins/reference/ADAPTER_SYSTEM_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/plugins/s1_s2_pair_candidates/index.html
+    - waveform_analysis/documentation/site_dist/plugins/s1_s2_pairs/index.html
+    - waveform_analysis/documentation/site_dist/plugins/st_waveforms/index.html
+    - waveform_analysis/documentation/site_dist/plugins/wave_pool/index.html
+    - waveform_analysis/documentation/site_dist/plugins/wave_pool_filtered/index.html
+    - waveform_analysis/documentation/site_dist/plugins/waveform_width/index.html
+    - waveform_analysis/documentation/site_dist/plugins/waveform_width_integral/index.html
+    - waveform_analysis/documentation/site_dist/search-index.v1.json
+    - waveform_analysis/documentation/site_dist/site-manifest.json
+    - waveform_analysis/documentation/site_dist/site-model.v1.json
+    - waveform_analysis/documentation/site_dist/user-guide/EXAMPLES_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/user-guide/QUICKSTART_GUIDE/index.html
+    - waveform_analysis/documentation/site_dist/user-guide/docs-build/index.html
+    - waveform_analysis/documentation/site_dist/user-guide/index.html
+    - waveform_analysis/documentation/site_dist/visualizations/index.html
+    - waveform_analysis/documentation/site_dist/visualizations/position-dashboard/index.html
+    - waveform_analysis/documentation/site_dist/visualizations/statistical-plots/index.html
+    - waveform_analysis/documentation/site_dist/visualizations/waveform-plots/index.html
+    - docs/agents/runs/current/docs-index-cleanup-20261105/task.yaml
+    actions_taken:
+    - 删除10个公开目录README中的重复学习路径/相关资源；插件索引收敛为4条开发参考；CLI删除已不支持的generate api/all示例。
+    - 保留所有专题正文及原路由；同步10个source index内容基线与网站fixture。
+    - 真实隔离构建后更新site_dist和/tmp/waveform-docs-preview.j2EbQY，保留旧预览备份。
+    inventory:
+    - classification: obsolete
+      source: docs/cli/README.md
+      evidence: documentation/cli.py generate choices仅plugins-auto/plugins-agent/site-web；api/all无效
+      action: 删除旧示例，保留CLI参考页链接和help命令
+    - classification: redundant_navigation
+      source: 10个README目录页
+      evidence: source_indexes将README嵌入已具备导航的分类页；学习路径/相关资源重复同页文档列表；插件README重复3套入口
+      action: 删除重复区块，保留专题文件及全部路由
+    - classification: current_canonical
+      source: 34个公开指南及插件/API/DAG模型
+      action: 保持正文和路由不变；Reviewer比较模型确认
+    commands_run:
+    - command: scripts/check_doc_sync.sh
+      result: PASS; generated agent docs and 29 doc anchors
+    - command: python -m waveform_analysis.documentation.cli check links --docs-dir
+        docs
+      result: PASS; 316 Markdown files, 456 local references
+    - command: python -m pytest tests/test_site_model.py -q
+      result: 19 PASS, 1 content_counts baseline mismatch; corrected baseline schema
+        then reran only failed test
+    - command: python -m pytest tests/test_site_model.py::test_public_guide_baseline_tracks_source_and_typed_content_independently
+        -q --no-cov
+      result: PASS; all 20 targeted cases now passed across runs
+    - command: scripts/docs_build.py build --run-id docs-index-cleanup-20261105-build
+        --stage-output
+      result: PASS outside sandbox with LD_PRELOAD/LD_LIBRARY_PATH removed; npm ci/check/build
+        exit 0; 182 files
+    - command: HTTP preview content checks
+      result: PASS /plugins/, /cli/, /plugins/overview/; removed text absent
+    - command: git diff --check
+      result: PASS
+    build_report: /tmp/waveform-doc-build/runs/docs-index-cleanup-20261105-build/report.json
+    build_notes:
+    - Two earlier sandbox builds failed at Next TypeScript subprocess stage (139/134);
+      successful fresh run preserved.
+    - One test-baseline title metadata correction occurred after build input snapshot;
+      no Markdown/fixture/production input changed; built model equals current fixture
+      and all baseline titles match.
+    - No plugin implementation or contract changes; plugin generation and schema smoke
+      not applicable to static documentation-only export.
+    open_risks:
+    - Playwright Google Chrome crashed before page creation twice; browser visuals
+      and interaction unverified. HTTP and static-export validations passed.
+    requested_review_focus:
+    - 确认源码/生成模型删减范围、内容基线、真实构建、预览证据及提交状态
+  review:
+    reviewer_actor: docs_reviewer
+    decision: approved
+    plan_sha256: 8127316e4c501f8e4781c86d9cad00aa6a3688030f1b01fb6792af75814f6498
+    gate_results:
+      doc_sync: PASS
+      doc_anchors: PASS
+      markdown_links: PASS
+      site_model: PASS
+      site_build: PASS
+    blocking_findings: []
+    coverage_review: 独立审查确认10个目录源、内容基线、fixture及packaged model仅指南索引变化；API/插件/DAG/路由未变；182静态文件；构建报告所有命令0；HTTP检查通过。
+    residual_risks:
+    - 本机Chrome在new_page前崩溃，视觉/交互未验证；已在执行报告明确，非本轮必需gate。
+    commit_handoff: 审查通过，按仓库规则提交本轮范围；最终SHA在交付回复报告。
+  approval: {}
+  handoff:
+    commit_status: 已提交：本任务记录与相关改动在同一 scoped commit 交付；完整 SHA 见 Git 历史与最终回复。
+    preview_url: http://10.18.154.11:8768/plugins/
+    preview_pid: 798111
+    commit_subject: 'docs: remove stale documentation index sections'

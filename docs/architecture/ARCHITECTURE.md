@@ -5,6 +5,11 @@
 本文定义运行时组件、配置作用域和一次数据请求的完整路径。算法细节属于 Plugin 文档；本页固定
 Context、DAQ adapter、Plugin、Storage、Accessor、BatchProcessor 与全局 ExecutorManager 之间的所有权边界。
 
+采集入口按职责组织为 `waveform_analysis.acquisition.runs`（运行发现、文件组织与展示）、
+`acquisition.formats`（设备格式解释及适配）和 `acquisition.file_io`（通用 CSV 读取与批量调度）。
+设备专属解析留在 `formats` 的设备子包中；旧 `acquisition.daq`、`acquisition.readers`、
+`acquisition.io` 及相关 `utils` 路径保留为兼容入口，内部调用使用新的规范路径。
+
 ## 1. 系统边界
 
 WaveformAnalysis 以显式的 `(run_id, data_name)` 请求为起点。Context 不保存“当前 run”，Plugin
@@ -57,6 +62,11 @@ Context 调用之外安排多个任务。
 4. 行级实体通过 ID 与关联表连接，不能依赖两个数组“恰好同序”。
 5. Storage 复用由 lineage 决定；文件存在本身不构成缓存命中。
 
+结果只通过显式 `(run_id, data_name)` 存取，不再自动创建同名 Context 属性。
+缓存查找和命中统计集中到 `ContextCacheDomain`；运行时不再保留第二个 `RuntimeCacheManager`。
+内置存储与自定义后端统一接受 `run_id=` 关键字，Context 直接调用约定的方法。
+旧后端签名、缓存管理类及结果属性的迁移见[缓存入口与存储协议](PLUGIN_CACHE_ARCHITECTURE.md#9-存储层抽象)。
+
 ## 2. Context 配置模型
 
 Context 同时持有运行环境配置和 Plugin 配置。二者使用同一个配置入口，但消费者、解析方式和是否进入
@@ -74,8 +84,9 @@ Context 自身配置直接控制运行环境，不经过某个 Plugin 的 `optio
 | 执行资源 | `enable_plugin_parallelism`、`max_parallel_workers` | 控制同级 Plugin 并行执行 |
 | 配置快照 | `custom_config_json_path` | 将本次分析配置写入指定 JSON 路径 |
 
-`storage_dir` 是 Context 初始化时的运行参数。未显式提供时，当前实现使用 `config["data_root"]`
-作为默认存储目录；因此输入目录与缓存目录需要分离时，应明确传入 `storage_dir`。
+`storage_dir` 是 Context 初始化时的运行参数。未显式提供时，当前实现使用独立的
+`./wa_data` 作为默认缓存目录；`data_root` 仅用于定位原始 DAQ 数据。需要自定义缓存位置时，
+可显式传入 `storage_dir`。
 
 ```python
 from waveform_analysis import Context
@@ -139,18 +150,25 @@ flowchart TD
 5. Plugin option 默认值。
 
 adapter 当前可推断采样率、采样间隔、时间戳单位和原始时间戳模式等硬件相关 option。adapter 只
-提供推断值，显式配置始终可以覆盖它。
+提供推断值，显式配置始终可以覆盖它。`AdapterInfo` 不保存全局元数据缓存；未知 adapter 名称
+返回 `None`，已注册对象的元数据异常直接传播。自定义 adapter 应先注册再创建 Context；同名替换格式
+规范后须新建 Context，注册表变动不会通知已有 Context 或失效其配置与 lineage。
+
+文件发现的组键仅表达目录布局，硬件通道以事件内的 `(board, channel)` 为准。
+`load_channel` 和 `load_channel_generator` 必须显式传入关键字 `board`；`load_all_channels`
+返回以 `(board, channel)` 为键的原始数组字典，仅包含实际有记录的通道。原始加载保留读取器 dtype
+和原生时间戳，物理单位归一发生在显式转换或 records bundle 构建阶段。
 
 ### 2.4 查看最终值与来源
 
 ```python
-resolved = ctx.get_resolved_config("records")
+resolved = ctx.get_config("records")
 print(resolved.to_dict())
 
-ctx.show_resolved_config("records", verbose=True)
+ctx.show_config("records", show_source=True)
 ```
 
-`get_resolved_config()` 返回可编程读取的 `ResolvedConfig`；`show_resolved_config()` 展示值、来源和
+`get_config()` 返回可编程读取的 `ResolvedConfig`；`show_config(show_source=True)` 展示值、来源和
 adapter。排查配置问题时应查看 resolved config，而不是只检查传给 Context 的原始字典。
 
 ### 2.5 配置与 lineage
@@ -215,6 +233,8 @@ sequenceDiagram
 `(name, executor_type, max_workers)` 区分的执行器，支持 `thread` 与 `process` 两类池；
 `get_executor()` 以上下文管理器形式取得并在退出时释放引用，`parallel_map()` 和
 `parallel_apply()` 在此基础上提供保持输入顺序的批量结果、进度回调和可选负载均衡。
+两者接收空列表时直接返回 `[]`，不创建执行器。释放引用或批量关闭执行器时，先在注册表锁内
+移除对应记录，再在锁外调用 `shutdown()`；等待中的任务仍可查询或申请执行器。
 
 ```python
 from waveform_analysis.core.execution import get_config, get_executor
@@ -235,8 +255,22 @@ with get_executor("waveform-loading", **config) as executor:
 | 流式 chunk 任务 | Streaming Plugin 的 `executor_config` | worker 数是资源配置；改变结果语义的 option 仍要进入 Plugin lineage |
 
 因此，worker 数、进度显示和负载均衡不会单独创建新的数据产物身份。排查并行问题时依次检查
-`preview_execution()`、resolved config、执行器状态（`list_executors()` / `get_stats()`）和
+`resolve_dependencies()`、resolved config、执行器状态（`list_executors()` / `get_stats()`）和
 缓存 lineage；不要通过改变 `run_id`、共享 Context 或直接操作 `_executor_refs` 来规避错误。
+
+### 超时支持边界
+
+`Plugin.timeout` 默认是 `None`。Context 暂不支持逐插件超时控制：需要执行 `compute()` 时，
+任何非 `None` 值（包括 `0`）都会在计算前触发 `NotImplementedError`；已有有效缓存仍可读取。
+串行请求直接报告该异常，并行 DAG 调度可能将其包装为执行失败的 `RuntimeError`。
+
+独立函数可使用 `TimeoutManager.run_with_timeout()` 或 `with_timeout` 装饰器。Unix 使用
+`SIGALRM`，正数超时只允许在主线程使用；工作线程会明确抛出 `NotImplementedError`，
+`timeout_context()` 也遵循这一限制。`None` 或非正数表示不启用独立函数超时。
+
+Windows 的 `run_with_timeout()` 使用后台线程并限制等待时间，超时后抛出 `PluginTimeoutError`
+并发出 warning，线程仍可能继续执行；`timeout_context()` 在 Windows 不提供执行中断。
+这些接口均不提供逐插件进程隔离或强制终止线程。
 
 ## 4. 数据流与访问层
 
@@ -277,12 +311,12 @@ peaklet_waveform_pool` 是另一实例。不同实体必须使用对应的索引
 
 | 现象 | 可能原因 | 首先检查 |
 | --- | --- | --- |
-| 同一请求意外重算 | tracked 配置、adapter、version、schema 或上游 lineage 已变化 | `preview_execution`、resolved config、当前 lineage |
+| 同一请求意外重算 | tracked 配置、adapter、version、schema 或上游 lineage 已变化 | resolved config、当前 lineage、执行日志 |
 | 本应重算却复用旧结果 | 影响输出的配置未跟踪，或行为变化未升级 version | Plugin option、version、lineage 内容 |
 | 结果来自错误 run | 调用端复用局部 ID 或未显式传递正确 `run_id` | 所有 `get_data` 与 Accessor 构造入口 |
 | 波形切片越界 | 索引产物与 wave pool 不配对，pool 被截断或 offset 错误 | run、lineage、pool 长度与切片字段 |
 | Accessor 查询为空 | ID 空间错误、输入产物缺失或关联表不覆盖该实体 | Accessor 输入表、关系字段和 run_id |
-| 切换 adapter 后物理量异常 | 显式配置覆盖了推断值，或输入解释未进入 lineage | `show_resolved_config` 与 adapter 信息 |
+| 切换 adapter 后物理量异常 | 显式配置覆盖了推断值，或输入解释未进入 lineage | `show_config(show_source=True)` 与 adapter 信息 |
 
 ## 7. 阅读顺序
 
